@@ -1,4 +1,4 @@
-package gopinecone
+package pinecone
 
 import "testing"
 
