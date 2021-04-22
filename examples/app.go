@@ -52,7 +52,13 @@ func floatArrToNdArrayLogErr(arr [][]float32) *pinecone.NdArray {
 func ndArrayToFloatArr(array *pinecone.NdArray) ([][]float32, error) {
 	var buf bytes.Buffer
 	buf.Write(array.Buffer)
-	vectorCount, vectorDim := array.Shape[0], array.Shape[1]
+
+	var vectorCount, vectorDim uint32
+	if len(array.Shape) == 1 {
+		vectorCount, vectorDim = 1, array.Shape[0]
+	} else {
+		vectorCount, vectorDim = array.Shape[0], array.Shape[1]
+	}
 
 	result := make([][]float32, vectorCount)
 	for i := range result {
@@ -65,7 +71,7 @@ func ndArrayToFloatArr(array *pinecone.NdArray) ([][]float32, error) {
 			result[i][j] = math.Float32frombits(bits)
 		}
 	}
-	return nil, nil
+	return result, nil
 }
 
 func ndArrayToFloatArrLogErr(array *pinecone.NdArray) [][]float32 {
@@ -140,8 +146,9 @@ func main() {
 		log.Fatalf("fetch error: %v", fetchErr)
 	} else {
 		log.Printf("fetch result: %v", fetchResult)
-		//reqFetch := (*pinecone.Request_Fetch)(unsafe.Pointer(&fetchResult.Body))
-		//log.Printf("fetched vectors: %v", (*reqFetch).Fetch.Vectors)
+		reqBody := fetchResult.Body
+		reqFetch := reqBody.(*pinecone.Request_Fetch)
+		log.Printf("fetched vector: %v", ndArrayToFloatArrLogErr((*reqFetch).Fetch.Vectors[0]))
 	}
 
 	// query
@@ -153,7 +160,7 @@ func main() {
 		Body:              &pinecone.Request_Query{
 			Query: &pinecone.QueryRequest{
 				TopK:        2,
-				IncludeData: false,
+				IncludeData: true,
 				Data:        floatArrToNdArrayLogErr([][]float32{
 					{0, 1, 2, 4} ,
 				}),
@@ -165,6 +172,11 @@ func main() {
 		log.Fatalf("query error: %v", queryErr)
 	} else {
 		log.Printf("query result: %v", queryResult)
+		reqBody := queryResult.Body
+		reqQuery := reqBody.(*pinecone.Request_Query)
+		log.Printf("query #1 results: ids %v data %v",
+			(*reqQuery).Query.Matches[0].Ids,
+			ndArrayToFloatArrLogErr((*reqQuery).Query.Matches[0].Data))
 	}
 
 	// delete
