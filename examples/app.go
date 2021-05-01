@@ -49,7 +49,7 @@ func floatArrToNdArrayLogErr(arr [][]float32) *pinecone.NdArray {
 	return result
 }
 
-func ndArrayToFloatArr(array *pinecone.NdArray) ([][]float32, error) {
+func floatNdArrayToArr(array *pinecone.NdArray) ([][]float32, error) {
 	var buf bytes.Buffer
 	buf.Write(array.Buffer)
 
@@ -74,8 +74,41 @@ func ndArrayToFloatArr(array *pinecone.NdArray) ([][]float32, error) {
 	return result, nil
 }
 
-func ndArrayToFloatArrLogErr(array *pinecone.NdArray) [][]float32 {
-	result, err := ndArrayToFloatArr(array)
+func floatNdArrayToArrLogErr(array *pinecone.NdArray) [][]float32 {
+	result, err := floatNdArrayToArr(array)
+	if err != nil {
+		log.Fatal("failed to convert NdArray; got error: %v", err)
+	}
+	return result
+}
+
+func stringNdArrayToArr(array *pinecone.NdArray, itemsize int) ([][]string, error) {
+	var buf bytes.Buffer
+	buf.Write(array.Buffer)
+
+	var vectorCount, vectorDim uint32
+	log.Print(array.Shape)
+	if len(array.Shape) == 1 {
+		vectorCount, vectorDim = 1, array.Shape[0]
+	} else {
+		vectorCount, vectorDim = array.Shape[0], array.Shape[1]
+	}
+
+	result := make([][]string, vectorCount)
+	for i := range result {
+		result[i] = make([]string, vectorDim)
+	}
+
+	for i := range result {
+		for j := range result[i] {
+			result[i][j] = string(buf.Next(itemsize))
+		}
+	}
+	return result, nil
+}
+
+func stringNdArrayToArrLogErr(array *pinecone.NdArray, itemsize int) [][]string {
+	result, err := stringNdArrayToArr(array, itemsize)
 	if err != nil {
 		log.Fatal("failed to convert NdArray; go error: %v", err)
 	}
@@ -148,7 +181,7 @@ func main() {
 		log.Printf("fetch result: %v", fetchResult)
 		reqBody := fetchResult.Body
 		reqFetch := reqBody.(*pinecone.Request_Fetch)
-		log.Printf("fetched vector: %v", ndArrayToFloatArrLogErr((*reqFetch).Fetch.Vectors[0]))
+		log.Printf("fetched vector: %v", floatNdArrayToArrLogErr((*reqFetch).Fetch.Vectors[0]))
 	}
 
 	// query
@@ -175,8 +208,8 @@ func main() {
 		reqBody := queryResult.Body
 		reqQuery := reqBody.(*pinecone.Request_Query)
 		log.Printf("query #1 results: ids %v data %v",
-			(*reqQuery).Query.Matches[0].Ids,
-			ndArrayToFloatArrLogErr((*reqQuery).Query.Matches[0].Data))
+			stringNdArrayToArrLogErr((*reqQuery).Query.Matches[0].Ids, 4),
+			floatNdArrayToArrLogErr((*reqQuery).Query.Matches[0].Data))
 	}
 
 	// delete
