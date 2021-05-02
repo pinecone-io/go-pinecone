@@ -19,6 +19,30 @@ var (
 	apiKey = flag.String("api_key", "", "The Pinecone API Key")
 )
 
+func FloatArrToNdArrayLogErr(arr [][]float32) *pinecone.NdArray {
+	result, err := pinecone.FloatArrToNdArray(arr)
+	if err != nil {
+		log.Fatalf("conversion failed; got error: %v", err)
+	}
+	return result
+}
+
+func FloatNdArrayToArrLogErr(array *pinecone.NdArray) [][]float32 {
+	result, err := pinecone.FloatNdArrayToArr(array)
+	if err != nil {
+		log.Fatalf("conversion failed; got error: %v", err)
+	}
+	return result
+}
+
+func StringNdArrayToArrLogErr(array *pinecone.NdArray) [][]string {
+	result, err := pinecone.StringNdArrayToArr(array)
+	if err != nil {
+		log.Fatalf("conversion failed; got error: %v", err)
+	}
+	return result
+}
+
 func main() {
 	flag.Parse()
 	config := &tls.Config{}
@@ -51,7 +75,7 @@ func main() {
 		Body: &pinecone.Request_Index{
 			Index: &pinecone.IndexRequest{
 				Ids:  []string{"vec1", "vec2"},
-				Data: pinecone.FloatArrToNdArrayLogErr([][]float32{
+				Data: FloatArrToNdArrayLogErr([][]float32{
 					{0, 1, 2, 3} ,
 					{4, 5, 6, 7} ,
 					{8, 9, 10, 11},
@@ -85,7 +109,7 @@ func main() {
 		log.Printf("fetch result: %v", fetchResult)
 		reqBody := fetchResult.Body
 		reqFetch := reqBody.(*pinecone.Request_Fetch)
-		log.Printf("fetched vector: %v", pinecone.FloatNdArrayToArrLogErr((*reqFetch).Fetch.Vectors[0]))
+		log.Printf("fetched vector: %v", FloatNdArrayToArrLogErr((*reqFetch).Fetch.Vectors[0]))
 	}
 
 	// query
@@ -98,7 +122,7 @@ func main() {
 			Query: &pinecone.QueryRequest{
 				TopK:        2,
 				IncludeData: true,
-				Data:        pinecone.FloatArrToNdArrayLogErr([][]float32{
+				Data:        FloatArrToNdArrayLogErr([][]float32{
 					{0, 1, 2, 4} ,
 				}),
 			},
@@ -112,8 +136,8 @@ func main() {
 		reqBody := queryResult.Body
 		reqQuery := reqBody.(*pinecone.Request_Query)
 		log.Printf("query #1 results: ids %v data %v",
-			pinecone.StringNdArrayToArrLogErr((*reqQuery).Query.Matches[0].Ids, 4),
-			pinecone.FloatNdArrayToArrLogErr((*reqQuery).Query.Matches[0].Data))
+			StringNdArrayToArrLogErr((*reqQuery).Query.Matches[0].Ids),
+			FloatNdArrayToArrLogErr((*reqQuery).Query.Matches[0].Data))
 	}
 
 	// delete
