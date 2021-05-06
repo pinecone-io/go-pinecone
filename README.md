@@ -15,3 +15,10 @@ go get github.com/pinecone-io/go-pinecone
 
 ## Usage
 See examples/app.go for a usage sample.
+
+## Development
+Generate code: `make gen`
+
+Run tests: `make test`
+
+View docs: `godoc -http=:6060` then open http://localhost:6060/pkg/github.com/pinecone-io/go-pinecone/pinecone/ (requires installing godoc - https://github.com/golang/tools#downloadinstall)
