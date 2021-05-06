@@ -1,11 +1,17 @@
 # go-pinecone
 Pinecone Go Client
 
-This is a simple Go module containing generated client code for the Pinecone GRPC service (based on spec in pinecone/core.proto).
+## Features
+go-pinecone supports all Pinecone dataplane operations: upsert, fetch, query, delete, and info.
 
-To regenerate the GRPC code (from the repo root directory):
+It notably does *not* support service management (creating, deleting Pinecone services and routers). 
+
+## Installation
+go-pinecone requires a Go version with [modules](https://github.com/golang/go/wiki/Modules) support.
+
 ```shell
-protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative pinecone/core.proto
+go get github.com/pinecone-io/go-pinecone
 ```
 
-See the examples dir for example usage.
+## Usage
+See examples/app.go for a usage sample.
