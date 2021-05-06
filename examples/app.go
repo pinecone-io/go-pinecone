@@ -45,6 +45,7 @@ func StringNdArrayToArrLogErr(array *pinecone.NdArray) [][]string {
 
 func main() {
 	flag.Parse()
+	rand.Seed(time.Now().UTC().UnixNano())
 	config := &tls.Config{}
 
 	var opts []grpc.DialOption
@@ -69,7 +70,7 @@ func main() {
 	// upsert
 	log.Print("upserting data...")
 	upsertResult, upsertErr := client.CallUnary(ctx, &pinecone.Request{
-		RequestId: uint64(rand.Intn(10000)),
+		RequestId: rand.Uint64(),
 		Path:      "write",
 		Version:   "golang-alpha",
 		Body: &pinecone.Request_Index{
@@ -93,7 +94,7 @@ func main() {
 	// fetch
 	log.Print("fetching vector...")
 	fetchResult, fetchErr := client.CallUnary(ctx, &pinecone.Request{
-		RequestId: uint64(rand.Intn(10000)),
+		RequestId: rand.Uint64(),
 		Path:      "read",
 		Version:   "golang-alpha",
 		Body: &pinecone.Request_Fetch{
@@ -115,7 +116,7 @@ func main() {
 	// query
 	log.Print("querying data...")
 	queryResult, queryErr := client.CallUnary(ctx, &pinecone.Request{
-		RequestId:         uint64(rand.Intn(10000)),
+		RequestId:         rand.Uint64(),
 		Path:              "read",
 		Version:           "golang-alpha",
 		Body:              &pinecone.Request_Query{
@@ -143,7 +144,7 @@ func main() {
 	// delete
 	log.Print("deleting vector...")
 	deleteResult, deleteErr := client.CallUnary(ctx, &pinecone.Request{
-		RequestId: uint64(rand.Intn(10000)),
+		RequestId: rand.Uint64(),
 		Path:      "write",
 		Version:   "golang-alpha",
 		Body: &pinecone.Request_Delete{
