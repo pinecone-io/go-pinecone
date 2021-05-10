@@ -17,6 +17,9 @@ go get github.com/pinecone-io/go-pinecone
 ## Usage
 See examples/app.go for a usage sample.
 
+## Support
+To get help using go-pinecone, reach out to support@pinecone.io.
+
 ## Development
 Generate code: `make gen`
 
