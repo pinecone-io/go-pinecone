@@ -1,6 +1,8 @@
 # go-pinecone
 Pinecone Go Client
 
+> :warning: Note: This branch is incompatible with default pinecone services. If you're trying to self-onboard to use go-pinecone, use branch 'public', or reach out to support@pinecone.io.
+
 ## Features
 go-pinecone supports all Pinecone dataplane operations: upsert, fetch, query, delete, and info.
 
