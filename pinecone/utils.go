@@ -1,3 +1,5 @@
+// Package go-pinecone is a go client for Pinecone.io services.
+// https://github.com/pinecone-io/go-pinecone
 package pinecone
 
 import (
