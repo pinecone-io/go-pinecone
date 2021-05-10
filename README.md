@@ -9,10 +9,12 @@ It notably does *not* support service management (creating, deleting Pinecone se
 ## Installation
 go-pinecone requires a Go version with [modules](https://github.com/golang/go/wiki/Modules) support.
 
+To add a dependency on go-pinecone:
 ```shell
-go get github.com/pinecone-io/go-pinecone
+go get github.com/pinecone-io/go-pinecone@np-qres
 ```
 
+(And to update: `go get -u github.com/pinecone-io/go-pinecone@np-qres`)
 ## Usage
 See examples/app.go for a usage sample.
 
