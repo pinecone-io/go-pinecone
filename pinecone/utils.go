@@ -36,8 +36,8 @@ func FloatArrToNdArray(arr [][]float32) (*NdArray, error) {
 
 	return &NdArray{
 		Buffer: buf.Bytes(),
-		Shape: shape,
-		Dtype: "float32",
+		Shape:  shape,
+		Dtype:  "float32",
 	}, nil
 }
 

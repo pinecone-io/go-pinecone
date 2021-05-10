@@ -13,7 +13,7 @@ func TestFloatArrToNdArray_sanity(t *testing.T) {
 	}
 
 	result, err := FloatArrToNdArray(arr)
-	assert.Nil(err,"FloatArrToNdArray returned an unexpected error.")
+	assert.Nil(err, "FloatArrToNdArray returned an unexpected error.")
 
 	expectedResult := NdArray{
 		Buffer:     []byte("\xc3\xf5H@\x1f\x85\xcb?\x9a\x99)@"),
@@ -35,7 +35,7 @@ func TestFloatNdArrayToArr_sanity(t *testing.T) {
 	}
 
 	result, err := FloatNdArrayToArr(&ndArray)
-	assert.Nil(err,"FloatNdArrayToArr returned an unexpected error.")
+	assert.Nil(err, "FloatNdArrayToArr returned an unexpected error.")
 
 	expectedResult := [][]float32{
 		{3.14, 1.59, 2.65},
@@ -55,7 +55,7 @@ func TestStringNdArrayToArr_sanity(t *testing.T) {
 	}
 
 	result, err := StringNdArrayToArr(&ndArray)
-	assert.Nil(err,"StringNdArrayToArr returned an unexpected result.")
+	assert.Nil(err, "StringNdArrayToArr returned an unexpected result.")
 
 	expectedResult := [][]string{
 		{"string1", "string2", "another string"},
