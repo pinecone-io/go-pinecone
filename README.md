@@ -11,10 +11,9 @@ go-pinecone requires a Go version with [modules](https://github.com/golang/go/wi
 
 To add a dependency on go-pinecone:
 ```shell
-go get github.com/pinecone-io/go-pinecone@np-qres
+go get github.com/pinecone-io/go-pinecone
 ```
 
-(And to update: `go get -u github.com/pinecone-io/go-pinecone@np-qres`)
 ## Usage
 See examples/app.go for a usage sample.
 
