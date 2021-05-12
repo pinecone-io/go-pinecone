@@ -150,10 +150,10 @@ message Status {
 
 message ScoredResults {
     // String ids of the item results of a query
-    repeated string ids = 1;
+    NdArray ids = 1;
 
     // Corresponding pairwise scores between the query to each item
-    repeated float scores = 2;
+    NdArray scores = 2;
 
     // Corresponding data for all of these items, if requested
     NdArray data = 3;

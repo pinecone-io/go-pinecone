@@ -137,8 +137,8 @@ func main() {
 		reqBody := queryResult.Body
 		reqQuery := reqBody.(*pinecone.Request_Query)
 		log.Printf("query #1 results: ids %v data %v",
-			(*reqQuery).Query.Matches[0].Ids,
-			(*reqQuery).Query.Matches[0].Data)
+			StringNdArrayToArrLogErr((*reqQuery).Query.Matches[0].Ids),
+			FloatNdArrayToArrLogErr((*reqQuery).Query.Matches[0].Data))
 	}
 
 	// delete
