@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"log"
 	"math"
 	"strconv"
 )
@@ -94,7 +93,6 @@ func StringNdArrayToArr(array *NdArray) ([][]string, error) {
 	buf.Write(array.Buffer)
 
 	var vectorCount, vectorDim uint32
-	log.Print(array.Shape)
 	if len(array.Shape) == 1 {
 		vectorCount, vectorDim = 1, array.Shape[0]
 	} else {
