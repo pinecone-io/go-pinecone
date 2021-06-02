@@ -124,8 +124,12 @@ func main() {
 				TopK:        2,
 				IncludeData: true,
 				Data:        FloatArrToNdArrayLogErr([][]float32{
-					{0, 1, 2, 4} ,
+					{0.0, 0.1, 0.2, 0.4},
+					{0.2, 0.3, 0.4, 0.5},
+					{0.5, 0.5, 0.5, 0.5},
 				}),
+				TopKOverrides: []uint32{1, 1, 2}, // first query vector is for top 1 match from namespace ns1
+				NamespaceOverrides: []string{"ns1", "ns2", "ns3"}, // third query vector is for top 2 matches from namespace ns3
 			},
 		},
 		Namespace:         "test-ns-1",
@@ -160,5 +164,44 @@ func main() {
 		log.Printf("delete result: %v", deleteResult)
 	}
 
+	// list namespaces
+	log.Print("listing all namespaces...")
+	listNsResult, listNsErr := client.CallUnary(ctx, &pinecone.Request{
+		RequestId: rand.Uint64(),
+		Path:      "read",
+		Version:   "golang-alpha",
+		Body: &pinecone.Request_List{
+			List: &pinecone.ListRequest{
+				ResourceType: "namespaces",
+			},
+		},
+	})
+	if listNsErr != nil {
+		log.Fatalf("list namespaces error: %v", listNsErr)
+	} else {
+		log.Printf("list namespaces result: %v", listNsResult)
+		log.Printf("listed namespaces: %v",
+			StringNdArrayToArrLogErr(listNsResult.Body.(*pinecone.Request_List).List.Items))
+	}
+
+	// list ids
+	log.Print("listing all vector ids...")
+	listIdsResult, listIdsErr := client.CallUnary(ctx, &pinecone.Request{
+		RequestId: rand.Uint64(),
+		Path:      "read",
+		Version:   "golang-alpha",
+		Body: &pinecone.Request_List{
+			List: &pinecone.ListRequest{
+				ResourceType: "ids",
+			},
+		},
+	})
+	if listIdsErr != nil {
+		log.Fatalf("list ids error: %v", listIdsErr)
+	} else {
+		log.Printf("list ids result: %v", listIdsResult)
+		log.Printf("listed vector ids: %v",
+			StringNdArrayToArrLogErr(listNsResult.Body.(*pinecone.Request_List).List.Items))
+	}
 	log.Print("done!")
 }
