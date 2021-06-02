@@ -162,45 +162,5 @@ func main() {
 	} else {
 		log.Printf("delete result: %v", deleteResult)
 	}
-
-	// list namespaces
-	log.Print("listing all namespaces...")
-	listNsResult, listNsErr := client.CallUnary(ctx, &pinecone.Request{
-		RequestId: rand.Uint64(),
-		Path:      "read",
-		Version:   "golang-alpha",
-		Body: &pinecone.Request_List{
-			List: &pinecone.ListRequest{
-				ResourceType: "namespaces",
-			},
-		},
-	})
-	if listNsErr != nil {
-		log.Fatalf("list namespaces error: %v", listNsErr)
-	} else {
-		log.Printf("list namespaces result: %v", listNsResult)
-		log.Printf("listed namespaces: %v",
-			StringNdArrayToArrLogErr(listNsResult.Body.(*pinecone.Request_List).List.Items))
-	}
-
-	// list ids
-	log.Print("listing all vector ids...")
-	listIdsResult, listIdsErr := client.CallUnary(ctx, &pinecone.Request{
-		RequestId: rand.Uint64(),
-		Path:      "read",
-		Version:   "golang-alpha",
-		Body: &pinecone.Request_List{
-			List: &pinecone.ListRequest{
-				ResourceType: "ids",
-			},
-		},
-	})
-	if listIdsErr != nil {
-		log.Fatalf("list ids error: %v", listIdsErr)
-	} else {
-		log.Printf("list ids result: %v", listIdsResult)
-		log.Printf("listed vector ids: %v",
-			StringNdArrayToArrLogErr(listNsResult.Body.(*pinecone.Request_List).List.Items))
-	}
 	log.Print("done!")
 }
