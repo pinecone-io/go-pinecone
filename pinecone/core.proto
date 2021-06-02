@@ -1,10 +1,9 @@
 syntax = "proto3";
 import "google/protobuf/timestamp.proto";
 
+package core;
 option go_package = "github.com/pinecone-io/go-pinecone/pinecone";
 option java_package = "io.pinecone.proto";
-
-package core;
 
 /**
    Request from the controller to individual service for monitoring, updating, and terminating running services.
@@ -73,30 +72,32 @@ message Request {
         DeleteRequest delete = 9; // A delete items request object
         InfoRequest info = 10; // An object for a get info request
         FetchRequest fetch = 11; // Payload for a request to fetch vectors by id
+        ListRequest list = 12; // Payload for a request to list resource in the index
+
     }
 
-    string namespace = 12; // Namespace to perform operation in (if data is divided by namespace, default "")
+    string namespace = 13; // Namespace to perform operation in (if data is divided by namespace, default "")
 
-    uint32 client_id = 13; // Integer ID that represents the client connection. Assigned by gateway.
+    uint32 client_id = 14; // Integer ID that represents the client connection. Assigned by gateway.
 
-    uint32 client_offset = 14; // Offset of request within client connection. Assigned by gateway.
+    uint32 client_offset = 15; // Offset of request within client connection. Assigned by gateway.
 
-    uint32 shard_num = 15; // Shard the message came from. Used by aggregator
+    uint32 shard_num = 16; // Shard the message came from. Used by aggregator
 
-    uint32 gateway_num = 16; // Tail of gateway
+    uint32 gateway_num = 17; // Tail of gateway
 
      /**
        For tracing only
       */
-    uint64 telemetry_trace_id = 17;
+    uint64 telemetry_trace_id = 18;
 
-    uint64 telemetry_parent_id = 18;
+    uint64 telemetry_parent_id = 19;
 
-    string service_name = 19;
+    string service_name = 20;
 
-    bool traceroute = 20; // Send receipts from every function back to the gateway in case the DAG fails
+    bool traceroute = 21; // Send receipts from every function back to the gateway in case the DAG fails
 
-    uint32 num_shards = 21;
+    uint32 num_shards = 22;
 }
 
 message Status {
@@ -178,6 +179,8 @@ message QueryRequest {
     bool include_data = 2; // Whether to include the vectors and raw data in response as well as ids
     NdArray data = 3; // The batch of vectors to query
     repeated ScoredResults matches = 4; // The corresponding matches returned for each query in the batch
+    repeated uint32 top_k_overrides = 5;
+    repeated string namespace_overrides = 6;
 }
 
 /**
@@ -204,6 +207,15 @@ message FetchRequest {
 }
 
 /**
+ * Represents a fetch request
+ */
+message ListRequest {
+    string resource_type = 1; // e.g. 'ids', 'namespace', etc.
+    NdArray items = 2;
+}
+
+
+/**
  * An acknowledgement from a replica to the leader that it has caught up to that point in the log.
  */
 message Ack {
@@ -217,6 +229,8 @@ message LogEntry {
         Request entry = 2; // The request itself as it was received
         Ack ack = 3; // Or an acknowledgement from a follower of receiving this entry
     }
+    // The offset of the previous WAL entry. This is not necessarily (offset-1) due to the way log compaction works.
+    uint64 previous_offset = 4;
 }
 
 /**
