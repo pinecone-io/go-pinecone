@@ -132,7 +132,6 @@ func main() {
 				NamespaceOverrides: []string{"ns1", "ns2", "ns3"}, // third query vector is for top 2 matches from namespace ns3
 			},
 		},
-		Namespace:         "test-ns-1",
 	})
 	if queryErr != nil {
 		log.Fatalf("query error: %v", queryErr)
