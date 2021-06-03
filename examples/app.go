@@ -14,9 +14,8 @@ import (
 )
 
 var (
-	serverAddr = flag.String("server_addr", "localhost:10000", "The server address in the format of host:port")
-	serviceName = flag.String("service_name", "example-service", "The name that uniquely identifies the Pinecone service")
-	apiKey = flag.String("api_key", "", "The Pinecone API Key")
+	serverAddr = flag.String("server-addr", "localhost:10000", "The server address in the format of host:port")
+	apiKey = flag.String("api-key", "", "The Pinecone API Key")
 )
 
 func FloatArrToNdArrayLogErr(arr [][]float32) *pinecone.NdArray {
@@ -75,15 +74,36 @@ func main() {
 		Version:   "golang-alpha",
 		Body: &pinecone.Request_Index{
 			Index: &pinecone.IndexRequest{
-				Ids:  []string{"vec1", "vec2"},
+				Ids:  []string{"vec1", "vec2", "vec3"},
 				Data: FloatArrToNdArrayLogErr([][]float32{
-					{0, 1, 2, 3} ,
-					{4, 5, 6, 7} ,
-					{8, 9, 10, 11},
+					{0.0, 0.1, 0.2, 0.3} ,
+					{0.4, 0.5, 0.6, 0.7} ,
+					{0.8, 0.9, 1.0, 0.11},
 				}),
 			},
 		},
-		Namespace:   "test-ns-1",
+		Namespace:   "ns1",
+	})
+	if upsertErr != nil {
+		log.Fatalf("upsert error: %v", upsertErr)
+	} else {
+		log.Printf("upsert result: %v", upsertResult)
+	}
+
+	upsertResult, upsertErr = client.CallUnary(ctx, &pinecone.Request{
+		RequestId: rand.Uint64(),
+		Path:      "write",
+		Version:   "golang-alpha",
+		Body: &pinecone.Request_Index{
+			Index: &pinecone.IndexRequest{
+				Ids:  []string{"vec4", "vec5"},
+				Data: FloatArrToNdArrayLogErr([][]float32{
+					{0.3, 0.4, 0.5, 0.6} ,
+					{0.8, 0.9, 1.0, 0.11},
+				}),
+			},
+		},
+		Namespace:   "ns2",
 	})
 	if upsertErr != nil {
 		log.Fatalf("upsert error: %v", upsertErr)
@@ -102,7 +122,7 @@ func main() {
 				Ids:     []string{"vec1", "vec2"},
 			},
 		},
-		Namespace:   "test-ns-1",
+		Namespace:   "ns1",
 	})
 	if fetchErr != nil {
 		log.Fatalf("fetch error: %v", fetchErr)
@@ -128,8 +148,8 @@ func main() {
 					{0.2, 0.3, 0.4, 0.5},
 					{0.5, 0.5, 0.5, 0.5},
 				}),
-				TopKOverrides: []uint32{1, 1, 2}, // first query vector is for top 1 match from namespace ns1
-				NamespaceOverrides: []string{"ns1", "ns2", "ns3"}, // third query vector is for top 2 matches from namespace ns3
+				TopKOverrides: []uint32{1, 2, 2}, // first query vector is for top 1 match from namespace ns1
+				NamespaceOverrides: []string{"ns1", "ns1", "ns2"}, // third query vector is for top 2 matches from namespace ns2
 			},
 		},
 	})
@@ -155,7 +175,7 @@ func main() {
 				Ids:     []string{"vec1"},
 			},
 		},
-		Namespace:   "test-ns-1",
+		Namespace:   "ns1",
 	})
 	if deleteErr != nil {
 		log.Fatalf("delete error: %v", deleteErr)
