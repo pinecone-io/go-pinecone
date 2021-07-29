@@ -14,6 +14,92 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
+// SnapshotClientClient is the client API for SnapshotClient service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type SnapshotClientClient interface {
+	Call(ctx context.Context, in *SnapshotRequest, opts ...grpc.CallOption) (*SnapshotResponse, error)
+}
+
+type snapshotClientClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewSnapshotClientClient(cc grpc.ClientConnInterface) SnapshotClientClient {
+	return &snapshotClientClient{cc}
+}
+
+func (c *snapshotClientClient) Call(ctx context.Context, in *SnapshotRequest, opts ...grpc.CallOption) (*SnapshotResponse, error) {
+	out := new(SnapshotResponse)
+	err := c.cc.Invoke(ctx, "/core.SnapshotClient/Call", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// SnapshotClientServer is the server API for SnapshotClient service.
+// All implementations must embed UnimplementedSnapshotClientServer
+// for forward compatibility
+type SnapshotClientServer interface {
+	Call(context.Context, *SnapshotRequest) (*SnapshotResponse, error)
+	mustEmbedUnimplementedSnapshotClientServer()
+}
+
+// UnimplementedSnapshotClientServer must be embedded to have forward compatible implementations.
+type UnimplementedSnapshotClientServer struct {
+}
+
+func (UnimplementedSnapshotClientServer) Call(context.Context, *SnapshotRequest) (*SnapshotResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Call not implemented")
+}
+func (UnimplementedSnapshotClientServer) mustEmbedUnimplementedSnapshotClientServer() {}
+
+// UnsafeSnapshotClientServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to SnapshotClientServer will
+// result in compilation errors.
+type UnsafeSnapshotClientServer interface {
+	mustEmbedUnimplementedSnapshotClientServer()
+}
+
+func RegisterSnapshotClientServer(s grpc.ServiceRegistrar, srv SnapshotClientServer) {
+	s.RegisterService(&SnapshotClient_ServiceDesc, srv)
+}
+
+func _SnapshotClient_Call_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SnapshotRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SnapshotClientServer).Call(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/core.SnapshotClient/Call",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SnapshotClientServer).Call(ctx, req.(*SnapshotRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// SnapshotClient_ServiceDesc is the grpc.ServiceDesc for SnapshotClient service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var SnapshotClient_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "core.SnapshotClient",
+	HandlerType: (*SnapshotClientServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Call",
+			Handler:    _SnapshotClient_Call_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "pinecone/core.proto",
+}
+
 // RPCClientClient is the client API for RPCClient service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.

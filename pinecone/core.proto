@@ -2,8 +2,11 @@ syntax = "proto3";
 import "google/protobuf/timestamp.proto";
 
 package core;
-option go_package = "github.com/pinecone-io/go-pinecone/pinecone";
 option java_package = "io.pinecone.proto";
+option go_package = "github.com/pinecone-io/go-pinecone/pinecone";
+
+
+
 
 /**
    Request from the controller to individual service for monitoring, updating, and terminating running services.
@@ -188,6 +191,7 @@ message QueryRequest {
  */
 message DeleteRequest {
     repeated string ids = 1; // Ids of items to delete
+    bool delete_all = 2; // Delete all ids
 }
 
 /**
@@ -195,7 +199,7 @@ message DeleteRequest {
  */
 message InfoRequest {
     uint64 index_size = 1; // Size of a stateful function (Index)
-    // any other info can come here
+    uint32 dimension = 2; // Dimension of the indexed vectors
 }
 
 /**
@@ -224,13 +228,37 @@ message Ack {
 }
 
 message LogEntry {
-    uint64 offset = 1; // WAL offset of this entry
+    int64 offset = 1; // WAL offset of this entry
     oneof data {
         Request entry = 2; // The request itself as it was received
         Ack ack = 3; // Or an acknowledgement from a follower of receiving this entry
     }
     // The offset of the previous WAL entry. This is not necessarily (offset-1) due to the way log compaction works.
-    uint64 previous_offset = 4;
+    int64 previous_offset = 4;
+}
+
+/* Represents an entry written into a WAL like Kafka. Provides an envelope for storing multiple types of message
+ * (https://www.enterpriseintegrationpatterns.com/patterns/messaging/EnvelopeWrapper.html).
+ *
+ * Contents can be related to data or control.
+ *
+ * Data Entries: Examples are requests to upsert or delete data from the index.
+ * Control Entries: Examples are requests to partition the snapshot, etc.
+ */
+message WriteAheadLogEntry {
+    // A string identifying the origin of the message. This is used for trouble-shooting / diagnostics.
+    oneof contents {
+        WriteAheadLogDataEntry data = 1;
+    }
+}
+
+message WriteAheadLogDataEntry {
+    oneof entry {
+        // Request is API level modelling and we should decouple it from the stuff we put in the log. However, this
+        // seems  to be the fastest way to get something working at the moment.
+        // TODO: Deprecate
+        Request request = 1;
+    }
 }
 
 /**
@@ -244,6 +272,30 @@ message TraceRoute {
     uint32 client_offset = 3;
 
     repeated Route routes = 4;
+}
+
+/**
+ * Signal to snapshotter that the index is ready to be distributed to replicas
+ */
+message SnapshotRequest {
+    google.protobuf.Timestamp time = 1;
+    string name = 2;
+}
+
+/**
+ * Response to snapshot request
+ */
+message SnapshotResponse {
+    google.protobuf.Timestamp time = 1;
+}
+
+/**
+ * Snapshot client
+ */
+service SnapshotClient {
+    rpc Call (SnapshotRequest) returns (SnapshotResponse) {
+
+    }
 }
 
 /**
