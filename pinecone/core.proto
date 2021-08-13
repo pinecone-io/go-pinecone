@@ -161,6 +161,9 @@ message ScoredResults {
 
     // Corresponding data for all of these items, if requested
     NdArray data = 3;
+
+    // Corresponding metadata for all of these items, if requested
+    NdArray metadata = 4;
 }
 
 /**
@@ -172,6 +175,9 @@ message IndexRequest {
 
     // vectors of items to be inserted
     NdArray data = 2;
+    
+    // metadata of items to be inserted
+    repeated string metadata = 3;
 }
 
 /**
@@ -184,6 +190,10 @@ message QueryRequest {
     repeated ScoredResults matches = 4; // The corresponding matches returned for each query in the batch
     repeated uint32 top_k_overrides = 5;
     repeated string namespace_overrides = 6;
+    string filter = 7;
+    repeated string filter_overrides = 8;
+    bool include_metadata = 9; // Whether to include metadata in response as well as ids
+
 }
 
 /**
@@ -208,6 +218,7 @@ message InfoRequest {
 message FetchRequest {
     repeated string ids = 1; // Ids of vectors to fetch
     repeated NdArray vectors = 2; // Result vectors corresponding to ids
+    repeated string metadata = 3; // Result metadata corresponding to ids
 }
 
 /**
@@ -312,3 +323,5 @@ service RPCClient {
 
     }
 }
+
+
