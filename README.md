@@ -23,6 +23,11 @@ See examples/app.go for a usage sample.
 To get help using go-pinecone, reach out to support@pinecone.io.
 
 ## Development
+Clone with submodules:
+```
+git clone --recursive git@github.com:pinecone-io/go-pinecone.git
+```
+
 Generate code: `make gen`
 
 Run tests: `make test`
