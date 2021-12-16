@@ -4,7 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"flag"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone_grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -14,96 +15,52 @@ import (
 )
 
 var (
-	serverAddr = flag.String("server-addr", "localhost:10000", "The server address in the format of host:port")
-	apiKey = flag.String("api-key", "", "The Pinecone API Key")
+	indexName = flag.String("index", "", "The pinecone index name.")
+	projectName = flag.String("project", "", "The pinecone project name.")
+	pineconeEnv = flag.String("environment", "us-west1-gcp", "The pinecone environment name.")
+	apiKey = flag.String("api-key", "", "The Pinecone API Key.")
 )
-
-func FloatArrToNdArrayLogErr(arr [][]float32) *pinecone.NdArray {
-	result, err := pinecone.FloatArrToNdArray(arr)
-	if err != nil {
-		log.Fatalf("conversion failed; got error: %v", err)
-	}
-	return result
-}
-
-func FloatNdArrayToArrLogErr(array *pinecone.NdArray) [][]float32 {
-	result, err := pinecone.FloatNdArrayToArr(array)
-	if err != nil {
-		log.Fatalf("conversion failed; got error: %v", err)
-	}
-	return result
-}
-
-func StringNdArrayToArrLogErr(array *pinecone.NdArray) [][]string {
-	result, err := pinecone.StringNdArrayToArr(array)
-	if err != nil {
-		log.Fatalf("conversion failed; got error: %v", err)
-	}
-	return result
-}
 
 func main() {
 	flag.Parse()
 	rand.Seed(time.Now().UTC().UnixNano())
+
 	config := &tls.Config{}
 
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(config)))
-	opts = append(opts, grpc.WithAuthority(*serverAddr))
-	opts = append(opts, grpc.WithBlock())
-	opts = append(opts, grpc.WithTimeout(5 * time.Second))
-	log.Printf("connecting to %v", *serverAddr)
-	conn, err := grpc.Dial(*serverAddr, opts...)
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	defer cancel()
+
+	ctx = metadata.AppendToOutgoingContext(ctx, "api-key", *apiKey)
+	target := fmt.Sprintf("%s-%s.svc.%s.pinecone.io:443", *indexName, *projectName, *pineconeEnv)
+	log.Printf("connecting to %v", target)
+	conn, err := grpc.DialContext(
+		ctx,
+		target,
+		grpc.WithTransportCredentials(credentials.NewTLS(config)),
+		grpc.WithAuthority(target),
+		grpc.WithBlock(),
+	)
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
 	}
 	defer conn.Close()
 
-	client := pinecone.NewRPCClientClient(conn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	ctx = metadata.AppendToOutgoingContext(ctx, "api-key", *apiKey)
+	client := pinecone_grpc.NewVectorServiceClient(conn)
 
 	// upsert
 	log.Print("upserting data...")
-	upsertResult, upsertErr := client.CallUnary(ctx, &pinecone.Request{
-		RequestId: rand.Uint64(),
-		Path:      "write",
-		Version:   "golang-alpha",
-		Body: &pinecone.Request_Index{
-			Index: &pinecone.IndexRequest{
-				Ids:  []string{"vec1", "vec2", "vec3"},
-				Data: FloatArrToNdArrayLogErr([][]float32{
-					{0.0, 0.1, 0.2, 0.3} ,
-					{0.4, 0.5, 0.6, 0.7} ,
-					{0.8, 0.9, 1.0, 0.11},
-				}),
+	upsertResult, upsertErr := client.Upsert(ctx, &pinecone_grpc.UpsertRequest{
+		Vectors: []*pinecone_grpc.Vector{
+			{
+				Id: "example-vector-1",
+				Values: []float32{0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01},
+			},
+			{
+				Id: "example-vector-2",
+				Values: []float32{0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02},
 			},
 		},
-		Namespace:   "ns1",
-	})
-	if upsertErr != nil {
-		log.Fatalf("upsert error: %v", upsertErr)
-	} else {
-		log.Printf("upsert result: %v", upsertResult)
-	}
-
-	upsertResult, upsertErr = client.CallUnary(ctx, &pinecone.Request{
-		RequestId: rand.Uint64(),
-		Path:      "write",
-		Version:   "golang-alpha",
-		Body: &pinecone.Request_Index{
-			Index: &pinecone.IndexRequest{
-				Ids:  []string{"vec4", "vec5"},
-				Data: FloatArrToNdArrayLogErr([][]float32{
-					{0.3, 0.4, 0.5, 0.6} ,
-					{0.8, 0.9, 1.0, 0.11},
-				}),
-			},
-		},
-		Namespace:   "ns2",
+		Namespace: "example-namespace",
 	})
 	if upsertErr != nil {
 		log.Fatalf("upsert error: %v", upsertErr)
@@ -113,74 +70,52 @@ func main() {
 
 	// fetch
 	log.Print("fetching vector...")
-	fetchResult, fetchErr := client.CallUnary(ctx, &pinecone.Request{
-		RequestId: rand.Uint64(),
-		Path:      "read",
-		Version:   "golang-alpha",
-		Body: &pinecone.Request_Fetch{
-			Fetch: &pinecone.FetchRequest{
-				Ids:     []string{"vec1", "vec2"},
-			},
-		},
-		Namespace:   "ns1",
+	fetchResult, fetchErr := client.Fetch(ctx, &pinecone_grpc.FetchRequest{
+		Ids:     []string{"example-vector-1", "example-vector-2"},
+		Namespace:   "example-namespace",
 	})
 	if fetchErr != nil {
 		log.Fatalf("fetch error: %v", fetchErr)
 	} else {
 		log.Printf("fetch result: %v", fetchResult)
-		reqBody := fetchResult.Body
-		reqFetch := reqBody.(*pinecone.Request_Fetch)
-		log.Printf("fetched vector: %v", FloatNdArrayToArrLogErr((*reqFetch).Fetch.Vectors[0]))
 	}
 
 	// query
 	log.Print("querying data...")
-	queryResult, queryErr := client.CallUnary(ctx, &pinecone.Request{
-		RequestId:         rand.Uint64(),
-		Path:              "read",
-		Version:           "golang-alpha",
-		Body:              &pinecone.Request_Query{
-			Query: &pinecone.QueryRequest{
-				TopK:        2,
-				IncludeData: true,
-				Data:        FloatArrToNdArrayLogErr([][]float32{
-					{0.0, 0.1, 0.2, 0.4},
-					{0.2, 0.3, 0.4, 0.5},
-					{0.5, 0.5, 0.5, 0.5},
-				}),
-				TopKOverrides: []uint32{1, 2, 2}, // first query vector is for top 1 match from namespace ns1
-				NamespaceOverrides: []string{"ns1", "ns1", "ns2"}, // third query vector is for top 2 matches from namespace ns2
-			},
+	queryResult, queryErr := client.Query(ctx, &pinecone_grpc.QueryRequest{
+		Queries: []*pinecone_grpc.QueryVector{
+			{Values: []float32{0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01},},
+			{Values: []float32{0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02},},
 		},
+		TopK: 3,
+		IncludeValues: true,
+		Namespace: "example-namespace",
 	})
 	if queryErr != nil {
 		log.Fatalf("query error: %v", queryErr)
 	} else {
 		log.Printf("query result: %v", queryResult)
-		reqBody := queryResult.Body
-		reqQuery := reqBody.(*pinecone.Request_Query)
-		log.Printf("query #1 results: ids %v data %v",
-			StringNdArrayToArrLogErr((*reqQuery).Query.Matches[0].Ids),
-			FloatNdArrayToArrLogErr((*reqQuery).Query.Matches[0].Data))
 	}
 
 	// delete
-	log.Print("deleting vector...")
-	deleteResult, deleteErr := client.CallUnary(ctx, &pinecone.Request{
-		RequestId: rand.Uint64(),
-		Path:      "write",
-		Version:   "golang-alpha",
-		Body: &pinecone.Request_Delete{
-			Delete: &pinecone.DeleteRequest{
-				Ids:     []string{"vec1"},
-			},
-		},
-		Namespace:   "ns1",
+	log.Print("deleting vectors...")
+	deleteResult, deleteErr := client.Delete(ctx, &pinecone_grpc.DeleteRequest{
+		Ids:     []string{"example-vector-1", "example-vector-2"},
+		Namespace:   "example-namespace",
 	})
 	if deleteErr != nil {
 		log.Fatalf("delete error: %v", deleteErr)
 	} else {
 		log.Printf("delete result: %v", deleteResult)
+	}
+
+	// describeIndexStats
+	log.Print("describing index statistics...")
+	describeIndexStatsResult, describeIndexStatsErr := client.DescribeIndexStats(ctx, &pinecone_grpc.DescribeIndexStatsRequest{})
+	if describeIndexStatsErr != nil {
+		log.Fatalf("describeIndexStats error: %v", describeIndexStatsErr)
+	} else {
+		log.Printf("describeIndexStats result: %v", describeIndexStatsResult)
 	}
 	log.Print("done!")
 }
