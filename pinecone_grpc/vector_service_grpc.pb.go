@@ -34,7 +34,7 @@ type VectorServiceClient interface {
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 	// Fetch
 	//
-	// The `Fetch` operation looks up and returns vectors, by id, from a single namespace.
+	// The `Fetch` operation looks up and returns vectors, by ID, from a single namespace.
 	// The returned vectors include the vector data and/or metadata.
 	Fetch(ctx context.Context, in *FetchRequest, opts ...grpc.CallOption) (*FetchResponse, error)
 	// Query
@@ -50,8 +50,12 @@ type VectorServiceClient interface {
 	Update(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 	// DescribeIndexStats
 	//
-	// The `DescribeIndexStats` operation returns statistics about the index's contents.
-	// For example: The vector count per namespace and the number of dimensions.
+	// The `DescribeIndexStats` operation returns statistics about the index's
+	// contents, including the vector count per namespace, the number of
+	// dimensions, and the index fullness. The index fullness result  may be
+	// inaccurate during pod resizing; to get the status of a pod resizing
+	// process, use
+	// [`describe_index`](https://www.pinecone.io/docs/api/operation/describe_index/).
 	DescribeIndexStats(ctx context.Context, in *DescribeIndexStatsRequest, opts ...grpc.CallOption) (*DescribeIndexStatsResponse, error)
 }
 
@@ -133,7 +137,7 @@ type VectorServiceServer interface {
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
 	// Fetch
 	//
-	// The `Fetch` operation looks up and returns vectors, by id, from a single namespace.
+	// The `Fetch` operation looks up and returns vectors, by ID, from a single namespace.
 	// The returned vectors include the vector data and/or metadata.
 	Fetch(context.Context, *FetchRequest) (*FetchResponse, error)
 	// Query
@@ -149,8 +153,12 @@ type VectorServiceServer interface {
 	Update(context.Context, *UpdateRequest) (*UpdateResponse, error)
 	// DescribeIndexStats
 	//
-	// The `DescribeIndexStats` operation returns statistics about the index's contents.
-	// For example: The vector count per namespace and the number of dimensions.
+	// The `DescribeIndexStats` operation returns statistics about the index's
+	// contents, including the vector count per namespace, the number of
+	// dimensions, and the index fullness. The index fullness result  may be
+	// inaccurate during pod resizing; to get the status of a pod resizing
+	// process, use
+	// [`describe_index`](https://www.pinecone.io/docs/api/operation/describe_index/).
 	DescribeIndexStats(context.Context, *DescribeIndexStatsRequest) (*DescribeIndexStatsResponse, error)
 	mustEmbedUnimplementedVectorServiceServer()
 }
