@@ -1,3 +1,7 @@
+> **Warning**
+> 
+> **Production use not recommended.** This release is in a pre-alpha state and we have temporarily paused development to concentrate resources on our other clients. The currently supported way to interact with Pinecone from a Golang app is via our public [REST API](https://docs.pinecone.io/reference/create_index).
+
 # go-pinecone
 Pinecone Go Client
 
