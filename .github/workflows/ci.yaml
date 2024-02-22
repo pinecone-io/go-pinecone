@@ -1,0 +1,24 @@
+name: ci
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21.x'
+      - name: Install dependencies
+        run: |
+          go get ./pinecone
+      - name: Run tests
+        run: go test ./pinecone
+        env:
+          POD_INDEX_HOST: ${{ secrets.POD_INDEX_HOST }}
+          SERVERLESS_INDEX_HOST: ${{ secrets.SERVERLESS_INDEX_HOST }}
+          API_KEY: ${{ secrets.API_KEY }}
