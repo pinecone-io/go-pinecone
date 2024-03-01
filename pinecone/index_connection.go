@@ -9,27 +9,18 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"log"
-	"time"
 )
 
 type IndexConnection struct {
-	host       string
+	apiKey     string
 	dataClient *data.VectorServiceClient
-	ctx        *context.Context
-	ctxCancel  context.CancelFunc
 	grpcConn   *grpc.ClientConn
 }
 
 func newIndexConnection(apiKey string, host string) (*IndexConnection, error) {
 	config := &tls.Config{}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-
-	ctx = metadata.AppendToOutgoingContext(ctx, "api-key", apiKey)
 	target := fmt.Sprintf("%s:443", host)
-
-	conn, err := grpc.DialContext(
-		ctx,
+	conn, err := grpc.Dial(
 		target,
 		grpc.WithTransportCredentials(credentials.NewTLS(config)),
 		grpc.WithAuthority(target),
@@ -43,12 +34,11 @@ func newIndexConnection(apiKey string, host string) (*IndexConnection, error) {
 
 	dataClient := data.NewVectorServiceClient(conn)
 
-	idx := IndexConnection{host: host, dataClient: &dataClient, ctx: &ctx, ctxCancel: cancel, grpcConn: conn}
+	idx := IndexConnection{apiKey: apiKey, dataClient: &dataClient, grpcConn: conn}
 	return &idx, nil
 }
 
 func (idx *IndexConnection) Close() error {
-	idx.ctxCancel()
 	err := idx.grpcConn.Close()
 	return err
 }
@@ -58,7 +48,7 @@ type UpsertVectorsRequest struct {
 	Namespace string
 }
 
-func (idx *IndexConnection) UpsertVectors(in *UpsertVectorsRequest) (uint32, error) {
+func (idx *IndexConnection) UpsertVectors(ctx *context.Context, in *UpsertVectorsRequest) (uint32, error) {
 	vectors := make([]*data.Vector, len(in.Vectors))
 	for i, v := range in.Vectors {
 		vectors[i] = vecToGrpc(v)
@@ -69,7 +59,7 @@ func (idx *IndexConnection) UpsertVectors(in *UpsertVectorsRequest) (uint32, err
 		Namespace: in.Namespace,
 	}
 
-	res, err := (*idx.dataClient).Upsert(*idx.ctx, req)
+	res, err := (*idx.dataClient).Upsert(idx.akCtx(*ctx), req)
 	if err != nil {
 		return 0, err
 	}
@@ -87,13 +77,13 @@ type FetchVectorsResponse struct {
 	Usage     *Usage
 }
 
-func (idx *IndexConnection) FetchVectors(in *FetchVectorsRequest) (*FetchVectorsResponse, error) {
+func (idx *IndexConnection) FetchVectors(ctx *context.Context, in *FetchVectorsRequest) (*FetchVectorsResponse, error) {
 	req := &data.FetchRequest{
 		Ids:       in.Ids,
 		Namespace: in.Namespace,
 	}
 
-	res, err := (*idx.dataClient).Fetch(*idx.ctx, req)
+	res, err := (*idx.dataClient).Fetch(idx.akCtx(*ctx), req)
 	if err != nil {
 		return nil, err
 	}
@@ -124,14 +114,14 @@ type ListVectorsResponse struct {
 	NextPaginationToken *string
 }
 
-func (idx *IndexConnection) ListVectors(in *ListVectorsRequest) (*ListVectorsResponse, error) {
+func (idx *IndexConnection) ListVectors(ctx *context.Context, in *ListVectorsRequest) (*ListVectorsResponse, error) {
 	req := &data.ListRequest{
 		Prefix:          in.Prefix,
 		Limit:           in.Limit,
 		PaginationToken: in.PaginationToken,
 		Namespace:       in.Namespace,
 	}
-	res, err := (*idx.dataClient).List(*idx.ctx, req)
+	res, err := (*idx.dataClient).List(idx.akCtx(*ctx), req)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +155,7 @@ type QueryVectorsResponse struct {
 	Usage     *Usage
 }
 
-func (idx *IndexConnection) QueryByVector(in *QueryByVectorRequest) (*QueryVectorsResponse, error) {
+func (idx *IndexConnection) QueryByVector(ctx *context.Context, in *QueryByVectorRequest) (*QueryVectorsResponse, error) {
 	req := &data.QueryRequest{
 		Namespace:       in.Namespace,
 		TopK:            in.TopK,
@@ -176,7 +166,7 @@ func (idx *IndexConnection) QueryByVector(in *QueryByVectorRequest) (*QueryVecto
 		SparseVector:    sparseValToGrpc(in.SparseValues),
 	}
 
-	return idx.query(req)
+	return idx.query(ctx, req)
 }
 
 type QueryByIdRequest struct {
@@ -189,7 +179,7 @@ type QueryByIdRequest struct {
 	SparseValues    *SparseValues
 }
 
-func (idx *IndexConnection) QueryById(in *QueryByIdRequest) (*QueryVectorsResponse, error) {
+func (idx *IndexConnection) QueryById(ctx *context.Context, in *QueryByIdRequest) (*QueryVectorsResponse, error) {
 	req := &data.QueryRequest{
 		Id:              in.Id,
 		Namespace:       in.Namespace,
@@ -200,7 +190,7 @@ func (idx *IndexConnection) QueryById(in *QueryByIdRequest) (*QueryVectorsRespon
 		SparseVector:    sparseValToGrpc(in.SparseValues),
 	}
 
-	return idx.query(req)
+	return idx.query(ctx, req)
 }
 
 type DeleteVectorsRequest struct {
@@ -210,7 +200,7 @@ type DeleteVectorsRequest struct {
 	DeleteAll bool
 }
 
-func (idx *IndexConnection) DeleteVectors(in *DeleteVectorsRequest) error {
+func (idx *IndexConnection) DeleteVectors(ctx *context.Context, in *DeleteVectorsRequest) error {
 	req := data.DeleteRequest{
 		Ids:       in.Ids,
 		DeleteAll: in.DeleteAll,
@@ -218,7 +208,7 @@ func (idx *IndexConnection) DeleteVectors(in *DeleteVectorsRequest) error {
 		Filter:    in.Filter,
 	}
 
-	_, err := (*idx.dataClient).Delete(*idx.ctx, &req)
+	_, err := (*idx.dataClient).Delete(idx.akCtx(*ctx), &req)
 	return err
 }
 
@@ -230,7 +220,7 @@ type UpdateVectorRequest struct {
 	Namespace    string
 }
 
-func (idx *IndexConnection) UpdateVector(in *UpdateVectorRequest) error {
+func (idx *IndexConnection) UpdateVector(ctx *context.Context, in *UpdateVectorRequest) error {
 	req := &data.UpdateRequest{
 		Id:           in.Id,
 		Values:       in.Values,
@@ -239,7 +229,7 @@ func (idx *IndexConnection) UpdateVector(in *UpdateVectorRequest) error {
 		Namespace:    in.Namespace,
 	}
 
-	_, err := (*idx.dataClient).Update(*idx.ctx, req)
+	_, err := (*idx.dataClient).Update(idx.akCtx(*ctx), req)
 	return err
 }
 
@@ -254,11 +244,11 @@ type DescribeIndexStatsResponse struct {
 	Namespaces       map[string]*NamespaceSummary
 }
 
-func (idx *IndexConnection) DescribeIndexStats(in *DescribeIndexStatsRequest) (*DescribeIndexStatsResponse, error) {
+func (idx *IndexConnection) DescribeIndexStats(ctx *context.Context, in *DescribeIndexStatsRequest) (*DescribeIndexStatsResponse, error) {
 	req := &data.DescribeIndexStatsRequest{
 		Filter: in.Filter,
 	}
-	res, err := (*idx.dataClient).DescribeIndexStats(*idx.ctx, req)
+	res, err := (*idx.dataClient).DescribeIndexStats(idx.akCtx(*ctx), req)
 	if err != nil {
 		return nil, err
 	}
@@ -278,8 +268,8 @@ func (idx *IndexConnection) DescribeIndexStats(in *DescribeIndexStatsRequest) (*
 	}, nil
 }
 
-func (idx *IndexConnection) query(req *data.QueryRequest) (*QueryVectorsResponse, error) {
-	res, err := (*idx.dataClient).Query(*idx.ctx, req)
+func (idx *IndexConnection) query(ctx *context.Context, req *data.QueryRequest) (*QueryVectorsResponse, error) {
+	res, err := (*idx.dataClient).Query(idx.akCtx(*ctx), req)
 	if err != nil {
 		return nil, err
 	}
@@ -361,4 +351,8 @@ func sparseValToGrpc(sv *SparseValues) *data.SparseValues {
 		Indices: sv.Indices,
 		Values:  sv.Values,
 	}
+}
+
+func (idx *IndexConnection) akCtx(ctx context.Context) context.Context {
+	return metadata.AppendToOutgoingContext(ctx, "api-key", idx.apiKey)
 }

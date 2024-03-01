@@ -1,6 +1,7 @@
 package pinecone
 
 import (
+	"context"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -61,7 +62,8 @@ func (ts *IndexConnectionTests) TestFetchVectors() {
 		Namespace: ts.namespace,
 	}
 
-	res, err := ts.idxConn.FetchVectors(req)
+	ctx := context.Background()
+	res, err := ts.idxConn.FetchVectors(&ctx, req)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
@@ -73,7 +75,8 @@ func (ts *IndexConnectionTests) TestQueryByVector() {
 		TopK:      5,
 	}
 
-	res, err := ts.idxConn.QueryByVector(req)
+	ctx := context.Background()
+	res, err := ts.idxConn.QueryByVector(&ctx, req)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
@@ -85,7 +88,8 @@ func (ts *IndexConnectionTests) TestQueryById() {
 		TopK:      5,
 	}
 
-	res, err := ts.idxConn.QueryById(req)
+	ctx := context.Background()
+	res, err := ts.idxConn.QueryById(&ctx, req)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
@@ -96,7 +100,8 @@ func (ts *IndexConnectionTests) TestDeleteVectors() {
 		Namespace: ts.namespace,
 	}
 
-	err := ts.idxConn.DeleteVectors(req)
+	ctx := context.Background()
+	err := ts.idxConn.DeleteVectors(&ctx, req)
 	assert.NoError(ts.T(), err)
 
 	ts.loadData() //reload deleted data
@@ -104,7 +109,8 @@ func (ts *IndexConnectionTests) TestDeleteVectors() {
 
 func (ts *IndexConnectionTests) TestDescribeIndexStats() {
 	req := &DescribeIndexStatsRequest{}
-	res, err := ts.idxConn.DescribeIndexStats(req)
+	ctx := context.Background()
+	res, err := ts.idxConn.DescribeIndexStats(&ctx, req)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
@@ -115,7 +121,8 @@ func (ts *IndexConnectionTests) TestListVectors() {
 		Namespace: ts.namespace,
 	}
 
-	res, err := ts.idxConn.ListVectors(req)
+	ctx := context.Background()
+	res, err := ts.idxConn.ListVectors(&ctx, req)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
@@ -138,12 +145,15 @@ func (ts *IndexConnectionTests) loadData() {
 		Vectors:   vectors,
 		Namespace: ts.namespace,
 	}
-	_, err := ts.idxConn.UpsertVectors(req)
+
+	ctx := context.Background()
+	_, err := ts.idxConn.UpsertVectors(&ctx, req)
 	assert.NoError(ts.T(), err)
 }
 
 func (ts *IndexConnectionTests) truncateData() {
-	err := ts.idxConn.DeleteVectors(&DeleteVectorsRequest{
+	ctx := context.Background()
+	err := ts.idxConn.DeleteVectors(&ctx, &DeleteVectorsRequest{
 		DeleteAll: true,
 		Namespace: ts.namespace,
 	})
