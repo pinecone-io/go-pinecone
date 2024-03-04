@@ -139,7 +139,7 @@ func (idx *IndexConnection) ListVectors(ctx *context.Context, in *ListVectorsReq
 	}, nil
 }
 
-type QueryByVectorRequest struct {
+type QueryByVectorValuesRequest struct {
 	Vector          []float32
 	Namespace       string
 	TopK            uint32
@@ -155,7 +155,7 @@ type QueryVectorsResponse struct {
 	Usage     *Usage
 }
 
-func (idx *IndexConnection) QueryByVector(ctx *context.Context, in *QueryByVectorRequest) (*QueryVectorsResponse, error) {
+func (idx *IndexConnection) QueryByVectorValues(ctx *context.Context, in *QueryByVectorValuesRequest) (*QueryVectorsResponse, error) {
 	req := &data.QueryRequest{
 		Namespace:       in.Namespace,
 		TopK:            in.TopK,
@@ -169,8 +169,8 @@ func (idx *IndexConnection) QueryByVector(ctx *context.Context, in *QueryByVecto
 	return idx.query(ctx, req)
 }
 
-type QueryByIdRequest struct {
-	Id              string
+type QueryByVectorIdRequest struct {
+	VectorId        string
 	Namespace       string
 	TopK            uint32
 	Filter          *Filter
@@ -179,9 +179,9 @@ type QueryByIdRequest struct {
 	SparseValues    *SparseValues
 }
 
-func (idx *IndexConnection) QueryById(ctx *context.Context, in *QueryByIdRequest) (*QueryVectorsResponse, error) {
+func (idx *IndexConnection) QueryByVectorId(ctx *context.Context, in *QueryByVectorIdRequest) (*QueryVectorsResponse, error) {
 	req := &data.QueryRequest{
-		Id:              in.Id,
+		Id:              in.VectorId,
 		Namespace:       in.Namespace,
 		TopK:            in.TopK,
 		Filter:          in.Filter,

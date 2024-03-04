@@ -69,27 +69,27 @@ func (ts *IndexConnectionTests) TestFetchVectors() {
 }
 
 func (ts *IndexConnectionTests) TestQueryByVector() {
-	req := &QueryByVectorRequest{
+	req := &QueryByVectorValuesRequest{
 		Vector:    []float32{0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01},
 		Namespace: ts.namespace,
 		TopK:      5,
 	}
 
 	ctx := context.Background()
-	res, err := ts.idxConn.QueryByVector(&ctx, req)
+	res, err := ts.idxConn.QueryByVectorValues(&ctx, req)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
 func (ts *IndexConnectionTests) TestQueryById() {
-	req := &QueryByIdRequest{
-		Id:        ts.vectorIds[0],
+	req := &QueryByVectorIdRequest{
+		VectorId:  ts.vectorIds[0],
 		Namespace: ts.namespace,
 		TopK:      5,
 	}
 
 	ctx := context.Background()
-	res, err := ts.idxConn.QueryById(&ctx, req)
+	res, err := ts.idxConn.QueryByVectorId(&ctx, req)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
