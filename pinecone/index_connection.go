@@ -287,6 +287,9 @@ func (idx *IndexConnection) query(ctx *context.Context, req *data.QueryRequest) 
 }
 
 func toVector(vector *data.Vector) *Vector {
+	if vector == nil {
+		return nil
+	}
 	return &Vector{
 		Id:           vector.Id,
 		Values:       vector.Values,
@@ -296,6 +299,9 @@ func toVector(vector *data.Vector) *Vector {
 }
 
 func toScoredVector(sv *data.ScoredVector) *ScoredVector {
+	if sv == nil {
+		return nil
+	}
 	v := toVector(&data.Vector{
 		Id:           sv.Id,
 		Values:       sv.Values,
@@ -335,6 +341,9 @@ func toPaginationToken(p *data.Pagination) *string {
 }
 
 func vecToGrpc(v *Vector) *data.Vector {
+	if v == nil {
+		return nil
+	}
 	return &data.Vector{
 		Id:           v.Id,
 		Values:       v.Values,
