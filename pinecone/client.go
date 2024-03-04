@@ -10,7 +10,11 @@ func NewClient(apiKey string) *Client {
 }
 
 func (c *Client) Index(host string) (*IndexConnection, error) {
-	idx, err := newIndexConnection(c.apiKey, host)
+	return c.IndexWithNamespace(host, "")
+}
+
+func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnection, error) {
+	idx, err := newIndexConnection(c.apiKey, host, namespace)
 	if err != nil {
 		return nil, err
 	}

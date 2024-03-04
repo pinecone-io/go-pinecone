@@ -12,12 +12,13 @@ import (
 )
 
 type IndexConnection struct {
+	Namespace  string
 	apiKey     string
 	dataClient *data.VectorServiceClient
 	grpcConn   *grpc.ClientConn
 }
 
-func newIndexConnection(apiKey string, host string) (*IndexConnection, error) {
+func newIndexConnection(apiKey string, host string, namespace string) (*IndexConnection, error) {
 	config := &tls.Config{}
 	target := fmt.Sprintf("%s:443", host)
 	conn, err := grpc.Dial(
@@ -34,7 +35,7 @@ func newIndexConnection(apiKey string, host string) (*IndexConnection, error) {
 
 	dataClient := data.NewVectorServiceClient(conn)
 
-	idx := IndexConnection{apiKey: apiKey, dataClient: &dataClient, grpcConn: conn}
+	idx := IndexConnection{Namespace: namespace, apiKey: apiKey, dataClient: &dataClient, grpcConn: conn}
 	return &idx, nil
 }
 
@@ -43,20 +44,15 @@ func (idx *IndexConnection) Close() error {
 	return err
 }
 
-type UpsertVectorsRequest struct {
-	Vectors   []*Vector
-	Namespace string
-}
-
-func (idx *IndexConnection) UpsertVectors(ctx *context.Context, in *UpsertVectorsRequest) (uint32, error) {
-	vectors := make([]*data.Vector, len(in.Vectors))
-	for i, v := range in.Vectors {
+func (idx *IndexConnection) UpsertVectors(ctx *context.Context, in []*Vector) (uint32, error) {
+	vectors := make([]*data.Vector, len(in))
+	for i, v := range in {
 		vectors[i] = vecToGrpc(v)
 	}
 
 	req := &data.UpsertRequest{
 		Vectors:   vectors,
-		Namespace: in.Namespace,
+		Namespace: idx.Namespace,
 	}
 
 	res, err := (*idx.dataClient).Upsert(idx.akCtx(*ctx), req)
@@ -66,21 +62,15 @@ func (idx *IndexConnection) UpsertVectors(ctx *context.Context, in *UpsertVector
 	return res.UpsertedCount, nil
 }
 
-type FetchVectorsRequest struct {
-	Ids       []string
-	Namespace string
-}
-
 type FetchVectorsResponse struct {
-	Vectors   map[string]*Vector
-	Namespace string
-	Usage     *Usage
+	Vectors map[string]*Vector
+	Usage   *Usage
 }
 
-func (idx *IndexConnection) FetchVectors(ctx *context.Context, in *FetchVectorsRequest) (*FetchVectorsResponse, error) {
+func (idx *IndexConnection) FetchVectors(ctx *context.Context, ids []string) (*FetchVectorsResponse, error) {
 	req := &data.FetchRequest{
-		Ids:       in.Ids,
-		Namespace: in.Namespace,
+		Ids:       ids,
+		Namespace: idx.Namespace,
 	}
 
 	res, err := (*idx.dataClient).Fetch(idx.akCtx(*ctx), req)
@@ -94,9 +84,8 @@ func (idx *IndexConnection) FetchVectors(ctx *context.Context, in *FetchVectorsR
 	}
 
 	return &FetchVectorsResponse{
-		Vectors:   vectors,
-		Namespace: res.Namespace,
-		Usage:     toUsage(res.Usage),
+		Vectors: vectors,
+		Usage:   toUsage(res.Usage),
 	}, nil
 }
 
@@ -104,12 +93,10 @@ type ListVectorsRequest struct {
 	Prefix          *string
 	Limit           *uint32
 	PaginationToken *string
-	Namespace       string
 }
 
 type ListVectorsResponse struct {
 	VectorIds           []*string
-	Namespace           string
 	Usage               *Usage
 	NextPaginationToken *string
 }
@@ -119,7 +106,7 @@ func (idx *IndexConnection) ListVectors(ctx *context.Context, in *ListVectorsReq
 		Prefix:          in.Prefix,
 		Limit:           in.Limit,
 		PaginationToken: in.PaginationToken,
-		Namespace:       in.Namespace,
+		Namespace:       idx.Namespace,
 	}
 	res, err := (*idx.dataClient).List(idx.akCtx(*ctx), req)
 	if err != nil {
@@ -133,7 +120,6 @@ func (idx *IndexConnection) ListVectors(ctx *context.Context, in *ListVectorsReq
 
 	return &ListVectorsResponse{
 		VectorIds:           vectorIds,
-		Namespace:           res.Namespace,
 		Usage:               &Usage{ReadUnits: res.Usage.ReadUnits},
 		NextPaginationToken: toPaginationToken(res.Pagination),
 	}, nil
@@ -141,7 +127,6 @@ func (idx *IndexConnection) ListVectors(ctx *context.Context, in *ListVectorsReq
 
 type QueryByVectorValuesRequest struct {
 	Vector          []float32
-	Namespace       string
 	TopK            uint32
 	Filter          *Filter
 	IncludeValues   bool
@@ -150,14 +135,13 @@ type QueryByVectorValuesRequest struct {
 }
 
 type QueryVectorsResponse struct {
-	Matches   []*ScoredVector
-	Namespace string
-	Usage     *Usage
+	Matches []*ScoredVector
+	Usage   *Usage
 }
 
 func (idx *IndexConnection) QueryByVectorValues(ctx *context.Context, in *QueryByVectorValuesRequest) (*QueryVectorsResponse, error) {
 	req := &data.QueryRequest{
-		Namespace:       in.Namespace,
+		Namespace:       idx.Namespace,
 		TopK:            in.TopK,
 		Filter:          in.Filter,
 		IncludeValues:   in.IncludeValues,
@@ -171,7 +155,6 @@ func (idx *IndexConnection) QueryByVectorValues(ctx *context.Context, in *QueryB
 
 type QueryByVectorIdRequest struct {
 	VectorId        string
-	Namespace       string
 	TopK            uint32
 	Filter          *Filter
 	IncludeValues   bool
@@ -182,7 +165,7 @@ type QueryByVectorIdRequest struct {
 func (idx *IndexConnection) QueryByVectorId(ctx *context.Context, in *QueryByVectorIdRequest) (*QueryVectorsResponse, error) {
 	req := &data.QueryRequest{
 		Id:              in.VectorId,
-		Namespace:       in.Namespace,
+		Namespace:       idx.Namespace,
 		TopK:            in.TopK,
 		Filter:          in.Filter,
 		IncludeValues:   in.IncludeValues,
@@ -193,41 +176,27 @@ func (idx *IndexConnection) QueryByVectorId(ctx *context.Context, in *QueryByVec
 	return idx.query(ctx, req)
 }
 
-type DeleteVectorsByIdRequest struct {
-	Namespace string
-	Ids       []string
-}
-
-func (idx *IndexConnection) DeleteVectorsById(ctx *context.Context, in *DeleteVectorsByIdRequest) error {
+func (idx *IndexConnection) DeleteVectorsById(ctx *context.Context, ids []string) error {
 	req := data.DeleteRequest{
-		Ids:       in.Ids,
-		Namespace: in.Namespace,
+		Ids:       ids,
+		Namespace: idx.Namespace,
 	}
 
 	return idx.delete(ctx, &req)
 }
 
-type DeleteVectorsByFilterRequest struct {
-	Namespace string
-	Filter    *Filter
-}
-
-func (idx *IndexConnection) DeleteVectorsByFilter(ctx *context.Context, in *DeleteVectorsByFilterRequest) error {
+func (idx *IndexConnection) DeleteVectorsByFilter(ctx *context.Context, filter *Filter) error {
 	req := data.DeleteRequest{
-		Filter:    in.Filter,
-		Namespace: in.Namespace,
+		Filter:    filter,
+		Namespace: idx.Namespace,
 	}
 
 	return idx.delete(ctx, &req)
 }
 
-type DeleteAllVectorsInNamespaceRequest struct {
-	Namespace string
-}
-
-func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx *context.Context, in *DeleteAllVectorsInNamespaceRequest) error {
+func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx *context.Context) error {
 	req := data.DeleteRequest{
-		Namespace: in.Namespace,
+		Namespace: idx.Namespace,
 		DeleteAll: true,
 	}
 
@@ -239,7 +208,6 @@ type UpdateVectorRequest struct {
 	Values       []float32
 	SparseValues *SparseValues
 	Metadata     *Metadata
-	Namespace    string
 }
 
 func (idx *IndexConnection) UpdateVector(ctx *context.Context, in *UpdateVectorRequest) error {
@@ -248,15 +216,11 @@ func (idx *IndexConnection) UpdateVector(ctx *context.Context, in *UpdateVectorR
 		Values:       in.Values,
 		SparseValues: sparseValToGrpc(in.SparseValues),
 		SetMetadata:  in.Metadata,
-		Namespace:    in.Namespace,
+		Namespace:    idx.Namespace,
 	}
 
 	_, err := (*idx.dataClient).Update(idx.akCtx(*ctx), req)
 	return err
-}
-
-type DescribeIndexStatsRequest struct {
-	Filter *Filter
 }
 
 type DescribeIndexStatsResponse struct {
@@ -266,9 +230,13 @@ type DescribeIndexStatsResponse struct {
 	Namespaces       map[string]*NamespaceSummary
 }
 
-func (idx *IndexConnection) DescribeIndexStats(ctx *context.Context, in *DescribeIndexStatsRequest) (*DescribeIndexStatsResponse, error) {
+func (idx *IndexConnection) DescribeIndexStats(ctx *context.Context) (*DescribeIndexStatsResponse, error) {
+	return idx.DescribeIndexStatsFiltered(ctx, nil)
+}
+
+func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx *context.Context, filter *Filter) (*DescribeIndexStatsResponse, error) {
 	req := &data.DescribeIndexStatsRequest{
-		Filter: in.Filter,
+		Filter: filter,
 	}
 	res, err := (*idx.dataClient).DescribeIndexStats(idx.akCtx(*ctx), req)
 	if err != nil {
@@ -302,9 +270,8 @@ func (idx *IndexConnection) query(ctx *context.Context, req *data.QueryRequest) 
 	}
 
 	return &QueryVectorsResponse{
-		Matches:   matches,
-		Namespace: res.Namespace,
-		Usage:     toUsage(res.Usage),
+		Matches: matches,
+		Usage:   toUsage(res.Usage),
 	}, nil
 }
 
