@@ -94,14 +94,39 @@ func (ts *IndexConnectionTests) TestQueryById() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTests) TestDeleteVectors() {
-	req := &DeleteVectorsRequest{
+func (ts *IndexConnectionTests) TestDeleteVectorsById() {
+	req := &DeleteVectorsByIdRequest{
 		Ids:       ts.vectorIds,
 		Namespace: ts.namespace,
 	}
 
 	ctx := context.Background()
-	err := ts.idxConn.DeleteVectors(&ctx, req)
+	err := ts.idxConn.DeleteVectorsById(&ctx, req)
+	assert.NoError(ts.T(), err)
+
+	ts.loadData() //reload deleted data
+}
+
+func (ts *IndexConnectionTests) TestDeleteVectorsByFilter() {
+	req := &DeleteVectorsByFilterRequest{
+		Filter:    &Filter{},
+		Namespace: ts.namespace,
+	}
+
+	ctx := context.Background()
+	err := ts.idxConn.DeleteVectorsByFilter(&ctx, req)
+	assert.NoError(ts.T(), err)
+
+	ts.loadData() //reload deleted data
+}
+
+func (ts *IndexConnectionTests) TestDeleteAllVectorsInNamespace() {
+	req := &DeleteAllVectorsInNamespaceRequest{
+		Namespace: ts.namespace,
+	}
+
+	ctx := context.Background()
+	err := ts.idxConn.DeleteAllVectorsInNamespace(&ctx, req)
 	assert.NoError(ts.T(), err)
 
 	ts.loadData() //reload deleted data
@@ -153,8 +178,7 @@ func (ts *IndexConnectionTests) loadData() {
 
 func (ts *IndexConnectionTests) truncateData() {
 	ctx := context.Background()
-	err := ts.idxConn.DeleteVectors(&ctx, &DeleteVectorsRequest{
-		DeleteAll: true,
+	err := ts.idxConn.DeleteAllVectorsInNamespace(&ctx, &DeleteAllVectorsInNamespaceRequest{
 		Namespace: ts.namespace,
 	})
 	assert.NoError(ts.T(), err)

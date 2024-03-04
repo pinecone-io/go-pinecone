@@ -193,23 +193,45 @@ func (idx *IndexConnection) QueryByVectorId(ctx *context.Context, in *QueryByVec
 	return idx.query(ctx, req)
 }
 
-type DeleteVectorsRequest struct {
+type DeleteVectorsByIdRequest struct {
 	Namespace string
 	Ids       []string
-	Filter    *Filter
-	DeleteAll bool
 }
 
-func (idx *IndexConnection) DeleteVectors(ctx *context.Context, in *DeleteVectorsRequest) error {
+func (idx *IndexConnection) DeleteVectorsById(ctx *context.Context, in *DeleteVectorsByIdRequest) error {
 	req := data.DeleteRequest{
 		Ids:       in.Ids,
-		DeleteAll: in.DeleteAll,
 		Namespace: in.Namespace,
-		Filter:    in.Filter,
 	}
 
-	_, err := (*idx.dataClient).Delete(idx.akCtx(*ctx), &req)
-	return err
+	return idx.delete(ctx, &req)
+}
+
+type DeleteVectorsByFilterRequest struct {
+	Namespace string
+	Filter    *Filter
+}
+
+func (idx *IndexConnection) DeleteVectorsByFilter(ctx *context.Context, in *DeleteVectorsByFilterRequest) error {
+	req := data.DeleteRequest{
+		Filter:    in.Filter,
+		Namespace: in.Namespace,
+	}
+
+	return idx.delete(ctx, &req)
+}
+
+type DeleteAllVectorsInNamespaceRequest struct {
+	Namespace string
+}
+
+func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx *context.Context, in *DeleteAllVectorsInNamespaceRequest) error {
+	req := data.DeleteRequest{
+		Namespace: in.Namespace,
+		DeleteAll: true,
+	}
+
+	return idx.delete(ctx, &req)
 }
 
 type UpdateVectorRequest struct {
@@ -284,6 +306,11 @@ func (idx *IndexConnection) query(ctx *context.Context, req *data.QueryRequest) 
 		Namespace: res.Namespace,
 		Usage:     toUsage(res.Usage),
 	}, nil
+}
+
+func (idx *IndexConnection) delete(ctx *context.Context, req *data.DeleteRequest) error {
+	_, err := (*idx.dataClient).Delete(idx.akCtx(*ctx), req)
+	return err
 }
 
 func toVector(vector *data.Vector) *Vector {
