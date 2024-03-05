@@ -1,14 +1,16 @@
 > **Warning**
 > 
-> **Production use not recommended.** This release is in a pre-alpha state and we have temporarily paused development to concentrate resources on our other clients. The currently supported way to interact with Pinecone from a Golang app is via our public [REST API](https://docs.pinecone.io/reference/create_index).
+> **Under active development** This SDK is pre-1.0 and should be considered unstable. Before a 1.0 release, there are
+> no guarantees of backward compatibility between minor versions.
 
 # go-pinecone
-Pinecone Go Client
+
+Official Pinecone Go Client
 
 ## Features
-go-pinecone contains basic GRPC bindings for all Pinecone vector plane operations: upsert, fetch, query, delete, and info.
+go-pinecone contains gRPC bindings for all Pinecone vector plane operations: list, upsert, fetch, query, delete, and info.
 
-It notably does *not* support Index management (creating, deleting Pinecone indexes) or OpenAPI-based Pinecone APIs. 
+It notably does *not* yet support Index management (creating, deleting Pinecone indexes.) 
 
 ## Installation
 go-pinecone requires a Go version with [modules](https://github.com/golang/go/wiki/Modules) support.
@@ -18,20 +20,25 @@ To add a dependency on go-pinecone:
 go get github.com/pinecone-io/go-pinecone
 ```
 
-## Usage
-See examples/app.go for a usage sample.
-
 ## Support
 To get help using go-pinecone, reach out to support@pinecone.io.
 
 ## Development
-Clone with submodules:
-```
-git clone --recursive git@github.com:pinecone-io/go-pinecone.git
-```
 
-Generate code: `make gen`
+### Prereqs
 
-Run tests: `make test`
+1. A [current version of Go](https://go.dev/doc/install) (recommended 1.21+) 
+2. The [just](https://github.com/casey/just?tab=readme-ov-file#installation) command runner
+3. The [protobuf-compiler](https://grpc.io/docs/protoc-installation/)
 
-View docs: `godoc -http=:6060` then open http://localhost:6060/pkg/github.com/pinecone-io/go-pinecone/pinecone/ (requires installing godoc - https://github.com/golang/tools#downloadinstall)
+Then, execute `just bootstrap` to install the necessary Go packages
+
+### Just commands
+
+`just test` : Executes all tests for the pinecone package
+
+`just gen` : Generates Go client code from the API definitions
+
+`just docs` : Generates Go docs and starts http server on localhost
+
+`just bootstrap` : Installs necessary go packages for gen and docs
