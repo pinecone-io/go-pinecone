@@ -228,6 +228,94 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	return nil
 }
 
+func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
+	res, err := c.restClient.ListCollections(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", res.StatusCode)
+	}
+
+	var collectionsResponse control.CollectionList
+	if err := json.NewDecoder(res.Body).Decode(&collectionsResponse); err != nil {
+		return nil, err
+	}
+
+	var collections []*Collection
+	for _, collectionModel := range *collectionsResponse.Collections {
+		collections = append(collections, toCollection(&collectionModel))
+	}
+
+	return collections, nil
+}
+
+func (c *Client) DescribeCollection(ctx context.Context, collectionName string) (*Collection, error) {
+	res, err := c.restClient.DescribeCollection(ctx, collectionName)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", res.StatusCode)
+	}
+
+	return decodeCollection(res.Body)
+}
+
+type CreateCollectionRequest struct {
+	Name   string
+	Source string
+}
+
+func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionRequest) (*Collection, error) {
+	req := control.CreateCollectionRequest{
+		Name:   in.Name,
+		Source: in.Source,
+	}
+	res, err := c.restClient.CreateCollection(ctx, req)
+
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		var errorResponse control.ErrorResponse
+		err = json.NewDecoder(res.Body).Decode(&errorResponse)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, fmt.Errorf("failed to create collection: %s", errorResponse.Error.Message)
+	}
+
+	return decodeCollection(res.Body)
+}
+
+func (c *Client) DeleteCollection(ctx context.Context, collectionName string) error {
+	res, err := c.restClient.DeleteCollection(ctx, collectionName)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	// Check for successful response, consider successful HTTP codes like 200 or 204 as successful deletion
+	if res.StatusCode != http.StatusAccepted {
+		var errResp control.ErrorResponse
+		err = json.NewDecoder(res.Body).Decode(&errResp)
+		if err != nil {
+			return fmt.Errorf("failed to decode error response: %w", err)
+		}
+		return fmt.Errorf("failed to delete collection '%s': %s", collectionName, errResp.Error.Message)
+	}
+
+	return nil
+}
+
 func toIndex(idx *control.IndexModel) *Index {
 	if idx == nil {
 		return nil
@@ -275,6 +363,30 @@ func decodeIndex(resBody io.ReadCloser) (*Index, error) {
 	}
 
 	return toIndex(&idx), nil
+}
+
+func toCollection(cm *control.CollectionModel) *Collection {
+	if cm == nil {
+		return nil
+	}
+	return &Collection{
+		Name:        cm.Name,
+		Size:        cm.Size,
+		Status:      CollectionStatus(cm.Status),
+		Dimension:   cm.Dimension,
+		VectorCount: cm.VectorCount,
+		Environment: cm.Environment,
+	}
+}
+
+func decodeCollection(resBody io.ReadCloser) (*Collection, error) {
+	var collectionModel control.CollectionModel
+	err := json.NewDecoder(resBody).Decode(&collectionModel)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode collection response: %w", err)
+	}
+
+	return toCollection(&collectionModel), nil
 }
 
 func minOne(x int32) int32 {

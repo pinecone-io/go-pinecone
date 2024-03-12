@@ -50,6 +50,23 @@ type Index struct {
 	Status    *IndexStatus
 }
 
+type Collection struct {
+	Name        string
+	Size        *int64
+	Status      CollectionStatus
+	Dimension   *int32
+	VectorCount *int32
+	Environment string
+}
+
+type CollectionStatus string
+
+const (
+	CollectionStatusInitializing CollectionStatus = "Initializing"
+	CollectionStatusReady        CollectionStatus = "Ready"
+	CollectionStatusTerminating  CollectionStatus = "Terminating"
+)
+
 type PodSpecMetadataConfig struct {
 	Indexed *[]string
 }
