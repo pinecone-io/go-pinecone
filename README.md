@@ -33,6 +33,11 @@ To get help using go-pinecone, reach out to support@pinecone.io.
 
 Then, execute `just bootstrap` to install the necessary Go packages
 
+### .env Setup
+
+To avoid race conditions or having to wait for index creation, the tests require a project with at least one pod index
+and one serverless index. Copy the api key and index names to a `.env` file. See `.env.example` for a template.
+
 ### Just commands
 
 `just test` : Executes all tests for the pinecone package

@@ -2,6 +2,7 @@ package pinecone
 
 import (
 	"context"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -12,6 +13,7 @@ import (
 type IndexConnectionTests struct {
 	suite.Suite
 	host      string
+	dimension int32
 	apiKey    string
 	idxConn   *IndexConnection
 	vectorIds []string
@@ -20,13 +22,30 @@ type IndexConnectionTests struct {
 // Runs the test suite with `go test`
 func TestIndexConnection(t *testing.T) {
 	apiKey := os.Getenv("API_KEY")
+	assert.NotEmptyf(t, apiKey, "API_KEY env variable not set")
 
+	client, err := NewClient(apiKey)
+	if err != nil {
+		t.FailNow()
+	}
+
+	podIndexName := os.Getenv("POD_INDEX_NAME")
+	assert.NotEmptyf(t, podIndexName, "POD_INDEX_NAME env variable not set")
+
+	podIdx, err := client.DescribeIndex(context.Background(), podIndexName)
 	podTestSuite := new(IndexConnectionTests)
-	podTestSuite.host = os.Getenv("POD_INDEX_HOST")
+	podTestSuite.host = podIdx.Host
+	podTestSuite.dimension = podIdx.Dimension
 	podTestSuite.apiKey = apiKey
 
+	serverlessIndexName := os.Getenv("SERVERLESS_INDEX_NAME")
+	assert.NotEmptyf(t, serverlessIndexName, "SERVERLESS_INDEX_NAME env variable not set")
+
+	serverlessIdx, err := client.DescribeIndex(context.Background(), serverlessIndexName)
+
 	serverlessTestSuite := new(IndexConnectionTests)
-	serverlessTestSuite.host = os.Getenv("SERVERLESS_INDEX_HOST")
+	serverlessTestSuite.host = serverlessIdx.Host
+	serverlessTestSuite.dimension = serverlessIdx.Dimension
 	serverlessTestSuite.apiKey = apiKey
 
 	suite.Run(t, podTestSuite)
@@ -62,8 +81,13 @@ func (ts *IndexConnectionTests) TestFetchVectors() {
 }
 
 func (ts *IndexConnectionTests) TestQueryByVector() {
+	vec := make([]float32, ts.dimension)
+	for i := range vec {
+		vec[i] = 0.01
+	}
+
 	req := &QueryByVectorValuesRequest{
-		Vector: []float32{0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01},
+		Vector: vec,
 		TopK:   5,
 	}
 
@@ -134,18 +158,24 @@ func (ts *IndexConnectionTests) TestListVectors() {
 }
 
 func (ts *IndexConnectionTests) loadData() {
-	vectors := []*Vector{
-		&Vector{
-			Id:     "vec-1",
-			Values: []float32{0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01},
-		},
-		&Vector{
-			Id:     "vec-2",
-			Values: []float32{0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02},
-		},
-	}
+	vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
+	vectors := make([]*Vector, len(vals))
+	ts.vectorIds = make([]string, len(vals))
 
-	ts.vectorIds = []string{"vec-1", "vec-2"}
+	for i, val := range vals {
+		vec := make([]float32, ts.dimension)
+		for i := range vec {
+			vec[i] = val
+		}
+
+		id := fmt.Sprintf("vec-%d", i+1)
+		ts.vectorIds[i] = id
+
+		vectors[i] = &Vector{
+			Id:     id,
+			Values: vec,
+		}
+	}
 
 	ctx := context.Background()
 	_, err := ts.idxConn.UpsertVectors(&ctx, vectors)

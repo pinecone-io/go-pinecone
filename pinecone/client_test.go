@@ -3,7 +3,7 @@ package pinecone
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"os"
 	"testing"
@@ -17,19 +17,18 @@ type ClientTests struct {
 }
 
 func TestClient(t *testing.T) {
-	testSuite := new(ClientTests)
-	suite.Run(t, testSuite)
+	suite.Run(t, new(ClientTests))
 }
 
 func (ts *ClientTests) SetupSuite() {
 	apiKey := os.Getenv("API_KEY")
-	assert.NotEmptyf(ts.T(), apiKey, "API_KEY env variable not set")
+	require.NotEmpty(ts.T(), apiKey, "API_KEY env variable not set")
 
 	ts.podIndex = os.Getenv("POD_INDEX_NAME")
-	assert.NotEmptyf(ts.T(), ts.podIndex, "POD_INDEX_NAME env variable not set")
+	require.NotEmpty(ts.T(), ts.podIndex, "POD_INDEX_NAME env variable not set")
 
 	ts.serverlessIndex = os.Getenv("SERVERLESS_INDEX_NAME")
-	assert.NotEmptyf(ts.T(), ts.serverlessIndex, "SERVERLESS_INDEX_NAME env variable not set")
+	require.NotEmpty(ts.T(), ts.serverlessIndex, "SERVERLESS_INDEX_NAME env variable not set")
 
 	client, err := NewClient(apiKey)
 	if err != nil {
@@ -41,12 +40,13 @@ func (ts *ClientTests) SetupSuite() {
 	// named a UUID. Generally not needed as all tests are cleaning up after themselves
 	// Left here as a convenience during active development.
 	//deleteUUIDNamedResources(context.Background(), &ts.client)
+
 }
 
 func (ts *ClientTests) TestListIndexes() {
 	indexes, err := ts.client.ListIndexes(context.Background())
-	ts.Require().NoError(err)
-	ts.Require().NotNil(indexes)
+	require.NoError(ts.T(), err)
+	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
 }
 
 func (ts *ClientTests) TestCreatePodIndex() {
@@ -54,7 +54,7 @@ func (ts *ClientTests) TestCreatePodIndex() {
 
 	defer func(ts *ClientTests, name string) {
 		err := ts.deleteIndex(name)
-		assert.NoError(ts.T(), err)
+		require.NoError(ts.T(), err)
 	}(ts, name)
 
 	idx, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
@@ -64,8 +64,8 @@ func (ts *ClientTests) TestCreatePodIndex() {
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x1",
 	})
-	assert.NoError(ts.T(), err)
-	assert.NotNil(ts.T(), idx)
+	require.NoError(ts.T(), err)
+	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
 }
 
 func (ts *ClientTests) TestCreateServerlessIndex() {
@@ -73,7 +73,7 @@ func (ts *ClientTests) TestCreateServerlessIndex() {
 
 	defer func(ts *ClientTests, name string) {
 		err := ts.deleteIndex(name)
-		assert.NoError(ts.T(), err)
+		require.NoError(ts.T(), err)
 	}(ts, name)
 
 	idx, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
@@ -83,20 +83,20 @@ func (ts *ClientTests) TestCreateServerlessIndex() {
 		Cloud:     Aws,
 		Region:    "us-west-2",
 	})
-	assert.NoError(ts.T(), err)
-	assert.NotNil(ts.T(), idx)
+	require.NoError(ts.T(), err)
+	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
 }
 
 func (ts *ClientTests) TestDescribeServerlessIndex() {
 	index, err := ts.client.DescribeIndex(context.Background(), ts.serverlessIndex)
-	assert.NoError(ts.T(), err)
-	assert.NotNil(ts.T(), index)
+	require.NoError(ts.T(), err)
+	require.Equal(ts.T(), ts.serverlessIndex, index.Name, "Index name does not match")
 }
 
 func (ts *ClientTests) TestDescribePodIndex() {
 	index, err := ts.client.DescribeIndex(context.Background(), ts.podIndex)
-	assert.NoError(ts.T(), err)
-	assert.NotNil(ts.T(), index)
+	require.NoError(ts.T(), err)
+	require.Equal(ts.T(), ts.podIndex, index.Name, "Index name does not match")
 }
 
 func (ts *ClientTests) TestListCollections() {
@@ -111,7 +111,7 @@ func (ts *ClientTests) TestListCollections() {
 	defer func(ts *ClientTests, collectionNames []string) {
 		for _, name := range collectionNames {
 			err := ts.client.DeleteCollection(ctx, name)
-			ts.Require().NoError(err)
+			require.NoError(ts.T(), err, "Error deleting collection")
 		}
 	}(ts, collectionNames)
 
@@ -120,13 +120,13 @@ func (ts *ClientTests) TestListCollections() {
 			Name:   name,
 			Source: ts.podIndex,
 		})
-		ts.Require().NoError(err)
+		require.NoError(ts.T(), err, "Error creating collection")
 	}
 
 	// Call the method under test to list all collections
 	collections, err := ts.client.ListCollections(ctx)
-	ts.Require().NoError(err)
-	ts.Require().NotEmpty(collections)
+	require.NoError(ts.T(), err)
+	require.Greater(ts.T(), len(collections), 2, "Expected at least three collections to exist")
 
 	// Check that the created collections are in the returned list
 	found := 0
@@ -138,49 +138,44 @@ func (ts *ClientTests) TestListCollections() {
 			}
 		}
 	}
-	ts.Require().Equal(len(collectionNames), found, "Not all created collections were listed")
+	require.Equal(ts.T(), len(collectionNames), found, "Not all created collections were listed")
 }
 
 func (ts *ClientTests) TestDescribeCollection() {
 	ctx := context.Background()
 	collectionName := uuid.New().String()
 
-	defer func(ts *ClientTests, ctx context.Context, collectionName string) {
-		err := ts.client.DeleteCollection(ctx, collectionName)
-		ts.Require().NoError(err)
-	}(ts, ctx, collectionName)
+	defer func(client *Client, ctx context.Context, collectionName string) {
+		err := client.DeleteCollection(ctx, collectionName)
+		require.NoError(ts.T(), err)
+	}(&ts.client, ctx, collectionName)
 
 	_, err := ts.client.CreateCollection(ctx, &CreateCollectionRequest{
 		Name:   collectionName,
 		Source: ts.podIndex,
 	})
-	ts.Require().NoError(err)
+	require.NoError(ts.T(), err)
 
 	collection, err := ts.client.DescribeCollection(ctx, collectionName)
-	ts.Require().NoError(err)
-	ts.Require().NotNil(collection)
-	ts.Require().Equal(collectionName, collection.Name)
+	require.NoError(ts.T(), err)
+	require.Equal(ts.T(), collectionName, collection.Name, "Collection name does not match")
 }
 
 func (ts *ClientTests) TestCreateCollection() {
 	name := uuid.New().String()
 	sourceIndex := ts.podIndex
 
-	defer func(client *Client, ctx context.Context, collectionName string) {
-		err := client.DeleteCollection(ctx, collectionName)
-		if err != nil {
-
-		}
-	}(&ts.client, context.Background(), name)
+	defer func() {
+		err := ts.client.DeleteCollection(context.Background(), name)
+		require.NoError(ts.T(), err)
+	}()
 
 	collection, err := ts.client.CreateCollection(context.Background(), &CreateCollectionRequest{
 		Name:   name,
 		Source: sourceIndex,
 	})
-	ts.Require().NoError(err)
-	ts.Require().NotNil(collection)
-
-	ts.Require().Equal(name, collection.Name)
+	require.NoError(ts.T(), err)
+	require.Equal(ts.T(), name, collection.Name, "Collection name does not match")
 }
 
 func (ts *ClientTests) TestDeleteCollection() {
@@ -189,10 +184,10 @@ func (ts *ClientTests) TestDeleteCollection() {
 		Name:   collectionName,
 		Source: ts.podIndex,
 	})
-	ts.Require().NoError(err)
+	require.NoError(ts.T(), err)
 
 	err = ts.client.DeleteCollection(context.Background(), collectionName)
-	ts.Require().NoError(err)
+	require.NoError(ts.T(), err)
 }
 
 func (ts *ClientTests) deleteIndex(name string) error {
