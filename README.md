@@ -38,6 +38,15 @@ Then, execute `just bootstrap` to install the necessary Go packages
 To avoid race conditions or having to wait for index creation, the tests require a project with at least one pod index
 and one serverless index. Copy the api key and index names to a `.env` file. See `.env.example` for a template.
 
+### API Definitions submodule
+
+The API Definitions are in a private submodule. To checkout or update the submodules execute in the root of the project:
+```shell
+git submodule update --init --recursive
+```
+
+For working with submodules, see the [Git Submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules) documentation.
+
 ### Just commands
 
 `just test` : Executes all tests for the pinecone package
