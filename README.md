@@ -8,16 +8,71 @@
 Official Pinecone Go Client
 
 ## Features
-go-pinecone contains gRPC bindings for all Pinecone vector plane operations: list, upsert, fetch, query, delete, and info.
+go-pinecone contains 
 
-It notably does *not* yet support Index management (creating, deleting Pinecone indexes.) 
+* gRPC bindings for Data Plane operations on Vectors
+* REST bindings for Control Plane operations on Indexes and Collections
+
+See [Pinecone API Docs](https://docs.pinecone.io/reference/) for more info.
+ 
 
 ## Installation
 go-pinecone requires a Go version with [modules](https://github.com/golang/go/wiki/Modules) support.
 
 To add a dependency on go-pinecone:
 ```shell
-go get github.com/pinecone-io/go-pinecone
+go get github.com/pinecone-io/go-pinecone/pinecone
+```
+
+## Usage
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+)
+
+func main() {
+	ctx := context.Background()
+
+	pc, err := pinecone.NewClient(pinecone.NewClientParams{
+		ApiKey: "api-key",
+	})
+
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	idxs, err := pc.ListIndexes(ctx)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	for _, index := range idxs {
+		fmt.Println(index)
+	}
+
+	idx, err := pc.Index(idxs[0].Host)
+	defer idx.Close()
+
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	res, err := idx.DescribeIndexStats(&ctx)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	fmt.Println(res)
+}
 ```
 
 ## Support
