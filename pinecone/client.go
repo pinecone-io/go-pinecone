@@ -15,8 +15,12 @@ type Client struct {
 	restClient *control.Client
 }
 
-func NewClient(apiKey string) (*Client, error) {
-	apiKeyProvider, err := securityprovider.NewSecurityProviderApiKey("header", "Api-Key", apiKey)
+type NewClientParams struct {
+	ApiKey string
+}
+
+func NewClient(in NewClientParams) (*Client, error) {
+	apiKeyProvider, err := securityprovider.NewSecurityProviderApiKey("header", "Api-Key", in.ApiKey)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +30,7 @@ func NewClient(apiKey string) (*Client, error) {
 		return nil, err
 	}
 
-	c := Client{apiKey: apiKey, restClient: client}
+	c := Client{apiKey: in.ApiKey, restClient: client}
 	return &c, nil
 }
 

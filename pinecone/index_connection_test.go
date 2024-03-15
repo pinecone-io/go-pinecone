@@ -24,7 +24,7 @@ func TestIndexConnection(t *testing.T) {
 	apiKey := os.Getenv("API_KEY")
 	assert.NotEmptyf(t, apiKey, "API_KEY env variable not set")
 
-	client, err := NewClient(apiKey)
+	client, err := NewClient(NewClientParams{ApiKey: apiKey})
 	if err != nil {
 		t.FailNow()
 	}

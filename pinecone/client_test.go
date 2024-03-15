@@ -30,7 +30,7 @@ func (ts *ClientTests) SetupSuite() {
 	ts.serverlessIndex = os.Getenv("TEST_SERVERLESS_INDEX_NAME")
 	require.NotEmpty(ts.T(), ts.serverlessIndex, "TEST_SERVERLESS_INDEX_NAME env variable not set")
 
-	client, err := NewClient(apiKey)
+	client, err := NewClient(NewClientParams{ApiKey: apiKey})
 	if err != nil {
 		ts.FailNow(err.Error())
 	}
