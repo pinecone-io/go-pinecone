@@ -19,6 +19,6 @@ jobs:
       - name: Run tests
         run: go test ./pinecone
         env:
-          POD_INDEX_NAME: ${{ secrets.POD_INDEX_NAME }}
-          SERVERLESS_INDEX_NAME: ${{ secrets.SERVERLESS_INDEX_NAME }}
+          TEST_POD_INDEX_NAME: ${{ secrets.TEST_POD_INDEX_NAME }}
+          TEST_SERVERLESS_INDEX_NAME: ${{ secrets.TEST_SERVERLESS_INDEX_NAME }}
           API_KEY: ${{ secrets.API_KEY }}

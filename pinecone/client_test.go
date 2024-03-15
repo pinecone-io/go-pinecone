@@ -24,11 +24,11 @@ func (ts *ClientTests) SetupSuite() {
 	apiKey := os.Getenv("API_KEY")
 	require.NotEmpty(ts.T(), apiKey, "API_KEY env variable not set")
 
-	ts.podIndex = os.Getenv("POD_INDEX_NAME")
-	require.NotEmpty(ts.T(), ts.podIndex, "POD_INDEX_NAME env variable not set")
+	ts.podIndex = os.Getenv("TEST_POD_INDEX_NAME")
+	require.NotEmpty(ts.T(), ts.podIndex, "TEST_POD_INDEX_NAME env variable not set")
 
-	ts.serverlessIndex = os.Getenv("SERVERLESS_INDEX_NAME")
-	require.NotEmpty(ts.T(), ts.serverlessIndex, "SERVERLESS_INDEX_NAME env variable not set")
+	ts.serverlessIndex = os.Getenv("TEST_SERVERLESS_INDEX_NAME")
+	require.NotEmpty(ts.T(), ts.serverlessIndex, "TEST_SERVERLESS_INDEX_NAME env variable not set")
 
 	client, err := NewClient(apiKey)
 	if err != nil {

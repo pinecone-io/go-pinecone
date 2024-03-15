@@ -29,8 +29,8 @@ func TestIndexConnection(t *testing.T) {
 		t.FailNow()
 	}
 
-	podIndexName := os.Getenv("POD_INDEX_NAME")
-	assert.NotEmptyf(t, podIndexName, "POD_INDEX_NAME env variable not set")
+	podIndexName := os.Getenv("TEST_POD_INDEX_NAME")
+	assert.NotEmptyf(t, podIndexName, "TEST_POD_INDEX_NAME env variable not set")
 
 	podIdx, err := client.DescribeIndex(context.Background(), podIndexName)
 	podTestSuite := new(IndexConnectionTests)
@@ -38,8 +38,8 @@ func TestIndexConnection(t *testing.T) {
 	podTestSuite.dimension = podIdx.Dimension
 	podTestSuite.apiKey = apiKey
 
-	serverlessIndexName := os.Getenv("SERVERLESS_INDEX_NAME")
-	assert.NotEmptyf(t, serverlessIndexName, "SERVERLESS_INDEX_NAME env variable not set")
+	serverlessIndexName := os.Getenv("TEST_SERVERLESS_INDEX_NAME")
+	assert.NotEmptyf(t, serverlessIndexName, "TEST_SERVERLESS_INDEX_NAME env variable not set")
 
 	serverlessIdx, err := client.DescribeIndex(context.Background(), serverlessIndexName)
 
