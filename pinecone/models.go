@@ -1,6 +1,9 @@
 package pinecone
 
-import "google.golang.org/protobuf/types/known/structpb"
+import (
+	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/structpb"
+)
 
 type IndexMetric string
 
@@ -113,3 +116,8 @@ type Usage struct {
 
 type Filter = structpb.Struct
 type Metadata = structpb.Struct
+
+type Project struct {
+	Id   uuid.UUID
+	Name string
+}
