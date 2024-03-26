@@ -2,7 +2,6 @@ package useragent
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 )
 
@@ -31,8 +30,13 @@ func buildSourceTagField(userAgent string) string {
 	userAgent = strings.ToLower(userAgent)
 
 	// Limit charset to [a-z0-9_ ]
-	re := regexp.MustCompile(`[^a-z0-9_ ]`)
-	userAgent = re.ReplaceAllString(userAgent, "")
+	var strBldr strings.Builder
+	for _, char := range userAgent {
+		if (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char == '_' || char == ' ' {
+			strBldr.WriteRune(char)
+		}
+	}
+	userAgent = strBldr.String()
 
 	// Trim left/right whitespace
 	userAgent = strings.TrimSpace(userAgent)
