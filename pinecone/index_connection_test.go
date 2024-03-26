@@ -59,7 +59,7 @@ func (ts *IndexConnectionTests) SetupSuite() {
 	namespace, err := uuid.NewV7()
 	assert.NoError(ts.T(), err)
 
-	idxConn, err := newIndexConnection(ts.apiKey, ts.host, namespace.String())
+	idxConn, err := newIndexConnection(ts.apiKey, ts.host, namespace.String(), "")
 	assert.NoError(ts.T(), err)
 	ts.idxConn = idxConn
 
