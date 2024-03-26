@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/deepmap/oapi-codegen/v2/pkg/securityprovider"
 	"github.com/pinecone-io/go-pinecone/internal/gen/control"
+	"github.com/pinecone-io/go-pinecone/internal/util"
 	"io"
 	"net/http"
 )
@@ -13,10 +14,26 @@ import (
 type Client struct {
 	apiKey     string
 	restClient *control.Client
+	sourceTag  string
+}
+
+type CustomHeader struct {
+	userAgent string
+}
+
+func NewUserAgentProvider(userAgent string) *CustomHeader {
+	return &CustomHeader{userAgent: userAgent}
+}
+
+func (s *CustomHeader) Intercept(ctx context.Context, req *http.Request) error {
+	req.Header.Set("User-Agent", s.userAgent)
+	return nil
 }
 
 type NewClientParams struct {
 	ApiKey string
+	// optional fields
+	SourceTag  string
 }
 
 func NewClient(in NewClientParams) (*Client, error) {
@@ -25,12 +42,17 @@ func NewClient(in NewClientParams) (*Client, error) {
 		return nil, err
 	}
 
-	client, err := control.NewClient("https://api.pinecone.io", control.WithRequestEditorFn(apiKeyProvider.Intercept))
+	userAgentProvider := NewUserAgentProvider(util.BuildUserAgent(in.SourceTag))
+
+	client, err := control.NewClient("https://api.pinecone.io",
+		control.WithRequestEditorFn(apiKeyProvider.Intercept),
+		control.WithRequestEditorFn(userAgentProvider.Intercept),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	c := Client{apiKey: in.ApiKey, restClient: client}
+	c := Client{apiKey: in.ApiKey, restClient: client, sourceTag: in.SourceTag}
 	return &c, nil
 }
 
@@ -39,7 +61,7 @@ func (c *Client) Index(host string) (*IndexConnection, error) {
 }
 
 func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnection, error) {
-	idx, err := newIndexConnection(c.apiKey, host, namespace)
+	idx, err := newIndexConnection(c.apiKey, host, namespace, c.sourceTag)
 	if err != nil {
 		return nil, err
 	}
