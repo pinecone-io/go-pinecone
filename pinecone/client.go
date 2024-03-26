@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"github.com/deepmap/oapi-codegen/v2/pkg/securityprovider"
 	"github.com/pinecone-io/go-pinecone/internal/gen/control"
-	"github.com/pinecone-io/go-pinecone/internal/util"
+	"github.com/pinecone-io/go-pinecone/internal/provider"
+	"github.com/pinecone-io/go-pinecone/internal/useragent"
 	"io"
 	"net/http"
 )
@@ -17,23 +18,10 @@ type Client struct {
 	sourceTag  string
 }
 
-type CustomHeader struct {
-	userAgent string
-}
-
-func NewUserAgentProvider(userAgent string) *CustomHeader {
-	return &CustomHeader{userAgent: userAgent}
-}
-
-func (s *CustomHeader) Intercept(ctx context.Context, req *http.Request) error {
-	req.Header.Set("User-Agent", s.userAgent)
-	return nil
-}
-
 type NewClientParams struct {
 	ApiKey string
 	// optional fields
-	SourceTag  string
+	SourceTag string
 }
 
 func NewClient(in NewClientParams) (*Client, error) {
@@ -42,7 +30,7 @@ func NewClient(in NewClientParams) (*Client, error) {
 		return nil, err
 	}
 
-	userAgentProvider := NewUserAgentProvider(util.BuildUserAgent(in.SourceTag))
+	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
 
 	client, err := control.NewClient("https://api.pinecone.io",
 		control.WithRequestEditorFn(apiKeyProvider.Intercept),

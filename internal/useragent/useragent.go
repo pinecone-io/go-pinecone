@@ -1,4 +1,4 @@
-package util
+package useragent
 
 import (
 	"fmt"

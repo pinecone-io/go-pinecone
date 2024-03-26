@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/pinecone-io/go-pinecone/internal/gen/data"
-	"github.com/pinecone-io/go-pinecone/internal/util"
+	"github.com/pinecone-io/go-pinecone/internal/useragent"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -27,7 +27,7 @@ func newIndexConnection(apiKey string, host string, namespace string, sourceTag 
 		grpc.WithTransportCredentials(credentials.NewTLS(config)),
 		grpc.WithAuthority(target),
 		grpc.WithBlock(),
-		grpc.WithUserAgent(util.BuildUserAgentGRPC(sourceTag)),
+		grpc.WithUserAgent(useragent.BuildUserAgentGRPC(sourceTag)),
 	)
 
 	if err != nil {
