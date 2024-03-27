@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/pinecone-io/go-pinecone/internal/gen/data"
+	"github.com/pinecone-io/go-pinecone/internal/useragent"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -18,7 +19,7 @@ type IndexConnection struct {
 	grpcConn   *grpc.ClientConn
 }
 
-func newIndexConnection(apiKey string, host string, namespace string) (*IndexConnection, error) {
+func newIndexConnection(apiKey string, host string, namespace string, sourceTag string) (*IndexConnection, error) {
 	config := &tls.Config{}
 	target := fmt.Sprintf("%s:443", host)
 	conn, err := grpc.Dial(
@@ -26,6 +27,7 @@ func newIndexConnection(apiKey string, host string, namespace string) (*IndexCon
 		grpc.WithTransportCredentials(credentials.NewTLS(config)),
 		grpc.WithAuthority(target),
 		grpc.WithBlock(),
+		grpc.WithUserAgent(useragent.BuildUserAgentGRPC(sourceTag)),
 	)
 
 	if err != nil {

@@ -2,16 +2,20 @@ package pinecone
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"testing"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"os"
-	"testing"
 )
 
 type ClientTests struct {
 	suite.Suite
 	client          Client
+	clientSourceTag Client
+	sourceTag       string
 	podIndex        string
 	serverlessIndex string
 }
@@ -36,6 +40,13 @@ func (ts *ClientTests) SetupSuite() {
 	}
 	ts.client = *client
 
+	ts.sourceTag = "test_source_tag"
+	clientSourceTag, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: ts.sourceTag})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	ts.clientSourceTag = *clientSourceTag
+
 	// this will clean up the project deleting all indexes and collections that are
 	// named a UUID. Generally not needed as all tests are cleaning up after themselves
 	// Left here as a convenience during active development.
@@ -43,8 +54,49 @@ func (ts *ClientTests) SetupSuite() {
 
 }
 
+func (ts *ClientTests) TestNewClientParamsSet() {
+	apiKey := "test-api-key"
+	client, err := NewClient(NewClientParams{ApiKey: apiKey})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	if client.apiKey != apiKey {
+		ts.FailNow(fmt.Sprintf("Expected client to have apiKey '%s', but got '%s'", apiKey, client.apiKey))
+	}
+	if client.sourceTag != "" {
+		ts.FailNow(fmt.Sprintf("Expected client to have empty sourceTag, but got '%s'", client.sourceTag))
+	}
+	if len(client.restClient.RequestEditors) != 2 {
+		ts.FailNow("Expected 2 request editors on client")
+	}
+}
+
+func (ts *ClientTests) TestNewClientParamsSetSourceTag() {
+	apiKey := "test-api-key"
+	sourceTag := "test-source-tag"
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: sourceTag})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	if client.apiKey != apiKey {
+		ts.FailNow(fmt.Sprintf("Expected client to have apiKey '%s', but got '%s'", apiKey, client.apiKey))
+	}
+	if client.sourceTag != sourceTag {
+		ts.FailNow(fmt.Sprintf("Expected client to have sourceTag '%s', but got '%s'", sourceTag, client.sourceTag))
+	}
+	if len(client.restClient.RequestEditors) != 2 {
+		ts.FailNow("Expected 2 request editors on client")
+	}
+}
+
 func (ts *ClientTests) TestListIndexes() {
 	indexes, err := ts.client.ListIndexes(context.Background())
+	require.NoError(ts.T(), err)
+	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
+}
+
+func (ts *ClientTests) TestListIndexesSourceTag() {
+	indexes, err := ts.clientSourceTag.ListIndexes(context.Background())
 	require.NoError(ts.T(), err)
 	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
 }
@@ -93,8 +145,20 @@ func (ts *ClientTests) TestDescribeServerlessIndex() {
 	require.Equal(ts.T(), ts.serverlessIndex, index.Name, "Index name does not match")
 }
 
+func (ts *ClientTests) TestDescribeServerlessIndexSourceTag() {
+	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.serverlessIndex)
+	require.NoError(ts.T(), err)
+	require.Equal(ts.T(), ts.serverlessIndex, index.Name, "Index name does not match")
+}
+
 func (ts *ClientTests) TestDescribePodIndex() {
 	index, err := ts.client.DescribeIndex(context.Background(), ts.podIndex)
+	require.NoError(ts.T(), err)
+	require.Equal(ts.T(), ts.podIndex, index.Name, "Index name does not match")
+}
+
+func (ts *ClientTests) TestDescribePodIndexSourceTag() {
+	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.podIndex)
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), ts.podIndex, index.Name, "Index name does not match")
 }

@@ -12,11 +12,13 @@ import (
 
 type IndexConnectionTests struct {
 	suite.Suite
-	host      string
-	dimension int32
-	apiKey    string
-	idxConn   *IndexConnection
-	vectorIds []string
+	host             string
+	dimension        int32
+	apiKey           string
+	idxConn          *IndexConnection
+	sourceTag        string
+	idxConnSourceTag *IndexConnection
+	vectorIds        []string
 }
 
 // Runs the test suite with `go test`
@@ -59,9 +61,14 @@ func (ts *IndexConnectionTests) SetupSuite() {
 	namespace, err := uuid.NewV7()
 	assert.NoError(ts.T(), err)
 
-	idxConn, err := newIndexConnection(ts.apiKey, ts.host, namespace.String())
+	idxConn, err := newIndexConnection(ts.apiKey, ts.host, namespace.String(), "")
 	assert.NoError(ts.T(), err)
 	ts.idxConn = idxConn
+
+	ts.sourceTag = "test_source_tag"
+	idxConnSourceTag, err := newIndexConnection(ts.apiKey, ts.host, namespace.String(), ts.sourceTag)
+	assert.NoError(ts.T(), err)
+	ts.idxConnSourceTag = idxConnSourceTag
 
 	ts.loadData()
 }
@@ -73,9 +80,58 @@ func (ts *IndexConnectionTests) TearDownSuite() {
 	assert.NoError(ts.T(), err)
 }
 
+func (ts *IndexConnectionTests) TestNewIndexConnection() {
+	apiKey := "test-api-key"
+	namespace := ""
+	sourceTag := ""
+	idxConn, err := newIndexConnection(apiKey, ts.host, namespace, sourceTag)
+	assert.NoError(ts.T(), err)
+
+	if idxConn.apiKey != apiKey {
+		ts.FailNow(fmt.Sprintf("Expected idxConn to have apiKey '%s', but got '%s'", apiKey, idxConn.apiKey))
+	}
+	if idxConn.Namespace != "" {
+		ts.FailNow(fmt.Sprintf("Expected idxConn to have empty namespace, but got '%s'", idxConn.Namespace))
+	}
+	if idxConn.dataClient == nil {
+		ts.FailNow("Expected idxConn to have non-nil dataClient")
+	}
+	if idxConn.grpcConn == nil {
+		ts.FailNow("Expected idxConn to have non-nil grpcConn")
+	}
+}
+
+func (ts *IndexConnectionTests) TestNewIndexConnectionNamespace() {
+	apiKey := "test-api-key"
+	namespace := "test-namespace"
+	sourceTag := "test-source-tag"
+	idxConn, err := newIndexConnection(apiKey, ts.host, namespace, sourceTag)
+	assert.NoError(ts.T(), err)
+
+	if idxConn.apiKey != apiKey {
+		ts.FailNow(fmt.Sprintf("Expected idxConn to have apiKey '%s', but got '%s'", apiKey, idxConn.apiKey))
+	}
+	if idxConn.Namespace != namespace {
+		ts.FailNow(fmt.Sprintf("Expected idxConn to have namespace '%s', but got '%s'", namespace, idxConn.Namespace))
+	}
+	if idxConn.dataClient == nil {
+		ts.FailNow("Expected idxConn to have non-nil dataClient")
+	}
+	if idxConn.grpcConn == nil {
+		ts.FailNow("Expected idxConn to have non-nil grpcConn")
+	}
+}
+
 func (ts *IndexConnectionTests) TestFetchVectors() {
 	ctx := context.Background()
 	res, err := ts.idxConn.FetchVectors(&ctx, ts.vectorIds)
+	assert.NoError(ts.T(), err)
+	assert.NotNil(ts.T(), res)
+}
+
+func (ts *IndexConnectionTests) TestFetchVectorsSourceTag() {
+	ctx := context.Background()
+	res, err := ts.idxConnSourceTag.FetchVectors(&ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
@@ -97,6 +153,23 @@ func (ts *IndexConnectionTests) TestQueryByVector() {
 	assert.NotNil(ts.T(), res)
 }
 
+func (ts *IndexConnectionTests) TestQueryByVectorSourceTag() {
+	vec := make([]float32, ts.dimension)
+	for i := range vec {
+		vec[i] = 0.01
+	}
+
+	req := &QueryByVectorValuesRequest{
+		Vector: vec,
+		TopK:   5,
+	}
+
+	ctx := context.Background()
+	res, err := ts.idxConnSourceTag.QueryByVectorValues(&ctx, req)
+	assert.NoError(ts.T(), err)
+	assert.NotNil(ts.T(), res)
+}
+
 func (ts *IndexConnectionTests) TestQueryById() {
 	req := &QueryByVectorIdRequest{
 		VectorId: ts.vectorIds[0],
@@ -105,6 +178,18 @@ func (ts *IndexConnectionTests) TestQueryById() {
 
 	ctx := context.Background()
 	res, err := ts.idxConn.QueryByVectorId(&ctx, req)
+	assert.NoError(ts.T(), err)
+	assert.NotNil(ts.T(), res)
+}
+
+func (ts *IndexConnectionTests) TestQueryByIdSourceTag() {
+	req := &QueryByVectorIdRequest{
+		VectorId: ts.vectorIds[0],
+		TopK:     5,
+	}
+
+	ctx := context.Background()
+	res, err := ts.idxConnSourceTag.QueryByVectorId(&ctx, req)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
@@ -179,6 +264,31 @@ func (ts *IndexConnectionTests) loadData() {
 
 	ctx := context.Background()
 	_, err := ts.idxConn.UpsertVectors(&ctx, vectors)
+	assert.NoError(ts.T(), err)
+}
+
+func (ts *IndexConnectionTests) loadDataSourceTag() {
+	vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
+	vectors := make([]*Vector, len(vals))
+	ts.vectorIds = make([]string, len(vals))
+
+	for i, val := range vals {
+		vec := make([]float32, ts.dimension)
+		for i := range vec {
+			vec[i] = val
+		}
+
+		id := fmt.Sprintf("vec-%d", i+1)
+		ts.vectorIds[i] = id
+
+		vectors[i] = &Vector{
+			Id:     id,
+			Values: vec,
+		}
+	}
+
+	ctx := context.Background()
+	_, err := ts.idxConnSourceTag.UpsertVectors(&ctx, vectors)
 	assert.NoError(ts.T(), err)
 }
 
