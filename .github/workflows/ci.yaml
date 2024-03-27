@@ -3,6 +3,7 @@ on:
   pull_request:
     branches:
       - main
+      - alpha
 
 jobs:
   build:
@@ -22,3 +23,4 @@ jobs:
           TEST_POD_INDEX_NAME: ${{ secrets.TEST_POD_INDEX_NAME }}
           TEST_SERVERLESS_INDEX_NAME: ${{ secrets.TEST_SERVERLESS_INDEX_NAME }}
           API_KEY: ${{ secrets.API_KEY }}
+          ORG_API_KEY: ${{ secrets.ORG_API_KEY }}

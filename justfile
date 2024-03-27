@@ -12,6 +12,7 @@ bootstrap:
 gen:
   protoc --experimental_allow_proto3_optional --proto_path=apis/proto --go_opt=module="github.com/pinecone-io/go-pinecone" --go-grpc_opt=module="github.com/pinecone-io/go-pinecone" --go_out=. --go-grpc_out=. apis/proto/pinecone/data/v1/vector_service.proto
   oapi-codegen --package=control --generate types,client apis/openapi/control/v1/control_v1.yaml > internal/gen/control/control_plane.oas.go
+  oapi-codegen --package=management --generate types,client apis/openapi/management/v1/management_v1alpha.yaml > internal/gen/management/management_plane.oas.go
 docs:
   @echo "Serving docs at http://localhost:6060/pkg/github.com/pinecone-io/go-pinecone/pinecone/"
   @godoc -http=:6060 >/dev/null
