@@ -2,11 +2,13 @@ package pinecone
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"testing"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"os"
-	"testing"
 )
 
 type ClientTests struct {
@@ -50,6 +52,41 @@ func (ts *ClientTests) SetupSuite() {
 	// Left here as a convenience during active development.
 	//deleteUUIDNamedResources(context.Background(), &ts.client)
 
+}
+
+func (ts *ClientTests) TestNewClientParamsSet() {
+	apiKey := "test-api-key"
+	client, err := NewClient(NewClientParams{ApiKey: apiKey})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	if client.apiKey != apiKey {
+		ts.FailNow(fmt.Sprintf("Expected client to have apiKey '%s', but got '%s'", apiKey, client.apiKey))
+	}
+	if client.sourceTag != "" {
+		ts.FailNow(fmt.Sprintf("Expected client to have empty sourceTag, but got '%s'", client.sourceTag))
+	}
+	if len(client.restClient.RequestEditors) != 2 {
+		ts.FailNow("Expected 2 request editors on client")
+	}
+}
+
+func (ts *ClientTests) TestNewClientParamsSetSourceTag() {
+	apiKey := "test-api-key"
+	sourceTag := "test-source-tag"
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: sourceTag})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	if client.apiKey != apiKey {
+		ts.FailNow(fmt.Sprintf("Expected client to have apiKey '%s', but got '%s'", apiKey, client.apiKey))
+	}
+	if client.sourceTag != sourceTag {
+		ts.FailNow(fmt.Sprintf("Expected client to have sourceTag '%s', but got '%s'", sourceTag, client.sourceTag))
+	}
+	if len(client.restClient.RequestEditors) != 2 {
+		ts.FailNow("Expected 2 request editors on client")
+	}
 }
 
 func (ts *ClientTests) TestListIndexes() {

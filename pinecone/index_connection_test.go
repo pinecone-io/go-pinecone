@@ -80,6 +80,48 @@ func (ts *IndexConnectionTests) TearDownSuite() {
 	assert.NoError(ts.T(), err)
 }
 
+func (ts *IndexConnectionTests) TestNewIndexConnection() {
+	apiKey := "test-api-key"
+	namespace := ""
+	sourceTag := ""
+	idxConn, err := newIndexConnection(apiKey, ts.host, namespace, sourceTag)
+	assert.NoError(ts.T(), err)
+
+	if idxConn.apiKey != apiKey {
+		ts.FailNow(fmt.Sprintf("Expected idxConn to have apiKey '%s', but got '%s'", apiKey, idxConn.apiKey))
+	}
+	if idxConn.Namespace != "" {
+		ts.FailNow(fmt.Sprintf("Expected idxConn to have empty namespace, but got '%s'", idxConn.Namespace))
+	}
+	if idxConn.dataClient == nil {
+		ts.FailNow("Expected idxConn to have non-nil dataClient")
+	}
+	if idxConn.grpcConn == nil {
+		ts.FailNow("Expected idxConn to have non-nil grpcConn")
+	}
+}
+
+func (ts *IndexConnectionTests) TestNewIndexConnectionNamespace() {
+	apiKey := "test-api-key"
+	namespace := "test-namespace"
+	sourceTag := "test-source-tag"
+	idxConn, err := newIndexConnection(apiKey, ts.host, namespace, sourceTag)
+	assert.NoError(ts.T(), err)
+
+	if idxConn.apiKey != apiKey {
+		ts.FailNow(fmt.Sprintf("Expected idxConn to have apiKey '%s', but got '%s'", apiKey, idxConn.apiKey))
+	}
+	if idxConn.Namespace != namespace {
+		ts.FailNow(fmt.Sprintf("Expected idxConn to have namespace '%s', but got '%s'", namespace, idxConn.Namespace))
+	}
+	if idxConn.dataClient == nil {
+		ts.FailNow("Expected idxConn to have non-nil dataClient")
+	}
+	if idxConn.grpcConn == nil {
+		ts.FailNow("Expected idxConn to have non-nil grpcConn")
+	}
+}
+
 func (ts *IndexConnectionTests) TestFetchVectors() {
 	ctx := context.Background()
 	res, err := ts.idxConn.FetchVectors(&ctx, ts.vectorIds)
