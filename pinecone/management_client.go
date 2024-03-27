@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/deepmap/oapi-codegen/v2/pkg/securityprovider"
+	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/internal/gen/management"
+	"net/http"
 )
 
 // ManagementClient provides a high-level interface for interacting with the
@@ -144,12 +146,57 @@ func (c *ManagementClient) ListProjects(ctx context.Context) ([]*Project, error)
 	}
 
 	projectList := make([]*Project, len(*res.JSON200.Data))
-	for _, p := range *res.JSON200.Data {
+	for i, p := range *res.JSON200.Data {
 		project := Project{
 			Id:   p.Id,
 			Name: p.Name,
 		}
-		projectList = append(projectList, &project)
+		projectList[i] = &project
 	}
 	return projectList, nil
+}
+
+// FetchProject retrieves a project by its ID from the management API. It makes a call to the
+// management plane's FetchProject endpoint and returns the project details.
+//
+// Parameters:
+// - ctx: A context.Context to control the request's lifetime.
+// - projectId: A string representing the unique identifier of the project to retrieve.
+//
+// Returns the project details on success or an error if the operation fails. Possible errors
+// include unauthorized access, project not found, internal server errors, or other HTTP client
+// errors.
+//
+// Example:
+//
+//	project, err := managementClient.FetchProject(ctx, "your_project_id_here")
+//	if err != nil {
+//	    log.Fatalf("Failed to fetch project: %v", err)
+//	}
+//	fmt.Printf("Project ID: %s, Name: %s\n", project.Id, project.Name)
+func (c *ManagementClient) FetchProject(ctx context.Context, projectId uuid.UUID) (*Project, error) {
+	resp, err := c.restClient.FetchProjectWithResponse(ctx, projectId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch project: %w", err)
+	}
+
+	switch resp.StatusCode() {
+	case http.StatusOK:
+		if resp.JSON200 != nil {
+			return &Project{
+				Id:   resp.JSON200.Id,
+				Name: resp.JSON200.Name,
+			}, nil
+		}
+	case http.StatusUnauthorized:
+		return nil, fmt.Errorf("unauthorized: %v", resp.JSON401)
+	case http.StatusNotFound:
+		return nil, fmt.Errorf("project not found: %v", resp.JSON404)
+	case http.StatusInternalServerError:
+		return nil, fmt.Errorf("internal server error: %v", resp.JSON500)
+	default:
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+	}
+
+	return nil, fmt.Errorf("unexpected response format or empty data")
 }
