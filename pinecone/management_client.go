@@ -200,3 +200,86 @@ func (c *ManagementClient) FetchProject(ctx context.Context, projectId uuid.UUID
 
 	return nil, fmt.Errorf("unexpected response format or empty data")
 }
+
+// CreateProject creates a new project in the management API. It sends a request to the
+// management plane's CreateProject endpoint with the project details.
+//
+// Parameters:
+// - ctx: A context.Context to control the request's lifetime.
+// - projectName: A string representing the name of the project to create.
+//
+// Returns the created project's details on success or an error if the creation fails.
+// Possible errors include unauthorized access, validation errors, internal server errors,
+// or other HTTP client errors.
+//
+// Example:
+//
+//	project, err := managementClient.CreateProject(ctx, "New Project Name")
+//	if err != nil {
+//	    log.Fatalf("Failed to create project: %v", err)
+//	}
+//	fmt.Printf("Created Project ID: %s, Name: %s\n", project.Id, project.Name)
+func (c *ManagementClient) CreateProject(ctx context.Context, projectName string) (*Project, error) {
+	body := management.CreateProjectJSONRequestBody{
+		Name: projectName,
+	}
+
+	resp, err := c.restClient.CreateProjectWithResponse(ctx, body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project: %w", err)
+	}
+
+	switch resp.StatusCode() {
+	case http.StatusCreated:
+		if resp.JSON201 != nil {
+			return &Project{
+				Id:   resp.JSON201.Id,
+				Name: resp.JSON201.Name,
+			}, nil
+		}
+	case http.StatusUnauthorized:
+		return nil, fmt.Errorf("unauthorized: %v", resp.JSON401)
+	case http.StatusBadRequest:
+		return nil, fmt.Errorf("bad request: %v", resp.JSON400)
+	default:
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+	}
+
+	return nil, fmt.Errorf("unexpected response format or empty data")
+}
+
+// DeleteProject deletes a project by its ID from the management API. It makes a call to the
+// management plane's DeleteProject endpoint.
+//
+// Parameters:
+// - ctx: A context.Context to control the request's lifetime.
+// - projectId: A string representing the unique identifier of the project to delete.
+//
+// Returns an error if the deletion fails. Possible errors include unauthorized access,
+// project not found, internal server errors, or other HTTP client errors.
+//
+// Example:
+//
+//	err := managementClient.DeleteProject(ctx, "your_project_id_here")
+//	if err != nil {
+//	    log.Fatalf("Failed to delete project: %v", err)
+//	}
+func (c *ManagementClient) DeleteProject(ctx context.Context, projectId uuid.UUID) error {
+	resp, err := c.restClient.DeleteProjectWithResponse(ctx, projectId)
+	if err != nil {
+		return fmt.Errorf("failed to delete project: %w", err)
+	}
+
+	switch resp.StatusCode() {
+	case http.StatusOK, http.StatusAccepted, http.StatusNoContent:
+		return nil // Success case
+	case http.StatusUnauthorized:
+		return fmt.Errorf("unauthorized: %v", resp.JSON401)
+	case http.StatusNotFound:
+		return fmt.Errorf("project not found: %v", resp.JSON404)
+	case http.StatusInternalServerError:
+		return fmt.Errorf("internal server error: %v", resp.JSON500)
+	default:
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+	}
+}
