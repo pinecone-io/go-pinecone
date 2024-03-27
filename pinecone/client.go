@@ -19,9 +19,8 @@ type Client struct {
 }
 
 type NewClientParams struct {
-	ApiKey string
-	// optional fields
-	SourceTag string
+	ApiKey    string
+	SourceTag string // optional
 }
 
 func NewClient(in NewClientParams) (*Client, error) {
