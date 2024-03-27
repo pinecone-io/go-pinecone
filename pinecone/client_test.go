@@ -12,6 +12,8 @@ import (
 type ClientTests struct {
 	suite.Suite
 	client          Client
+	clientSourceTag Client
+	sourceTag       string
 	podIndex        string
 	serverlessIndex string
 }
@@ -36,6 +38,13 @@ func (ts *ClientTests) SetupSuite() {
 	}
 	ts.client = *client
 
+	ts.sourceTag = "test_source_tag"
+	clientSourceTag, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: ts.sourceTag})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	ts.clientSourceTag = *clientSourceTag
+
 	// this will clean up the project deleting all indexes and collections that are
 	// named a UUID. Generally not needed as all tests are cleaning up after themselves
 	// Left here as a convenience during active development.
@@ -45,6 +54,12 @@ func (ts *ClientTests) SetupSuite() {
 
 func (ts *ClientTests) TestListIndexes() {
 	indexes, err := ts.client.ListIndexes(context.Background())
+	require.NoError(ts.T(), err)
+	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
+}
+
+func (ts *ClientTests) TestListIndexesSourceTag() {
+	indexes, err := ts.clientSourceTag.ListIndexes(context.Background())
 	require.NoError(ts.T(), err)
 	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
 }
@@ -93,8 +108,20 @@ func (ts *ClientTests) TestDescribeServerlessIndex() {
 	require.Equal(ts.T(), ts.serverlessIndex, index.Name, "Index name does not match")
 }
 
+func (ts *ClientTests) TestDescribeServerlessIndexSourceTag() {
+	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.serverlessIndex)
+	require.NoError(ts.T(), err)
+	require.Equal(ts.T(), ts.serverlessIndex, index.Name, "Index name does not match")
+}
+
 func (ts *ClientTests) TestDescribePodIndex() {
 	index, err := ts.client.DescribeIndex(context.Background(), ts.podIndex)
+	require.NoError(ts.T(), err)
+	require.Equal(ts.T(), ts.podIndex, index.Name, "Index name does not match")
+}
+
+func (ts *ClientTests) TestDescribePodIndexSourceTag() {
+	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.podIndex)
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), ts.podIndex, index.Name, "Index name does not match")
 }
