@@ -5,6 +5,11 @@ import (
 	"strings"
 )
 
+func getPackageVersion() string {
+	// update at release time
+	return "v0.5.0-pre"
+}
+
 func BuildUserAgent(sourceTag string) string {
 	return buildUserAgent("go-client", sourceTag)
 }
@@ -14,8 +19,7 @@ func BuildUserAgentGRPC(sourceTag string) string {
 }
 
 func buildUserAgent(appName string, sourceTag string) string {
-	// need to set to actual current version
-	appVersion := "0.0.1"
+	appVersion := getPackageVersion()
 
 	sourceTagInfo := ""
 	if sourceTag != "" {

@@ -1,13 +1,14 @@
 package useragent
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
 
 func TestBuildUserAgentNoSourceTag(t *testing.T) {
 	sourceTag := ""
-	expectedStartWith := "go-client/"
+	expectedStartWith := fmt.Sprintf("go-client/%s", getPackageVersion())
 	result := BuildUserAgent(sourceTag)
 	if !strings.HasPrefix(result, expectedStartWith) {
 		t.Errorf("BuildUserAgent(): expected user-agent to start with %s, but got %s", expectedStartWith, result)
@@ -19,7 +20,7 @@ func TestBuildUserAgentNoSourceTag(t *testing.T) {
 
 func TestBuildUserAgentWithSourceTag(t *testing.T) {
 	sourceTag := "my_source_tag"
-	expectedStartWith := "go-client/"
+	expectedStartWith := fmt.Sprintf("go-client/%s", getPackageVersion())
 	result := BuildUserAgent(sourceTag)
 	if !strings.HasPrefix(result, expectedStartWith) {
 		t.Errorf("BuildUserAgent(): expected user-agent to start with %s, but got %s", expectedStartWith, result)
@@ -31,7 +32,7 @@ func TestBuildUserAgentWithSourceTag(t *testing.T) {
 
 func TestBuildUserAgentGRPCNoSourceTag(t *testing.T) {
 	sourceTag := ""
-	expectedStartWith := "go-client[grpc]/"
+	expectedStartWith := fmt.Sprintf("go-client[grpc]/%s", getPackageVersion())
 	result := BuildUserAgentGRPC(sourceTag)
 	if !strings.HasPrefix(result, expectedStartWith) {
 		t.Errorf("BuildUserAgent(): expected user-agent to start with %s, but got %s", expectedStartWith, result)
@@ -43,7 +44,7 @@ func TestBuildUserAgentGRPCNoSourceTag(t *testing.T) {
 
 func TestBuildUserAgentGRPCWithSourceTag(t *testing.T) {
 	sourceTag := "my_source_tag"
-	expectedStartWith := "go-client[grpc]/"
+	expectedStartWith := fmt.Sprintf("go-client[grpc]/%s", getPackageVersion())
 	result := BuildUserAgentGRPC(sourceTag)
 	if !strings.HasPrefix(result, expectedStartWith) {
 		t.Errorf("BuildUserAgent(): expected user-agent to start with %s, but got %s", expectedStartWith, result)
