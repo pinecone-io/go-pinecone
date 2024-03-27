@@ -283,3 +283,206 @@ func (c *ManagementClient) DeleteProject(ctx context.Context, projectId uuid.UUI
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode())
 	}
 }
+
+// ListApiKeys retrieves all API keys associated with a specific project from the management API.
+// It sends a request to the management plane's ListApiKeys endpoint and returns a slice of APIKeyWithoutSecret pointers.
+//
+// Parameters:
+// - ctx: A context.Context to control the request's lifetime.
+// - projectId: A UUID representing the unique identifier of the project whose API keys are to be listed.
+//
+// Returns a slice of pointers to APIKeyWithoutSecret structs populated with the API key data
+// on success. In case of failure, it returns an error describing the issue encountered. This could be due
+// to unauthorized access, project not found, internal server errors, or other HTTP client errors.
+//
+// Example:
+//
+//	apiKeys, err := managementClient.ListApiKeys(ctx, projectId)
+//	if err != nil {
+//	    log.Fatalf("Failed to list API keys: %v", err)
+//	}
+//	for _, apiKey := range apiKeys {
+//	    fmt.Printf("API Key ID: %s, Name: %s\n", apiKey.Id, apiKey.Name)
+//	}
+func (c *ManagementClient) ListApiKeys(ctx context.Context, projectId uuid.UUID) ([]*APIKeyWithoutSecret, error) {
+	resp, err := c.restClient.ListApiKeysWithResponse(ctx, projectId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list API keys: %w", err)
+	}
+
+	// Handle various HTTP response codes and errors
+	if resp.JSON200 != nil {
+		apiKeys := make([]*APIKeyWithoutSecret, len(*resp.JSON200.Data))
+		for i, key := range *resp.JSON200.Data {
+			apiKeys[i] = &APIKeyWithoutSecret{
+				Id:        key.Id,
+				Name:      key.Name,
+				ProjectId: key.ProjectId,
+			}
+		}
+		return apiKeys, nil
+	}
+
+	// Detailed error handling based on status code
+	switch resp.StatusCode() {
+	case http.StatusUnauthorized:
+		return nil, fmt.Errorf("unauthorized: %v", resp.JSON401)
+	case http.StatusInternalServerError:
+		return nil, fmt.Errorf("internal server error: %v", resp.JSON500)
+	default:
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+	}
+}
+
+// FetchApiKey retrieves the details of a specific API key by its ID from the management API.
+// It sends a request to the management plane's FetchApiKey endpoint and returns the API key details,
+// excluding its secret for security reasons. This function is designed to provide information about
+// an API key, such as its name and associated project, without compromising sensitive information.
+//
+// Parameters:
+// - ctx: A context.Context to control the request's lifetime, allowing for request cancellation and timeouts.
+// - apiKeyId: The UUID representing the unique identifier of the API key to retrieve.
+//
+// Returns a pointer to an APIKeyWithoutSecret struct populated with the API key's details on success,
+// or an error if the operation fails. Possible errors include unauthorized access if the API key used for the
+// request doesn't have sufficient permissions, the API key not being found, internal server errors,
+// or other HTTP client errors.
+//
+// Example usage:
+//
+//	apiKeyDetails, err := managementClient.FetchApiKey(ctx, apiKeyId)
+//	if err != nil {
+//	    log.Fatalf("Failed to fetch API key details: %v", err)
+//	}
+//	fmt.Printf("API Key ID: %s, Name: %s\n", apiKeyDetails.Id, apiKeyDetails.Name)
+func (c *ManagementClient) FetchApiKey(ctx context.Context, apiKeyId uuid.UUID) (*APIKeyWithoutSecret, error) {
+	resp, err := c.restClient.FetchApiKeyWithResponse(ctx, apiKeyId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch API key: %w", err)
+	}
+
+	switch resp.StatusCode() {
+	case http.StatusOK:
+		if resp.JSON200 != nil {
+			return &APIKeyWithoutSecret{
+				Id:        resp.JSON200.Id,
+				Name:      resp.JSON200.Name,
+				ProjectId: resp.JSON200.ProjectId,
+			}, nil
+		}
+	case http.StatusUnauthorized:
+		return nil, fmt.Errorf("unauthorized: %v", resp.JSON401)
+	case http.StatusNotFound:
+		return nil, fmt.Errorf("API key not found: %v", resp.JSON404)
+	case http.StatusInternalServerError:
+		return nil, fmt.Errorf("internal server error: %v", resp.JSON500)
+	default:
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+	}
+
+	return nil, fmt.Errorf("unexpected response format or empty data")
+}
+
+// CreateApiKey creates a new API key for a given project in the management API.
+// It sends a request to the management plane's CreateApiKey endpoint with the necessary
+// details and returns the newly created API key's information, including the secret.
+//
+// This function is critical for enabling secure access to the management and data plane APIs,
+// allowing for the creation of scoped access keys associated with specific projects.
+//
+// Parameters:
+//   - ctx: A context.Context to control the request's lifetime, enabling request cancellation and timeouts.
+//   - projectId: The UUID of the project within which the new API key will be created.
+//   - apiKeyName: A string representing the desired name for the new API key. This name helps identify
+//     the API key within the project scope and should be unique.
+//
+// Returns a pointer to an APIKeyWithSecret struct populated with the details of the newly created API key
+// on success, or an error if the operation fails. Possible errors include unauthorized access if the provided
+// API key does not have sufficient permissions, validation errors for incorrect input values,
+// internal server errors, or other HTTP client errors.
+//
+// Example usage:
+//
+//	newApiKey, err := managementClient.CreateApiKey(ctx, projectId, "NewAPIKeyName")
+//	if err != nil {
+//	    log.Fatalf("Failed to create API key: %v", err)
+//	}
+//	fmt.Printf("Created API Key ID: %s, Name: %s, Project ID: %s, Secret: %s\n",
+//	    newApiKey.Id, newApiKey.Name, newApiKey.ProjectId, newApiKey.Secret)
+func (c *ManagementClient) CreateApiKey(ctx context.Context, projectId uuid.UUID, apiKeyName string) (*APIKeyWithSecret, error) {
+	body := management.CreateApiKeyJSONRequestBody{
+		Name: apiKeyName,
+	}
+
+	resp, err := c.restClient.CreateApiKeyWithResponse(ctx, projectId, body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create API key: %w", err)
+	}
+
+	switch resp.StatusCode() {
+	case http.StatusCreated:
+		if resp.JSON201 != nil {
+			return &APIKeyWithSecret{
+				Id:        resp.JSON201.Id,
+				Name:      resp.JSON201.Name,
+				ProjectId: projectId,
+				Secret:    resp.JSON201.Secret,
+			}, nil
+		}
+	case http.StatusUnauthorized:
+		return nil, fmt.Errorf("unauthorized: %v", resp.JSON401)
+	case http.StatusBadRequest:
+		return nil, fmt.Errorf("bad request: %v", resp.JSON400)
+	default:
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+	}
+
+	return nil, fmt.Errorf("unexpected response format or empty data")
+}
+
+// DeleteApiKey deletes an API key by its ID from the management API. This method sends a request
+// to the management plane's DeleteApiKey endpoint to permanently remove the specified API key,
+// revoking any access it provided.
+//
+// This operation is essential for managing the lifecycle and security of API keys by allowing
+// for the removal of keys that are obsolete or should no longer have access to the API.
+//
+// Parameters:
+//   - ctx: A context.Context to control the request's lifetime, enabling features like request cancellation
+//     and timeouts to handle slow or unresponsive network conditions.
+//   - apiKeyId: The UUID representing the unique identifier of the API key to be deleted.
+//
+// Returns an error if the deletion operation fails, providing insight into the failure. Possible
+// errors include unauthorized access if the caller lacks sufficient permissions, the specified API key
+// not being found, internal server errors, or other HTTP client errors.
+//
+// Example usage:
+//
+//	err := managementClient.DeleteApiKey(ctx, apiKeyId)
+//	if err != nil {
+//	    log.Fatalf("Failed to delete API key: %v", err)
+//	}
+func (c *ManagementClient) DeleteApiKey(ctx context.Context, apiKeyId uuid.UUID) error {
+	resp, err := c.restClient.DeleteApiKeyWithResponse(ctx, apiKeyId)
+	if err != nil {
+		return fmt.Errorf("failed to delete API key: %w", err)
+	}
+
+	switch resp.StatusCode() {
+	case http.StatusOK, http.StatusAccepted, http.StatusNoContent:
+		// The API key was successfully deleted.
+		return nil
+	case http.StatusUnauthorized:
+		// The request was unauthorized.
+		return fmt.Errorf("unauthorized: %v", resp.JSON401)
+	case http.StatusNotFound:
+		// The specified API key was not found.
+		return fmt.Errorf("API key not found: %v", resp.JSON404)
+	case http.StatusInternalServerError:
+		// An internal server error occurred.
+		return fmt.Errorf("internal server error: %v", resp.JSON500)
+	default:
+		// An unexpected status code was received.
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+	}
+}

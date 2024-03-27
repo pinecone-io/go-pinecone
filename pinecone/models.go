@@ -121,3 +121,38 @@ type Project struct {
 	Id   uuid.UUID
 	Name string
 }
+
+// APIKeyWithoutSecret represents an API key without exposing the secret part.
+// It includes the key's ID, name, and the ID of the project it belongs to.
+type APIKeyWithoutSecret struct {
+	// Id is the unique identifier of the API key.
+	Id uuid.UUID
+
+	// Name is the name given to the API key, useful for identification purposes.
+	Name string
+
+	// ProjectId is the ID of the project this API key is associated with.
+	ProjectId uuid.UUID
+}
+
+// APIKeyWithSecret represents an API key along with its secret. This struct is used
+// when creating a new API key, where the secret is returned as part of the creation
+// process. The secret is sensitive information and should be handled securely, as it
+// provides authenticated access to the API.
+type APIKeyWithSecret struct {
+	// Id is the unique identifier of the API key, represented as a UUID.
+	Id uuid.UUID
+
+	// Name is the name given to the API key, useful for identification and organization
+	// purposes within a project.
+	Name string
+
+	// ProjectId is the UUID of the project to which this API key is associated. It helps
+	// in scoping the API key to specific projects, enhancing security and manageability.
+	ProjectId uuid.UUID
+
+	// Secret is the sensitive part of the API key, used for authentication in API requests.
+	// The secret is only exposed to the user upon creation of the API key and should be
+	// stored securely by the client.
+	Secret string
+}
