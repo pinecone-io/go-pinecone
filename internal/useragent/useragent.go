@@ -7,7 +7,7 @@ import (
 
 func getPackageVersion() string {
 	// update at release time
-	return "v0.4.1"
+	return "v0.4.2-pre"
 }
 
 func BuildUserAgent(sourceTag string) string {
