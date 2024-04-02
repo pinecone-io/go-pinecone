@@ -123,9 +123,7 @@ func (ts *ManagementClientTests) TestCreateApiKey() {
 	require.NoError(ts.T(), err, "Failed to create API key")
 	require.NotNil(ts.T(), newApiKey, "Newly created API key should not be nil")
 	require.Equal(ts.T(), apiKeyName, newApiKey.Name, "API key name should match")
-
-	//current bug in API implementation: "secret" is returned as "value"
-	//require.NotEmpty(ts.T(), newApiKey.Secret, "Newly created API key should have a secret")
+	require.NotEmpty(ts.T(), newApiKey.Secret, "Newly created API key should have a secret")
 }
 
 func (ts *ManagementClientTests) TestDeleteApiKey() {
