@@ -124,36 +124,33 @@ func NewManagementClient(in NewManagementClientParams) (*ManagementClient, error
 //	    fmt.Printf("Project ID: %s, Name: %s\n", project.Id, project.Name)
 //	}
 func (c *ManagementClient) ListProjects(ctx context.Context) ([]*Project, error) {
-	res, err := c.restClient.ListProjectsWithResponse(ctx)
+	resp, err := c.restClient.ListProjectsWithResponse(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list projects: %w", err)
 	}
 
-	if res.JSON401 != nil {
-		return nil, fmt.Errorf("unauthorized: %s", res.JSON401.Error.Message)
-	}
-
-	if res.JSON500 != nil {
-		return nil, fmt.Errorf("internal server error: %s", res.JSON500.Error.Message)
-	}
-
-	if res.JSON4XX != nil {
-		return nil, fmt.Errorf("unknown error: %s", res.JSON4XX.Error.Message)
-	}
-
-	if res.JSON200 == nil || res.JSON200.Data == nil {
-		return nil, fmt.Errorf("unexpected response format or empty data")
-	}
-
-	projectList := make([]*Project, len(*res.JSON200.Data))
-	for i, p := range *res.JSON200.Data {
-		project := Project{
-			Id:   p.Id,
-			Name: p.Name,
+	switch resp.StatusCode() {
+	case http.StatusOK:
+		if resp.JSON200 != nil && resp.JSON200.Data != nil {
+			projectList := make([]*Project, len(*resp.JSON200.Data))
+			for i, p := range *resp.JSON200.Data {
+				project := Project{
+					Id:   p.Id,
+					Name: p.Name,
+				}
+				projectList[i] = &project
+			}
+			return projectList, nil
 		}
-		projectList[i] = &project
+	case http.StatusUnauthorized:
+		return nil, fmt.Errorf("unauthorized: %v", resp.JSON401)
+	case http.StatusInternalServerError:
+		return nil, fmt.Errorf("internal server error: %v", resp.JSON500)
+	default:
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode())
 	}
-	return projectList, nil
+
+	return nil, fmt.Errorf("unexpected response format or empty data")
 }
 
 // FetchProject retrieves a project by its ID from the management API. It makes a call to the
