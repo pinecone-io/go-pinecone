@@ -467,19 +467,14 @@ func (c *ManagementClient) DeleteApiKey(ctx context.Context, apiKeyId uuid.UUID)
 
 	switch resp.StatusCode() {
 	case http.StatusOK, http.StatusAccepted, http.StatusNoContent:
-		// The API key was successfully deleted.
 		return nil
 	case http.StatusUnauthorized:
-		// The request was unauthorized.
 		return fmt.Errorf("unauthorized: %v", resp.JSON401)
 	case http.StatusNotFound:
-		// The specified API key was not found.
 		return fmt.Errorf("API key not found: %v", resp.JSON404)
 	case http.StatusInternalServerError:
-		// An internal server error occurred.
 		return fmt.Errorf("internal server error: %v", resp.JSON500)
 	default:
-		// An unexpected status code was received.
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode())
 	}
 }
