@@ -14,9 +14,11 @@ import (
 
 type ManagementClientTests struct {
 	suite.Suite
-	client  ManagementClient
-	project Project
-	apiKey  APIKeyWithoutSecret
+	client          ManagementClient
+	clientSourceTag ManagementClient
+	project         Project
+	apiKey          APIKeyWithoutSecret
+	sourceTag       string
 }
 
 func TestManagementClient(t *testing.T) {
@@ -33,6 +35,13 @@ func (ts *ManagementClientTests) SetupSuite() {
 	}
 	ts.client = *client
 
+	ts.sourceTag = "test_source_tag"
+	clientSourceTag, err := NewManagementClient(NewManagementClientParams{ApiKey: apiKey, SourceTag: ts.sourceTag})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	ts.clientSourceTag = *clientSourceTag
+
 	projects, err := ts.client.ListProjects(context.Background())
 	require.NoError(ts.T(), err, "Failed to list projects for test setup")
 	require.Greater(ts.T(), len(projects), 0, "Projects list should not be empty")
@@ -45,8 +54,43 @@ func (ts *ManagementClientTests) SetupSuite() {
 	ts.apiKey = *apiKeys[0]
 }
 
+func (ts *ManagementClientTests) TestNewClientParamsSet() {
+	apiKey := "test-api-key"
+	client, err := NewManagementClient(NewManagementClientParams{ApiKey: apiKey})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	if client.apiKey != apiKey {
+		ts.FailNow(fmt.Sprintf("Expected client to have apiKey '%s', but got '%s'", apiKey, client.apiKey))
+	}
+	if client.sourceTag != "" {
+		ts.FailNow(fmt.Sprintf("Expected client to have empty sourceTag, but got '%s'", client.sourceTag))
+	}
+}
+
+func (ts *ManagementClientTests) TestNewClientParamsSetSourceTag() {
+	apiKey := "test-api-key"
+	sourceTag := "test-source-tag"
+	client, err := NewManagementClient(NewManagementClientParams{ApiKey: apiKey, SourceTag: sourceTag})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	if client.apiKey != apiKey {
+		ts.FailNow(fmt.Sprintf("Expected client to have apiKey '%s', but got '%s'", apiKey, client.apiKey))
+	}
+	if client.sourceTag != sourceTag {
+		ts.FailNow(fmt.Sprintf("Expected client to have sourceTag '%s', but got '%s'", sourceTag, client.sourceTag))
+	}
+}
+
 func (ts *ManagementClientTests) TestListProjects() {
 	projects, err := ts.client.ListProjects(context.Background())
+	require.NoError(ts.T(), err, "Failed to list projects")
+	require.Greater(ts.T(), len(projects), 0, "Projects list should not be empty")
+}
+
+func (ts *ManagementClientTests) TestListProjectsSourceTag() {
+	projects, err := ts.clientSourceTag.ListProjects(context.Background())
 	require.NoError(ts.T(), err, "Failed to list projects")
 	require.Greater(ts.T(), len(projects), 0, "Projects list should not be empty")
 }
@@ -103,6 +147,15 @@ func (ts *ManagementClientTests) TestListApiKeys() {
 
 func (ts *ManagementClientTests) TestFetchApiKey() {
 	apiKeyDetails, err := ts.client.FetchApiKey(context.Background(), ts.apiKey.Id)
+	require.NoError(ts.T(), err, "Failed to fetch API key details")
+	require.NotNil(ts.T(), apiKeyDetails, "API key details should not be nil")
+	require.Equal(ts.T(), apiKeyDetails.Id, ts.apiKey.Id, "API key ID should match")
+	require.Equal(ts.T(), apiKeyDetails.Name, ts.apiKey.Name, "API key Name should match")
+	require.Equal(ts.T(), apiKeyDetails.ProjectId, ts.apiKey.ProjectId, "API key's Project ID should match")
+}
+
+func (ts *ManagementClientTests) TestFetchApiKeySourceTag() {
+	apiKeyDetails, err := ts.clientSourceTag.FetchApiKey(context.Background(), ts.apiKey.Id)
 	require.NoError(ts.T(), err, "Failed to fetch API key details")
 	require.NotNil(ts.T(), apiKeyDetails, "API key details should not be nil")
 	require.Equal(ts.T(), apiKeyDetails.Id, ts.apiKey.Id, "API key ID should match")

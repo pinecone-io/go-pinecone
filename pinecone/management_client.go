@@ -6,6 +6,8 @@ import (
 	"github.com/deepmap/oapi-codegen/v2/pkg/securityprovider"
 	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/internal/gen/management"
+	"github.com/pinecone-io/go-pinecone/internal/provider"
+	"github.com/pinecone-io/go-pinecone/internal/useragent"
 	"net/http"
 )
 
@@ -21,10 +23,14 @@ import (
 //
 // Fields:
 //   - apiKey: The API key used for authenticating requests to the management API.
-//     This key should have the necessary permissions for the operations you intend to perform.
+//     This key should have the necessary organization-level permissions for the operations
+//     you intend to perform.
 //   - restClient: An instance of the generated low-level client that actually performs
 //     HTTP requests to the management API. This field is internal and managed
 //     by the ManagementClient.
+//   - sourceTag: An optional string used to identify the source of the requests. This tag
+//     is included in the User-Agent header of each request made by this client, providing
+//     a way to trace and analyze the usage patterns or origins of API requests.
 //
 // To use ManagementClient, first instantiate it using the NewManagementClient function,
 // providing it with the necessary configuration. Once instantiated, you can call its
@@ -33,7 +39,10 @@ import (
 //
 // Example:
 //
-//	clientParams := NewManagementClientParams{ApiKey: "your_api_key_here"}
+//	clientParams := NewManagementClientParams{
+//	    ApiKey: "your_api_key_here",
+//	    SourceTag: "your_source_identifier", // optional
+//	}
 //	managementClient, err := NewManagementClient(clientParams)
 //	if err != nil {
 //	    log.Fatalf("Failed to create management client: %v", err)
@@ -43,14 +52,17 @@ import (
 // Note that ManagementClient methods are designed to be safe for concurrent use by multiple
 // goroutines, assuming that its configuration (e.g., the API key) is not modified after
 // initialization.
+
 type ManagementClient struct {
 	apiKey     string
 	restClient *management.ClientWithResponses
+	sourceTag  string
 }
 
 // NewManagementClientParams holds the parameters for creating a new ManagementClient.
 type NewManagementClientParams struct {
-	ApiKey string
+	ApiKey    string
+	SourceTag string // optional
 }
 
 // NewManagementClient creates and initializes a new instance of ManagementClient.
@@ -58,7 +70,12 @@ type NewManagementClientParams struct {
 // authentication and communication with the management API.
 //
 // The method requires an input parameter of type NewManagementClientParams, which includes:
-// - ApiKey: A string representing the API key used for authentication against the management API.
+//   - ApiKey: The API key used for authenticating requests to the management API.
+//     This key should have the necessary organization-level permissions for the operations
+//     you intend to perform.
+//   - SourceTag: An optional string used to identify the source of the requests. This tag
+//     is included in the User-Agent header of each request made by this client, providing
+//     a way to trace and analyze the usage patterns or origins of API requests.
 //
 // The API key is used to configure the underlying HTTP client with the appropriate
 // authentication headers for all requests made to the management API.
@@ -72,6 +89,7 @@ type NewManagementClientParams struct {
 //
 //	clientParams := NewManagementClientParams{
 //	    ApiKey: "your_api_key_here",
+//	    SourceTag: "my-application", // Optional but recommended for identifying request sources
 //	}
 //	managementClient, err := NewManagementClient(clientParams)
 //	if err != nil {
@@ -87,12 +105,17 @@ func NewManagementClient(in NewManagementClientParams) (*ManagementClient, error
 		return nil, err
 	}
 
-	client, err := management.NewClientWithResponses("https://api.pinecone.io/management/v1alpha", management.WithRequestEditorFn(apiKeyProvider.Intercept))
+	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
+
+	client, err := management.NewClientWithResponses("https://api.pinecone.io/management/v1alpha",
+		management.WithRequestEditorFn(apiKeyProvider.Intercept),
+		management.WithRequestEditorFn(userAgentProvider.Intercept),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	c := ManagementClient{apiKey: in.ApiKey, restClient: client}
+	c := ManagementClient{apiKey: in.ApiKey, restClient: client, sourceTag: in.SourceTag}
 	return &c, nil
 }
 
