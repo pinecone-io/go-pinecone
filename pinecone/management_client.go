@@ -28,9 +28,7 @@ import (
 //   - restClient: An instance of the generated low-level client that actually performs
 //     HTTP requests to the management API. This field is internal and managed
 //     by the ManagementClient.
-//   - sourceTag: An optional string used to identify the source of the requests. This tag
-//     is included in the User-Agent header of each request made by this client, providing
-//     a way to trace and analyze the usage patterns or origins of API requests.
+//   - sourceTag: An optional string used to help Pinecone attribute API activity to our partners.
 //
 // To use ManagementClient, first instantiate it using the NewManagementClient function,
 // providing it with the necessary configuration. Once instantiated, you can call its
@@ -73,9 +71,8 @@ type NewManagementClientParams struct {
 //   - ApiKey: The API key used for authenticating requests to the management API.
 //     This key should have the necessary organization-level permissions for the operations
 //     you intend to perform.
-//   - SourceTag: An optional string used to identify the source of the requests. This tag
-//     is included in the User-Agent header of each request made by this client, providing
-//     a way to trace and analyze the usage patterns or origins of API requests.
+//   - SourceTag: An optional string used to help Pinecone attribute API activity to our partners.
+//     For more info, see https://docs.pinecone.io/integrations/build-integration/attribute-api-activity
 //
 // The API key is used to configure the underlying HTTP client with the appropriate
 // authentication headers for all requests made to the management API.
@@ -89,7 +86,7 @@ type NewManagementClientParams struct {
 //
 //	clientParams := NewManagementClientParams{
 //	    ApiKey: "your_api_key_here",
-//	    SourceTag: "my-application", // Optional but recommended for identifying request sources
+//	    SourceTag: "my-application", // Optional
 //	}
 //	managementClient, err := NewManagementClient(clientParams)
 //	if err != nil {
