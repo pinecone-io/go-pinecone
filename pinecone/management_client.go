@@ -167,7 +167,7 @@ func (c *ManagementClient) ListProjects(ctx context.Context) ([]*Project, error)
 	case http.StatusInternalServerError:
 		return nil, fmt.Errorf("internal server error: %v", resp.JSON500)
 	default:
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+		return nil, fmt.Errorf("unexpected status code: %d; response body: %s", resp.StatusCode(), string(resp.Body))
 	}
 
 	return nil, fmt.Errorf("unexpected response format or empty data")
@@ -212,7 +212,7 @@ func (c *ManagementClient) FetchProject(ctx context.Context, projectId uuid.UUID
 	case http.StatusInternalServerError:
 		return nil, fmt.Errorf("internal server error: %v", resp.JSON500)
 	default:
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+		return nil, fmt.Errorf("unexpected status code: %d; response body: %s", resp.StatusCode(), string(resp.Body))
 	}
 
 	return nil, fmt.Errorf("unexpected response format or empty data")
@@ -259,7 +259,7 @@ func (c *ManagementClient) CreateProject(ctx context.Context, projectName string
 	case http.StatusBadRequest:
 		return nil, fmt.Errorf("bad request: %v", resp.JSON400)
 	default:
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+		return nil, fmt.Errorf("unexpected status code: %d; response body: %s", resp.StatusCode(), string(resp.Body))
 	}
 
 	return nil, fmt.Errorf("unexpected response format or empty data")
@@ -297,7 +297,7 @@ func (c *ManagementClient) DeleteProject(ctx context.Context, projectId uuid.UUI
 	case http.StatusInternalServerError:
 		return fmt.Errorf("internal server error: %v", resp.JSON500)
 	default:
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+		return fmt.Errorf("unexpected status code: %d; response body: %s", resp.StatusCode(), string(resp.Body))
 	}
 }
 
@@ -347,7 +347,7 @@ func (c *ManagementClient) ListApiKeys(ctx context.Context, projectId uuid.UUID)
 	case http.StatusInternalServerError:
 		return nil, fmt.Errorf("internal server error: %v", resp.JSON500)
 	default:
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+		return nil, fmt.Errorf("unexpected status code: %d; response body: %s", resp.StatusCode(), string(resp.Body))
 	}
 }
 
@@ -394,7 +394,7 @@ func (c *ManagementClient) FetchApiKey(ctx context.Context, apiKeyId uuid.UUID) 
 	case http.StatusInternalServerError:
 		return nil, fmt.Errorf("internal server error: %v", resp.JSON500)
 	default:
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+		return nil, fmt.Errorf("unexpected status code: %d; response body: %s", resp.StatusCode(), string(resp.Body))
 	}
 
 	return nil, fmt.Errorf("unexpected response format or empty data")
@@ -451,7 +451,7 @@ func (c *ManagementClient) CreateApiKey(ctx context.Context, projectId uuid.UUID
 	case http.StatusBadRequest:
 		return nil, fmt.Errorf("bad request: %v", resp.JSON400)
 	default:
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+		return nil, fmt.Errorf("unexpected status code: %d; response body: %s", resp.StatusCode(), string(resp.Body))
 	}
 
 	return nil, fmt.Errorf("unexpected response format or empty data")
@@ -495,6 +495,6 @@ func (c *ManagementClient) DeleteApiKey(ctx context.Context, apiKeyId uuid.UUID)
 	case http.StatusInternalServerError:
 		return fmt.Errorf("internal server error: %v", resp.JSON500)
 	default:
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+		return fmt.Errorf("unexpected status code: %d; response body: %s", resp.StatusCode(), string(resp.Body))
 	}
 }
