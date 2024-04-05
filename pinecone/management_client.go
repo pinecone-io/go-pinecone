@@ -127,9 +127,6 @@ func NewManagementClient(in NewManagementClientParams) (*ManagementClient, error
 // - 500 Internal Server Error: Indicates a server-side error. It might be temporary.
 // - 4XX: Covers other client-side errors not explicitly handled by other conditions.
 //
-// In case of a successful response but with unexpected format or empty data,
-// it returns an error indicating the unexpected response format.
-//
 // Context (ctx) is used to control the request's lifetime. It allows for the request
 // to be canceled or to timeout according to the context's deadline.
 //
