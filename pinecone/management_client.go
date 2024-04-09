@@ -59,8 +59,9 @@ type ManagementClient struct {
 
 // NewManagementClientParams holds the parameters for creating a new ManagementClient.
 type NewManagementClientParams struct {
-	ApiKey    string
-	SourceTag string // optional
+	ApiKey      string
+	ApiEndpoint string // optional
+	SourceTag   string // optional
 }
 
 // NewManagementClient creates and initializes a new instance of ManagementClient.
@@ -71,11 +72,10 @@ type NewManagementClientParams struct {
 //   - ApiKey: The API key used for authenticating requests to the management API.
 //     This key should have the necessary organization-level permissions for the operations
 //     you intend to perform.
+//   - ApiEndpoint: An optional string denoting an alternate endpoint to https://api.pinecone.io/management/v1alpha.
+//     Mainly used in testing.
 //   - SourceTag: An optional string used to help Pinecone attribute API activity to our partners.
 //     For more info, see https://docs.pinecone.io/integrations/build-integration/attribute-api-activity
-//
-// The API key is used to configure the underlying HTTP client with the appropriate
-// authentication headers for all requests made to the management API.
 //
 // Returns a pointer to an initialized ManagementClient instance on success. In case of
 // failure, it returns nil and an error describing the issue encountered. Possible errors
@@ -86,7 +86,6 @@ type NewManagementClientParams struct {
 //
 //	clientParams := NewManagementClientParams{
 //	    ApiKey: "your_api_key_here",
-//	    SourceTag: "my-application", // Optional
 //	}
 //	managementClient, err := NewManagementClient(clientParams)
 //	if err != nil {
@@ -104,7 +103,11 @@ func NewManagementClient(in NewManagementClientParams) (*ManagementClient, error
 
 	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
 
-	client, err := management.NewClientWithResponses("https://api.pinecone.io/management/v1alpha",
+	apiEndpoint := in.ApiEndpoint
+	if apiEndpoint == "" {
+		apiEndpoint = "https://api.pinecone.io/management/v1alpha"
+	}
+	client, err := management.NewClientWithResponses(apiEndpoint,
 		management.WithRequestEditorFn(apiKeyProvider.Intercept),
 		management.WithRequestEditorFn(userAgentProvider.Intercept),
 	)
