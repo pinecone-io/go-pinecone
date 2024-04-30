@@ -16,11 +16,12 @@ import (
 type IndexConnection struct {
 	Namespace  string
 	apiKey     string
+	additionalMetadata map[string]string
 	dataClient *data.VectorServiceClient
 	grpcConn   *grpc.ClientConn
 }
 
-func newIndexConnection(apiKey string, host string, namespace string, sourceTag string) (*IndexConnection, error) {
+func newIndexConnection(apiKey string, host string, namespace string, sourceTag string, additionalMetadata map[string]string) (*IndexConnection, error) {
 	config := &tls.Config{}
 	target := fmt.Sprintf("%s:443", host)
 	conn, err := grpc.Dial(
@@ -38,7 +39,7 @@ func newIndexConnection(apiKey string, host string, namespace string, sourceTag 
 
 	dataClient := data.NewVectorServiceClient(conn)
 
-	idx := IndexConnection{Namespace: namespace, apiKey: apiKey, dataClient: &dataClient, grpcConn: conn}
+	idx := IndexConnection{Namespace: namespace, apiKey: apiKey, dataClient: &dataClient, grpcConn: conn, additionalMetadata: additionalMetadata}
 	return &idx, nil
 }
 
@@ -360,5 +361,12 @@ func sparseValToGrpc(sv *SparseValues) *data.SparseValues {
 }
 
 func (idx *IndexConnection) akCtx(ctx context.Context) context.Context {
-	return metadata.AppendToOutgoingContext(ctx, "api-key", idx.apiKey)
+	newMetadata := []string{}
+	newMetadata = append(newMetadata, "api-key", idx.apiKey)
+
+	for key, value := range idx.additionalMetadata{
+		newMetadata = append(newMetadata, key, value)
+	}
+
+	return metadata.AppendToOutgoingContext(ctx, newMetadata...)
 }

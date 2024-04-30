@@ -4,51 +4,68 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+
 	"github.com/deepmap/oapi-codegen/v2/pkg/securityprovider"
 	"github.com/pinecone-io/go-pinecone/internal/gen/control"
 	"github.com/pinecone-io/go-pinecone/internal/provider"
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
-	"io"
-	"net/http"
 )
 
 type Client struct {
 	apiKey     string
 	restClient *control.Client
 	sourceTag  string
+	headers    map[string]string
 }
 
 type NewClientParams struct {
 	ApiKey    string
 	SourceTag string // optional
+	Headers   map[string]string // optional
+	RestClient *http.Client // optional
 }
 
 func NewClient(in NewClientParams) (*Client, error) {
+	clientOptions := []control.ClientOption{}
 	apiKeyProvider, err := securityprovider.NewSecurityProviderApiKey("header", "Api-Key", in.ApiKey)
 	if err != nil {
 		return nil, err
 	}
-
+	clientOptions = append(clientOptions, control.WithRequestEditorFn(apiKeyProvider.Intercept))
+	
 	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
+	clientOptions = append(clientOptions, control.WithRequestEditorFn(userAgentProvider.Intercept))
 
-	client, err := control.NewClient("https://api.pinecone.io",
-		control.WithRequestEditorFn(apiKeyProvider.Intercept),
-		control.WithRequestEditorFn(userAgentProvider.Intercept),
-	)
+	for key, value := range in.Headers {
+		headerProvider := provider.NewHeaderProvider(key, value)
+		clientOptions = append(clientOptions, control.WithRequestEditorFn(headerProvider.Intercept))
+	}
+
+	if in.RestClient != nil {
+		clientOptions = append(clientOptions, control.WithHTTPClient(in.RestClient))
+	}
+
+	client, err := control.NewClient("https://api.pinecone.io", clientOptions...)
 	if err != nil {
 		return nil, err
 	}
 
-	c := Client{apiKey: in.ApiKey, restClient: client, sourceTag: in.SourceTag}
+	c := Client{apiKey: in.ApiKey, restClient: client, sourceTag: in.SourceTag, headers: in.Headers}
 	return &c, nil
 }
 
 func (c *Client) Index(host string) (*IndexConnection, error) {
-	return c.IndexWithNamespace(host, "")
+	return c.IndexWithAdditionalMetadata(host, "", nil)
 }
 
 func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnection, error) {
-	idx, err := newIndexConnection(c.apiKey, host, namespace, c.sourceTag)
+	return c.IndexWithAdditionalMetadata(host, namespace, nil)
+}
+
+func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, additionalMetadata map[string]string) (*IndexConnection, error) {
+	idx, err := newIndexConnection(c.apiKey, host, namespace, c.sourceTag, additionalMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +82,7 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", res.StatusCode)
 	}
-
+	fmt.Printf("res.Body: %+v", res.Body)
 	var indexList control.IndexList
 	err = json.NewDecoder(res.Body).Decode(&indexList)
 	if err != nil {
