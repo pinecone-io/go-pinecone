@@ -69,7 +69,7 @@ func (ts *ClientTests) TestNewClientParamsSet() {
 		ts.FailNow(fmt.Sprintf("Expected client to have empty sourceTag, but got '%s'", client.sourceTag))
 	}
 	if client.headers != nil {
-		ts.FailNow(fmt.Sprintf("Expected client to have nil headers, but got '%v'", client.headers))
+		ts.FailNow(fmt.Sprintf("Expected client headers to be nil, but got '%v'", client.headers))
 	}
 	if len(client.restClient.RequestEditors) != 2 {
 		ts.FailNow("Expected client to have '%v' request editors, but got '%v'", 2, len(client.restClient.RequestEditors))

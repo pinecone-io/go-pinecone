@@ -107,7 +107,7 @@ func (ts *IndexConnectionTests) TestNewIndexConnection() {
 		ts.FailNow(fmt.Sprintf("Expected idxConn to have empty namespace, but got '%s'", idxConn.Namespace))
 	}
 	if idxConn.additionalMetadata != nil {
-		ts.FailNow(fmt.Sprintf("Expected idxConn to have nil additionalMetadata, but got '%+v'", idxConn.additionalMetadata))
+		ts.FailNow(fmt.Sprintf("Expected idxConn additionalMetadata to be nil, but got '%+v'", idxConn.additionalMetadata))
 	}
 	if idxConn.dataClient == nil {
 		ts.FailNow("Expected idxConn to have non-nil dataClient")
