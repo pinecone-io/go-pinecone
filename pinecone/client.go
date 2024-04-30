@@ -65,7 +65,7 @@ func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnec
 }
 
 func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, additionalMetadata map[string]string) (*IndexConnection, error) {
-	idx, err := newIndexConnection(c.apiKey, host, namespace, c.sourceTag, additionalMetadata)
+	idx, err := newIndexConnection(newIndexParameters{apiKey: c.apiKey, host: host, namespace: namespace, sourceTag: c.sourceTag, additionalMetadata: additionalMetadata})
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", res.StatusCode)
 	}
-	
+
 	var indexList control.IndexList
 	err = json.NewDecoder(res.Body).Decode(&indexList)
 	if err != nil {

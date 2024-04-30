@@ -71,12 +71,12 @@ func (ts *IndexConnectionTests) SetupSuite() {
 	namespace, err := uuid.NewV7()
 	assert.NoError(ts.T(), err)
 
-	idxConn, err := newIndexConnection(ts.apiKey, ts.host, namespace.String(), "", nil)
+	idxConn, err := newIndexConnection(newIndexParameters{apiKey: ts.apiKey, host: ts.host, namespace: namespace.String(), sourceTag: ""})
 	assert.NoError(ts.T(), err)
 	ts.idxConn = idxConn
 
 	ts.sourceTag = "test_source_tag"
-	idxConnSourceTag, err := newIndexConnection(ts.apiKey, ts.host, namespace.String(), ts.sourceTag, nil)
+	idxConnSourceTag, err := newIndexConnection(newIndexParameters{apiKey: ts.apiKey, host: ts.host, namespace: namespace.String(), sourceTag: ts.sourceTag})
 	assert.NoError(ts.T(), err)
 	ts.idxConnSourceTag = idxConnSourceTag
 
@@ -97,7 +97,7 @@ func (ts *IndexConnectionTests) TestNewIndexConnection() {
 	apiKey := "test-api-key"
 	namespace := ""
 	sourceTag := ""
-	idxConn, err := newIndexConnection(apiKey, ts.host, namespace, sourceTag, nil)
+	idxConn, err := newIndexConnection(newIndexParameters{apiKey: apiKey, host: ts.host, namespace: namespace, sourceTag: sourceTag})
 	assert.NoError(ts.T(), err)
 
 	if idxConn.apiKey != apiKey {
@@ -124,7 +124,7 @@ func (ts *IndexConnectionTests) TestNewIndexConnectionNamespace() {
 	apiKey := "test-api-key"
 	namespace := "test-namespace"
 	sourceTag := "test-source-tag"
-	idxConn, err := newIndexConnection(apiKey, ts.host, namespace, sourceTag, nil)
+	idxConn, err := newIndexConnection(newIndexParameters{apiKey: apiKey, host: ts.host, namespace: namespace, sourceTag: sourceTag})
 	assert.NoError(ts.T(), err)
 
 	if idxConn.apiKey != apiKey {
@@ -146,7 +146,7 @@ func (ts *IndexConnectionTests) TestNewIndexConnectionAdditionalMetadata() {
 	namespace := "test-namespace"
 	sourceTag := "test-source-tag"
 	additionalMetadata := map[string]string{"test-header": "test-value"}
-	idxConn, err := newIndexConnection(apiKey, ts.host, namespace, sourceTag, additionalMetadata)
+	idxConn, err := newIndexConnection(newIndexParameters{apiKey: apiKey, host: ts.host, namespace: namespace, sourceTag: sourceTag, additionalMetadata: additionalMetadata})
 	assert.NoError(ts.T(), err)
 
 	if idxConn.apiKey != apiKey {

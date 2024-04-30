@@ -21,15 +21,23 @@ type IndexConnection struct {
 	grpcConn   *grpc.ClientConn
 }
 
-func newIndexConnection(apiKey string, host string, namespace string, sourceTag string, additionalMetadata map[string]string) (*IndexConnection, error) {
+type newIndexParameters struct {
+	apiKey string
+	host string
+	namespace string
+	sourceTag string
+	additionalMetadata map[string]string
+}
+
+func newIndexConnection(in newIndexParameters) (*IndexConnection, error) {
 	config := &tls.Config{}
-	target := fmt.Sprintf("%s:443", host)
+	target := fmt.Sprintf("%s:443", in.host)
 	conn, err := grpc.Dial(
 		target,
 		grpc.WithTransportCredentials(credentials.NewTLS(config)),
 		grpc.WithAuthority(target),
 		grpc.WithBlock(),
-		grpc.WithUserAgent(useragent.BuildUserAgentGRPC(sourceTag)),
+		grpc.WithUserAgent(useragent.BuildUserAgentGRPC(in.sourceTag)),
 	)
 
 	if err != nil {
@@ -39,7 +47,7 @@ func newIndexConnection(apiKey string, host string, namespace string, sourceTag 
 
 	dataClient := data.NewVectorServiceClient(conn)
 
-	idx := IndexConnection{Namespace: namespace, apiKey: apiKey, dataClient: &dataClient, grpcConn: conn, additionalMetadata: additionalMetadata}
+	idx := IndexConnection{Namespace: in.namespace, apiKey: in.apiKey, dataClient: &dataClient, grpcConn: conn, additionalMetadata: in.additionalMetadata}
 	return &idx, nil
 }
 
