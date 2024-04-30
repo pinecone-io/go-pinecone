@@ -28,5 +28,3 @@ func CreateMockClient(jsonBody string) *http.Client {
 		},
 	}
 }
-
-var jsonYes = `{"message": "success"}`
