@@ -82,7 +82,7 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", res.StatusCode)
 	}
-	fmt.Printf("res.Body: %+v", res.Body)
+	
 	var indexList control.IndexList
 	err = json.NewDecoder(res.Body).Decode(&indexList)
 	if err != nil {
