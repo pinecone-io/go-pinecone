@@ -1,5 +1,5 @@
 > **Warning**
-> 
+>
 > **Under active development** This SDK is pre-1.0 and should be considered unstable. Before a 1.0 release, there are
 > no guarantees of backward compatibility between minor versions.
 
@@ -8,18 +8,20 @@
 Official Pinecone Go Client
 
 ## Features
-go-pinecone contains 
 
-* gRPC bindings for Data Plane operations on Vectors
-* REST bindings for Control Plane operations on Indexes and Collections
+go-pinecone contains
+
+- gRPC bindings for Data Plane operations on Vectors
+- REST bindings for Control Plane operations on Indexes and Collections
 
 See [Pinecone API Docs](https://docs.pinecone.io/reference/) for more info.
- 
 
 ## Installation
+
 go-pinecone requires a Go version with [modules](https://github.com/golang/go/wiki/Modules) support.
 
 To add a dependency on go-pinecone:
+
 ```shell
 go get github.com/pinecone-io/go-pinecone/pinecone
 ```
@@ -65,7 +67,7 @@ func main() {
 		return
 	}
 
-	res, err := idx.DescribeIndexStats(&ctx)
+	res, err := idx.DescribeIndexStats(ctx)
 	if err != nil {
 		fmt.Println("Error:", err)
 		return
@@ -76,13 +78,14 @@ func main() {
 ```
 
 ## Support
+
 To get help using go-pinecone, reach out to support@pinecone.io.
 
 ## Development
 
 ### Prereqs
 
-1. A [current version of Go](https://go.dev/doc/install) (recommended 1.21+) 
+1. A [current version of Go](https://go.dev/doc/install) (recommended 1.21+)
 2. The [just](https://github.com/casey/just?tab=readme-ov-file#installation) command runner
 3. The [protobuf-compiler](https://grpc.io/docs/protoc-installation/)
 
@@ -96,6 +99,7 @@ and one serverless index. Copy the api key and index names to a `.env` file. See
 ### API Definitions submodule
 
 The API Definitions are in a private submodule. To checkout or update the submodules execute in the root of the project:
+
 ```shell
 git submodule update --init --recursive
 ```
