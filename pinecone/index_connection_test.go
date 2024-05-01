@@ -3,11 +3,12 @@ package pinecone
 import (
 	"context"
 	"fmt"
+	"os"
+	"testing"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	"os"
-	"testing"
 )
 
 type IndexConnectionTests struct {
@@ -124,14 +125,14 @@ func (ts *IndexConnectionTests) TestNewIndexConnectionNamespace() {
 
 func (ts *IndexConnectionTests) TestFetchVectors() {
 	ctx := context.Background()
-	res, err := ts.idxConn.FetchVectors(&ctx, ts.vectorIds)
+	res, err := ts.idxConn.FetchVectors(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
 func (ts *IndexConnectionTests) TestFetchVectorsSourceTag() {
 	ctx := context.Background()
-	res, err := ts.idxConnSourceTag.FetchVectors(&ctx, ts.vectorIds)
+	res, err := ts.idxConnSourceTag.FetchVectors(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
@@ -148,7 +149,7 @@ func (ts *IndexConnectionTests) TestQueryByVector() {
 	}
 
 	ctx := context.Background()
-	res, err := ts.idxConn.QueryByVectorValues(&ctx, req)
+	res, err := ts.idxConn.QueryByVectorValues(ctx, req)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
@@ -165,7 +166,7 @@ func (ts *IndexConnectionTests) TestQueryByVectorSourceTag() {
 	}
 
 	ctx := context.Background()
-	res, err := ts.idxConnSourceTag.QueryByVectorValues(&ctx, req)
+	res, err := ts.idxConnSourceTag.QueryByVectorValues(ctx, req)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
@@ -177,7 +178,7 @@ func (ts *IndexConnectionTests) TestQueryById() {
 	}
 
 	ctx := context.Background()
-	res, err := ts.idxConn.QueryByVectorId(&ctx, req)
+	res, err := ts.idxConn.QueryByVectorId(ctx, req)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
@@ -189,14 +190,14 @@ func (ts *IndexConnectionTests) TestQueryByIdSourceTag() {
 	}
 
 	ctx := context.Background()
-	res, err := ts.idxConnSourceTag.QueryByVectorId(&ctx, req)
+	res, err := ts.idxConnSourceTag.QueryByVectorId(ctx, req)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
 func (ts *IndexConnectionTests) TestDeleteVectorsById() {
 	ctx := context.Background()
-	err := ts.idxConn.DeleteVectorsById(&ctx, ts.vectorIds)
+	err := ts.idxConn.DeleteVectorsById(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
 
 	ts.loadData() //reload deleted data
@@ -204,7 +205,7 @@ func (ts *IndexConnectionTests) TestDeleteVectorsById() {
 
 func (ts *IndexConnectionTests) TestDeleteVectorsByFilter() {
 	ctx := context.Background()
-	err := ts.idxConn.DeleteVectorsByFilter(&ctx, &Filter{})
+	err := ts.idxConn.DeleteVectorsByFilter(ctx, &Filter{})
 	assert.NoError(ts.T(), err)
 
 	ts.loadData() //reload deleted data
@@ -212,7 +213,7 @@ func (ts *IndexConnectionTests) TestDeleteVectorsByFilter() {
 
 func (ts *IndexConnectionTests) TestDeleteAllVectorsInNamespace() {
 	ctx := context.Background()
-	err := ts.idxConn.DeleteAllVectorsInNamespace(&ctx)
+	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
 	assert.NoError(ts.T(), err)
 
 	ts.loadData() //reload deleted data
@@ -220,14 +221,14 @@ func (ts *IndexConnectionTests) TestDeleteAllVectorsInNamespace() {
 
 func (ts *IndexConnectionTests) TestDescribeIndexStats() {
 	ctx := context.Background()
-	res, err := ts.idxConn.DescribeIndexStats(&ctx)
+	res, err := ts.idxConn.DescribeIndexStats(ctx)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
 func (ts *IndexConnectionTests) TestDescribeIndexStatsFiltered() {
 	ctx := context.Background()
-	res, err := ts.idxConn.DescribeIndexStatsFiltered(&ctx, &Filter{})
+	res, err := ts.idxConn.DescribeIndexStatsFiltered(ctx, &Filter{})
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
@@ -237,7 +238,7 @@ func (ts *IndexConnectionTests) TestListVectors() {
 	req := &ListVectorsRequest{}
 
 	ctx := context.Background()
-	res, err := ts.idxConn.ListVectors(&ctx, req)
+	res, err := ts.idxConn.ListVectors(ctx, req)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
@@ -263,7 +264,7 @@ func (ts *IndexConnectionTests) loadData() {
 	}
 
 	ctx := context.Background()
-	_, err := ts.idxConn.UpsertVectors(&ctx, vectors)
+	_, err := ts.idxConn.UpsertVectors(ctx, vectors)
 	assert.NoError(ts.T(), err)
 }
 
@@ -288,12 +289,12 @@ func (ts *IndexConnectionTests) loadDataSourceTag() {
 	}
 
 	ctx := context.Background()
-	_, err := ts.idxConnSourceTag.UpsertVectors(&ctx, vectors)
+	_, err := ts.idxConnSourceTag.UpsertVectors(ctx, vectors)
 	assert.NoError(ts.T(), err)
 }
 
 func (ts *IndexConnectionTests) truncateData() {
 	ctx := context.Background()
-	err := ts.idxConn.DeleteAllVectorsInNamespace(&ctx)
+	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
 	assert.NoError(ts.T(), err)
 }

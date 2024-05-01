@@ -4,12 +4,13 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log"
+
 	"github.com/pinecone-io/go-pinecone/internal/gen/data"
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
-	"log"
 )
 
 type IndexConnection struct {
@@ -46,7 +47,7 @@ func (idx *IndexConnection) Close() error {
 	return err
 }
 
-func (idx *IndexConnection) UpsertVectors(ctx *context.Context, in []*Vector) (uint32, error) {
+func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (uint32, error) {
 	vectors := make([]*data.Vector, len(in))
 	for i, v := range in {
 		vectors[i] = vecToGrpc(v)
@@ -57,7 +58,7 @@ func (idx *IndexConnection) UpsertVectors(ctx *context.Context, in []*Vector) (u
 		Namespace: idx.Namespace,
 	}
 
-	res, err := (*idx.dataClient).Upsert(idx.akCtx(*ctx), req)
+	res, err := (*idx.dataClient).Upsert(idx.akCtx(ctx), req)
 	if err != nil {
 		return 0, err
 	}
@@ -69,13 +70,13 @@ type FetchVectorsResponse struct {
 	Usage   *Usage
 }
 
-func (idx *IndexConnection) FetchVectors(ctx *context.Context, ids []string) (*FetchVectorsResponse, error) {
+func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*FetchVectorsResponse, error) {
 	req := &data.FetchRequest{
 		Ids:       ids,
 		Namespace: idx.Namespace,
 	}
 
-	res, err := (*idx.dataClient).Fetch(idx.akCtx(*ctx), req)
+	res, err := (*idx.dataClient).Fetch(idx.akCtx(ctx), req)
 	if err != nil {
 		return nil, err
 	}
@@ -103,14 +104,14 @@ type ListVectorsResponse struct {
 	NextPaginationToken *string
 }
 
-func (idx *IndexConnection) ListVectors(ctx *context.Context, in *ListVectorsRequest) (*ListVectorsResponse, error) {
+func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequest) (*ListVectorsResponse, error) {
 	req := &data.ListRequest{
 		Prefix:          in.Prefix,
 		Limit:           in.Limit,
 		PaginationToken: in.PaginationToken,
 		Namespace:       idx.Namespace,
 	}
-	res, err := (*idx.dataClient).List(idx.akCtx(*ctx), req)
+	res, err := (*idx.dataClient).List(idx.akCtx(ctx), req)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +142,7 @@ type QueryVectorsResponse struct {
 	Usage   *Usage
 }
 
-func (idx *IndexConnection) QueryByVectorValues(ctx *context.Context, in *QueryByVectorValuesRequest) (*QueryVectorsResponse, error) {
+func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryByVectorValuesRequest) (*QueryVectorsResponse, error) {
 	req := &data.QueryRequest{
 		Namespace:       idx.Namespace,
 		TopK:            in.TopK,
@@ -164,7 +165,7 @@ type QueryByVectorIdRequest struct {
 	SparseValues    *SparseValues
 }
 
-func (idx *IndexConnection) QueryByVectorId(ctx *context.Context, in *QueryByVectorIdRequest) (*QueryVectorsResponse, error) {
+func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVectorIdRequest) (*QueryVectorsResponse, error) {
 	req := &data.QueryRequest{
 		Id:              in.VectorId,
 		Namespace:       idx.Namespace,
@@ -178,7 +179,7 @@ func (idx *IndexConnection) QueryByVectorId(ctx *context.Context, in *QueryByVec
 	return idx.query(ctx, req)
 }
 
-func (idx *IndexConnection) DeleteVectorsById(ctx *context.Context, ids []string) error {
+func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string) error {
 	req := data.DeleteRequest{
 		Ids:       ids,
 		Namespace: idx.Namespace,
@@ -187,7 +188,7 @@ func (idx *IndexConnection) DeleteVectorsById(ctx *context.Context, ids []string
 	return idx.delete(ctx, &req)
 }
 
-func (idx *IndexConnection) DeleteVectorsByFilter(ctx *context.Context, filter *Filter) error {
+func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *Filter) error {
 	req := data.DeleteRequest{
 		Filter:    filter,
 		Namespace: idx.Namespace,
@@ -196,7 +197,7 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx *context.Context, filter *
 	return idx.delete(ctx, &req)
 }
 
-func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx *context.Context) error {
+func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx context.Context) error {
 	req := data.DeleteRequest{
 		Namespace: idx.Namespace,
 		DeleteAll: true,
@@ -212,7 +213,7 @@ type UpdateVectorRequest struct {
 	Metadata     *Metadata
 }
 
-func (idx *IndexConnection) UpdateVector(ctx *context.Context, in *UpdateVectorRequest) error {
+func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRequest) error {
 	req := &data.UpdateRequest{
 		Id:           in.Id,
 		Values:       in.Values,
@@ -221,7 +222,7 @@ func (idx *IndexConnection) UpdateVector(ctx *context.Context, in *UpdateVectorR
 		Namespace:    idx.Namespace,
 	}
 
-	_, err := (*idx.dataClient).Update(idx.akCtx(*ctx), req)
+	_, err := (*idx.dataClient).Update(idx.akCtx(ctx), req)
 	return err
 }
 
@@ -232,15 +233,15 @@ type DescribeIndexStatsResponse struct {
 	Namespaces       map[string]*NamespaceSummary
 }
 
-func (idx *IndexConnection) DescribeIndexStats(ctx *context.Context) (*DescribeIndexStatsResponse, error) {
+func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIndexStatsResponse, error) {
 	return idx.DescribeIndexStatsFiltered(ctx, nil)
 }
 
-func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx *context.Context, filter *Filter) (*DescribeIndexStatsResponse, error) {
+func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, filter *Filter) (*DescribeIndexStatsResponse, error) {
 	req := &data.DescribeIndexStatsRequest{
 		Filter: filter,
 	}
-	res, err := (*idx.dataClient).DescribeIndexStats(idx.akCtx(*ctx), req)
+	res, err := (*idx.dataClient).DescribeIndexStats(idx.akCtx(ctx), req)
 	if err != nil {
 		return nil, err
 	}
@@ -260,8 +261,8 @@ func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx *context.Context, fil
 	}, nil
 }
 
-func (idx *IndexConnection) query(ctx *context.Context, req *data.QueryRequest) (*QueryVectorsResponse, error) {
-	res, err := (*idx.dataClient).Query(idx.akCtx(*ctx), req)
+func (idx *IndexConnection) query(ctx context.Context, req *data.QueryRequest) (*QueryVectorsResponse, error) {
+	res, err := (*idx.dataClient).Query(idx.akCtx(ctx), req)
 	if err != nil {
 		return nil, err
 	}
@@ -277,8 +278,8 @@ func (idx *IndexConnection) query(ctx *context.Context, req *data.QueryRequest) 
 	}, nil
 }
 
-func (idx *IndexConnection) delete(ctx *context.Context, req *data.DeleteRequest) error {
-	_, err := (*idx.dataClient).Delete(idx.akCtx(*ctx), req)
+func (idx *IndexConnection) delete(ctx context.Context, req *data.DeleteRequest) error {
+	_, err := (*idx.dataClient).Delete(idx.akCtx(ctx), req)
 	return err
 }
 
