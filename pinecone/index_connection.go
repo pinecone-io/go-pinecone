@@ -75,8 +75,8 @@ func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (ui
 }
 
 type FetchVectorsResponse struct {
-	Vectors map[string]*Vector
-	Usage   *Usage
+	Vectors map[string]*Vector `json:"vectors,omitempty"`
+	Usage   *Usage             `json:"usage,omitempty"`
 }
 
 func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*FetchVectorsResponse, error) {
@@ -108,9 +108,9 @@ type ListVectorsRequest struct {
 }
 
 type ListVectorsResponse struct {
-	VectorIds           []*string
-	Usage               *Usage
-	NextPaginationToken *string
+	VectorIds           []*string `json:"vector_ids,omitempty"`
+	Usage               *Usage    `json:"usage,omitempty"`
+	NextPaginationToken *string   `json:"next_pagination_token,omitempty"`
 }
 
 func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequest) (*ListVectorsResponse, error) {
@@ -147,8 +147,8 @@ type QueryByVectorValuesRequest struct {
 }
 
 type QueryVectorsResponse struct {
-	Matches []*ScoredVector
-	Usage   *Usage
+	Matches []*ScoredVector `json:"matches,omitempty"`
+	Usage   *Usage          `json:"usage,omitempty"`
 }
 
 func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryByVectorValuesRequest) (*QueryVectorsResponse, error) {
@@ -236,10 +236,10 @@ func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRe
 }
 
 type DescribeIndexStatsResponse struct {
-	Dimension        uint32
-	IndexFullness    float32
-	TotalVectorCount uint32
-	Namespaces       map[string]*NamespaceSummary
+	Dimension        uint32                       `json:"dimension"`
+	IndexFullness    float32                      `json:"index_fullness"`
+	TotalVectorCount uint32                       `json:"total_vector_count"`
+	Namespaces       map[string]*NamespaceSummary `json:"namespaces,omitempty"`
 }
 
 func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIndexStatsResponse, error) {

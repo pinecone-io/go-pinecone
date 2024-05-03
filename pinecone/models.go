@@ -32,31 +32,31 @@ const (
 )
 
 type IndexStatus struct {
-	Ready bool
-	State IndexStatusState
+	Ready bool             `json:"ready"`
+	State IndexStatusState `json:"state"`
 }
 
 type IndexSpec struct {
-	Pod        *PodSpec
-	Serverless *ServerlessSpec
+	Pod        *PodSpec        `json:"pod,omitempty"`
+	Serverless *ServerlessSpec `json:"serverless,omitempty"`
 }
 
 type Index struct {
-	Name      string
-	Dimension int32
-	Host      string
-	Metric    IndexMetric
-	Spec      *IndexSpec
-	Status    *IndexStatus
+	Name      string       `json:"name"`
+	Dimension int32        `json:"dimension"`
+	Host      string       `json:"host"`
+	Metric    IndexMetric  `json:"metric"`
+	Spec      *IndexSpec   `json:"spec,omitempty"`
+	Status    *IndexStatus `json:"status,omitempty"`
 }
 
 type Collection struct {
-	Name        string
-	Size        *int64
-	Status      CollectionStatus
-	Dimension   *int32
-	VectorCount *int32
-	Environment string
+	Name        string           `json:"name"`
+	Size        *int64           `json:"size,omitempty"`
+	Status      CollectionStatus `json:"status"`
+	Dimension   *int32           `json:"dimension,omitempty"`
+	VectorCount *int32           `json:"vector_count,omitempty"`
+	Environment string           `json:"environment"`
 }
 
 type CollectionStatus string
@@ -68,47 +68,47 @@ const (
 )
 
 type PodSpecMetadataConfig struct {
-	Indexed *[]string
+	Indexed *[]string `json:"indexed,omitempty"`
 }
 
 type PodSpec struct {
-	Environment      string
-	PodType          string
-	PodCount         int32
-	Replicas         int32
-	ShardCount       int32
-	SourceCollection *string
-	MetadataConfig   *PodSpecMetadataConfig
+	Environment      string                 `json:"environment"`
+	PodType          string                 `json:"pod_type"`
+	PodCount         int32                  `json:"pod_count"`
+	Replicas         int32                  `json:"replicas"`
+	ShardCount       int32                  `json:"shard_count"`
+	SourceCollection *string                `json:"source_collection,omitempty"`
+	MetadataConfig   *PodSpecMetadataConfig `json:"metadata_config,omitempty"`
 }
 
 type ServerlessSpec struct {
-	Cloud  Cloud
-	Region string
+	Cloud  Cloud  `json:"cloud"`
+	Region string `json:"region"`
 }
 
 type Vector struct {
-	Id           string
-	Values       []float32
-	SparseValues *SparseValues
-	Metadata     *Metadata
+	Id           string        `json:"id"`
+	Values       []float32     `json:"values,omitempty"`
+	SparseValues *SparseValues `json:"sparse_values,omitempty"`
+	Metadata     *Metadata     `json:"metadata,omitempty"`
 }
 
 type ScoredVector struct {
-	Vector *Vector
-	Score  float32
+	Vector *Vector `json:"vector,omitempty"`
+	Score  float32 `json:"score"`
 }
 
 type SparseValues struct {
-	Indices []uint32
-	Values  []float32
+	Indices []uint32  `json:"indices,omitempty"`
+	Values  []float32 `json:"values,omitempty"`
 }
 
 type NamespaceSummary struct {
-	VectorCount uint32
+	VectorCount uint32 `json:"vector_count"`
 }
 
 type Usage struct {
-	ReadUnits *uint32
+	ReadUnits *uint32 `json:"read_units,omitempty"`
 }
 
 type Filter = structpb.Struct
