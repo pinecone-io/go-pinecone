@@ -289,13 +289,13 @@ func (ts *IndexConnectionTests) TestListVectors() {
 
 func TestMarshalingFetchVectorsResponse(t *testing.T) {
 	tests := []struct {
-		name     string
-		response FetchVectorsResponse
-		want     string
+		name  string
+		input FetchVectorsResponse
+		want  string
 	}{
 		{
 			name: "All fields present",
-			response: FetchVectorsResponse{
+			input: FetchVectorsResponse{
 				Vectors: map[string]*Vector{
 					"vec-1": {Id: "vec-1", Values: []float32{0.01, 0.01, 0.01}},
 					"vec-2": {Id: "vec-2", Values: []float32{0.02, 0.02, 0.02}},
@@ -305,13 +305,13 @@ func TestMarshalingFetchVectorsResponse(t *testing.T) {
 			want: `{"vectors":{"vec-1":{"id":"vec-1","values":[0.01,0.01,0.01]},"vec-2":{"id":"vec-2","values":[0.02,0.02,0.02]}},"usage":{"read_units":5}}`,
 		},
 		{
-			name:     "Fields omitted",
-			response: FetchVectorsResponse{},
-			want:     `{}`,
+			name:  "Fields omitted",
+			input: FetchVectorsResponse{},
+			want:  `{}`,
 		},
 		{
-			name: "Nil fields",
-			response: FetchVectorsResponse{
+			name: "Fields empty",
+			input: FetchVectorsResponse{
 				Vectors: nil,
 				Usage:   nil,
 			},
@@ -321,7 +321,7 @@ func TestMarshalingFetchVectorsResponse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bytes, err := json.Marshal(tt.response)
+			bytes, err := json.Marshal(tt.input)
 			if err != nil {
 				t.Fatalf("Failed to marshal FetchVectorsResponse: %v", err)
 			}
@@ -338,13 +338,13 @@ func TestMarshalingListVectorsResponse(t *testing.T) {
 	vectorId2 := "vec-2"
 	paginationToken := "next-token"
 	tests := []struct {
-		name     string
-		response ListVectorsResponse
-		want     string
+		name  string
+		input ListVectorsResponse
+		want  string
 	}{
 		{
 			name: "All fields present",
-			response: ListVectorsResponse{
+			input: ListVectorsResponse{
 				VectorIds:           []*string{&vectorId1, &vectorId2},
 				Usage:               &Usage{ReadUnits: toUInt32(5)},
 				NextPaginationToken: &paginationToken,
@@ -352,13 +352,13 @@ func TestMarshalingListVectorsResponse(t *testing.T) {
 			want: `{"vector_ids":["vec-1","vec-2"],"usage":{"read_units":5},"next_pagination_token":"next-token"}`,
 		},
 		{
-			name:     "Fields omitted",
-			response: ListVectorsResponse{},
-			want:     `{}`,
+			name:  "Fields omitted",
+			input: ListVectorsResponse{},
+			want:  `{}`,
 		},
 		{
-			name: "Nil fields",
-			response: ListVectorsResponse{
+			name: "Fields empty",
+			input: ListVectorsResponse{
 				VectorIds:           nil,
 				Usage:               nil,
 				NextPaginationToken: nil,
@@ -369,7 +369,7 @@ func TestMarshalingListVectorsResponse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bytes, err := json.Marshal(tt.response)
+			bytes, err := json.Marshal(tt.input)
 			if err != nil {
 				t.Fatalf("Failed to marshal ListVectorsResponse: %v", err)
 			}
@@ -383,13 +383,13 @@ func TestMarshalingListVectorsResponse(t *testing.T) {
 
 func TestMarshalingQueryVectorsResponse(t *testing.T) {
 	tests := []struct {
-		name     string
-		response QueryVectorsResponse
-		want     string
+		name  string
+		input QueryVectorsResponse
+		want  string
 	}{
 		{
 			name: "All fields present",
-			response: QueryVectorsResponse{
+			input: QueryVectorsResponse{
 				Matches: []*ScoredVector{
 					{Vector: &Vector{Id: "vec-1", Values: []float32{0.01, 0.01, 0.01}}, Score: 0.1},
 					{Vector: &Vector{Id: "vec-2", Values: []float32{0.02, 0.02, 0.02}}, Score: 0.2},
@@ -399,20 +399,20 @@ func TestMarshalingQueryVectorsResponse(t *testing.T) {
 			want: `{"matches":[{"vector":{"id":"vec-1","values":[0.01,0.01,0.01]},"score":0.1},{"vector":{"id":"vec-2","values":[0.02,0.02,0.02]},"score":0.2}],"usage":{"read_units":5}}`,
 		},
 		{
-			name:     "Fields omitted",
-			response: QueryVectorsResponse{},
-			want:     `{}`,
+			name:  "Fields omitted",
+			input: QueryVectorsResponse{},
+			want:  `{}`,
 		},
 		{
-			name:     "Nil fields",
-			response: QueryVectorsResponse{Matches: nil, Usage: nil},
-			want:     `{}`,
+			name:  "Fields empty",
+			input: QueryVectorsResponse{Matches: nil, Usage: nil},
+			want:  `{}`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bytes, err := json.Marshal(tt.response)
+			bytes, err := json.Marshal(tt.input)
 			if err != nil {
 				t.Fatalf("Failed to marshal QueryVectorsResponse: %v", err)
 			}
@@ -426,13 +426,13 @@ func TestMarshalingQueryVectorsResponse(t *testing.T) {
 
 func TestMarshalingDescribeIndexStatsResponse(t *testing.T) {
 	tests := []struct {
-		name     string
-		response DescribeIndexStatsResponse
-		want     string
+		name  string
+		input DescribeIndexStatsResponse
+		want  string
 	}{
 		{
 			name: "All fields present",
-			response: DescribeIndexStatsResponse{
+			input: DescribeIndexStatsResponse{
 				Dimension:        3,
 				IndexFullness:    0.5,
 				TotalVectorCount: 100,
@@ -443,25 +443,25 @@ func TestMarshalingDescribeIndexStatsResponse(t *testing.T) {
 			want: `{"dimension":3,"index_fullness":0.5,"total_vector_count":100,"namespaces":{"namespace-1":{"vector_count":50}}}`,
 		},
 		{
-			name:     "Fields omitted",
-			response: DescribeIndexStatsResponse{},
-			want:     `{"dimension":0,"index_fullness":0,"total_vector_count":0}`,
+			name:  "Fields omitted",
+			input: DescribeIndexStatsResponse{},
+			want:  `{"dimension":0,"index_fullness":0,"total_vector_count":0}`,
 		},
 		{
-			name: "Nil namespaces",
-			response: DescribeIndexStatsResponse{
-				Dimension:        5,
+			name: "Fields empty",
+			input: DescribeIndexStatsResponse{
+				Dimension:        0,
 				IndexFullness:    0,
 				TotalVectorCount: 0,
 				Namespaces:       nil,
 			},
-			want: `{"dimension":5,"index_fullness":0,"total_vector_count":0}`,
+			want: `{"dimension":0,"index_fullness":0,"total_vector_count":0}`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bytes, err := json.Marshal(tt.response)
+			bytes, err := json.Marshal(tt.input)
 			if err != nil {
 				t.Fatalf("Failed to marshal DescribeIndexStatsResponse: %v", err)
 			}
