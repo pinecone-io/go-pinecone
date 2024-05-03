@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -112,6 +113,16 @@ func (ts *ClientTests) TestNewClientParamsSetHeaders() {
 	}
 }
 
+func (ts *ClientTests) TestNewClientParamsNoApiKeyNoAuthorizationHeader() {
+	client, err := NewClient(NewClientParams{})
+	require.NotNil(ts.T(), err, "Expected error when creating client without an API key or Authorization header")
+	if !strings.Contains(err.Error(), "no API key provided, please pass an API key for authorization") {
+		ts.FailNow(fmt.Sprintf("Expected error to contain 'no API key provided, please pass an API key for authorization', but got '%s'", err.Error()))
+	}
+
+	require.Nil(ts.T(), client, "Expected client to be nil when creating client without an API key or Authorization header")
+}
+
 func (ts *ClientTests) TestHeadersAppliedToRequests() {
 	apiKey := "test-api-key"
 	headers := map[string]string{"test-header": "123456"}
@@ -130,6 +141,31 @@ func (ts *ClientTests) TestHeadersAppliedToRequests() {
 	testHeaderValue := mockTransport.Req.Header.Get("test-header")
 	if testHeaderValue != "123456" {
 		ts.FailNow(fmt.Sprintf("Expected request to have header value '123456', but got '%s'", testHeaderValue))
+	}
+}
+
+func (ts *ClientTests) TestAuthorizationHeaderOverridesApiKey() {
+	apiKey := "test-api-key"
+	headers := map[string]string{"Authorization": "bearer fooo"}
+
+	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers, RestClient: httpClient})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	mockTransport := httpClient.Transport.(*mocks.MockTransport)
+
+	_, err = client.ListIndexes(context.Background())
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
+
+	apiKeyHeaderValue := mockTransport.Req.Header.Get("Api-Key")
+	authHeaderValue := mockTransport.Req.Header.Get("Authorization")
+	if authHeaderValue != "bearer fooo" {
+		ts.FailNow(fmt.Sprintf("Expected request to have header value 'bearer fooo', but got '%s'", authHeaderValue))
+	}
+	if apiKeyHeaderValue != "" {
+		ts.FailNow(fmt.Sprintf("Expected request to not have Api-Key header, but got '%s'", apiKeyHeaderValue))
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/deepmap/oapi-codegen/v2/pkg/securityprovider"
 	"github.com/pinecone-io/go-pinecone/internal/gen/control"
@@ -21,30 +22,16 @@ type Client struct {
 }
 
 type NewClientParams struct {
-	ApiKey    string
-	SourceTag string // optional
-	Headers   map[string]string // optional
-	RestClient *http.Client // optional
+	ApiKey     string            // optional unless no Authorization header provided
+	SourceTag  string            // optional
+	Headers    map[string]string // optional
+	RestClient *http.Client      // optional
 }
 
 func NewClient(in NewClientParams) (*Client, error) {
-	clientOptions := []control.ClientOption{}
-	apiKeyProvider, err := securityprovider.NewSecurityProviderApiKey("header", "Api-Key", in.ApiKey)
+	clientOptions, err := buildClientOptions(in)
 	if err != nil {
 		return nil, err
-	}
-	clientOptions = append(clientOptions, control.WithRequestEditorFn(apiKeyProvider.Intercept))
-	
-	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
-	clientOptions = append(clientOptions, control.WithRequestEditorFn(userAgentProvider.Intercept))
-
-	for key, value := range in.Headers {
-		headerProvider := provider.NewHeaderProvider(key, value)
-		clientOptions = append(clientOptions, control.WithRequestEditorFn(headerProvider.Intercept))
-	}
-
-	if in.RestClient != nil {
-		clientOptions = append(clientOptions, control.WithHTTPClient(in.RestClient))
 	}
 
 	client, err := control.NewClient("https://api.pinecone.io", clientOptions...)
@@ -424,4 +411,41 @@ func minOne(x int32) int32 {
 		return 1
 	}
 	return x
+}
+
+func buildClientOptions(in NewClientParams) ([]control.ClientOption, error) {
+	clientOptions := []control.ClientOption{}
+	hasAuthorizationHeader := false
+	hasApiKey := in.ApiKey != ""
+
+	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
+	clientOptions = append(clientOptions, control.WithRequestEditorFn(userAgentProvider.Intercept))
+
+	for key, value := range in.Headers {
+		headerProvider := provider.NewHeaderProvider(key, value)
+
+		if strings.Contains(key, "Authorization") {
+			hasAuthorizationHeader = true
+		}
+
+		clientOptions = append(clientOptions, control.WithRequestEditorFn(headerProvider.Intercept))
+	}
+
+	if !hasAuthorizationHeader {
+		apiKeyProvider, err := securityprovider.NewSecurityProviderApiKey("header", "Api-Key", in.ApiKey)
+		if err != nil {
+			return nil, err
+		}
+		clientOptions = append(clientOptions, control.WithRequestEditorFn(apiKeyProvider.Intercept))
+	}
+
+	if !hasAuthorizationHeader && !hasApiKey {
+		return nil, fmt.Errorf("no API key provided, please pass an API key for authorization")
+	}
+
+	if in.RestClient != nil {
+		clientOptions = append(clientOptions, control.WithHTTPClient(in.RestClient))
+	}
+
+	return clientOptions, nil
 }
