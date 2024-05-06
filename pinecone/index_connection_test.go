@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/google/uuid"
@@ -18,6 +19,7 @@ type IndexConnectionTests struct {
 	apiKey           string
 	idxConn          *IndexConnection
 	sourceTag        string
+	metadata         map[string]string
 	idxConnSourceTag *IndexConnection
 	vectorIds        []string
 }
@@ -36,6 +38,10 @@ func TestIndexConnection(t *testing.T) {
 	assert.NotEmptyf(t, podIndexName, "TEST_POD_INDEX_NAME env variable not set")
 
 	podIdx, err := client.DescribeIndex(context.Background(), podIndexName)
+	if err != nil {
+		t.FailNow()
+	}
+
 	podTestSuite := new(IndexConnectionTests)
 	podTestSuite.host = podIdx.Host
 	podTestSuite.dimension = podIdx.Dimension
@@ -45,6 +51,9 @@ func TestIndexConnection(t *testing.T) {
 	assert.NotEmptyf(t, serverlessIndexName, "TEST_SERVERLESS_INDEX_NAME env variable not set")
 
 	serverlessIdx, err := client.DescribeIndex(context.Background(), serverlessIndexName)
+	if err != nil {
+		t.FailNow()
+	}
 
 	serverlessTestSuite := new(IndexConnectionTests)
 	serverlessTestSuite.host = serverlessIdx.Host
@@ -62,12 +71,12 @@ func (ts *IndexConnectionTests) SetupSuite() {
 	namespace, err := uuid.NewV7()
 	assert.NoError(ts.T(), err)
 
-	idxConn, err := newIndexConnection(ts.apiKey, ts.host, namespace.String(), "")
+	idxConn, err := newIndexConnection(newIndexParameters{apiKey: ts.apiKey, host: ts.host, namespace: namespace.String(), sourceTag: ""})
 	assert.NoError(ts.T(), err)
 	ts.idxConn = idxConn
 
 	ts.sourceTag = "test_source_tag"
-	idxConnSourceTag, err := newIndexConnection(ts.apiKey, ts.host, namespace.String(), ts.sourceTag)
+	idxConnSourceTag, err := newIndexConnection(newIndexParameters{apiKey: ts.apiKey, host: ts.host, namespace: namespace.String(), sourceTag: ts.sourceTag})
 	assert.NoError(ts.T(), err)
 	ts.idxConnSourceTag = idxConnSourceTag
 
@@ -79,13 +88,16 @@ func (ts *IndexConnectionTests) TearDownSuite() {
 
 	err := ts.idxConn.Close()
 	assert.NoError(ts.T(), err)
+
+	err = ts.idxConnSourceTag.Close()
+	assert.NoError(ts.T(), err)
 }
 
 func (ts *IndexConnectionTests) TestNewIndexConnection() {
 	apiKey := "test-api-key"
 	namespace := ""
 	sourceTag := ""
-	idxConn, err := newIndexConnection(apiKey, ts.host, namespace, sourceTag)
+	idxConn, err := newIndexConnection(newIndexParameters{apiKey: apiKey, host: ts.host, namespace: namespace, sourceTag: sourceTag})
 	assert.NoError(ts.T(), err)
 
 	if idxConn.apiKey != apiKey {
@@ -93,6 +105,33 @@ func (ts *IndexConnectionTests) TestNewIndexConnection() {
 	}
 	if idxConn.Namespace != "" {
 		ts.FailNow(fmt.Sprintf("Expected idxConn to have empty namespace, but got '%s'", idxConn.Namespace))
+	}
+	if idxConn.additionalMetadata != nil {
+		ts.FailNow(fmt.Sprintf("Expected idxConn additionalMetadata to be nil, but got '%+v'", idxConn.additionalMetadata))
+	}
+	if idxConn.dataClient == nil {
+		ts.FailNow("Expected idxConn to have non-nil dataClient")
+	}
+	if idxConn.grpcConn == nil {
+		ts.FailNow("Expected idxConn to have non-nil grpcConn")
+	}
+	if idxConn.additionalMetadata != nil {
+		ts.FailNow("Expected idxConn to have nil additionalMetadata")
+	}
+}
+
+func (ts *IndexConnectionTests) TestNewIndexConnectionNamespace() {
+	apiKey := "test-api-key"
+	namespace := "test-namespace"
+	sourceTag := "test-source-tag"
+	idxConn, err := newIndexConnection(newIndexParameters{apiKey: apiKey, host: ts.host, namespace: namespace, sourceTag: sourceTag})
+	assert.NoError(ts.T(), err)
+
+	if idxConn.apiKey != apiKey {
+		ts.FailNow(fmt.Sprintf("Expected idxConn to have apiKey '%s', but got '%s'", apiKey, idxConn.apiKey))
+	}
+	if idxConn.Namespace != namespace {
+		ts.FailNow(fmt.Sprintf("Expected idxConn to have namespace '%s', but got '%s'", namespace, idxConn.Namespace))
 	}
 	if idxConn.dataClient == nil {
 		ts.FailNow("Expected idxConn to have non-nil dataClient")
@@ -102,11 +141,12 @@ func (ts *IndexConnectionTests) TestNewIndexConnection() {
 	}
 }
 
-func (ts *IndexConnectionTests) TestNewIndexConnectionNamespace() {
+func (ts *IndexConnectionTests) TestNewIndexConnectionAdditionalMetadata() {
 	apiKey := "test-api-key"
 	namespace := "test-namespace"
 	sourceTag := "test-source-tag"
-	idxConn, err := newIndexConnection(apiKey, ts.host, namespace, sourceTag)
+	additionalMetadata := map[string]string{"test-header": "test-value"}
+	idxConn, err := newIndexConnection(newIndexParameters{apiKey: apiKey, host: ts.host, namespace: namespace, sourceTag: sourceTag, additionalMetadata: additionalMetadata})
 	assert.NoError(ts.T(), err)
 
 	if idxConn.apiKey != apiKey {
@@ -115,6 +155,9 @@ func (ts *IndexConnectionTests) TestNewIndexConnectionNamespace() {
 	if idxConn.Namespace != namespace {
 		ts.FailNow(fmt.Sprintf("Expected idxConn to have namespace '%s', but got '%s'", namespace, idxConn.Namespace))
 	}
+	if  !reflect.DeepEqual(idxConn.additionalMetadata, additionalMetadata) {
+		ts.FailNow(fmt.Sprintf("Expected idxConn to have additionalMetadata '%+v', but got '%+v'", additionalMetadata, idxConn.additionalMetadata))
+	}	
 	if idxConn.dataClient == nil {
 		ts.FailNow("Expected idxConn to have non-nil dataClient")
 	}

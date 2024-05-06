@@ -4,51 +4,55 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
+
 	"github.com/deepmap/oapi-codegen/v2/pkg/securityprovider"
 	"github.com/pinecone-io/go-pinecone/internal/gen/control"
 	"github.com/pinecone-io/go-pinecone/internal/provider"
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
-	"io"
-	"net/http"
 )
 
 type Client struct {
 	apiKey     string
 	restClient *control.Client
 	sourceTag  string
+	headers    map[string]string
 }
 
 type NewClientParams struct {
-	ApiKey    string
-	SourceTag string // optional
+	ApiKey     string            // required unless Authorization header provided
+	SourceTag  string            // optional
+	Headers    map[string]string // optional
+	RestClient *http.Client      // optional
 }
 
 func NewClient(in NewClientParams) (*Client, error) {
-	apiKeyProvider, err := securityprovider.NewSecurityProviderApiKey("header", "Api-Key", in.ApiKey)
+	clientOptions, err := buildClientOptions(in)
 	if err != nil {
 		return nil, err
 	}
 
-	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
-
-	client, err := control.NewClient("https://api.pinecone.io",
-		control.WithRequestEditorFn(apiKeyProvider.Intercept),
-		control.WithRequestEditorFn(userAgentProvider.Intercept),
-	)
+	client, err := control.NewClient("https://api.pinecone.io", clientOptions...)
 	if err != nil {
 		return nil, err
 	}
 
-	c := Client{apiKey: in.ApiKey, restClient: client, sourceTag: in.SourceTag}
+	c := Client{apiKey: in.ApiKey, restClient: client, sourceTag: in.SourceTag, headers: in.Headers}
 	return &c, nil
 }
 
 func (c *Client) Index(host string) (*IndexConnection, error) {
-	return c.IndexWithNamespace(host, "")
+	return c.IndexWithAdditionalMetadata(host, "", nil)
 }
 
 func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnection, error) {
-	idx, err := newIndexConnection(c.apiKey, host, namespace, c.sourceTag)
+	return c.IndexWithAdditionalMetadata(host, namespace, nil)
+}
+
+func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, additionalMetadata map[string]string) (*IndexConnection, error) {
+	idx, err := newIndexConnection(newIndexParameters{apiKey: c.apiKey, host: host, namespace: namespace, sourceTag: c.sourceTag, additionalMetadata: additionalMetadata})
 	if err != nil {
 		return nil, err
 	}
@@ -407,4 +411,41 @@ func minOne(x int32) int32 {
 		return 1
 	}
 	return x
+}
+
+func buildClientOptions(in NewClientParams) ([]control.ClientOption, error) {
+	clientOptions := []control.ClientOption{}
+	hasAuthorizationHeader := false
+	hasApiKey := in.ApiKey != ""
+
+	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
+	clientOptions = append(clientOptions, control.WithRequestEditorFn(userAgentProvider.Intercept))
+
+	for key, value := range in.Headers {
+		headerProvider := provider.NewHeaderProvider(key, value)
+
+		if strings.Contains(strings.ToLower(key), "authorization") {
+			hasAuthorizationHeader = true
+		}
+
+		clientOptions = append(clientOptions, control.WithRequestEditorFn(headerProvider.Intercept))
+	}
+
+	if !hasAuthorizationHeader {
+		apiKeyProvider, err := securityprovider.NewSecurityProviderApiKey("header", "Api-Key", in.ApiKey)
+		if err != nil {
+			return nil, err
+		}
+		clientOptions = append(clientOptions, control.WithRequestEditorFn(apiKeyProvider.Intercept))
+	}
+
+	if !hasAuthorizationHeader && !hasApiKey {
+		return nil, fmt.Errorf("no API key provided, please pass an API key for authorization")
+	}
+
+	if in.RestClient != nil {
+		clientOptions = append(clientOptions, control.WithHTTPClient(in.RestClient))
+	}
+
+	return clientOptions, nil
 }
