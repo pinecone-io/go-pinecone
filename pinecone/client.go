@@ -22,7 +22,7 @@ type Client struct {
 }
 
 type NewClientParams struct {
-	ApiKey     string            // optional unless no Authorization header provided
+	ApiKey     string            // required unless Authorization header provided
 	SourceTag  string            // optional
 	Headers    map[string]string // optional
 	RestClient *http.Client      // optional
@@ -424,7 +424,7 @@ func buildClientOptions(in NewClientParams) ([]control.ClientOption, error) {
 	for key, value := range in.Headers {
 		headerProvider := provider.NewHeaderProvider(key, value)
 
-		if strings.Contains(key, "Authorization") {
+		if strings.Contains(strings.ToLower(key), "authorization") {
 			hasAuthorizationHeader = true
 		}
 
