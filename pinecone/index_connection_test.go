@@ -2,6 +2,7 @@ package pinecone
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -10,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type IndexConnectionTests struct {
@@ -17,9 +19,9 @@ type IndexConnectionTests struct {
 	host             string
 	dimension        int32
 	apiKey           string
+	indexType        string
 	idxConn          *IndexConnection
 	sourceTag        string
-	metadata         map[string]string
 	idxConnSourceTag *IndexConnection
 	vectorIds        []string
 }
@@ -43,6 +45,7 @@ func TestIndexConnection(t *testing.T) {
 	}
 
 	podTestSuite := new(IndexConnectionTests)
+	podTestSuite.indexType = "pod"
 	podTestSuite.host = podIdx.Host
 	podTestSuite.dimension = podIdx.Dimension
 	podTestSuite.apiKey = apiKey
@@ -56,6 +59,7 @@ func TestIndexConnection(t *testing.T) {
 	}
 
 	serverlessTestSuite := new(IndexConnectionTests)
+	serverlessTestSuite.indexType = "serverless"
 	serverlessTestSuite.host = serverlessIdx.Host
 	serverlessTestSuite.dimension = serverlessIdx.Dimension
 	serverlessTestSuite.apiKey = apiKey
@@ -155,9 +159,9 @@ func (ts *IndexConnectionTests) TestNewIndexConnectionAdditionalMetadata() {
 	if idxConn.Namespace != namespace {
 		ts.FailNow(fmt.Sprintf("Expected idxConn to have namespace '%s', but got '%s'", namespace, idxConn.Namespace))
 	}
-	if  !reflect.DeepEqual(idxConn.additionalMetadata, additionalMetadata) {
+	if !reflect.DeepEqual(idxConn.additionalMetadata, additionalMetadata) {
 		ts.FailNow(fmt.Sprintf("Expected idxConn to have additionalMetadata '%+v', but got '%+v'", additionalMetadata, idxConn.additionalMetadata))
-	}	
+	}
 	if idxConn.dataClient == nil {
 		ts.FailNow("Expected idxConn to have non-nil dataClient")
 	}
@@ -247,9 +251,23 @@ func (ts *IndexConnectionTests) TestDeleteVectorsById() {
 }
 
 func (ts *IndexConnectionTests) TestDeleteVectorsByFilter() {
+	metadataFilter := map[string]interface{}{
+		"genre": "classical",
+	}
+	filter, err := structpb.NewStruct(metadataFilter)
+	if err != nil {
+		ts.FailNow(fmt.Sprintf("Failed to create metadata filter: %v", err))
+	}
+
 	ctx := context.Background()
-	err := ts.idxConn.DeleteVectorsByFilter(ctx, &Filter{})
-	assert.NoError(ts.T(), err)
+	err = ts.idxConn.DeleteVectorsByFilter(ctx, filter)
+
+	if ts.indexType == "serverless" {
+		assert.Error(ts.T(), err)
+		assert.Containsf(ts.T(), err.Error(), "Serverless and Starter indexes do not support deleting with metadata filtering", "Expected error message to contain 'Serverless and Starter indexes do not support deleting with metadata filtering'")
+	} else {
+		assert.NoError(ts.T(), err)
+	}
 
 	ts.loadData() //reload deleted data
 }
@@ -284,6 +302,192 @@ func (ts *IndexConnectionTests) TestListVectors() {
 	res, err := ts.idxConn.ListVectors(ctx, req)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
+}
+
+func TestMarshalFetchVectorsResponse(t *testing.T) {
+	tests := []struct {
+		name  string
+		input FetchVectorsResponse
+		want  string
+	}{
+		{
+			name: "All fields present",
+			input: FetchVectorsResponse{
+				Vectors: map[string]*Vector{
+					"vec-1": {Id: "vec-1", Values: []float32{0.01, 0.01, 0.01}},
+					"vec-2": {Id: "vec-2", Values: []float32{0.02, 0.02, 0.02}},
+				},
+				Usage: &Usage{ReadUnits: 5},
+			},
+			want: `{"vectors":{"vec-1":{"id":"vec-1","values":[0.01,0.01,0.01]},"vec-2":{"id":"vec-2","values":[0.02,0.02,0.02]}},"usage":{"read_units":5}}`,
+		},
+		{
+			name:  "Fields omitted",
+			input: FetchVectorsResponse{},
+			want:  `{}`,
+		},
+		{
+			name: "Fields empty",
+			input: FetchVectorsResponse{
+				Vectors: nil,
+				Usage:   nil,
+			},
+			want: `{}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bytes, err := json.Marshal(tt.input)
+			if err != nil {
+				t.Fatalf("Failed to marshal FetchVectorsResponse: %v", err)
+			}
+
+			if got := string(bytes); got != tt.want {
+				t.Errorf("Marshal FetchVectorsResponse got = %s, want = %s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMarshalListVectorsResponse(t *testing.T) {
+	vectorId1 := "vec-1"
+	vectorId2 := "vec-2"
+	paginationToken := "next-token"
+	tests := []struct {
+		name  string
+		input ListVectorsResponse
+		want  string
+	}{
+		{
+			name: "All fields present",
+			input: ListVectorsResponse{
+				VectorIds:           []*string{&vectorId1, &vectorId2},
+				Usage:               &Usage{ReadUnits: 5},
+				NextPaginationToken: &paginationToken,
+			},
+			want: `{"vector_ids":["vec-1","vec-2"],"usage":{"read_units":5},"next_pagination_token":"next-token"}`,
+		},
+		{
+			name:  "Fields omitted",
+			input: ListVectorsResponse{},
+			want:  `{}`,
+		},
+		{
+			name: "Fields empty",
+			input: ListVectorsResponse{
+				VectorIds:           nil,
+				Usage:               nil,
+				NextPaginationToken: nil,
+			},
+			want: `{}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bytes, err := json.Marshal(tt.input)
+			if err != nil {
+				t.Fatalf("Failed to marshal ListVectorsResponse: %v", err)
+			}
+
+			if got := string(bytes); got != tt.want {
+				t.Errorf("Marshal ListVectorsResponse got = %s, want = %s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMarshalQueryVectorsResponse(t *testing.T) {
+	tests := []struct {
+		name  string
+		input QueryVectorsResponse
+		want  string
+	}{
+		{
+			name: "All fields present",
+			input: QueryVectorsResponse{
+				Matches: []*ScoredVector{
+					{Vector: &Vector{Id: "vec-1", Values: []float32{0.01, 0.01, 0.01}}, Score: 0.1},
+					{Vector: &Vector{Id: "vec-2", Values: []float32{0.02, 0.02, 0.02}}, Score: 0.2},
+				},
+				Usage: &Usage{ReadUnits: 5},
+			},
+			want: `{"matches":[{"vector":{"id":"vec-1","values":[0.01,0.01,0.01]},"score":0.1},{"vector":{"id":"vec-2","values":[0.02,0.02,0.02]},"score":0.2}],"usage":{"read_units":5}}`,
+		},
+		{
+			name:  "Fields omitted",
+			input: QueryVectorsResponse{},
+			want:  `{}`,
+		},
+		{
+			name:  "Fields empty",
+			input: QueryVectorsResponse{Matches: nil, Usage: nil},
+			want:  `{}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bytes, err := json.Marshal(tt.input)
+			if err != nil {
+				t.Fatalf("Failed to marshal QueryVectorsResponse: %v", err)
+			}
+
+			if got := string(bytes); got != tt.want {
+				t.Errorf("Marshal QueryVectorsResponse got = %s, want = %s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMarshalDescribeIndexStatsResponse(t *testing.T) {
+	tests := []struct {
+		name  string
+		input DescribeIndexStatsResponse
+		want  string
+	}{
+		{
+			name: "All fields present",
+			input: DescribeIndexStatsResponse{
+				Dimension:        3,
+				IndexFullness:    0.5,
+				TotalVectorCount: 100,
+				Namespaces: map[string]*NamespaceSummary{
+					"namespace-1": {VectorCount: 50},
+				},
+			},
+			want: `{"dimension":3,"index_fullness":0.5,"total_vector_count":100,"namespaces":{"namespace-1":{"vector_count":50}}}`,
+		},
+		{
+			name:  "Fields omitted",
+			input: DescribeIndexStatsResponse{},
+			want:  `{"dimension":0,"index_fullness":0,"total_vector_count":0}`,
+		},
+		{
+			name: "Fields empty",
+			input: DescribeIndexStatsResponse{
+				Dimension:        0,
+				IndexFullness:    0,
+				TotalVectorCount: 0,
+				Namespaces:       nil,
+			},
+			want: `{"dimension":0,"index_fullness":0,"total_vector_count":0}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bytes, err := json.Marshal(tt.input)
+			if err != nil {
+				t.Fatalf("Failed to marshal DescribeIndexStatsResponse: %v", err)
+			}
+
+			if got := string(bytes); got != tt.want {
+				t.Errorf("Marshal DescribeIndexStatsResponse got = %s, want = %s", got, tt.want)
+			}
+		})
+	}
 }
 
 func (ts *IndexConnectionTests) loadData() {

@@ -14,18 +14,18 @@ import (
 )
 
 type IndexConnection struct {
-	Namespace  string
-	apiKey     string
+	Namespace          string
+	apiKey             string
 	additionalMetadata map[string]string
-	dataClient *data.VectorServiceClient
-	grpcConn   *grpc.ClientConn
+	dataClient         *data.VectorServiceClient
+	grpcConn           *grpc.ClientConn
 }
 
 type newIndexParameters struct {
-	apiKey string
-	host string
-	namespace string
-	sourceTag string
+	apiKey             string
+	host               string
+	namespace          string
+	sourceTag          string
 	additionalMetadata map[string]string
 }
 
@@ -75,8 +75,8 @@ func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (ui
 }
 
 type FetchVectorsResponse struct {
-	Vectors map[string]*Vector
-	Usage   *Usage
+	Vectors map[string]*Vector `json:"vectors,omitempty"`
+	Usage   *Usage             `json:"usage,omitempty"`
 }
 
 func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*FetchVectorsResponse, error) {
@@ -94,6 +94,7 @@ func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*Fe
 	for id, vector := range res.Vectors {
 		vectors[id] = toVector(vector)
 	}
+	fmt.Printf("VECTORS: %+v\n", vectors)
 
 	return &FetchVectorsResponse{
 		Vectors: vectors,
@@ -108,9 +109,9 @@ type ListVectorsRequest struct {
 }
 
 type ListVectorsResponse struct {
-	VectorIds           []*string
-	Usage               *Usage
-	NextPaginationToken *string
+	VectorIds           []*string `json:"vector_ids,omitempty"`
+	Usage               *Usage    `json:"usage,omitempty"`
+	NextPaginationToken *string   `json:"next_pagination_token,omitempty"`
 }
 
 func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequest) (*ListVectorsResponse, error) {
@@ -132,7 +133,7 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 
 	return &ListVectorsResponse{
 		VectorIds:           vectorIds,
-		Usage:               &Usage{ReadUnits: res.Usage.ReadUnits},
+		Usage:               &Usage{ReadUnits: derefOrDefault(res.Usage.ReadUnits, 0)},
 		NextPaginationToken: toPaginationToken(res.Pagination),
 	}, nil
 }
@@ -147,8 +148,8 @@ type QueryByVectorValuesRequest struct {
 }
 
 type QueryVectorsResponse struct {
-	Matches []*ScoredVector
-	Usage   *Usage
+	Matches []*ScoredVector `json:"matches,omitempty"`
+	Usage   *Usage          `json:"usage,omitempty"`
 }
 
 func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryByVectorValuesRequest) (*QueryVectorsResponse, error) {
@@ -236,10 +237,10 @@ func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRe
 }
 
 type DescribeIndexStatsResponse struct {
-	Dimension        uint32
-	IndexFullness    float32
-	TotalVectorCount uint32
-	Namespaces       map[string]*NamespaceSummary
+	Dimension        uint32                       `json:"dimension"`
+	IndexFullness    float32                      `json:"index_fullness"`
+	TotalVectorCount uint32                       `json:"total_vector_count"`
+	Namespaces       map[string]*NamespaceSummary `json:"namespaces,omitempty"`
 }
 
 func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIndexStatsResponse, error) {
@@ -335,7 +336,7 @@ func toUsage(u *data.Usage) *Usage {
 		return nil
 	}
 	return &Usage{
-		ReadUnits: u.ReadUnits,
+		ReadUnits: derefOrDefault(u.ReadUnits, 0),
 	}
 }
 
@@ -372,7 +373,7 @@ func (idx *IndexConnection) akCtx(ctx context.Context) context.Context {
 	newMetadata := []string{}
 	newMetadata = append(newMetadata, "api-key", idx.apiKey)
 
-	for key, value := range idx.additionalMetadata{
+	for key, value := range idx.additionalMetadata {
 		newMetadata = append(newMetadata, key, value)
 	}
 
