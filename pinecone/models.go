@@ -52,10 +52,10 @@ type Index struct {
 
 type Collection struct {
 	Name        string           `json:"name"`
-	Size        *int64           `json:"size,omitempty"`
+	Size        int64            `json:"size"`
 	Status      CollectionStatus `json:"status"`
-	Dimension   *int32           `json:"dimension,omitempty"`
-	VectorCount *int32           `json:"vector_count,omitempty"`
+	Dimension   int32            `json:"dimension"`
+	VectorCount int32            `json:"vector_count"`
 	Environment string           `json:"environment"`
 }
 
@@ -108,7 +108,7 @@ type NamespaceSummary struct {
 }
 
 type Usage struct {
-	ReadUnits *uint32 `json:"read_units,omitempty"`
+	ReadUnits uint32 `json:"read_units"`
 }
 
 type Filter = structpb.Struct

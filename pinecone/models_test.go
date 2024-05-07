@@ -7,7 +7,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-func TestMarshalingIndexStatus(t *testing.T) {
+func TestMarshalIndexStatus(t *testing.T) {
 	tests := []struct {
 		name  string
 		input IndexStatus
@@ -44,7 +44,7 @@ func TestMarshalingIndexStatus(t *testing.T) {
 	}
 }
 
-func TestMarshalingServerlessSpec(t *testing.T) {
+func TestMarshalServerlessSpec(t *testing.T) {
 	tests := []struct {
 		name  string
 		input ServerlessSpec
@@ -82,7 +82,7 @@ func TestMarshalingServerlessSpec(t *testing.T) {
 	}
 }
 
-func TestMarshalingPodSpec(t *testing.T) {
+func TestMarshalPodSpec(t *testing.T) {
 	sourceCollection := "source-collection"
 	tests := []struct {
 		name  string
@@ -138,7 +138,7 @@ func TestMarshalingPodSpec(t *testing.T) {
 	}
 }
 
-func TestMarshalingIndexSpec(t *testing.T) {
+func TestMarshalIndexSpec(t *testing.T) {
 	sourceCollection := "source-collection"
 	tests := []struct {
 		name  string
@@ -260,10 +260,10 @@ func TestMarshalCollection(t *testing.T) {
 			name: "All fields present",
 			input: Collection{
 				Name:        "test-collection",
-				Size:        toInt64(15328),
+				Size:        15328,
 				Status:      "Ready",
-				Dimension:   toInt32(132),
-				VectorCount: toInt32(15000),
+				Dimension:   132,
+				VectorCount: 15000,
 				Environment: "us-west-2",
 			},
 			want: `{"name":"test-collection","size":15328,"status":"Ready","dimension":132,"vector_count":15000,"environment":"us-west-2"}`,
@@ -271,19 +271,19 @@ func TestMarshalCollection(t *testing.T) {
 		{
 			name:  "Fields omitted",
 			input: Collection{},
-			want:  `{"name":"","status":"","environment":""}`,
+			want:  `{"name":"","size":0,"status":"","dimension":0,"vector_count":0,"environment":""}`,
 		},
 		{
 			name: "Fields empty",
 			input: Collection{
 				Name:        "",
-				Size:        nil,
+				Size:        0,
 				Status:      "",
-				Dimension:   nil,
-				VectorCount: nil,
+				Dimension:   0,
+				VectorCount: 0,
 				Environment: "",
 			},
-			want: `{"name":"","status":"","environment":""}`,
+			want: `{"name":"","size":0,"status":"","dimension":0,"vector_count":0,"environment":""}`,
 		},
 	}
 
@@ -526,17 +526,17 @@ func TestMarshalUsage(t *testing.T) {
 	}{
 		{
 			name:  "All fields present",
-			input: Usage{ReadUnits: toUInt32(100)},
+			input: Usage{ReadUnits: 100},
 			want:  `{"read_units":100}`,
 		},
 		{
 			name:  "Fields omitted",
 			input: Usage{},
-			want:  `{}`,
+			want:  `{"read_units":0}`,
 		},
 		{
 			name:  "Fields empty",
-			input: Usage{ReadUnits: toUInt32(0)},
+			input: Usage{ReadUnits: 0},
 			want:  `{"read_units":0}`,
 		},
 	}
@@ -554,12 +554,4 @@ func TestMarshalUsage(t *testing.T) {
 		})
 	}
 
-}
-
-func toInt64(i int64) *int64 {
-	return &i
-}
-
-func toInt32(i int32) *int32 {
-	return &i
 }

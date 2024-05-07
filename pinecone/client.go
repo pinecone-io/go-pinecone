@@ -386,12 +386,13 @@ func toCollection(cm *control.CollectionModel) *Collection {
 	if cm == nil {
 		return nil
 	}
+
 	return &Collection{
 		Name:        cm.Name,
-		Size:        cm.Size,
+		Size:        derefOrDefault(cm.Size, 0),
 		Status:      CollectionStatus(cm.Status),
-		Dimension:   cm.Dimension,
-		VectorCount: cm.VectorCount,
+		Dimension:   derefOrDefault(cm.Dimension, 0),
+		VectorCount: derefOrDefault(cm.VectorCount, 0),
 		Environment: cm.Environment,
 	}
 }
@@ -411,6 +412,13 @@ func minOne(x int32) int32 {
 		return 1
 	}
 	return x
+}
+
+func derefOrDefault[T any](ptr *T, defaultValue T) T {
+	if ptr == nil {
+		return defaultValue
+	}
+	return *ptr
 }
 
 func buildClientOptions(in NewClientParams) ([]control.ClientOption, error) {

@@ -14,18 +14,18 @@ import (
 )
 
 type IndexConnection struct {
-	Namespace  string
-	apiKey     string
+	Namespace          string
+	apiKey             string
 	additionalMetadata map[string]string
-	dataClient *data.VectorServiceClient
-	grpcConn   *grpc.ClientConn
+	dataClient         *data.VectorServiceClient
+	grpcConn           *grpc.ClientConn
 }
 
 type newIndexParameters struct {
-	apiKey string
-	host string
-	namespace string
-	sourceTag string
+	apiKey             string
+	host               string
+	namespace          string
+	sourceTag          string
 	additionalMetadata map[string]string
 }
 
@@ -94,6 +94,7 @@ func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*Fe
 	for id, vector := range res.Vectors {
 		vectors[id] = toVector(vector)
 	}
+	fmt.Printf("VECTORS: %+v\n", vectors)
 
 	return &FetchVectorsResponse{
 		Vectors: vectors,
@@ -132,7 +133,7 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 
 	return &ListVectorsResponse{
 		VectorIds:           vectorIds,
-		Usage:               &Usage{ReadUnits: res.Usage.ReadUnits},
+		Usage:               &Usage{ReadUnits: derefOrDefault(res.Usage.ReadUnits, 0)},
 		NextPaginationToken: toPaginationToken(res.Pagination),
 	}, nil
 }
@@ -335,7 +336,7 @@ func toUsage(u *data.Usage) *Usage {
 		return nil
 	}
 	return &Usage{
-		ReadUnits: u.ReadUnits,
+		ReadUnits: derefOrDefault(u.ReadUnits, 0),
 	}
 }
 
@@ -372,7 +373,7 @@ func (idx *IndexConnection) akCtx(ctx context.Context) context.Context {
 	newMetadata := []string{}
 	newMetadata = append(newMetadata, "api-key", idx.apiKey)
 
-	for key, value := range idx.additionalMetadata{
+	for key, value := range idx.additionalMetadata {
 		newMetadata = append(newMetadata, key, value)
 	}
 
