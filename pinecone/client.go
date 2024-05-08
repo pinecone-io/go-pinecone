@@ -465,17 +465,11 @@ func (ncp *NewClientParams) buildClientOptions() ([]control.ClientOption, error)
 	// if apiKey is provided and no auth header is set, add the apiKey as a header
 	// apiKey from parameters takes precedence over apiKey from environment
 	if hasApiKey && !hasAuthorizationHeader {
-
-		fmt.Printf("OS API KEY: %s\n", osApiKey)
-		fmt.Printf("NCP PARAMS API KEY: %s\n", ncp.ApiKey)
-
 		var appliedApiKey string
 		if ncp.ApiKey != "" {
 			appliedApiKey = ncp.ApiKey
-			fmt.Printf("ncp key applied")
 		} else {
 			appliedApiKey = osApiKey
-			fmt.Printf("os key applied")
 		}
 
 		apiKeyProvider, err := securityprovider.NewSecurityProviderApiKey("header", "Api-Key", appliedApiKey)
