@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/internal/mocks"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -28,8 +29,8 @@ func TestClient(t *testing.T) {
 }
 
 func (ts *ClientTests) SetupSuite() {
-	apiKey := os.Getenv("API_KEY")
-	require.NotEmpty(ts.T(), apiKey, "API_KEY env variable not set")
+	apiKey := os.Getenv("INTEGRATION_PINECONE_API_KEY")
+	require.NotEmpty(ts.T(), apiKey, "INTEGRATION_PINECONE_API_KEY env variable not set")
 
 	ts.podIndex = os.Getenv("TEST_POD_INDEX_NAME")
 	require.NotEmpty(ts.T(), ts.podIndex, "TEST_POD_INDEX_NAME env variable not set")
@@ -139,9 +140,52 @@ func (ts *ClientTests) TestHeadersAppliedToRequests() {
 	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
 
 	testHeaderValue := mockTransport.Req.Header.Get("test-header")
-	if testHeaderValue != "123456" {
-		ts.FailNow(fmt.Sprintf("Expected request to have header value '123456', but got '%s'", testHeaderValue))
+	assert.Equal(ts.T(), "123456", testHeaderValue, "Expected request to have header value '123456', but got '%s'", testHeaderValue)
+}
+
+func (ts *ClientTests) TestAdditionalHeadersAppliedToRequest() {
+	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"test-header": "environment-header"}`)
+
+	apiKey := "test-api-key"
+
+	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, RestClient: httpClient})
+	if err != nil {
+		ts.FailNow(err.Error())
 	}
+	mockTransport := httpClient.Transport.(*mocks.MockTransport)
+
+	_, err = client.ListIndexes(context.Background())
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
+
+	testHeaderValue := mockTransport.Req.Header.Get("test-header")
+	assert.Equal(ts.T(), "environment-header", testHeaderValue, "Expected request to have header value 'environment-header', but got '%s'", testHeaderValue)
+
+	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
+}
+
+func (ts *ClientTests) TestHeadersOverrideAdditionalHeaders() {
+	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"test-header": "environment-header"}`)
+
+	apiKey := "test-api-key"
+	headers := map[string]string{"test-header": "param-header"}
+
+	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers, RestClient: httpClient})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	mockTransport := httpClient.Transport.(*mocks.MockTransport)
+
+	_, err = client.ListIndexes(context.Background())
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
+
+	testHeaderValue := mockTransport.Req.Header.Get("test-header")
+	assert.Equal(ts.T(), "param-header", testHeaderValue, "Expected request to have header value 'param-header', but got '%s'", testHeaderValue)
+
+	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
 }
 
 func (ts *ClientTests) TestAuthorizationHeaderOverridesApiKey() {
@@ -167,6 +211,26 @@ func (ts *ClientTests) TestAuthorizationHeaderOverridesApiKey() {
 	if apiKeyHeaderValue != "" {
 		ts.FailNow(fmt.Sprintf("Expected request to not have Api-Key header, but got '%s'", apiKeyHeaderValue))
 	}
+}
+
+func (ts *ClientTests) TestClientReadsApiKeyFromEnv() {
+	os.Setenv("PINECONE_API_KEY", "test-env-api-key")
+
+	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+	client, err := NewClient(NewClientParams{RestClient: httpClient})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	mockTransport := httpClient.Transport.(*mocks.MockTransport)
+
+	_, err = client.ListIndexes(context.Background())
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
+
+	testHeaderValue := mockTransport.Req.Header.Get("Api-Key")
+	assert.Equal(ts.T(), "test-env-api-key", testHeaderValue, "Expected request to have header value 'test-env-api-key', but got '%s'", testHeaderValue)
+
+	os.Unsetenv("PINECONE_API_KEY")
 }
 
 func (ts *ClientTests) TestListIndexes() {

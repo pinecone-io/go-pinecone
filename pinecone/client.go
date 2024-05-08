@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/deepmap/oapi-codegen/v2/pkg/securityprovider"
@@ -29,7 +31,7 @@ type NewClientParams struct {
 }
 
 func NewClient(in NewClientParams) (*Client, error) {
-	clientOptions, err := buildClientOptions(in)
+	clientOptions, err := in.buildClientOptions()
 	if err != nil {
 		return nil, err
 	}
@@ -421,26 +423,62 @@ func derefOrDefault[T any](ptr *T, defaultValue T) T {
 	return *ptr
 }
 
-func buildClientOptions(in NewClientParams) ([]control.ClientOption, error) {
+func (ncp *NewClientParams) buildClientOptions() ([]control.ClientOption, error) {
 	clientOptions := []control.ClientOption{}
+	osApiKey := os.Getenv("PINECONE_API_KEY")
+	envAdditionalHeaders, hasEnvAdditionalHeaders := os.LookupEnv("PINECONE_ADDITIONAL_HEADERS")
 	hasAuthorizationHeader := false
-	hasApiKey := in.ApiKey != ""
+	hasApiKey := (ncp.ApiKey != "" || osApiKey != "")
 
-	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
+	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(ncp.SourceTag))
 	clientOptions = append(clientOptions, control.WithRequestEditorFn(userAgentProvider.Intercept))
 
-	for key, value := range in.Headers {
-		headerProvider := provider.NewHeaderProvider(key, value)
+	// apply headers from parameters if passed, otherwise use environment headers
+	if ncp.Headers != nil {
+		for key, value := range ncp.Headers {
+			headerProvider := provider.NewHeaderProvider(key, value)
 
-		if strings.Contains(strings.ToLower(key), "authorization") {
-			hasAuthorizationHeader = true
+			if strings.Contains(strings.ToLower(key), "authorization") {
+				hasAuthorizationHeader = true
+			}
+
+			clientOptions = append(clientOptions, control.WithRequestEditorFn(headerProvider.Intercept))
 		}
+	} else if hasEnvAdditionalHeaders {
+		additionalHeaders := make(map[string]string)
+		err := json.Unmarshal([]byte(envAdditionalHeaders), &additionalHeaders)
+		if err != nil {
+			log.Printf("failed to parse PINECONE_ADDITIONAL_HEADERS: %v", err)
+		} else {
+			for header, value := range additionalHeaders {
+				headerProvider := provider.NewHeaderProvider(header, value)
 
-		clientOptions = append(clientOptions, control.WithRequestEditorFn(headerProvider.Intercept))
+				if strings.Contains(strings.ToLower(header), "authorization") {
+					hasAuthorizationHeader = true
+				}
+
+				clientOptions = append(clientOptions, control.WithRequestEditorFn(headerProvider.Intercept))
+			}
+		}
 	}
 
-	if !hasAuthorizationHeader {
-		apiKeyProvider, err := securityprovider.NewSecurityProviderApiKey("header", "Api-Key", in.ApiKey)
+	// if apiKey is provided and no auth header is set, add the apiKey as a header
+	// apiKey from parameters takes precedence over apiKey from environment
+	if hasApiKey && !hasAuthorizationHeader {
+
+		fmt.Printf("OS API KEY: %s\n", osApiKey)
+		fmt.Printf("NCP PARAMS API KEY: %s\n", ncp.ApiKey)
+
+		var appliedApiKey string
+		if ncp.ApiKey != "" {
+			appliedApiKey = ncp.ApiKey
+			fmt.Printf("ncp key applied")
+		} else {
+			appliedApiKey = osApiKey
+			fmt.Printf("os key applied")
+		}
+
+		apiKeyProvider, err := securityprovider.NewSecurityProviderApiKey("header", "Api-Key", appliedApiKey)
 		if err != nil {
 			return nil, err
 		}
@@ -451,8 +489,8 @@ func buildClientOptions(in NewClientParams) ([]control.ClientOption, error) {
 		return nil, fmt.Errorf("no API key provided, please pass an API key for authorization")
 	}
 
-	if in.RestClient != nil {
-		clientOptions = append(clientOptions, control.WithHTTPClient(in.RestClient))
+	if ncp.RestClient != nil {
+		clientOptions = append(clientOptions, control.WithHTTPClient(ncp.RestClient))
 	}
 
 	return clientOptions, nil
