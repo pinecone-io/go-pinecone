@@ -94,7 +94,6 @@ func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*Fe
 	for id, vector := range res.Vectors {
 		vectors[id] = toVector(vector)
 	}
-	fmt.Printf("VECTORS: %+v\n", vectors)
 
 	return &FetchVectorsResponse{
 		Vectors: vectors,

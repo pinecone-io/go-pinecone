@@ -233,6 +233,85 @@ func (ts *ClientTests) TestClientReadsApiKeyFromEnv() {
 	os.Unsetenv("PINECONE_API_KEY")
 }
 
+func (ts *ClientTests) TestControllerHostOverride() {
+	apiKey := "test-api-key"
+	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, Host: "https://test-controller-host.io", RestClient: httpClient})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	mockTransport := httpClient.Transport.(*mocks.MockTransport)
+
+	_, err = client.ListIndexes(context.Background())
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
+	assert.Equal(ts.T(), "test-controller-host.io", mockTransport.Req.Host, "Expected request to be made to 'test-controller-host.io', but got '%s'", mockTransport.Req.URL.Host)
+}
+
+func (ts *ClientTests) TestControllerHostOverrideFromEnv() {
+	os.Setenv("PINECONE_CONTROLLER_HOST", "https://env-controller-host.io")
+
+	apiKey := "test-api-key"
+	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, RestClient: httpClient})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	mockTransport := httpClient.Transport.(*mocks.MockTransport)
+
+	_, err = client.ListIndexes(context.Background())
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
+	assert.Equal(ts.T(), "env-controller-host.io", mockTransport.Req.Host, "Expected request to be made to 'env-controller-host.io', but got '%s'", mockTransport.Req.URL.Host)
+
+	os.Unsetenv("PINECONE_CONTROLLER_HOST")
+}
+
+func (ts *ClientTests) TestControllerHostNormalization() {
+	tests := []struct {
+		name       string
+		host       string
+		wantHost   string
+		wantScheme string
+	}{
+		{
+			name:       "Test with https prefix",
+			host:       "https://pinecone-api.io",
+			wantHost:   "pinecone-api.io",
+			wantScheme: "https",
+		}, {
+			name:       "Test with http prefix",
+			host:       "http://pinecone-api.io",
+			wantHost:   "pinecone-api.io",
+			wantScheme: "http",
+		}, {
+			name:       "Test without prefix",
+			host:       "pinecone-api.io",
+			wantHost:   "pinecone-api.io",
+			wantScheme: "https",
+		},
+	}
+
+	for _, tt := range tests {
+		ts.Run(tt.name, func() {
+			apiKey := "test-api-key"
+			httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+			client, err := NewClient(NewClientParams{ApiKey: apiKey, Host: tt.host, RestClient: httpClient})
+			if err != nil {
+				ts.FailNow(err.Error())
+			}
+			mockTransport := httpClient.Transport.(*mocks.MockTransport)
+
+			_, err = client.ListIndexes(context.Background())
+			require.NoError(ts.T(), err)
+			require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
+
+			assert.Equal(ts.T(), tt.wantHost, mockTransport.Req.URL.Host, "Expected request to be made to host '%s', but got '%s'", tt.wantHost, mockTransport.Req.URL.Host)
+			assert.Equal(ts.T(), tt.wantScheme, mockTransport.Req.URL.Scheme, "Expected request to be made to host '%s, but got '%s'", tt.wantScheme, mockTransport.Req.URL.Host)
+		})
+	}
+}
+
 func (ts *ClientTests) TestListIndexes() {
 	indexes, err := ts.client.ListIndexes(context.Background())
 	require.NoError(ts.T(), err)

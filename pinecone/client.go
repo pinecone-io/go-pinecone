@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -18,16 +19,17 @@ import (
 
 type Client struct {
 	apiKey     string
+	headers    map[string]string
 	restClient *control.Client
 	sourceTag  string
-	headers    map[string]string
 }
 
 type NewClientParams struct {
 	ApiKey     string            // required unless Authorization header provided
-	SourceTag  string            // optional
 	Headers    map[string]string // optional
+	Host       string            // optional
 	RestClient *http.Client      // optional
+	SourceTag  string            // optional
 }
 
 func NewClient(in NewClientParams) (*Client, error) {
@@ -36,7 +38,15 @@ func NewClient(in NewClientParams) (*Client, error) {
 		return nil, err
 	}
 
-	client, err := control.NewClient("https://api.pinecone.io", clientOptions...)
+	controlHostOverride := valueOrFallback(in.Host, os.Getenv("PINECONE_CONTROLLER_HOST"))
+	if controlHostOverride != "" {
+		controlHostOverride, err = ensureHTTP(controlHostOverride)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	client, err := control.NewClient(valueOrFallback(controlHostOverride, "https://api.pinecone.io"), clientOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -425,11 +435,12 @@ func derefOrDefault[T any](ptr *T, defaultValue T) T {
 
 func (ncp *NewClientParams) buildClientOptions() ([]control.ClientOption, error) {
 	clientOptions := []control.ClientOption{}
-	osApiKey := os.Getenv("PINECONE_API_KEY")
-	envAdditionalHeaders, hasEnvAdditionalHeaders := os.LookupEnv("PINECONE_ADDITIONAL_HEADERS")
 	hasAuthorizationHeader := false
+	osApiKey := os.Getenv("PINECONE_API_KEY")
 	hasApiKey := (ncp.ApiKey != "" || osApiKey != "")
+	envAdditionalHeaders, hasEnvAdditionalHeaders := os.LookupEnv("PINECONE_ADDITIONAL_HEADERS")
 
+	// build and apply user agent
 	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(ncp.SourceTag))
 	clientOptions = append(clientOptions, control.WithRequestEditorFn(userAgentProvider.Intercept))
 
@@ -465,12 +476,7 @@ func (ncp *NewClientParams) buildClientOptions() ([]control.ClientOption, error)
 	// if apiKey is provided and no auth header is set, add the apiKey as a header
 	// apiKey from parameters takes precedence over apiKey from environment
 	if hasApiKey && !hasAuthorizationHeader {
-		var appliedApiKey string
-		if ncp.ApiKey != "" {
-			appliedApiKey = ncp.ApiKey
-		} else {
-			appliedApiKey = osApiKey
-		}
+		appliedApiKey := valueOrFallback(ncp.ApiKey, osApiKey)
 
 		apiKeyProvider, err := securityprovider.NewSecurityProviderApiKey("header", "Api-Key", appliedApiKey)
 		if err != nil {
@@ -488,4 +494,25 @@ func (ncp *NewClientParams) buildClientOptions() ([]control.ClientOption, error)
 	}
 
 	return clientOptions, nil
+}
+
+func ensureHTTP(inputURL string) (string, error) {
+	parsedURL, err := url.Parse(inputURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL: %v", err)
+	}
+
+	if parsedURL.Scheme == "" {
+		return "https://" + inputURL, nil
+	}
+	return inputURL, nil
+}
+
+func valueOrFallback[T comparable](value, fallback T) T {
+	var zero T
+	if value != zero {
+		return value
+	} else {
+		return fallback
+	}
 }
