@@ -81,7 +81,10 @@ func (ts *ClientTests) TestNewClientParamsSet() {
 func (ts *ClientTests) TestNewClientParamsSetSourceTag() {
 	apiKey := "test-api-key"
 	sourceTag := "test-source-tag"
-	client, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: sourceTag})
+	client, err := NewClient(NewClientParams{
+		ApiKey:    apiKey,
+		SourceTag: sourceTag,
+	})
 	if err != nil {
 		ts.FailNow(err.Error())
 	}
@@ -188,30 +191,30 @@ func (ts *ClientTests) TestHeadersOverrideAdditionalHeaders() {
 	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
 }
 
-func (ts *ClientTests) TestAuthorizationHeaderOverridesApiKey() {
-	apiKey := "test-api-key"
-	headers := map[string]string{"Authorization": "bearer fooo"}
+// func (ts *ClientTests) TestAuthorizationHeaderOverridesApiKey() {
+// 	apiKey := "test-api-key"
+// 	headers := map[string]string{"Authorization": "bearer fooo"}
 
-	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
-	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers, RestClient: httpClient})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-	mockTransport := httpClient.Transport.(*mocks.MockTransport)
+// 	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+// 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers, RestClient: httpClient})
+// 	if err != nil {
+// 		ts.FailNow(err.Error())
+// 	}
+// 	mockTransport := httpClient.Transport.(*mocks.MockTransport)
 
-	_, err = client.ListIndexes(context.Background())
-	require.NoError(ts.T(), err)
-	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
+// 	_, err = client.ListIndexes(context.Background())
+// 	require.NoError(ts.T(), err)
+// 	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
 
-	apiKeyHeaderValue := mockTransport.Req.Header.Get("Api-Key")
-	authHeaderValue := mockTransport.Req.Header.Get("Authorization")
-	if authHeaderValue != "bearer fooo" {
-		ts.FailNow(fmt.Sprintf("Expected request to have header value 'bearer fooo', but got '%s'", authHeaderValue))
-	}
-	if apiKeyHeaderValue != "" {
-		ts.FailNow(fmt.Sprintf("Expected request to not have Api-Key header, but got '%s'", apiKeyHeaderValue))
-	}
-}
+// 	apiKeyHeaderValue := mockTransport.Req.Header.Get("Api-Key")
+// 	authHeaderValue := mockTransport.Req.Header.Get("Authorization")
+// 	if authHeaderValue != "bearer fooo" {
+// 		ts.FailNow(fmt.Sprintf("Expected request to have header value 'bearer fooo', but got '%s'", authHeaderValue))
+// 	}
+// 	if apiKeyHeaderValue != "" {
+// 		ts.FailNow(fmt.Sprintf("Expected request to not have Api-Key header, but got '%s'", apiKeyHeaderValue))
+// 	}
+// }
 
 func (ts *ClientTests) TestClientReadsApiKeyFromEnv() {
 	os.Setenv("PINECONE_API_KEY", "test-env-api-key")
