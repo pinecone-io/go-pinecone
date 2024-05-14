@@ -9,15 +9,14 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
-	"github.com/deepmap/oapi-codegen/v2/pkg/securityprovider"
 	"github.com/pinecone-io/go-pinecone/internal/gen/control"
 	"github.com/pinecone-io/go-pinecone/internal/provider"
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
 )
 
 type Client struct {
-	apiKey     string
 	headers    map[string]string
 	restClient *control.Client
 	sourceTag  string
@@ -39,30 +38,29 @@ type NewClientParams struct {
 }
 
 func NewClient(in NewClientParams) (*Client, error) {
-	clientOptions, err := in.buildClientOptions()
-	if err != nil {
-		return nil, err
+	osApiKey := os.Getenv("PINECONE_API_KEY")
+	hasApiKey := (in.ApiKey != "" || osApiKey != "")
+
+	if !hasApiKey {
+		return nil, fmt.Errorf("no API key provided, please pass an API key for authorization")
 	}
 
-	controlHostOverride := valueOrFallback(in.Host, os.Getenv("PINECONE_CONTROLLER_HOST"))
-	if controlHostOverride != "" {
-		controlHostOverride, err = ensureHTTPS(controlHostOverride)
-		if err != nil {
-			return nil, err
-		}
+	apiKeyHeader := struct{ Key, Value string }{"Api-Key", valueOrFallback(in.ApiKey, osApiKey)}
+
+	clientHeaders := in.Headers
+	if clientHeaders == nil {
+		clientHeaders = make(map[string]string)
+		clientHeaders[apiKeyHeader.Key] = apiKeyHeader.Value
+
+	} else {
+		clientHeaders[apiKeyHeader.Key] = apiKeyHeader.Value
 	}
 
-	client, err := control.NewClient(valueOrFallback(controlHostOverride, "https://api.pinecone.io"), clientOptions...)
-	if err != nil {
-		return nil, err
-	}
-
-	c := Client{apiKey: in.ApiKey, restClient: client, sourceTag: in.SourceTag, headers: in.Headers}
-	return &c, nil
+	return NewClientBase(NewClientBaseParams{Headers: clientHeaders, Host: in.Host, RestClient: in.RestClient, SourceTag: in.SourceTag})
 }
 
 func NewClientBase(in NewClientBaseParams) (*Client, error) {
-	clientOptions := in.buildClientBaseOptions()
+	clientOptions := buildClientBaseOptions(in)
 	var err error
 
 	controlHostOverride := valueOrFallback(in.Host, os.Getenv("PINECONE_CONTROLLER_HOST"))
@@ -82,6 +80,45 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 	return &c, nil
 }
 
+func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
+	clientOptions := []control.ClientOption{}
+
+	// build and apply user agent
+	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
+	clientOptions = append(clientOptions, control.WithRequestEditorFn(userAgentProvider.Intercept))
+
+	envAdditionalHeaders, hasEnvAdditionalHeaders := os.LookupEnv("PINECONE_ADDITIONAL_HEADERS")
+	additionalHeaders := make(map[string]string)
+
+	// add headers from environment
+	if hasEnvAdditionalHeaders {
+		err := json.Unmarshal([]byte(envAdditionalHeaders), &additionalHeaders)
+		if err != nil {
+			log.Printf("failed to parse PINECONE_ADDITIONAL_HEADERS: %v", err)
+		}
+	}
+
+	// merge headers from parameters if passed
+	if in.Headers != nil {
+		for key, value := range in.Headers {
+			additionalHeaders[key] = value
+		}
+	}
+
+	// add headers to client options
+	for key, value := range additionalHeaders {
+		headerProvider := provider.NewHeaderProvider(key, value)
+		clientOptions = append(clientOptions, control.WithRequestEditorFn(headerProvider.Intercept))
+	}
+
+	// apply custom http client if provided
+	if in.RestClient != nil {
+		clientOptions = append(clientOptions, control.WithHTTPClient(in.RestClient))
+	}
+
+	return clientOptions
+}
+
 func (c *Client) Index(host string) (*IndexConnection, error) {
 	return c.IndexWithAdditionalMetadata(host, "", nil)
 }
@@ -91,11 +128,40 @@ func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnec
 }
 
 func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, additionalMetadata map[string]string) (*IndexConnection, error) {
-	idx, err := newIndexConnection(newIndexParameters{apiKey: c.apiKey, host: host, namespace: namespace, sourceTag: c.sourceTag, additionalMetadata: additionalMetadata})
+	authHeader := c.extractAuthHeader()
+
+	// merge additionalMetadata with authHeader
+	if additionalMetadata != nil {
+		for _, key := range authHeader {
+			additionalMetadata[key] = authHeader[key]
+		}
+	} else {
+		additionalMetadata = authHeader
+	}
+
+	idx, err := newIndexConnection(newIndexParameters{host: host, namespace: namespace, sourceTag: c.sourceTag, additionalMetadata: additionalMetadata})
 	if err != nil {
 		return nil, err
 	}
 	return idx, nil
+}
+
+func (c *Client) extractAuthHeader() map[string]string {
+	possibleAuthKeys := []string{
+		"api-key",
+		"authorization",
+		"access_token",
+	}
+
+	for key, value := range c.headers {
+		for _, checkKey := range possibleAuthKeys {
+			if strings.ToLower(key) == checkKey {
+				return map[string]string{key: value}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
@@ -446,79 +512,6 @@ func decodeCollection(resBody io.ReadCloser) (*Collection, error) {
 	return toCollection(&collectionModel), nil
 }
 
-func minOne(x int32) int32 {
-	if x < 1 {
-		return 1
-	}
-	return x
-}
-
-func derefOrDefault[T any](ptr *T, defaultValue T) T {
-	if ptr == nil {
-		return defaultValue
-	}
-	return *ptr
-}
-
-func (ncp *NewClientParams) buildClientOptions() ([]control.ClientOption, error) {
-	clientOptions := []control.ClientOption{}
-	osApiKey := os.Getenv("PINECONE_API_KEY")
-	hasApiKey := (ncp.ApiKey != "" || osApiKey != "")
-
-	if !hasApiKey {
-		return nil, fmt.Errorf("no API key provided, please pass an API key for authorization")
-	}
-
-	appliedApiKey := valueOrFallback(ncp.ApiKey, osApiKey)
-	apiKeyProvider, err := securityprovider.NewSecurityProviderApiKey("header", "Api-Key", appliedApiKey)
-	if err != nil {
-		return nil, err
-	}
-	clientOptions = append(clientOptions, control.WithRequestEditorFn(apiKeyProvider.Intercept))
-
-	baseClient := NewClientBaseParams{ncp.Headers, ncp.Host, ncp.RestClient, ncp.SourceTag}
-	baseClientOptions := baseClient.buildClientBaseOptions()
-	clientOptions = append(clientOptions, baseClientOptions...)
-
-	return clientOptions, nil
-}
-
-func (ncbp *NewClientBaseParams) buildClientBaseOptions() []control.ClientOption {
-	clientOptions := []control.ClientOption{}
-
-	envAdditionalHeaders, hasEnvAdditionalHeaders := os.LookupEnv("PINECONE_ADDITIONAL_HEADERS")
-
-	// build and apply user agent
-	fmt.Printf("Source tag on its way in: %v\n", ncbp.SourceTag)
-	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(ncbp.SourceTag))
-	clientOptions = append(clientOptions, control.WithRequestEditorFn(userAgentProvider.Intercept))
-
-	// apply headers from parameters if passed, otherwise use environment headers
-	if ncbp.Headers != nil {
-		for key, value := range ncbp.Headers {
-			headerProvider := provider.NewHeaderProvider(key, value)
-			clientOptions = append(clientOptions, control.WithRequestEditorFn(headerProvider.Intercept))
-		}
-	} else if hasEnvAdditionalHeaders {
-		additionalHeaders := make(map[string]string)
-		err := json.Unmarshal([]byte(envAdditionalHeaders), &additionalHeaders)
-		if err != nil {
-			log.Printf("failed to parse PINECONE_ADDITIONAL_HEADERS: %v", err)
-		} else {
-			for header, value := range additionalHeaders {
-				headerProvider := provider.NewHeaderProvider(header, value)
-				clientOptions = append(clientOptions, control.WithRequestEditorFn(headerProvider.Intercept))
-			}
-		}
-	}
-
-	if ncbp.RestClient != nil {
-		clientOptions = append(clientOptions, control.WithHTTPClient(ncbp.RestClient))
-	}
-
-	return clientOptions
-}
-
 func ensureHTTPS(inputURL string) (string, error) {
 	parsedURL, err := url.Parse(inputURL)
 	if err != nil {
@@ -538,4 +531,18 @@ func valueOrFallback[T comparable](value, fallback T) T {
 	} else {
 		return fallback
 	}
+}
+
+func derefOrDefault[T any](ptr *T, defaultValue T) T {
+	if ptr == nil {
+		return defaultValue
+	}
+	return *ptr
+}
+
+func minOne(x int32) int32 {
+	if x < 1 {
+		return 1
+	}
+	return x
 }

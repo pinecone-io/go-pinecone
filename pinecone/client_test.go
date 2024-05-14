@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -39,16 +38,13 @@ func (ts *ClientTests) SetupSuite() {
 	require.NotEmpty(ts.T(), ts.serverlessIndex, "TEST_SERVERLESS_INDEX_NAME env variable not set")
 
 	client, err := NewClient(NewClientParams{ApiKey: apiKey})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
+	require.NoError(ts.T(), err)
+
 	ts.client = *client
 
 	ts.sourceTag = "test_source_tag"
 	clientSourceTag, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: ts.sourceTag})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
+	require.NoError(ts.T(), err)
 	ts.clientSourceTag = *clientSourceTag
 
 	// this will clean up the project deleting all indexes and collections that are
@@ -61,21 +57,14 @@ func (ts *ClientTests) SetupSuite() {
 func (ts *ClientTests) TestNewClientParamsSet() {
 	apiKey := "test-api-key"
 	client, err := NewClient(NewClientParams{ApiKey: apiKey})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-	if client.apiKey != apiKey {
-		ts.FailNow(fmt.Sprintf("Expected client to have apiKey '%s', but got '%s'", apiKey, client.apiKey))
-	}
-	if client.sourceTag != "" {
-		ts.FailNow(fmt.Sprintf("Expected client to have empty sourceTag, but got '%s'", client.sourceTag))
-	}
-	if client.headers != nil {
-		ts.FailNow(fmt.Sprintf("Expected client headers to be nil, but got '%v'", client.headers))
-	}
-	if len(client.restClient.RequestEditors) != 2 {
-		ts.FailNow("Expected client to have '%v' request editors, but got '%v'", 2, len(client.restClient.RequestEditors))
-	}
+
+	require.NoError(ts.T(), err)
+	require.Empty(ts.T(), client.sourceTag, "Expected client to have empty sourceTag")
+	require.NotNil(ts.T(), client.headers, "Expected client headers to not be nil")
+	apiKeyHeader, ok := client.headers["Api-Key"]
+	require.True(ts.T(), ok, "Expected client to have an 'Api-Key' header")
+	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
+	require.Equal(ts.T(), 2, len(client.restClient.RequestEditors), "Expected client to have correct number of require editors")
 }
 
 func (ts *ClientTests) TestNewClientParamsSetSourceTag() {
@@ -85,36 +74,26 @@ func (ts *ClientTests) TestNewClientParamsSetSourceTag() {
 		ApiKey:    apiKey,
 		SourceTag: sourceTag,
 	})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-	if client.apiKey != apiKey {
-		ts.FailNow(fmt.Sprintf("Expected client to have apiKey '%s', but got '%s'", apiKey, client.apiKey))
-	}
-	if client.sourceTag != sourceTag {
-		ts.FailNow(fmt.Sprintf("Expected client to have sourceTag '%s', but got '%s'", sourceTag, client.sourceTag))
-	}
-	if len(client.restClient.RequestEditors) != 2 {
-		ts.FailNow("Expected client to have '%v' request editors, but got '%v'", 2, len(client.restClient.RequestEditors))
-	}
+
+	require.NoError(ts.T(), err)
+	apiKeyHeader, ok := client.headers["Api-Key"]
+	require.True(ts.T(), ok, "Expected client to have an 'Api-Key' header")
+	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
+	require.Equal(ts.T(), sourceTag, client.sourceTag, "Expected client to have sourceTag '%s', but got '%s'", sourceTag, client.sourceTag)
+	require.Equal(ts.T(), 2, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 2, len(client.restClient.RequestEditors))
 }
 
 func (ts *ClientTests) TestNewClientParamsSetHeaders() {
 	apiKey := "test-api-key"
 	headers := map[string]string{"test-header": "test-value"}
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-	if client.apiKey != apiKey {
-		ts.FailNow(fmt.Sprintf("Expected client to have apiKey '%s', but got '%s'", apiKey, client.apiKey))
-	}
-	if !reflect.DeepEqual(client.headers, headers) {
-		ts.FailNow(fmt.Sprintf("Expected client to have headers '%+v', but got '%+v'", headers, client.headers))
-	}
-	if len(client.restClient.RequestEditors) != 3 {
-		ts.FailNow(fmt.Sprintf("Expected client to have '%v' request editors, but got '%v'", 3, len(client.restClient.RequestEditors)))
-	}
+
+	require.NoError(ts.T(), err)
+	apiKeyHeader, ok := client.headers["Api-Key"]
+	require.True(ts.T(), ok, "Expected client to have an 'Api-Key' header")
+	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
+	require.Equal(ts.T(), client.headers, headers, "Expected client to have headers '%+v', but got '%+v'", headers, client.headers)
+	require.Equal(ts.T(), 3, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 3, len(client.restClient.RequestEditors))
 }
 
 func (ts *ClientTests) TestNewClientParamsNoApiKeyNoAuthorizationHeader() {
@@ -190,31 +169,6 @@ func (ts *ClientTests) TestHeadersOverrideAdditionalHeaders() {
 
 	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
 }
-
-// func (ts *ClientTests) TestAuthorizationHeaderOverridesApiKey() {
-// 	apiKey := "test-api-key"
-// 	headers := map[string]string{"Authorization": "bearer fooo"}
-
-// 	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
-// 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers, RestClient: httpClient})
-// 	if err != nil {
-// 		ts.FailNow(err.Error())
-// 	}
-// 	mockTransport := httpClient.Transport.(*mocks.MockTransport)
-
-// 	_, err = client.ListIndexes(context.Background())
-// 	require.NoError(ts.T(), err)
-// 	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
-
-// 	apiKeyHeaderValue := mockTransport.Req.Header.Get("Api-Key")
-// 	authHeaderValue := mockTransport.Req.Header.Get("Authorization")
-// 	if authHeaderValue != "bearer fooo" {
-// 		ts.FailNow(fmt.Sprintf("Expected request to have header value 'bearer fooo', but got '%s'", authHeaderValue))
-// 	}
-// 	if apiKeyHeaderValue != "" {
-// 		ts.FailNow(fmt.Sprintf("Expected request to not have Api-Key header, but got '%s'", apiKeyHeaderValue))
-// 	}
-// }
 
 func (ts *ClientTests) TestClientReadsApiKeyFromEnv() {
 	os.Setenv("PINECONE_API_KEY", "test-env-api-key")
