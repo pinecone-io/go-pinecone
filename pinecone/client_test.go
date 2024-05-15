@@ -28,8 +28,8 @@ func TestClient(t *testing.T) {
 }
 
 func (ts *ClientTests) SetupSuite() {
-	apiKey := os.Getenv("INTEGRATION_PINECONE_API_KEY")
-	require.NotEmpty(ts.T(), apiKey, "INTEGRATION_PINECONE_API_KEY env variable not set")
+	apiKey := os.Getenv("TEST_PINECONE_API_KEY")
+	require.NotEmpty(ts.T(), apiKey, "TEST_PINECONE_API_KEY env variable not set")
 
 	ts.podIndex = os.Getenv("TEST_POD_INDEX_NAME")
 	require.NotEmpty(ts.T(), ts.podIndex, "TEST_POD_INDEX_NAME env variable not set")
