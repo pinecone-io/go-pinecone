@@ -22,15 +22,15 @@ type Client struct {
 	sourceTag  string
 }
 
-type NewClientBaseParams struct {
-	Headers    map[string]string
-	Host       string
-	RestClient *http.Client
-	SourceTag  string
+type NewClientParams struct {
+	ApiKey     string            // required
+	Headers    map[string]string // optional
+	Host       string            // optional
+	RestClient *http.Client      // optional
+	SourceTag  string            // optional
 }
 
-type NewClientParams struct {
-	ApiKey     string
+type NewClientBaseParams struct {
 	Headers    map[string]string
 	Host       string
 	RestClient *http.Client
