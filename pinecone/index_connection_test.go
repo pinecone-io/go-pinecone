@@ -28,7 +28,7 @@ type IndexConnectionTests struct {
 
 // Runs the test suite with `go test`
 func TestIndexConnection(t *testing.T) {
-	apiKey := os.Getenv("INTEGRATION_PINECONE_API_KEY")
+	apiKey := os.Getenv("TEST_PINECONE_API_KEY")
 	assert.NotEmptyf(t, apiKey, "API_KEY env variable not set")
 
 	client, err := NewClient(NewClientParams{ApiKey: apiKey})
