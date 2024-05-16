@@ -23,7 +23,7 @@ type Client struct {
 }
 
 type NewClientParams struct {
-	ApiKey     string            // required
+	ApiKey     string            // required - provide through NewClientParams or environment variable PINECONE_API_KEY
 	Headers    map[string]string // optional
 	Host       string            // optional
 	RestClient *http.Client      // optional
@@ -39,10 +39,10 @@ type NewClientBaseParams struct {
 
 func NewClient(in NewClientParams) (*Client, error) {
 	osApiKey := os.Getenv("PINECONE_API_KEY")
-	hasApiKey := (in.ApiKey != "" || osApiKey != "")
+	hasApiKey := (valueOrFallback(in.ApiKey, osApiKey) != "")
 
 	if !hasApiKey {
-		return nil, fmt.Errorf("no API key provided, please pass an API key for authorization")
+		return nil, fmt.Errorf("no API key provided, please pass an API key for authorization through NewClientParams or set the PINECONE_API_KEY environment variable")
 	}
 
 	apiKeyHeader := struct{ Key, Value string }{"Api-Key", valueOrFallback(in.ApiKey, osApiKey)}
@@ -65,7 +65,7 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 
 	controlHostOverride := valueOrFallback(in.Host, os.Getenv("PINECONE_CONTROLLER_HOST"))
 	if controlHostOverride != "" {
-		controlHostOverride, err = ensureHTTPS(controlHostOverride)
+		controlHostOverride, err = ensureURLScheme(controlHostOverride)
 		if err != nil {
 			return nil, err
 		}
@@ -512,7 +512,7 @@ func decodeCollection(resBody io.ReadCloser) (*Collection, error) {
 	return toCollection(&collectionModel), nil
 }
 
-func ensureHTTPS(inputURL string) (string, error) {
+func ensureURLScheme(inputURL string) (string, error) {
 	parsedURL, err := url.Parse(inputURL)
 	if err != nil {
 		return "", fmt.Errorf("invalid URL: %v", err)

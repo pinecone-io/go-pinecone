@@ -28,8 +28,8 @@ func TestClient(t *testing.T) {
 }
 
 func (ts *ClientTests) SetupSuite() {
-	apiKey := os.Getenv("TEST_PINECONE_API_KEY")
-	require.NotEmpty(ts.T(), apiKey, "TEST_PINECONE_API_KEY env variable not set")
+	apiKey := os.Getenv("PINECONE_API_KEY")
+	require.NotEmpty(ts.T(), apiKey, "PINECONE_API_KEY env variable not set")
 
 	ts.podIndex = os.Getenv("TEST_POD_INDEX_NAME")
 	require.NotEmpty(ts.T(), ts.podIndex, "TEST_POD_INDEX_NAME env variable not set")
@@ -37,7 +37,7 @@ func (ts *ClientTests) SetupSuite() {
 	ts.serverlessIndex = os.Getenv("TEST_SERVERLESS_INDEX_NAME")
 	require.NotEmpty(ts.T(), ts.serverlessIndex, "TEST_SERVERLESS_INDEX_NAME env variable not set")
 
-	client, err := NewClient(NewClientParams{ApiKey: apiKey})
+	client, err := NewClient(NewClientParams{})
 	require.NoError(ts.T(), err)
 
 	ts.client = *client
@@ -97,6 +97,9 @@ func (ts *ClientTests) TestNewClientParamsSetHeaders() {
 }
 
 func (ts *ClientTests) TestNewClientParamsNoApiKeyNoAuthorizationHeader() {
+	apiKey := os.Getenv("PINECONE_API_KEY")
+	os.Unsetenv("PINECONE_API_KEY")
+
 	client, err := NewClient(NewClientParams{})
 	require.NotNil(ts.T(), err, "Expected error when creating client without an API key or Authorization header")
 	if !strings.Contains(err.Error(), "no API key provided, please pass an API key for authorization") {
@@ -104,6 +107,8 @@ func (ts *ClientTests) TestNewClientParamsNoApiKeyNoAuthorizationHeader() {
 	}
 
 	require.Nil(ts.T(), client, "Expected client to be nil when creating client without an API key or Authorization header")
+
+	os.Setenv("PINECONE_API_KEY", apiKey)
 }
 
 func (ts *ClientTests) TestHeadersAppliedToRequests() {
@@ -168,26 +173,6 @@ func (ts *ClientTests) TestHeadersOverrideAdditionalHeaders() {
 	assert.Equal(ts.T(), "param-header", testHeaderValue, "Expected request to have header value 'param-header', but got '%s'", testHeaderValue)
 
 	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
-}
-
-func (ts *ClientTests) TestClientReadsApiKeyFromEnv() {
-	os.Setenv("PINECONE_API_KEY", "test-env-api-key")
-
-	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
-	client, err := NewClient(NewClientParams{RestClient: httpClient})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-	mockTransport := httpClient.Transport.(*mocks.MockTransport)
-
-	_, err = client.ListIndexes(context.Background())
-	require.NoError(ts.T(), err)
-	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
-
-	testHeaderValue := mockTransport.Req.Header.Get("Api-Key")
-	assert.Equal(ts.T(), "test-env-api-key", testHeaderValue, "Expected request to have header value 'test-env-api-key', but got '%s'", testHeaderValue)
-
-	os.Unsetenv("PINECONE_API_KEY")
 }
 
 func (ts *ClientTests) TestControllerHostOverride() {
