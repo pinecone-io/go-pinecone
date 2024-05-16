@@ -12,7 +12,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21.x'
+          go-version: "1.21.x"
       - name: Install dependencies
         run: |
           go get ./pinecone
@@ -21,4 +21,4 @@ jobs:
         env:
           TEST_POD_INDEX_NAME: ${{ secrets.TEST_POD_INDEX_NAME }}
           TEST_SERVERLESS_INDEX_NAME: ${{ secrets.TEST_SERVERLESS_INDEX_NAME }}
-          API_KEY: ${{ secrets.API_KEY }}
+          PINECONE_API_KEY: ${{ secrets.API_KEY }}

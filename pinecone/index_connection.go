@@ -15,14 +15,12 @@ import (
 
 type IndexConnection struct {
 	Namespace          string
-	apiKey             string
 	additionalMetadata map[string]string
 	dataClient         *data.VectorServiceClient
 	grpcConn           *grpc.ClientConn
 }
 
 type newIndexParameters struct {
-	apiKey             string
 	host               string
 	namespace          string
 	sourceTag          string
@@ -47,7 +45,7 @@ func newIndexConnection(in newIndexParameters) (*IndexConnection, error) {
 
 	dataClient := data.NewVectorServiceClient(conn)
 
-	idx := IndexConnection{Namespace: in.namespace, apiKey: in.apiKey, dataClient: &dataClient, grpcConn: conn, additionalMetadata: in.additionalMetadata}
+	idx := IndexConnection{Namespace: in.namespace, dataClient: &dataClient, grpcConn: conn, additionalMetadata: in.additionalMetadata}
 	return &idx, nil
 }
 
@@ -94,7 +92,6 @@ func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*Fe
 	for id, vector := range res.Vectors {
 		vectors[id] = toVector(vector)
 	}
-	fmt.Printf("VECTORS: %+v\n", vectors)
 
 	return &FetchVectorsResponse{
 		Vectors: vectors,
@@ -371,7 +368,6 @@ func sparseValToGrpc(sv *SparseValues) *data.SparseValues {
 
 func (idx *IndexConnection) akCtx(ctx context.Context) context.Context {
 	newMetadata := []string{}
-	newMetadata = append(newMetadata, "api-key", idx.apiKey)
 
 	for key, value := range idx.additionalMetadata {
 		newMetadata = append(newMetadata, key, value)

@@ -5,41 +5,78 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 
-	"github.com/deepmap/oapi-codegen/v2/pkg/securityprovider"
 	"github.com/pinecone-io/go-pinecone/internal/gen/control"
 	"github.com/pinecone-io/go-pinecone/internal/provider"
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
 )
 
 type Client struct {
-	apiKey     string
+	headers    map[string]string
 	restClient *control.Client
 	sourceTag  string
-	headers    map[string]string
 }
 
 type NewClientParams struct {
-	ApiKey     string            // required unless Authorization header provided
-	SourceTag  string            // optional
+	ApiKey     string            // required - provide through NewClientParams or environment variable PINECONE_API_KEY
 	Headers    map[string]string // optional
+	Host       string            // optional
 	RestClient *http.Client      // optional
+	SourceTag  string            // optional
+}
+
+type NewClientBaseParams struct {
+	Headers    map[string]string
+	Host       string
+	RestClient *http.Client
+	SourceTag  string
 }
 
 func NewClient(in NewClientParams) (*Client, error) {
-	clientOptions, err := buildClientOptions(in)
+	osApiKey := os.Getenv("PINECONE_API_KEY")
+	hasApiKey := (valueOrFallback(in.ApiKey, osApiKey) != "")
+
+	if !hasApiKey {
+		return nil, fmt.Errorf("no API key provided, please pass an API key for authorization through NewClientParams or set the PINECONE_API_KEY environment variable")
+	}
+
+	apiKeyHeader := struct{ Key, Value string }{"Api-Key", valueOrFallback(in.ApiKey, osApiKey)}
+
+	clientHeaders := in.Headers
+	if clientHeaders == nil {
+		clientHeaders = make(map[string]string)
+		clientHeaders[apiKeyHeader.Key] = apiKeyHeader.Value
+
+	} else {
+		clientHeaders[apiKeyHeader.Key] = apiKeyHeader.Value
+	}
+
+	return NewClientBase(NewClientBaseParams{Headers: clientHeaders, Host: in.Host, RestClient: in.RestClient, SourceTag: in.SourceTag})
+}
+
+func NewClientBase(in NewClientBaseParams) (*Client, error) {
+	clientOptions := buildClientBaseOptions(in)
+	var err error
+
+	controlHostOverride := valueOrFallback(in.Host, os.Getenv("PINECONE_CONTROLLER_HOST"))
+	if controlHostOverride != "" {
+		controlHostOverride, err = ensureURLScheme(controlHostOverride)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	client, err := control.NewClient(valueOrFallback(controlHostOverride, "https://api.pinecone.io"), clientOptions...)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := control.NewClient("https://api.pinecone.io", clientOptions...)
-	if err != nil {
-		return nil, err
-	}
-
-	c := Client{apiKey: in.ApiKey, restClient: client, sourceTag: in.SourceTag, headers: in.Headers}
+	c := Client{restClient: client, sourceTag: in.SourceTag, headers: in.Headers}
 	return &c, nil
 }
 
@@ -52,11 +89,40 @@ func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnec
 }
 
 func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, additionalMetadata map[string]string) (*IndexConnection, error) {
-	idx, err := newIndexConnection(newIndexParameters{apiKey: c.apiKey, host: host, namespace: namespace, sourceTag: c.sourceTag, additionalMetadata: additionalMetadata})
+	authHeader := c.extractAuthHeader()
+
+	// merge additionalMetadata with authHeader
+	if additionalMetadata != nil {
+		for _, key := range authHeader {
+			additionalMetadata[key] = authHeader[key]
+		}
+	} else {
+		additionalMetadata = authHeader
+	}
+
+	idx, err := newIndexConnection(newIndexParameters{host: host, namespace: namespace, sourceTag: c.sourceTag, additionalMetadata: additionalMetadata})
 	if err != nil {
 		return nil, err
 	}
 	return idx, nil
+}
+
+func (c *Client) extractAuthHeader() map[string]string {
+	possibleAuthKeys := []string{
+		"api-key",
+		"authorization",
+		"access_token",
+	}
+
+	for key, value := range c.headers {
+		for _, checkKey := range possibleAuthKeys {
+			if strings.ToLower(key) == checkKey {
+				return map[string]string{key: value}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
@@ -407,11 +473,64 @@ func decodeCollection(resBody io.ReadCloser) (*Collection, error) {
 	return toCollection(&collectionModel), nil
 }
 
-func minOne(x int32) int32 {
-	if x < 1 {
-		return 1
+func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
+	clientOptions := []control.ClientOption{}
+
+	// build and apply user agent
+	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
+	clientOptions = append(clientOptions, control.WithRequestEditorFn(userAgentProvider.Intercept))
+
+	envAdditionalHeaders, hasEnvAdditionalHeaders := os.LookupEnv("PINECONE_ADDITIONAL_HEADERS")
+	additionalHeaders := make(map[string]string)
+
+	// add headers from environment
+	if hasEnvAdditionalHeaders {
+		err := json.Unmarshal([]byte(envAdditionalHeaders), &additionalHeaders)
+		if err != nil {
+			log.Printf("failed to parse PINECONE_ADDITIONAL_HEADERS: %v", err)
+		}
 	}
-	return x
+
+	// merge headers from parameters if passed
+	if in.Headers != nil {
+		for key, value := range in.Headers {
+			additionalHeaders[key] = value
+		}
+	}
+
+	// add headers to client options
+	for key, value := range additionalHeaders {
+		headerProvider := provider.NewHeaderProvider(key, value)
+		clientOptions = append(clientOptions, control.WithRequestEditorFn(headerProvider.Intercept))
+	}
+
+	// apply custom http client if provided
+	if in.RestClient != nil {
+		clientOptions = append(clientOptions, control.WithHTTPClient(in.RestClient))
+	}
+
+	return clientOptions
+}
+
+func ensureURLScheme(inputURL string) (string, error) {
+	parsedURL, err := url.Parse(inputURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL: %v", err)
+	}
+
+	if parsedURL.Scheme == "" {
+		return "https://" + inputURL, nil
+	}
+	return inputURL, nil
+}
+
+func valueOrFallback[T comparable](value, fallback T) T {
+	var zero T
+	if value != zero {
+		return value
+	} else {
+		return fallback
+	}
 }
 
 func derefOrDefault[T any](ptr *T, defaultValue T) T {
@@ -421,39 +540,9 @@ func derefOrDefault[T any](ptr *T, defaultValue T) T {
 	return *ptr
 }
 
-func buildClientOptions(in NewClientParams) ([]control.ClientOption, error) {
-	clientOptions := []control.ClientOption{}
-	hasAuthorizationHeader := false
-	hasApiKey := in.ApiKey != ""
-
-	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
-	clientOptions = append(clientOptions, control.WithRequestEditorFn(userAgentProvider.Intercept))
-
-	for key, value := range in.Headers {
-		headerProvider := provider.NewHeaderProvider(key, value)
-
-		if strings.Contains(strings.ToLower(key), "authorization") {
-			hasAuthorizationHeader = true
-		}
-
-		clientOptions = append(clientOptions, control.WithRequestEditorFn(headerProvider.Intercept))
+func minOne(x int32) int32 {
+	if x < 1 {
+		return 1
 	}
-
-	if !hasAuthorizationHeader {
-		apiKeyProvider, err := securityprovider.NewSecurityProviderApiKey("header", "Api-Key", in.ApiKey)
-		if err != nil {
-			return nil, err
-		}
-		clientOptions = append(clientOptions, control.WithRequestEditorFn(apiKeyProvider.Intercept))
-	}
-
-	if !hasAuthorizationHeader && !hasApiKey {
-		return nil, fmt.Errorf("no API key provided, please pass an API key for authorization")
-	}
-
-	if in.RestClient != nil {
-		clientOptions = append(clientOptions, control.WithHTTPClient(in.RestClient))
-	}
-
-	return clientOptions, nil
+	return x
 }

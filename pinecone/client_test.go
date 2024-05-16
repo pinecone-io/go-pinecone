@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/internal/mocks"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -28,8 +28,8 @@ func TestClient(t *testing.T) {
 }
 
 func (ts *ClientTests) SetupSuite() {
-	apiKey := os.Getenv("API_KEY")
-	require.NotEmpty(ts.T(), apiKey, "API_KEY env variable not set")
+	apiKey := os.Getenv("PINECONE_API_KEY")
+	require.NotEmpty(ts.T(), apiKey, "PINECONE_API_KEY env variable not set")
 
 	ts.podIndex = os.Getenv("TEST_POD_INDEX_NAME")
 	require.NotEmpty(ts.T(), ts.podIndex, "TEST_POD_INDEX_NAME env variable not set")
@@ -37,17 +37,14 @@ func (ts *ClientTests) SetupSuite() {
 	ts.serverlessIndex = os.Getenv("TEST_SERVERLESS_INDEX_NAME")
 	require.NotEmpty(ts.T(), ts.serverlessIndex, "TEST_SERVERLESS_INDEX_NAME env variable not set")
 
-	client, err := NewClient(NewClientParams{ApiKey: apiKey})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
+	client, err := NewClient(NewClientParams{})
+	require.NoError(ts.T(), err)
+
 	ts.client = *client
 
 	ts.sourceTag = "test_source_tag"
 	clientSourceTag, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: ts.sourceTag})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
+	require.NoError(ts.T(), err)
 	ts.clientSourceTag = *clientSourceTag
 
 	// this will clean up the project deleting all indexes and collections that are
@@ -60,60 +57,49 @@ func (ts *ClientTests) SetupSuite() {
 func (ts *ClientTests) TestNewClientParamsSet() {
 	apiKey := "test-api-key"
 	client, err := NewClient(NewClientParams{ApiKey: apiKey})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-	if client.apiKey != apiKey {
-		ts.FailNow(fmt.Sprintf("Expected client to have apiKey '%s', but got '%s'", apiKey, client.apiKey))
-	}
-	if client.sourceTag != "" {
-		ts.FailNow(fmt.Sprintf("Expected client to have empty sourceTag, but got '%s'", client.sourceTag))
-	}
-	if client.headers != nil {
-		ts.FailNow(fmt.Sprintf("Expected client headers to be nil, but got '%v'", client.headers))
-	}
-	if len(client.restClient.RequestEditors) != 2 {
-		ts.FailNow("Expected client to have '%v' request editors, but got '%v'", 2, len(client.restClient.RequestEditors))
-	}
+
+	require.NoError(ts.T(), err)
+	require.Empty(ts.T(), client.sourceTag, "Expected client to have empty sourceTag")
+	require.NotNil(ts.T(), client.headers, "Expected client headers to not be nil")
+	apiKeyHeader, ok := client.headers["Api-Key"]
+	require.True(ts.T(), ok, "Expected client to have an 'Api-Key' header")
+	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
+	require.Equal(ts.T(), 2, len(client.restClient.RequestEditors), "Expected client to have correct number of require editors")
 }
 
 func (ts *ClientTests) TestNewClientParamsSetSourceTag() {
 	apiKey := "test-api-key"
 	sourceTag := "test-source-tag"
-	client, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: sourceTag})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-	if client.apiKey != apiKey {
-		ts.FailNow(fmt.Sprintf("Expected client to have apiKey '%s', but got '%s'", apiKey, client.apiKey))
-	}
-	if client.sourceTag != sourceTag {
-		ts.FailNow(fmt.Sprintf("Expected client to have sourceTag '%s', but got '%s'", sourceTag, client.sourceTag))
-	}
-	if len(client.restClient.RequestEditors) != 2 {
-		ts.FailNow("Expected client to have '%v' request editors, but got '%v'", 2, len(client.restClient.RequestEditors))
-	}
+	client, err := NewClient(NewClientParams{
+		ApiKey:    apiKey,
+		SourceTag: sourceTag,
+	})
+
+	require.NoError(ts.T(), err)
+	apiKeyHeader, ok := client.headers["Api-Key"]
+	require.True(ts.T(), ok, "Expected client to have an 'Api-Key' header")
+	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
+	require.Equal(ts.T(), sourceTag, client.sourceTag, "Expected client to have sourceTag '%s', but got '%s'", sourceTag, client.sourceTag)
+	require.Equal(ts.T(), 2, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 2, len(client.restClient.RequestEditors))
 }
 
 func (ts *ClientTests) TestNewClientParamsSetHeaders() {
 	apiKey := "test-api-key"
 	headers := map[string]string{"test-header": "test-value"}
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-	if client.apiKey != apiKey {
-		ts.FailNow(fmt.Sprintf("Expected client to have apiKey '%s', but got '%s'", apiKey, client.apiKey))
-	}
-	if !reflect.DeepEqual(client.headers, headers) {
-		ts.FailNow(fmt.Sprintf("Expected client to have headers '%+v', but got '%+v'", headers, client.headers))
-	}
-	if len(client.restClient.RequestEditors) != 3 {
-		ts.FailNow(fmt.Sprintf("Expected client to have '%v' request editors, but got '%v'", 3, len(client.restClient.RequestEditors)))
-	}
+
+	require.NoError(ts.T(), err)
+	apiKeyHeader, ok := client.headers["Api-Key"]
+	require.True(ts.T(), ok, "Expected client to have an 'Api-Key' header")
+	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
+	require.Equal(ts.T(), client.headers, headers, "Expected client to have headers '%+v', but got '%+v'", headers, client.headers)
+	require.Equal(ts.T(), 3, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 3, len(client.restClient.RequestEditors))
 }
 
 func (ts *ClientTests) TestNewClientParamsNoApiKeyNoAuthorizationHeader() {
+	apiKey := os.Getenv("PINECONE_API_KEY")
+	os.Unsetenv("PINECONE_API_KEY")
+
 	client, err := NewClient(NewClientParams{})
 	require.NotNil(ts.T(), err, "Expected error when creating client without an API key or Authorization header")
 	if !strings.Contains(err.Error(), "no API key provided, please pass an API key for authorization") {
@@ -121,6 +107,8 @@ func (ts *ClientTests) TestNewClientParamsNoApiKeyNoAuthorizationHeader() {
 	}
 
 	require.Nil(ts.T(), client, "Expected client to be nil when creating client without an API key or Authorization header")
+
+	os.Setenv("PINECONE_API_KEY", apiKey)
 }
 
 func (ts *ClientTests) TestHeadersAppliedToRequests() {
@@ -139,14 +127,36 @@ func (ts *ClientTests) TestHeadersAppliedToRequests() {
 	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
 
 	testHeaderValue := mockTransport.Req.Header.Get("test-header")
-	if testHeaderValue != "123456" {
-		ts.FailNow(fmt.Sprintf("Expected request to have header value '123456', but got '%s'", testHeaderValue))
-	}
+	assert.Equal(ts.T(), "123456", testHeaderValue, "Expected request to have header value '123456', but got '%s'", testHeaderValue)
 }
 
-func (ts *ClientTests) TestAuthorizationHeaderOverridesApiKey() {
+func (ts *ClientTests) TestAdditionalHeadersAppliedToRequest() {
+	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"test-header": "environment-header"}`)
+
 	apiKey := "test-api-key"
-	headers := map[string]string{"Authorization": "bearer fooo"}
+
+	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, RestClient: httpClient})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	mockTransport := httpClient.Transport.(*mocks.MockTransport)
+
+	_, err = client.ListIndexes(context.Background())
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
+
+	testHeaderValue := mockTransport.Req.Header.Get("test-header")
+	assert.Equal(ts.T(), "environment-header", testHeaderValue, "Expected request to have header value 'environment-header', but got '%s'", testHeaderValue)
+
+	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
+}
+
+func (ts *ClientTests) TestHeadersOverrideAdditionalHeaders() {
+	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"test-header": "environment-header"}`)
+
+	apiKey := "test-api-key"
+	headers := map[string]string{"test-header": "param-header"}
 
 	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers, RestClient: httpClient})
@@ -159,13 +169,88 @@ func (ts *ClientTests) TestAuthorizationHeaderOverridesApiKey() {
 	require.NoError(ts.T(), err)
 	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
 
-	apiKeyHeaderValue := mockTransport.Req.Header.Get("Api-Key")
-	authHeaderValue := mockTransport.Req.Header.Get("Authorization")
-	if authHeaderValue != "bearer fooo" {
-		ts.FailNow(fmt.Sprintf("Expected request to have header value 'bearer fooo', but got '%s'", authHeaderValue))
+	testHeaderValue := mockTransport.Req.Header.Get("test-header")
+	assert.Equal(ts.T(), "param-header", testHeaderValue, "Expected request to have header value 'param-header', but got '%s'", testHeaderValue)
+
+	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
+}
+
+func (ts *ClientTests) TestControllerHostOverride() {
+	apiKey := "test-api-key"
+	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, Host: "https://test-controller-host.io", RestClient: httpClient})
+	if err != nil {
+		ts.FailNow(err.Error())
 	}
-	if apiKeyHeaderValue != "" {
-		ts.FailNow(fmt.Sprintf("Expected request to not have Api-Key header, but got '%s'", apiKeyHeaderValue))
+	mockTransport := httpClient.Transport.(*mocks.MockTransport)
+
+	_, err = client.ListIndexes(context.Background())
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
+	assert.Equal(ts.T(), "test-controller-host.io", mockTransport.Req.Host, "Expected request to be made to 'test-controller-host.io', but got '%s'", mockTransport.Req.URL.Host)
+}
+
+func (ts *ClientTests) TestControllerHostOverrideFromEnv() {
+	os.Setenv("PINECONE_CONTROLLER_HOST", "https://env-controller-host.io")
+
+	apiKey := "test-api-key"
+	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, RestClient: httpClient})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	mockTransport := httpClient.Transport.(*mocks.MockTransport)
+
+	_, err = client.ListIndexes(context.Background())
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
+	assert.Equal(ts.T(), "env-controller-host.io", mockTransport.Req.Host, "Expected request to be made to 'env-controller-host.io', but got '%s'", mockTransport.Req.URL.Host)
+
+	os.Unsetenv("PINECONE_CONTROLLER_HOST")
+}
+
+func (ts *ClientTests) TestControllerHostNormalization() {
+	tests := []struct {
+		name       string
+		host       string
+		wantHost   string
+		wantScheme string
+	}{
+		{
+			name:       "Test with https prefix",
+			host:       "https://pinecone-api.io",
+			wantHost:   "pinecone-api.io",
+			wantScheme: "https",
+		}, {
+			name:       "Test with http prefix",
+			host:       "http://pinecone-api.io",
+			wantHost:   "pinecone-api.io",
+			wantScheme: "http",
+		}, {
+			name:       "Test without prefix",
+			host:       "pinecone-api.io",
+			wantHost:   "pinecone-api.io",
+			wantScheme: "https",
+		},
+	}
+
+	for _, tt := range tests {
+		ts.Run(tt.name, func() {
+			apiKey := "test-api-key"
+			httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+			client, err := NewClient(NewClientParams{ApiKey: apiKey, Host: tt.host, RestClient: httpClient})
+			if err != nil {
+				ts.FailNow(err.Error())
+			}
+			mockTransport := httpClient.Transport.(*mocks.MockTransport)
+
+			_, err = client.ListIndexes(context.Background())
+			require.NoError(ts.T(), err)
+			require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
+
+			assert.Equal(ts.T(), tt.wantHost, mockTransport.Req.URL.Host, "Expected request to be made to host '%s', but got '%s'", tt.wantHost, mockTransport.Req.URL.Host)
+			assert.Equal(ts.T(), tt.wantScheme, mockTransport.Req.URL.Scheme, "Expected request to be made to host '%s, but got '%s'", tt.wantScheme, mockTransport.Req.URL.Host)
+		})
 	}
 }
 
