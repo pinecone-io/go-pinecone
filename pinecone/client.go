@@ -80,45 +80,6 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 	return &c, nil
 }
 
-func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
-	clientOptions := []control.ClientOption{}
-
-	// build and apply user agent
-	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
-	clientOptions = append(clientOptions, control.WithRequestEditorFn(userAgentProvider.Intercept))
-
-	envAdditionalHeaders, hasEnvAdditionalHeaders := os.LookupEnv("PINECONE_ADDITIONAL_HEADERS")
-	additionalHeaders := make(map[string]string)
-
-	// add headers from environment
-	if hasEnvAdditionalHeaders {
-		err := json.Unmarshal([]byte(envAdditionalHeaders), &additionalHeaders)
-		if err != nil {
-			log.Printf("failed to parse PINECONE_ADDITIONAL_HEADERS: %v", err)
-		}
-	}
-
-	// merge headers from parameters if passed
-	if in.Headers != nil {
-		for key, value := range in.Headers {
-			additionalHeaders[key] = value
-		}
-	}
-
-	// add headers to client options
-	for key, value := range additionalHeaders {
-		headerProvider := provider.NewHeaderProvider(key, value)
-		clientOptions = append(clientOptions, control.WithRequestEditorFn(headerProvider.Intercept))
-	}
-
-	// apply custom http client if provided
-	if in.RestClient != nil {
-		clientOptions = append(clientOptions, control.WithHTTPClient(in.RestClient))
-	}
-
-	return clientOptions
-}
-
 func (c *Client) Index(host string) (*IndexConnection, error) {
 	return c.IndexWithAdditionalMetadata(host, "", nil)
 }
@@ -510,6 +471,45 @@ func decodeCollection(resBody io.ReadCloser) (*Collection, error) {
 	}
 
 	return toCollection(&collectionModel), nil
+}
+
+func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
+	clientOptions := []control.ClientOption{}
+
+	// build and apply user agent
+	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
+	clientOptions = append(clientOptions, control.WithRequestEditorFn(userAgentProvider.Intercept))
+
+	envAdditionalHeaders, hasEnvAdditionalHeaders := os.LookupEnv("PINECONE_ADDITIONAL_HEADERS")
+	additionalHeaders := make(map[string]string)
+
+	// add headers from environment
+	if hasEnvAdditionalHeaders {
+		err := json.Unmarshal([]byte(envAdditionalHeaders), &additionalHeaders)
+		if err != nil {
+			log.Printf("failed to parse PINECONE_ADDITIONAL_HEADERS: %v", err)
+		}
+	}
+
+	// merge headers from parameters if passed
+	if in.Headers != nil {
+		for key, value := range in.Headers {
+			additionalHeaders[key] = value
+		}
+	}
+
+	// add headers to client options
+	for key, value := range additionalHeaders {
+		headerProvider := provider.NewHeaderProvider(key, value)
+		clientOptions = append(clientOptions, control.WithRequestEditorFn(headerProvider.Intercept))
+	}
+
+	// apply custom http client if provided
+	if in.RestClient != nil {
+		clientOptions = append(clientOptions, control.WithHTTPClient(in.RestClient))
+	}
+
+	return clientOptions
 }
 
 func ensureURLScheme(inputURL string) (string, error) {
