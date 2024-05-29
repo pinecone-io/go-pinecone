@@ -3,7 +3,9 @@ package pinecone
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -25,6 +27,47 @@ type ClientTests struct {
 
 func TestClient(t *testing.T) {
 	suite.Run(t, new(ClientTests))
+}
+
+func TestHandleErrorResponseBody(t *testing.T) {
+	tests := []struct {
+		name         string
+		responseBody string
+		statusCode   int
+		prefix       string
+		errorOutput  string
+	}{
+		{
+			name:         "test ErrorResponse body",
+			responseBody: `{"error": { "code": "INVALID_ARGUMENT", "message": "test error message"}, "status": 400}`,
+			statusCode:   http.StatusBadRequest,
+			errorOutput:  `{"status_code":400,"body":"{\"error\": { \"code\": \"INVALID_ARGUMENT\", \"message\": \"test error message\"}, \"status\": 400}","error_code":"INVALID_ARGUMENT","message":"test error message"}`,
+		}, {
+			name:         "test JSON body",
+			responseBody: `{"message": "test error message", "extraCode": 665}`,
+			statusCode:   http.StatusBadRequest,
+			errorOutput:  `{"status_code":400,"body":"{\"message\": \"test error message\", \"extraCode\": 665}"}`,
+		}, {
+			name:         "test string body",
+			responseBody: `test error message`,
+			statusCode:   http.StatusBadRequest,
+			errorOutput:  `{"status_code":400,"body":"test error message"}`,
+		}, {
+			name:         "Test error response with empty response",
+			responseBody: `{}`,
+			statusCode:   http.StatusBadRequest,
+			prefix:       "test prefix",
+			errorOutput:  `{"status_code":400,"body":"{}"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := handleErrorResponseBody([]byte(tt.responseBody), tt.statusCode, tt.prefix)
+			assert.Equal(t, err.Error(), tt.errorOutput, "Expected error to be '%s', but got '%s'", tt.errorOutput, err.Error())
+
+		})
+	}
 }
 
 func (ts *ClientTests) SetupSuite() {
@@ -51,7 +94,6 @@ func (ts *ClientTests) SetupSuite() {
 	// named a UUID. Generally not needed as all tests are cleaning up after themselves
 	// Left here as a convenience during active development.
 	//deleteUUIDNamedResources(context.Background(), &ts.client)
-
 }
 
 func (ts *ClientTests) TestNewClientParamsSet() {
@@ -285,6 +327,34 @@ func (ts *ClientTests) TestCreatePodIndex() {
 	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
 }
 
+func (ts *ClientTests) TestCreatePodIndexInvalidDimension() {
+	name := uuid.New().String()
+
+	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
+		Name:        name,
+		Dimension:   -1,
+		Metric:      Cosine,
+		Environment: "us-east1-gcp",
+		PodType:     "p1.x1",
+	})
+	require.Error(ts.T(), err)
+	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
+}
+
+func (ts *ClientTests) TestCreateServerlessIndexInvalidDimension() {
+	name := uuid.New().String()
+
+	_, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
+		Name:      name,
+		Dimension: -1,
+		Metric:    Cosine,
+		Cloud:     Aws,
+		Region:    "us-west-2",
+	})
+	require.Error(ts.T(), err)
+	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
+}
+
 func (ts *ClientTests) TestCreateServerlessIndex() {
 	name := uuid.New().String()
 
@@ -308,6 +378,12 @@ func (ts *ClientTests) TestDescribeServerlessIndex() {
 	index, err := ts.client.DescribeIndex(context.Background(), ts.serverlessIndex)
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), ts.serverlessIndex, index.Name, "Index name does not match")
+}
+
+func (ts *ClientTests) TestDescribeNonExistentIndex() {
+	_, err := ts.client.DescribeIndex(context.Background(), "non-existent-index")
+	require.Error(ts.T(), err)
+	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
 }
 
 func (ts *ClientTests) TestDescribeServerlessIndexSourceTag() {
