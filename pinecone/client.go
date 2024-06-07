@@ -107,24 +107,6 @@ func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, addi
 	return idx, nil
 }
 
-func (c *Client) extractAuthHeader() map[string]string {
-	possibleAuthKeys := []string{
-		"api-key",
-		"authorization",
-		"access_token",
-	}
-
-	for key, value := range c.headers {
-		for _, checkKey := range possibleAuthKeys {
-			if strings.ToLower(key) == checkKey {
-				return map[string]string{key: value}
-			}
-		}
-	}
-
-	return nil
-}
-
 func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	res, err := c.restClient.ListIndexes(ctx)
 	if err != nil {
@@ -133,7 +115,7 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", res.StatusCode)
+		return nil, handleErrorResponseBody(res, "failed to list indexes: ")
 	}
 
 	var indexList control.IndexList
@@ -222,12 +204,7 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusCreated {
-		var errResp control.ErrorResponse
-		err = json.NewDecoder(res.Body).Decode(&errResp)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode error response: %w", err)
-		}
-		return nil, fmt.Errorf("failed to create index: %s", errResp.Error.Message)
+		return nil, handleErrorResponseBody(res, "failed to create index: ")
 	}
 
 	return decodeIndex(res.Body)
@@ -262,12 +239,7 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusCreated {
-		var errResp control.ErrorResponse
-		err = json.NewDecoder(res.Body).Decode(&errResp)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode error response: %w", err)
-		}
-		return nil, fmt.Errorf("failed to create index: %s", errResp.Error.Message)
+		return nil, handleErrorResponseBody(res, "failed to create index: ")
 	}
 
 	return decodeIndex(res.Body)
@@ -281,12 +253,7 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		var errResp control.ErrorResponse
-		err = json.NewDecoder(res.Body).Decode(&errResp)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode error response: %w", err)
-		}
-		return nil, fmt.Errorf("failed to describe idx: %s", errResp.Error.Message)
+		return nil, handleErrorResponseBody(res, "failed to describe index: ")
 	}
 
 	return decodeIndex(res.Body)
@@ -300,12 +267,7 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusAccepted {
-		var errResp control.ErrorResponse
-		err = json.NewDecoder(res.Body).Decode(&errResp)
-		if err != nil {
-			return fmt.Errorf("failed to decode error response: %w", err)
-		}
-		return fmt.Errorf("failed to delete index: %s", errResp.Error.Message)
+		return handleErrorResponseBody(res, "failed to delete index: ")
 	}
 
 	return nil
@@ -319,7 +281,7 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", res.StatusCode)
+		return nil, handleErrorResponseBody(res, "failed to list collections: ")
 	}
 
 	var collectionsResponse control.CollectionList
@@ -343,7 +305,7 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string) 
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", res.StatusCode)
+		return nil, handleErrorResponseBody(res, "failed to describe collection: ")
 	}
 
 	return decodeCollection(res.Body)
@@ -367,13 +329,7 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusCreated {
-		var errorResponse control.ErrorResponse
-		err = json.NewDecoder(res.Body).Decode(&errorResponse)
-		if err != nil {
-			return nil, err
-		}
-
-		return nil, fmt.Errorf("failed to create collection: %s", errorResponse.Error.Message)
+		return nil, handleErrorResponseBody(res, "failed to create collection: ")
 	}
 
 	return decodeCollection(res.Body)
@@ -386,14 +342,26 @@ func (c *Client) DeleteCollection(ctx context.Context, collectionName string) er
 	}
 	defer res.Body.Close()
 
-	// Check for successful response, consider successful HTTP codes like 200 or 204 as successful deletion
 	if res.StatusCode != http.StatusAccepted {
-		var errResp control.ErrorResponse
-		err = json.NewDecoder(res.Body).Decode(&errResp)
-		if err != nil {
-			return fmt.Errorf("failed to decode error response: %w", err)
+		return handleErrorResponseBody(res, "failed to delete collection: ")
+	}
+
+	return nil
+}
+
+func (c *Client) extractAuthHeader() map[string]string {
+	possibleAuthKeys := []string{
+		"api-key",
+		"authorization",
+		"access_token",
+	}
+
+	for key, value := range c.headers {
+		for _, checkKey := range possibleAuthKeys {
+			if strings.ToLower(key) == checkKey {
+				return map[string]string{key: value}
+			}
 		}
-		return fmt.Errorf("failed to delete collection '%s': %s", collectionName, errResp.Error.Message)
 	}
 
 	return nil
@@ -473,6 +441,69 @@ func decodeCollection(resBody io.ReadCloser) (*Collection, error) {
 	return toCollection(&collectionModel), nil
 }
 
+func decodeErrorResponse(resBodyBytes []byte) (*control.ErrorResponse, error) {
+	var errorResponse control.ErrorResponse
+	err := json.Unmarshal(resBodyBytes, &errorResponse)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode error response: %w", err)
+	}
+
+	if errorResponse.Status == 0 {
+		return nil, fmt.Errorf("unable to parse ErrorResponse: %v", string(resBodyBytes))
+	}
+
+	return &errorResponse, nil
+}
+
+type errorResponseMap struct {
+	StatusCode int    `json:"status_code"`
+	Body       string `json:"body,omitempty"`
+	ErrorCode  string `json:"error_code,omitempty"`
+	Message    string `json:"message,omitempty"`
+	Details    string `json:"details,omitempty"`
+}
+
+func handleErrorResponseBody(response *http.Response, errMsgPrefix string) error {
+	resBodyBytes, err := io.ReadAll(response.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var errMap errorResponseMap
+	errMap.StatusCode = response.StatusCode
+
+	// try and decode ErrorResponse
+	if json.Valid(resBodyBytes) {
+		errorResponse, err := decodeErrorResponse(resBodyBytes)
+		if err == nil {
+			errMap.Message = errorResponse.Error.Message
+			errMap.ErrorCode = string(errorResponse.Error.Code)
+
+			if errorResponse.Error.Details != nil {
+				errMap.Details = fmt.Sprintf("%+v", errorResponse.Error.Details)
+			}
+		}
+	}
+
+	errMap.Body = string(resBodyBytes)
+
+	if errMap.Message != "" {
+		errMap.Message = errMsgPrefix + errMap.Message
+	}
+
+	return formatError(errMap)
+}
+
+func formatError(errMap errorResponseMap) error {
+	jsonString, err := json.Marshal(errMap)
+	if err != nil {
+		return err
+	}
+	baseError := fmt.Errorf(string(jsonString))
+
+	return &PineconeError{Code: errMap.StatusCode, Msg: baseError}
+}
+
 func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
 	clientOptions := []control.ClientOption{}
 
@@ -545,4 +576,9 @@ func minOne(x int32) int32 {
 		return 1
 	}
 	return x
+}
+
+func PrettifyStruct(obj interface{}) string {
+	bytes, _ := json.MarshalIndent(obj, "", "  ")
+	return string(bytes)
 }
