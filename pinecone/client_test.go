@@ -3,6 +3,7 @@ package pinecone
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"reflect"
@@ -32,29 +33,29 @@ func TestClient(t *testing.T) {
 func TestHandleErrorResponseBody(t *testing.T) {
 	tests := []struct {
 		name         string
-		responseBody string
+		responseBody *http.Response
 		statusCode   int
 		prefix       string
 		errorOutput  string
 	}{
 		{
 			name:         "test ErrorResponse body",
-			responseBody: `{"error": { "code": "INVALID_ARGUMENT", "message": "test error message"}, "status": 400}`,
+			responseBody: mockResponse(`{"error": { "code": "INVALID_ARGUMENT", "message": "test error message"}, "status": 400}`, http.StatusBadRequest),
 			statusCode:   http.StatusBadRequest,
 			errorOutput:  `{"status_code":400,"body":"{\"error\": { \"code\": \"INVALID_ARGUMENT\", \"message\": \"test error message\"}, \"status\": 400}","error_code":"INVALID_ARGUMENT","message":"test error message"}`,
 		}, {
 			name:         "test JSON body",
-			responseBody: `{"message": "test error message", "extraCode": 665}`,
+			responseBody: mockResponse(`{"message": "test error message", "extraCode": 665}`, http.StatusBadRequest),
 			statusCode:   http.StatusBadRequest,
 			errorOutput:  `{"status_code":400,"body":"{\"message\": \"test error message\", \"extraCode\": 665}"}`,
 		}, {
 			name:         "test string body",
-			responseBody: `test error message`,
+			responseBody: mockResponse(`test error message`, http.StatusBadRequest),
 			statusCode:   http.StatusBadRequest,
 			errorOutput:  `{"status_code":400,"body":"test error message"}`,
 		}, {
 			name:         "Test error response with empty response",
-			responseBody: `{}`,
+			responseBody: mockResponse(`{}`, http.StatusBadRequest),
 			statusCode:   http.StatusBadRequest,
 			prefix:       "test prefix",
 			errorOutput:  `{"status_code":400,"body":"{}"}`,
@@ -63,7 +64,7 @@ func TestHandleErrorResponseBody(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := handleErrorResponseBody([]byte(tt.responseBody), tt.statusCode, tt.prefix)
+			err := handleErrorResponseBody(tt.responseBody, tt.prefix)
 			assert.Equal(t, err.Error(), tt.errorOutput, "Expected error to be '%s', but got '%s'", tt.errorOutput, err.Error())
 
 		})
@@ -537,4 +538,13 @@ func deleteUUIDNamedResources(ctx context.Context, c *Client) error {
 	}
 
 	return nil
+}
+
+func mockResponse(body string, statusCode int) *http.Response {
+	return &http.Response{
+		Status:     http.StatusText(statusCode),
+		StatusCode: statusCode,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     make(http.Header),
+	}
 }
