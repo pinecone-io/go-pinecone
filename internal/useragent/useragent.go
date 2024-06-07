@@ -36,7 +36,7 @@ func buildSourceTagField(userAgent string) string {
 	// Limit charset to [a-z0-9_ ]
 	var strBldr strings.Builder
 	for _, char := range userAgent {
-		if (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char == '_' || char == ' ' {
+		if (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char == '_' || char == ' ' || char == ':' {
 			strBldr.WriteRune(char)
 		}
 	}

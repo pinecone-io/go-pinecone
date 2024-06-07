@@ -78,4 +78,9 @@ func TestBuildUserAgentSourceTagIsNormalized(t *testing.T) {
 	if !strings.Contains(result, "source_tag=my_source_tag") {
 		t.Errorf("BuildUserAgent(\"%s\"): expected user-agent to contain 'source_tag=my_source_tag_123', but got %s", sourceTag, result)
 	}
+
+	sourceTag = "   My Source Tag  123 : !! "
+	if !strings.Contains(result, "source_tag=my_source_tag:") {
+		t.Errorf("BuildUserAgent(\"%s\"): expected user-agent to contain 'source_tag=my_source_tag_123', but got %s", sourceTag, result)
+	}
 }
