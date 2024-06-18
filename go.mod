@@ -3,7 +3,6 @@ module github.com/pinecone-io/go-pinecone
 go 1.21
 
 require (
-	github.com/deepmap/oapi-codegen/v2 v2.1.0
 	github.com/golang/protobuf v1.5.3
 	github.com/google/uuid v1.6.0
 	github.com/oapi-codegen/runtime v1.1.1
