@@ -16,6 +16,48 @@ import (
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
 )
 
+// Client provides a high-level interface for interacting with the Pinecone control plane API.
+// It encapsulates the necessary authentication, request creation, and response handling for the API's operations.
+//
+// The Client is designed to be long-lived and reused across multiple operations.
+//
+// Fields:
+//   - headers: The HTTP headers you would like attached to your API request.
+//   - restClient: The underlying REST client used to communicate with the Pinecone control plane API.
+//     This field is internal and managed by Client.
+//   - sourceTag: An optional string used to help Pinecone attribute API activity to our partners.
+//
+// To use Client, first build the parameters of your request using NewClientParams,
+// providing your API key. Then pass those parameters into the NewClient function to create a new Client.
+// Once instantiated, you can call Client's methods to perform actions such as creating, deleting,
+// and describing indexes and collections.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//	if err != nil {
+//	  fmt.Println("Error:", err)
+//    return
+//	 }
+//
+//	for _, idx := range idxs {
+//	  fmt.Println(idx)
+//	 }
+//
+// Note that Client methods are designed to be safe for concurrent use by multiple
+// goroutines, assuming that its configuration (e.g., the API key) is not modified after
+// initialization.
 type Client struct {
 	headers    map[string]string
 	restClient *control.Client
