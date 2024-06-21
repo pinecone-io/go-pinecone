@@ -22,7 +22,7 @@ import (
 // The Client is designed to be long-lived and reused across multiple operations.
 //
 // Fields:
-//   - headers: The HTTP headers you would like attached to your API request.
+//   - headers: A map of additional HTTP headers to include in the API request.
 //   - restClient: The underlying REST client used to communicate with the Pinecone control plane API.
 //     This field is internal and managed by Client.
 //   - sourceTag: An optional string used to help Pinecone attribute API activity to our partners.
@@ -64,6 +64,7 @@ type Client struct {
 	sourceTag  string
 }
 
+// NewClientParams holds the parameters for creating a new Client.
 type NewClientParams struct {
 	ApiKey     string            // required - provide through NewClientParams or environment variable PINECONE_API_KEY
 	Headers    map[string]string // optional
@@ -72,6 +73,7 @@ type NewClientParams struct {
 	SourceTag  string            // optional
 }
 
+// NewClientBaseParams holds the parameters for creating a new Client with custom authentication headers.
 type NewClientBaseParams struct {
 	Headers    map[string]string
 	Host       string
@@ -79,6 +81,48 @@ type NewClientBaseParams struct {
 	SourceTag  string
 }
 
+// NewClient creates and initializes a new instance of Client.
+// This function sets up the control plane client with the necessary configuration for authentication and communication
+// with the control plane API.
+//
+// This function requires an input parameter of type NewClientParams, which includes:
+//   - ApiKey: The API key used to authenticate with the Pinecone control plane API.
+//   - Headers: A map of additional HTTP headers to include in the API request.
+//   - Host: The host URL of the Pinecone control plane API. If not provided,
+//     the default value is "https://api.pinecone.io".
+//   - RestClient: An optional custom HTTP client to use for communication with the control plane API.
+//   - SourceTag: An optional string used to help Pinecone attribute API activity to our partners.
+//
+// Returns a pointer to an initialized Client instance on success. In case of
+// failure, it returns nil and an error describing the issue encountered. Possible errors
+// include issues with setting up the API key provider or problems initializing the
+// underlying REST client.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//	if err != nil {
+//	  fmt.Println("Error:", err)
+//    return
+//	 }
+//
+//	for _, idx := range idxs {
+//	  fmt.Println(idx)
+//	 }
+//
+// It is important to handle the error returned by this function to ensure that the
+// control plane client has been created successfully before attempting to make API calls.
 func NewClient(in NewClientParams) (*Client, error) {
 	osApiKey := os.Getenv("PINECONE_API_KEY")
 	hasApiKey := (valueOrFallback(in.ApiKey, osApiKey) != "")
@@ -101,6 +145,50 @@ func NewClient(in NewClientParams) (*Client, error) {
 	return NewClientBase(NewClientBaseParams{Headers: clientHeaders, Host: in.Host, RestClient: in.RestClient, SourceTag: in.SourceTag})
 }
 
+// NewClientBase creates and initializes a new instance of Client with custom authentication headers,
+// allowing users to authenticate in ways other than passing an API key.
+//
+// This function requires an input parameter of type NewClientBaseParams, which includes:
+//   - Headers: A map of additional HTTP headers to include in the API request.
+//     "Authorization" and "X-Project-Id" headers are required.
+//   - Host: The host URL of the Pinecone control plane API. If not provided,
+//     the default value is "https://api.pinecone.io".
+//   - RestClient: An optional custom HTTP client to use for communication with the control plane API.
+//   - SourceTag: An optional string used to help Pinecone attribute API activity to our partners.
+//
+// Returns a pointer to an initialized Client instance on success. In case of
+// failure, it returns nil and an error describing the issue encountered. Possible errors
+// include issues with setting up the headers or problems initializing the
+// underlying REST client.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientBaseParams{
+//    Headers: map[string]string{
+//     "Authorization": "Bearer " + "<your JWT token>"
+//     "X-Project-Id": "<Your Pinecone project ID>"
+//      },
+//    SourceTag: "your_source_identifier", // optional
+//    }
+//
+//  pc, err := pinecone.NewClientBase(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//	if err != nil {
+//	  fmt.Println("Error:", err)
+//    return
+//	 }
+//
+//	for _, idx := range idxs {
+//	  fmt.Println(idx)
+//	 }
+//
+// It is important to handle the error returned by this function to ensure that the
+// control plane client has been created successfully before attempting to make API calls.
 func NewClientBase(in NewClientBaseParams) (*Client, error) {
 	clientOptions := buildClientBaseOptions(in)
 	var err error
@@ -122,21 +210,127 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 	return &c, nil
 }
 
-func (c *Client) Index(host string) (*IndexConnection, error) {
+// Index creates an IndexConnection to the specified host.
+//
+// This function requires an input parameter of type string, which is the host URL of your Pinecone index.
+//
+// It returns a pointer to an IndexConnection instance on success. In case of failure, it returns nil and an error.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//	if err != nil {
+//	  fmt.Println("Error:", err)
+//    return
+//	 }
+//
+//  idx, err := pc.Index(idxs[0].Host) // You can now use idx to interact with your index.
+//  defer idx.Close()
+//
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//    return
+//   }
+ func (c *Client) Index(host string) (*IndexConnection, error) {
 	return c.IndexWithAdditionalMetadata(host, "", nil)
 }
 
+// IndexWithNamespace creates an IndexConnection to the specified host within the specified namespace.
+//
+// This function requires input parameters of type string.
+// They are the host URL of your Pinecone index and the target namespace.
+//
+// It returns a pointer to an IndexConnection instance on success. In case of failure, it returns nil and an error.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//	if err != nil {
+//	  fmt.Println("Error:", err)
+//    return
+//	 }
+//
+//  idx, err := pc.IndexWithNamespace(idxs[0].Host, <"sample-namespace">) // You can now use idx to interact with your index.
+//  defer idx.Close()
+//
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//    return
+//   }
 func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnection, error) {
 	return c.IndexWithAdditionalMetadata(host, namespace, nil)
 }
 
+// IndexWithAdditionalMetadata creates an IndexConnection to the specified host within the specified namespace,
+// with the addition of custom metadata fields.
+//
+// Parameters:
+//   - host: The host URL of your Pinecone index.
+//   - namespace: The target namespace.
+//   - additionalMetadata: A map of additional metadata fields to include in the API request.
+//
+// Returns a pointer to an IndexConnection instance on success. In case of failure,
+//it returns nil and the error encountered.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//	if err != nil {
+//	  fmt.Println("Error:", err)
+//    return
+//	 }
+//
+//  idx, err := pc.IndexWithAdditionalMetadata(
+//                idxs[0].Host,
+//                <"sample-namespace">,
+//                map[string]string{"custom-request-metadata": "custom-metadata-values"}
+//              ) // You can now use idx to interact with your index.
+//  defer idx.Close()
+//
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//    return
+//   }
 func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, additionalMetadata map[string]string) (*IndexConnection, error) {
 	authHeader := c.extractAuthHeader()
 
 	// merge additionalMetadata with authHeader
 	if additionalMetadata != nil {
-		for _, key := range authHeader {
-			additionalMetadata[key] = authHeader[key]
+		for k, _ := range authHeader {
+			additionalMetadata[k] = authHeader[k]
 		}
 	} else {
 		additionalMetadata = authHeader
@@ -149,6 +343,13 @@ func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, addi
 	return idx, nil
 }
 
+// ListIndexes retrieves a list of all indexes in a Pinecone project.
+//
+// Parameters:
+//   - ctx: The context in which the API request is made.
+//
+// Returns a slice of pointers to Index objects on success. In case of failure,
+// it returns nil and the error encountered.
 func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	res, err := c.restClient.ListIndexes(ctx)
 	if err != nil {
@@ -401,6 +602,8 @@ func (c *Client) extractAuthHeader() map[string]string {
 	for key, value := range c.headers {
 		for _, checkKey := range possibleAuthKeys {
 			if strings.ToLower(key) == checkKey {
+				//fmt.Println("!! key in extractAuthHeader here", key)
+				//fmt.Println("!! Return value from extractAuthHeader looks like this: ", map[string]string{key: value})
 				return map[string]string{key: value}
 			}
 		}
