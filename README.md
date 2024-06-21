@@ -18,7 +18,7 @@ See [Pinecone API Docs](https://docs.pinecone.io/reference/) for more info.
 
 ## Installation
 
-go-pinecone requires a Go version with [modules](https://github.com/golang/go/wiki/Modules) support.
+go-pinecone requires a Go version with [modules](https://go.dev/wiki/Modules) support.
 
 To add a dependency on go-pinecone:
 
