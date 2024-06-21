@@ -346,10 +346,32 @@ func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, addi
 // ListIndexes retrieves a list of all indexes in a Pinecone project.
 //
 // Parameters:
-//   - ctx: The context in which the API request is made.
+//   - ctx: A context.Context object controls the request's lifetime, allowing for the request
+//   to be canceled or to timeout according to the context's deadline.
 //
 // Returns a slice of pointers to Index objects on success. In case of failure,
 // it returns nil and the error encountered.
+//
+// Example:
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//	if err != nil {
+//	  fmt.Println("Error:", err)
+//    return
+//	 }
+//
+//	for _, idx := range idxs {
+//	  fmt.Println(idx)
+//	 }
 func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	res, err := c.restClient.ListIndexes(ctx)
 	if err != nil {
@@ -375,6 +397,48 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	return indexes, nil
 }
 
+// CreatePodIndexRequest holds the parameters for creating a new Pods-based index.
+//
+// Fields:
+//   - Name: The name of the index.
+//   - Dimension: The dimension of the index.
+//   - Metric: The metric used to measure the similarity between vectors ("Cosine", "Euclidean", or "Dotproduct").
+//   - Environment: The cloud environment in which the index will be created.
+//   - PodType: The type of pod to use for the index ("p1", "p2", or "s2").
+//   - Shards: The number of shards to use for the index (defaults to 1).
+//   - Replicas: The number of replicas to use for the index (defaults to 1).
+//   - SourceCollection: The Collection from which to create the index.
+//   - MetadataConfig: The metadata configuration for the index.
+//
+// To create a new Pods-based index, use the CreatePodIndex method on the Client object.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
+//    Name:        "my-pod-index",
+//    Dimension:   3,
+//    Metric:      pinecone.Cosine,
+//    Environment: "us-west1-gcp",
+//    PodType:     "s1",
+//   })
+//
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//    return
+//   }
+//
+//  fmt.Println(idx)
 type CreatePodIndexRequest struct {
 	Name             string
 	Dimension        int32
@@ -387,21 +451,60 @@ type CreatePodIndexRequest struct {
 	MetadataConfig   *PodSpecMetadataConfig
 }
 
+// ReplicaCount ensures the replica count is >1 and returns a pointer to the number of replicas on the
+// CreatePodIndexRequest object.
 func (req CreatePodIndexRequest) ReplicaCount() *int32 {
 	x := minOne(req.Replicas)
 	return &x
 }
 
+// ShardCount ensures the number of shards is >1 and returns a pointer to the number of shards on the
+// CreatePodIndexRequest object.
 func (req CreatePodIndexRequest) ShardCount() *int32 {
 	x := minOne(req.Shards)
 	return &x
 }
 
+// TotalCount calculates and returns the total number of pods (replicas*shards) on the CreatePodIndexRequest object.
 func (req CreatePodIndexRequest) TotalCount() *int {
 	x := int(*req.ReplicaCount() * *req.ShardCount())
 	return &x
 }
 
+// CreatePodIndex creates and initializes a new pods-based index via the specified Client.
+//
+// Parameters:
+// 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
+//  to be canceled or to timeout according to the context's deadline.
+//  - in: A pointer to a CreatePodIndexRequest object.
+//
+// Returns a pointer to an Index object. In case of failure, it returns nil and the error encountered.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
+//    Name:        "my-pod-index",
+//    Dimension:   3,
+//    Metric:      pinecone.Cosine,
+//    Environment: "us-west1-gcp",
+//    PodType:     "s1",
+//   })
+//
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//    return
+//   }
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
 	metric := control.IndexMetric(in.Metric)
 	req := control.CreateIndexRequest{
@@ -453,6 +556,42 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 	return decodeIndex(res.Body)
 }
 
+// CreateServerlessIndexRequest holds the parameters for creating a new Serverless index.
+//
+// Fields:
+//   - Name: The name of the index.
+//   - Dimension: The dimension of the index.
+//   - Metric: The metric used to measure the similarity between vectors ("Cosine", "Euclidean", or "Dotproduct").
+//   - Cloud: The cloud provider in which the index will be created.
+//   - Region: The region in which the index will be created.
+//
+// To create a new Serverless index, use the CreateServerlessIndex method on the Client object.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+//    Name:    "my-serverless-index",
+//    Dimension: 3,
+//    Metric:  pinecone.Cosine,
+//    Cloud:   pinecone.Aws,
+//    Region:  "us-east-1",
+//   })
+//
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//    return
+//   }
 type CreateServerlessIndexRequest struct {
 	Name      string
 	Dimension int32
@@ -461,6 +600,40 @@ type CreateServerlessIndexRequest struct {
 	Region    string
 }
 
+// CreateServerlessIndex creates and initializes a new serverless index via the specified Client.
+//
+// Parameters:
+// 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
+//  to be canceled or to timeout according to the context's deadline.
+//  - in: A pointer to a CreateServerlessIndexRequest object.
+//
+// Returns a pointer to an Index object. In case of failure, it returns nil and the error encountered.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+//    Name:    "my-serverless-index",
+//    Dimension: 3,
+//    Metric:  pinecone.Cosine,
+//    Cloud:   pinecone.Aws,
+//    Region:  "us-east-1",
+//   })
+//
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//    return
+//   }
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
 	metric := control.IndexMetric(in.Metric)
 	req := control.CreateIndexRequest{
@@ -488,6 +661,16 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 	return decodeIndex(res.Body)
 }
 
+// DescribeIndex retrieves information about a specific index in a Pinecone project via a specified Client.
+//
+// Parameters:
+// 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
+//  to be canceled or to timeout according to the context's deadline.
+//  - idxName: The name of the index to describe.
+//
+// Returns a pointer to an Index object. In case of failure, it returns nil and the error encountered.
+//
+// Example:
 func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, error) {
 	res, err := c.restClient.DescribeIndex(ctx, idxName)
 	if err != nil {
@@ -816,6 +999,7 @@ func derefOrDefault[T any](ptr *T, defaultValue T) T {
 	return *ptr
 }
 
+// Ensure the value is at least 1
 func minOne(x int32) int32 {
 	if x < 1 {
 		return 1
