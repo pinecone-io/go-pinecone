@@ -93,7 +93,7 @@ func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, addi
 
 	// merge additionalMetadata with authHeader
 	if additionalMetadata != nil {
-		for _, key := range authHeader {
+		for key, _ := range authHeader {
 			additionalMetadata[key] = authHeader[key]
 		}
 	} else {
