@@ -320,8 +320,8 @@ func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, addi
 
 	// merge additionalMetadata with authHeader
 	if additionalMetadata != nil {
-		for k, _ := range authHeader {
-			additionalMetadata[k] = authHeader[k]
+		for _, key := range authHeader {
+			additionalMetadata[key] = authHeader[key]
 		}
 	} else {
 		additionalMetadata = authHeader
