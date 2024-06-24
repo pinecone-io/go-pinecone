@@ -48,7 +48,6 @@ import (
 //  idxs, err := pc.ListIndexes(ctx)
 //	if err != nil {
 //	  fmt.Println("Error:", err)
-//    return
 //	 }
 //
 //	for _, idx := range idxs {
@@ -114,7 +113,6 @@ type NewClientBaseParams struct {
 //  idxs, err := pc.ListIndexes(ctx)
 //	if err != nil {
 //	  fmt.Println("Error:", err)
-//    return
 //	 }
 //
 //	for _, idx := range idxs {
@@ -180,7 +178,6 @@ func NewClient(in NewClientParams) (*Client, error) {
 //  idxs, err := pc.ListIndexes(ctx)
 //	if err != nil {
 //	  fmt.Println("Error:", err)
-//    return
 //	 }
 //
 //	for _, idx := range idxs {
@@ -195,7 +192,7 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 
 	controlHostOverride := valueOrFallback(in.Host, os.Getenv("PINECONE_CONTROLLER_HOST"))
 	if controlHostOverride != "" {
-		controlHostOverride, err = ensureURLScheme(controlHostOverride)
+		controlHostOverride, err = ensureURLSchema(controlHostOverride)
 		if err != nil {
 			return nil, err
 		}
@@ -232,7 +229,6 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 //  idxs, err := pc.ListIndexes(ctx)
 //	if err != nil {
 //	  fmt.Println("Error:", err)
-//    return
 //	 }
 //
 //  idx, err := pc.Index(idxs[0].Host) // You can now use idx to interact with your index.
@@ -240,7 +236,6 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 //
 //  if err != nil {
 //    fmt.Println("Error:", err)
-//    return
 //   }
  func (c *Client) Index(host string) (*IndexConnection, error) {
 	return c.IndexWithAdditionalMetadata(host, "", nil)
@@ -269,7 +264,6 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 //  idxs, err := pc.ListIndexes(ctx)
 //	if err != nil {
 //	  fmt.Println("Error:", err)
-//    return
 //	 }
 //
 //  idx, err := pc.IndexWithNamespace(idxs[0].Host, <"sample-namespace">) // You can now use idx to interact with your index.
@@ -277,7 +271,6 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 //
 //  if err != nil {
 //    fmt.Println("Error:", err)
-//    return
 //   }
 func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnection, error) {
 	return c.IndexWithAdditionalMetadata(host, namespace, nil)
@@ -310,7 +303,6 @@ func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnec
 //  idxs, err := pc.ListIndexes(ctx)
 //	if err != nil {
 //	  fmt.Println("Error:", err)
-//    return
 //	 }
 //
 //  idx, err := pc.IndexWithAdditionalMetadata(
@@ -322,7 +314,6 @@ func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnec
 //
 //  if err != nil {
 //    fmt.Println("Error:", err)
-//    return
 //   }
 func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, additionalMetadata map[string]string) (*IndexConnection, error) {
 	authHeader := c.extractAuthHeader()
@@ -366,7 +357,6 @@ func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, addi
 //  idxs, err := pc.ListIndexes(ctx)
 //	if err != nil {
 //	  fmt.Println("Error:", err)
-//    return
 //	 }
 //
 //	for _, idx := range idxs {
@@ -435,10 +425,7 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //
 //  if err != nil {
 //    fmt.Println("Error:", err)
-//    return
 //   }
-//
-//  fmt.Println(idx)
 type CreatePodIndexRequest struct {
 	Name             string
 	Dimension        int32
@@ -503,7 +490,6 @@ func (req CreatePodIndexRequest) TotalCount() *int {
 //
 //  if err != nil {
 //    fmt.Println("Error:", err)
-//    return
 //   }
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
 	metric := control.IndexMetric(in.Metric)
@@ -590,7 +576,6 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //
 //  if err != nil {
 //    fmt.Println("Error:", err)
-//    return
 //   }
 type CreateServerlessIndexRequest struct {
 	Name      string
@@ -632,7 +617,6 @@ type CreateServerlessIndexRequest struct {
 //
 //  if err != nil {
 //    fmt.Println("Error:", err)
-//    return
 //   }
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
 	metric := control.IndexMetric(in.Metric)
@@ -661,7 +645,7 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 	return decodeIndex(res.Body)
 }
 
-// DescribeIndex retrieves information about a specific index in a Pinecone project via a specified Client.
+// DescribeIndex retrieves information about a specific index.
 //
 // Parameters:
 // 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -670,7 +654,31 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 //
 // Returns a pointer to an Index object. In case of failure, it returns nil and the error encountered.
 //
+// Since the returned value is a pointer to an Index object, it will have the following fields:
+//   - Name: The name of the index.
+//   - Dimension: The dimension of the index.
+//   - Host: The host URL of the index.
+//   - Metric: The metric used to measure the similarity between vectors.
+//   - Spec: The specification of the index.
+//   - Status: The status of the index.
+//
 // Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  idx, err := pc.DescribeIndex(ctx, "the-name-of-my-index")
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//   }
 func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, error) {
 	res, err := c.restClient.DescribeIndex(ctx, idxName)
 	if err != nil {
@@ -685,6 +693,32 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 	return decodeIndex(res.Body)
 }
 
+// DeleteIndex deletes a specific index.
+//
+// Parameters:
+// 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
+//  to be canceled or to timeout according to the context's deadline.
+//  - idxName: The name of the index to delete.
+//
+// Returns an error if the deletion fails.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  err := pc.DeleteIndex(ctx, "the-name-of-my-index")
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//   }
 func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	res, err := c.restClient.DeleteIndex(ctx, idxName)
 	if err != nil {
@@ -699,6 +733,33 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	return nil
 }
 
+// ListCollections retrieves a list of all collections in a Pinecone project.
+//
+// Parameters:
+// 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
+//  to be canceled or to timeout according to the context's deadline.
+//
+// Returns a slice of pointers to Collection objects on success. In case of failure,
+// it returns nil and the error encountered.
+//
+// Note: Collections are only available for pods-based indexes.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+// pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  collections, err := pc.ListCollections(ctx)
+//	if err != nil {
+//	  fmt.Println("Error:", err)
+//	 }
 func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	res, err := c.restClient.ListCollections(ctx)
 	if err != nil {
@@ -723,6 +784,42 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	return collections, nil
 }
 
+// DescribeCollection retrieves information about a specific collection.
+//
+// Parameters:
+// 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
+//  to be canceled or to timeout according to the context's deadline.
+//  - collectionName: The name of the collection to describe.
+//
+// Returns a pointer to a Collection object. In case of failure, it returns nil and the error encountered.
+//
+// Since the returned value is a pointer to a Collection object, it will have the following fields:
+//   - Name: The name of the collection.
+//   - Size: The size of the collection.
+//   - Status: The status of the collection.
+//   - Dimension: The dimension of the collection.
+//   - VectorCount: The number of vectors in the collection.
+//   - Environment: The cloud environment in which the collection resides.
+//
+// Note: Collections are only available for pods-based indexes.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+//
+// pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  collection, err := pc.DescribeCollection(ctx, "my-collection")
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//   }
 func (c *Client) DescribeCollection(ctx context.Context, collectionName string) (*Collection, error) {
 	res, err := c.restClient.DescribeCollection(ctx, collectionName)
 	if err != nil {
@@ -737,11 +834,72 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string) 
 	return decodeCollection(res.Body)
 }
 
+// CreateCollectionRequest holds the parameters for creating a new collection.
+//
+// Fields:
+//   - Name: The name of the collection.
+//   - Source: The source index from which the collection will be made.
+//
+// To create a new collection, use the CreateCollection method on the Client object.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+//
+// pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  collection, err := pc.CreateCollection(ctx, &pinecone.CreateCollectionRequest{
+//    Name:   "my-collection",
+//    Source: "my-source-pods-based-index",
+//   })
+//
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//   }
 type CreateCollectionRequest struct {
 	Name   string
 	Source string
 }
 
+// CreateCollection creates and initializes a new collection via the specified Client.
+//
+// Parameters:
+// 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
+//  to be canceled or to timeout according to the context's deadline.
+//  - in: A pointer to a CreateCollectionRequest object.
+//
+// Returns a pointer to a Collection object. In case of failure, it returns nil and the error encountered.
+//
+// Note: Collections are only available for pods-based indexes.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+//
+// pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  collection, err := pc.CreateCollection(ctx, &pinecone.CreateCollectionRequest{
+//    Name:   "my-collection",
+//    Source: "my-source-pods-based-index",
+//   })
+//
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//   }
 func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionRequest) (*Collection, error) {
 	req := control.CreateCollectionRequest{
 		Name:   in.Name,
@@ -761,6 +919,34 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 	return decodeCollection(res.Body)
 }
 
+// DeleteCollection deletes a specific collection.
+//
+// Parameters:
+// 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
+//  to be canceled or to timeout according to the context's deadline.
+//  - collectionName: The name of the collection to delete.
+//
+// Returns an error if the deletion fails.
+//
+// Note: Collections are only available for pods-based indexes.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    SourceTag: "your_source_identifier", // optional
+//   }
+//
+// pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//   }
+//
+//  err = pc.DeleteCollection(ctx, "my-collection")
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//   }
 func (c *Client) DeleteCollection(ctx context.Context, collectionName string) error {
 	res, err := c.restClient.DeleteCollection(ctx, collectionName)
 	if err != nil {
@@ -971,7 +1157,7 @@ func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
 	return clientOptions
 }
 
-func ensureURLScheme(inputURL string) (string, error) {
+func ensureURLSchema(inputURL string) (string, error) {
 	parsedURL, err := url.Parse(inputURL)
 	if err != nil {
 		return "", fmt.Errorf("invalid URL: %v", err)
@@ -984,7 +1170,7 @@ func ensureURLScheme(inputURL string) (string, error) {
 }
 
 func valueOrFallback[T comparable](value, fallback T) T {
-	var zero T
+	var zero T // set to zero-value of generic type T
 	if value != zero {
 		return value
 	} else {
@@ -999,15 +1185,9 @@ func derefOrDefault[T any](ptr *T, defaultValue T) T {
 	return *ptr
 }
 
-// Ensure the value is at least 1
 func minOne(x int32) int32 {
-	if x < 1 {
+	if x < 1 { // ensure x is at least 1
 		return 1
 	}
 	return x
-}
-
-func PrettifyStruct(obj interface{}) string {
-	bytes, _ := json.MarshalIndent(obj, "", "  ")
-	return string(bytes)
 }
