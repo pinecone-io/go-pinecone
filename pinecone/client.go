@@ -192,7 +192,7 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 
 	controlHostOverride := valueOrFallback(in.Host, os.Getenv("PINECONE_CONTROLLER_HOST"))
 	if controlHostOverride != "" {
-		controlHostOverride, err = ensureURLSchema(controlHostOverride)
+		controlHostOverride, err = ensureURLScheme(controlHostOverride)
 		if err != nil {
 			return nil, err
 		}
@@ -1157,7 +1157,7 @@ func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
 	return clientOptions
 }
 
-func ensureURLSchema(inputURL string) (string, error) {
+func ensureURLScheme(inputURL string) (string, error) {
 	parsedURL, err := url.Parse(inputURL)
 	if err != nil {
 		return "", fmt.Errorf("invalid URL: %v", err)
