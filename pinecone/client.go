@@ -209,9 +209,10 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 
 // Index creates an IndexConnection to the specified host.
 //
-// This function requires an input parameter of type string, which is the host URL of your Pinecone index.
+// Parameters:
+//   - host: The host URL of your Pinecone index.
 //
-// It returns a pointer to an IndexConnection instance on success. In case of failure, it returns nil and an error.
+// Returns a pointer to an IndexConnection instance on success. In case of failure, it returns nil and an error.
 //
 // Example:
 //  ctx := context.Background()
@@ -243,10 +244,11 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 
 // IndexWithNamespace creates an IndexConnection to the specified host within the specified namespace.
 //
-// This function requires input parameters of type string.
-// They are the host URL of your Pinecone index and the target namespace.
+// Parameters:
+//   - host: The host URL of your Pinecone index.
+//   - namespace: The target namespace.
 //
-// It returns a pointer to an IndexConnection instance on success. In case of failure, it returns nil and an error.
+// Returns a pointer to an IndexConnection instance on success. In case of failure, it returns nil and an error.
 //
 // Example:
 //  ctx := context.Background()
@@ -285,7 +287,7 @@ func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnec
 //   - additionalMetadata: A map of additional metadata fields to include in the API request.
 //
 // Returns a pointer to an IndexConnection instance on success. In case of failure,
-//it returns nil and the error encountered.
+// it returns nil and the error encountered.
 //
 // Example:
 //  ctx := context.Background()
