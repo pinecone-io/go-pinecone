@@ -13,6 +13,13 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// IndexConnection holds the parameters for Pinecone IndexConnection object.
+//
+// Fields:
+// 	- Namespace: The namespace of the index.
+//  - additionalMetadata: Additional metadata to be sent with each request.
+//  - dataClient: The gRPC client for the index.
+//  - grpcConn: The gRPC connection.
 type IndexConnection struct {
 	Namespace          string
 	additionalMetadata map[string]string
@@ -49,11 +56,88 @@ func newIndexConnection(in newIndexParameters) (*IndexConnection, error) {
 	return &idx, nil
 }
 
+// Close closes the connection to a Pinecone index.
+//
+// Returns a pointer to an IndexConnection object and an error if the connection cannot be closed.
+//
+// Parameters:
+//   idx: The IndexConnection object.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//	  ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  SourceTag: "your_source_identifier", // optional
+//	}
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//	if err != nil {
+//		log.Fatalf("Failed to create Client: %v", err)
+//  }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
+//
+//  idx, err := pc.Index(idxs[0].Host)
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//	  return
+//	}
+//
+//  err = idx.Close()
+//	if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
 func (idx *IndexConnection) Close() error {
 	err := idx.grpcConn.Close()
 	return err
 }
 
+// UpsertVectors indexes vectors into a Pinecone index.
+//
+// Parameters:
+//  - ctx: A context.Context object controls the request's lifetime,
+//  allowing for the request to be canceled or to timeout according to the context's deadline.
+//  - in: The vectors to index.
+//
+// Returns the number of vectors upserted and an error if the request fails.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//	  ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  SourceTag: "your_source_identifier", // optional
+//	}
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//	if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//  }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//
+//  idx, err := pc.Index(idxs[0].Host)
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
+//
+// 	vectors := []*pinecone.Vector{
+//    {
+//     Id:     "abc-1",
+//    Values: []float32{1.0, 2.0},
+//     },
+//  }
+//
+//  count, err := idx.UpsertVectors(ctx, vectors)
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//	} else {
+//	  fmt.Printf("Successfully upserted %d vector(s)!\n", count)
+//	}
 func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (uint32, error) {
 	vectors := make([]*data.Vector, len(in))
 	for i, v := range in {
@@ -72,11 +156,51 @@ func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (ui
 	return res.UpsertedCount, nil
 }
 
+// FetchVectorsResponse holds the parameters for the FetchVectorsResponse object,
+// which is returned by the FetchVectors method.
+//
+// Fields:
+//  - Vectors: The vectors fetched.
+//  - Usage: The usage information for the request.
 type FetchVectorsResponse struct {
 	Vectors map[string]*Vector `json:"vectors,omitempty"`
 	Usage   *Usage             `json:"usage,omitempty"`
 }
 
+// FetchVectors fetches vectors by ID from a Pinecone index.
+//
+// Parameters:
+//  - ctx: A context.Context object controls the request's lifetime,
+//   allowing for the request to be canceled or to timeout according to the context's deadline.
+//  - ids: The IDs of the vectors to fetch.
+//
+// Returns a pointer to any fetched vectors and an error if the request fails.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//	  ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  SourceTag: "your_source_identifier", // optional
+//	}
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//	if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//  }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//
+//  idx, err := pc.Index(idxs[0].Host)
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
+//
+//  res, err := idx.FetchVectors(ctx, []string{"abc-1"})
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//	}
+//  fmt.Println(res)
 func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*FetchVectorsResponse, error) {
 	req := &data.FetchRequest{
 		Ids:       ids,
@@ -99,18 +223,75 @@ func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*Fe
 	}, nil
 }
 
+// ListVectorsRequest holds the parameters for the ListVectorsRequest object,
+// which is passed into the ListVectors method.
+//
+// Fields:
+//  - Prefix: The prefix by which to filter.
+//  - Limit: The maximum number of vectors to return.
+//  - PaginationToken: The token for paginating through results.
 type ListVectorsRequest struct {
 	Prefix          *string
 	Limit           *uint32
 	PaginationToken *string
 }
 
+// ListVectorsResponse holds the parameters for the ListVectorsResponse object,
+// which is returned by the ListVectors method.
+//
+// Fields:
+//  - VectorIds: The IDs of the returned vectors.
+//  - Usage: The usage information for the request.
+//  - NextPaginationToken: The token for paginating through results.
 type ListVectorsResponse struct {
 	VectorIds           []*string `json:"vector_ids,omitempty"`
 	Usage               *Usage    `json:"usage,omitempty"`
 	NextPaginationToken *string   `json:"next_pagination_token,omitempty"`
 }
 
+// ListVectors lists vectors in a Pinecone index. You can filter vectors by prefix,
+// limit the number of vectors returned, and paginate through results.
+//
+// Returns a pointer to a ListVectorsResponse object and an error if the request fails.
+//
+// Parameters:
+//  - ctx: A context.Context object controls the request's lifetime,
+//   allowing for the request to be canceled or to timeout according to the context's deadline.
+//  - in: A ListVectorsRequest object with the parameters for the request.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//	  ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  SourceTag: "your_source_identifier", // optional
+//	}
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//	if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//  }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//
+//  idx, err := pc.Index(idxs[0].Host)
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
+//
+//  prefix := "abc"
+//	limit := uint32(10)
+//
+//	res, err := idx.ListVectors(ctx, &pinecone.ListVectorsRequest{
+//	  Prefix: &prefix,
+//	  Limit:  &limit,
+//	})
+//
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//	}
+//
+//  fmt.Println(res)
 func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequest) (*ListVectorsResponse, error) {
 	req := &data.ListRequest{
 		Prefix:          in.Prefix,
@@ -135,6 +316,16 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 	}, nil
 }
 
+// QueryByVectorValuesRequest holds the parameters for the QueryByVectorValuesRequest object,
+// which is passed into the QueryByVectorValues method.
+//
+// Fields:
+//  - Vector: The vector for which you want to grab nearest neighbors.
+//  - TopK: The number of vectors to return.
+//  - Filter: The filter to apply to your query.
+//  - IncludeValues: Whether to include the values of the vectors in the response.
+//  - IncludeMetadata: Whether to include the metadata associated with the vectors in the response.
+//  - SparseValues: The sparse values of the query vector, if applicable.
 type QueryByVectorValuesRequest struct {
 	Vector          []float32
 	TopK            uint32
@@ -144,11 +335,62 @@ type QueryByVectorValuesRequest struct {
 	SparseValues    *SparseValues
 }
 
+// QueryVectorsResponse holds the parameters for the QueryVectorsResponse object,
+// which is returned by the QueryByVectorValues method.
+//
+// Fields:
+//  - Matches: The vectors (nearest neighbors) that are most similar to the query vector.
+//  - Usage: The usage information for the request.
 type QueryVectorsResponse struct {
 	Matches []*ScoredVector `json:"matches,omitempty"`
 	Usage   *Usage          `json:"usage,omitempty"`
 }
 
+// QueryByVectorValues queries a Pinecone index for vectors (
+// nearest neighbors) that are most similar to a provided query vector.
+//
+// Returns a pointer to a QueryVectorsResponse object and an error if the request fails.
+//
+// Parameters:
+//  - ctx: A context.Context object controls the request's lifetime,
+//  - allowing for the request to be canceled or to timeout according to the context's deadline.
+//   in: A QueryByVectorValuesRequest object with the parameters for the request.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//	  ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  SourceTag: "your_source_identifier", // optional
+//	}
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//	if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//  }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//
+//  idx, err := pc.Index(idxs[0].Host)
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
+//
+//  queryVector := []float32{1.0, 2.0}
+//	topK := uint32(10)
+//
+//	res, err := idx.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
+//	  Vector:        queryVector,
+//	  TopK:          topK,  // number of vectors (nearest neighbors) you want returned
+//	  IncludeValues: true,
+//	  IncludeMetadata: true,
+//	 })
+//
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//	}
+//
+// fmt.Println(res)
 func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryByVectorValuesRequest) (*QueryVectorsResponse, error) {
 	req := &data.QueryRequest{
 		Namespace:       idx.Namespace,
@@ -163,6 +405,16 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 	return idx.query(ctx, req)
 }
 
+// QueryByVectorIdRequest holds the parameters for the QueryByVectorIdRequest object,
+// which is passed into the QueryByVectorId method.
+//
+// Fields:
+//  - VectorId: The ID of the vector for which you want to grab nearest neighbors.
+//  - TopK: The number of vectors to return.
+//  - Filter: The filter to apply to your query.
+//  - IncludeValues: Whether to include the values of the vectors in the response.
+//  - IncludeMetadata: Whether to include the metadata associated with the vectors in the response.
+//  - SparseValues: The sparse values of the query vector, if applicable.
 type QueryByVectorIdRequest struct {
 	VectorId        string
 	TopK            uint32
@@ -172,6 +424,51 @@ type QueryByVectorIdRequest struct {
 	SparseValues    *SparseValues
 }
 
+// QueryByVectorId uses a vector ID to query a Pinecone index and retrieve vectors (
+// nearest neighbors) that are most similar to the provided ID's underlying vector.
+//
+// Returns a pointer to a QueryVectorsResponse object and an error if the request fails.
+//
+// Parameters:
+//  - ctx: A context.Context object controls the request's lifetime,
+//   allowing for the request to be canceled or to timeout according to the context's deadline.
+//  - in: A QueryByVectorIdRequest object with the parameters for the request.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//	  ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  SourceTag: "your_source_identifier", // optional
+//	}
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//	if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//  }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//
+//  idx, err := pc.Index(idxs[0].Host)
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
+//
+//  vectorId := "abc-1"
+//	topK := uint32(10)
+//
+//	res, err := idx.QueryByVectorId(ctx, &pinecone.QueryByVectorIdRequest{
+//	  VectorId:      vectorId,
+//	  TopK:          topK,  // number of vectors (nearest neighbors) you want returned
+//	  IncludeValues: true,
+//	  IncludeMetadata: true,
+//	 })	index
+//
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//	}
+//
+// fmt.Println(res)
 func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVectorIdRequest) (*QueryVectorsResponse, error) {
 	req := &data.QueryRequest{
 		Id:              in.VectorId,
@@ -186,6 +483,39 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 	return idx.query(ctx, req)
 }
 
+// DeleteVectorsById deletes vectors by ID from a Pinecone index.
+//
+// Returns an error if the request fails.
+//
+// Parameters:
+//  - ctx: A context.Context object controls the request's lifetime,
+//   allowing for the request to be canceled or to timeout according to the context's deadline.
+//  - ids: IDs of the vectors you want to delete.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//	  ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  SourceTag: "your_source_identifier", // optional
+//	}
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//	if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//  }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//
+//  idx, err := pc.Index(idxs[0].Host)
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
+//
+//  err = idx.DeleteVectorsById(ctx, []string{"abc-1"})
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
 func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string) error {
 	req := data.DeleteRequest{
 		Ids:       ids,
@@ -195,6 +525,50 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 	return idx.delete(ctx, &req)
 }
 
+// DeleteVectorsByFilter deletes vectors from a Pinecone index, given a filter.
+//
+// Returns an error if the request fails.
+//
+// Note: DeleteVectorsByFilter is only available on pods-based indexes.
+//
+// Parameters:
+//  - ctx: A context.Context object controls the request's lifetime,
+//   allowing for the request to be canceled or to timeout according to the context's deadline.
+//  - filter: The filter to apply to the deletion.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  SourceTag: "your_source_identifier", // optional
+//  }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//	if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//  }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//
+//  idx, err := pc.Index(idxs[0].Host)
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
+//
+//  metadataFilter := map[string]interface{}{
+//    "genre": "classical",
+//  }
+//
+//  filter, err := structpb.NewStruct(metadataFilter)
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//  }
+//
+//  err = idx.DeleteVectorsByFilter(ctx, filter)
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//  }
 func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *Filter) error {
 	req := data.DeleteRequest{
 		Filter:    filter,
