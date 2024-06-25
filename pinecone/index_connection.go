@@ -578,6 +578,38 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *F
 	return idx.delete(ctx, &req)
 }
 
+// DeleteAllVectorsInNamespace deletes all vectors in a specific namespace.
+//
+// Returns an error if the request fails.
+//
+// Parameters:
+//  - ctx: A context.Context object controls the request's lifetime,
+//   allowing for the request to be canceled or to timeout according to the context's deadline.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  SourceTag: "your_source_identifier", // optional
+//  }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//	if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//  }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//
+// 	idxWithNamespace, err := pc.IndexWithNamespace(idxs[0].Host, "test-namespace")
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
+//
+//  err = idxWithNamespace.DeleteAllVectorsInNamespace(ctx)
+//	if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
 func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx context.Context) error {
 	req := data.DeleteRequest{
 		Namespace: idx.Namespace,
@@ -587,6 +619,14 @@ func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx context.Context) err
 	return idx.delete(ctx, &req)
 }
 
+// UpdateVectorRequest holds the parameters for the UpdateVectorRequest object,
+// which is passed into the UpdateVector method.
+//
+// Fields:
+//  - Id: The ID of the vector to update.
+//  - Values: The values with which you want to update the vector.
+//  - SparseValues: The sparse values with which you want to update the vector.
+//  - Metadata: The metadata with which you want to update the vector.
 type UpdateVectorRequest struct {
 	Id           string
 	Values       []float32
@@ -594,6 +634,42 @@ type UpdateVectorRequest struct {
 	Metadata     *Metadata
 }
 
+// UpdateVector updates a vector in a Pinecone index by ID.
+//
+// Returns an error if the request fails.
+//
+// Parameters:
+//  - ctx: A context.Context object controls the request's lifetime,
+//   allowing for the request to be canceled or to timeout according to the context's deadline.
+//  - in: An UpdateVectorRequest object with the parameters for the request.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  SourceTag: "your_source_identifier", // optional
+//  }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//	if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//  }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//
+//  idx, err := pc.Index(idxs[0].Host)
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
+//
+//  err = idx.UpdateVector(ctx, &pinecone.UpdateVectorRequest{
+//	  Id:     "abc-1",
+//	  Values: []float32{7.0, 8.0},
+//	})
+//	if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
 func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRequest) error {
 	req := &data.UpdateRequest{
 		Id:           in.Id,
@@ -607,6 +683,14 @@ func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRe
 	return err
 }
 
+// DescribeIndexStatsResponse holds the parameters for the DescribeIndexStatsResponse object,
+// which is returned by the DescribeIndexStats method.
+//
+// Fields:
+//  - Dimension: The dimension of the index.
+//  - IndexFullness: The fullness level of the index. Note: only available on pods-based indexes.
+//  - TotalVectorCount: The total number of vectors in the index.
+//  - Namespaces: The namespace(s) in the index.
 type DescribeIndexStatsResponse struct {
 	Dimension        uint32                       `json:"dimension"`
 	IndexFullness    float32                      `json:"index_fullness"`
@@ -614,10 +698,88 @@ type DescribeIndexStatsResponse struct {
 	Namespaces       map[string]*NamespaceSummary `json:"namespaces,omitempty"`
 }
 
+// DescribeIndexStats returns statistics about a Pinecone index.
+//
+// Returns a pointer to a DescribeIndexStatsResponse object and an error if the request fails.
+//
+// Parameters:
+//  - ctx: A context.Context object controls the request's lifetime,
+//   allowing for the request to be canceled or to timeout according to the context's deadline.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  SourceTag: "your_source_identifier", // optional
+//  }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//	if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//  }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//
+//  idx, err := pc.Index(idxs[0].Host)
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
+//
+//  res, err := idx.DescribeIndexStats(ctx)
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//	}
+//  fmt.Println(res)
 func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIndexStatsResponse, error) {
 	return idx.DescribeIndexStatsFiltered(ctx, nil)
 }
 
+// DescribeIndexStatsFiltered returns statistics about a Pinecone index, filtered by a given filter.
+//
+// Returns a pointer to a DescribeIndexStatsResponse object and an error if the request fails.
+//
+// Note: DescribeIndexStatsFiltered is only available on pods-based indexes.
+//
+// Parameters:
+//  - ctx: A context.Context object controls the request's lifetime,
+//   allowing for the request to be canceled or to timeout according to the context's deadline.
+//  - filter: The filter to apply to the request.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  SourceTag: "your_source_identifier", // optional
+//  }
+//
+//  pc, err := pinecone.NewClient(clientParams)
+//	if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//  }
+//
+//  idxs, err := pc.ListIndexes(ctx)
+//
+//  idx, err := pc.Index(idxs[0].Host)
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
+//
+//  metadataFilter := map[string]interface{}{
+//    "genre": "classical",
+//  }
+//
+//  filter, err := structpb.NewStruct(metadataFilter)
+//  if err != nil {
+//    fmt.Println("Error:", err)
+//  }
+//
+//  res, err := idx.DescribeIndexStatsFiltered(ctx, filter)
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//	}
+//  fmt.Println(res)
 func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, filter *Filter) (*DescribeIndexStatsResponse, error) {
 	req := &data.DescribeIndexStatsRequest{
 		Filter: filter,
