@@ -65,10 +65,10 @@ type NewManagementClientParams struct {
 }
 
 // NewManagementClient creates and initializes a new instance of ManagementClient.
-// This method sets up the management plane client with the necessary configuration for
+// This function sets up the management plane client with the necessary configuration for
 // authentication and communication with the management API.
 //
-// The method requires an input parameter of type NewManagementClientParams, which includes:
+// The function requires an input parameter of type NewManagementClientParams, which includes:
 //   - ApiKey: The API key used for authenticating requests to the management API.
 //     This key should have the necessary organization-level permissions for the operations
 //     you intend to perform.
@@ -93,7 +93,7 @@ type NewManagementClientParams struct {
 //	}
 //	// Use managementClient to interact with the management API
 //
-// It is important to handle the error returned by this method to ensure that the
+// It is important to handle the error returned by this function to ensure that the
 // management client has been created successfully before attempting to make API calls.
 func NewManagementClient(in NewManagementClientParams) (*ManagementClient, error) {
 	apiKeyProvider, err := securityprovider.NewSecurityProviderApiKey("header", "Api-Key", in.ApiKey)
