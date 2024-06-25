@@ -735,51 +735,6 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 	return idx.DescribeIndexStatsFiltered(ctx, nil)
 }
 
-// DescribeIndexStatsFiltered returns statistics about a Pinecone index, filtered by a given filter.
-//
-// Returns a pointer to a DescribeIndexStatsResponse object and an error if the request fails.
-//
-// Note: DescribeIndexStatsFiltered is only available on pods-based indexes.
-//
-// Parameters:
-//  - ctx: A context.Context object controls the request's lifetime,
-//   allowing for the request to be canceled or to timeout according to the context's deadline.
-//  - filter: The filter to apply to the request.
-//
-// Example:
-//  ctx := context.Background()
-//
-//  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//	  SourceTag: "your_source_identifier", // optional
-//  }
-//
-//  pc, err := pinecone.NewClient(clientParams)
-//	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
-//  }
-//
-//  idxs, err := pc.ListIndexes(ctx)
-//
-//  idx, err := pc.Index(idxs[0].Host)
-//  if err != nil {
-//	  fmt.Println("Error:", err)
-//  }
-//
-//  metadataFilter := map[string]interface{}{
-//    "genre": "classical",
-//  }
-//
-//  filter, err := structpb.NewStruct(metadataFilter)
-//  if err != nil {
-//    fmt.Println("Error:", err)
-//  }
-//
-//  res, err := idx.DescribeIndexStatsFiltered(ctx, filter)
-//  if err != nil {
-//	  fmt.Println("Error:", err)
-//	}
-//  fmt.Println(res)
 func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, filter *Filter) (*DescribeIndexStatsResponse, error) {
 	req := &data.DescribeIndexStatsRequest{
 		Filter: filter,
