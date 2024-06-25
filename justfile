@@ -5,9 +5,9 @@ test:
   set +o allexport
   go test -count=1 -v ./pinecone
 bootstrap:
-    go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-    go install github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen@latest
+    go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.32
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3
+    go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.3
     go install golang.org/x/tools/cmd/godoc@latest
 gen:
   protoc --experimental_allow_proto3_optional --proto_path=apis/proto --go_opt=module="github.com/pinecone-io/go-pinecone" --go-grpc_opt=module="github.com/pinecone-io/go-pinecone" --go_out=. --go-grpc_out=. apis/proto/pinecone/data/v1/vector_service.proto
