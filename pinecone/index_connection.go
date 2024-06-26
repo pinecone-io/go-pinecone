@@ -256,7 +256,9 @@ type ListVectorsResponse struct {
 // ListVectors lists vectors in a Pinecone index. You can filter vectors by prefix,
 // limit the number of vectors returned, and paginate through results.
 //
-// Returns a pointer to a ListVectorsResponse object and an error if the request fails.
+// Note: ListVectors is only available for Serverless indexes.
+//
+// Returns a pointer to a ListVectorsResponse object or an error if the request fails.
 //
 // Parameters:
 //  - ctx: A context.Context object controls the request's lifetime,
@@ -295,10 +297,14 @@ type ListVectorsResponse struct {
 //	})
 //
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Printf("Failed to list vectors in index: %s. Error: %s\n", idx.Name, err)
 //	}
 //
-//  fmt.Println(res)
+//  if len(res.VectorIds) == 0 {
+//	  fmt.Println("No vectors found")
+//	} else {
+//	  fmt.Printf("Found %d vector(s)\n", len(res.VectorIds))
+//  }
 func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequest) (*ListVectorsResponse, error) {
 	req := &data.ListRequest{
 		Prefix:          in.Prefix,
@@ -355,7 +361,7 @@ type QueryVectorsResponse struct {
 
 // QueryByVectorValues queries a Pinecone index for vectors that are most similar to a provided query vector.
 //
-// Returns a pointer to a QueryVectorsResponse object and an error if the request fails.
+// Returns a pointer to a QueryVectorsResponse object or an error if the request fails.
 //
 // Parameters:
 //  - ctx: A context.Context object controls the request's lifetime,
@@ -738,7 +744,7 @@ type DescribeIndexStatsResponse struct {
 
 // DescribeIndexStats returns statistics about a Pinecone index.
 //
-// Returns a pointer to a DescribeIndexStatsResponse object and an error if the request fails.
+// Returns a pointer to a DescribeIndexStatsResponse object or an error if the request fails.
 //
 // Parameters:
 //  - ctx: A context.Context object controls the request's lifetime,
@@ -778,7 +784,7 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 
 // DescribeIndexStatsFiltered returns statistics about a Pinecone index, filtered by a given filter.
 //
-// Returns a pointer to a DescribeIndexStatsResponse object and an error if the request fails.
+// Returns a pointer to a DescribeIndexStatsResponse object or an error if the request fails.
 //
 // Note: DescribeIndexStatsFiltered is only available on pods-based indexes.
 //
