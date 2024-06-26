@@ -73,16 +73,10 @@ func newIndexConnection(in newIndexParameters) (*IndexConnection, error) {
 //		log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
-//  idxs, err := pc.ListIndexes(ctx)
+//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //  }
-//
-//  idx, err := pc.Index(idxs[0].Host)
-//  if err != nil {
-//    fmt.Println("Error:", err)
-//	  return
-//	}
 //
 //  err = idx.Close()
 //	if err != nil {
@@ -115,12 +109,7 @@ func (idx *IndexConnection) Close() error {
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
-//  idxs, err := pc.ListIndexes(ctx)
-//  if err != nil {
-//	  fmt.Println("Error:", err)
-//  }
-//
-//  idx, err := pc.Index(idxs[0].Host)
+//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //  }
@@ -189,9 +178,7 @@ type FetchVectorsResponse struct {
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
-//  idxs, err := pc.ListIndexes(ctx)
-//
-//  idx, err := pc.Index(idxs[0].Host)
+//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //  }
@@ -272,9 +259,7 @@ type ListVectorsResponse struct {
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
-//  idxs, err := pc.ListIndexes(ctx)
-//
-//  idx, err := pc.Index(idxs[0].Host)
+//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //  }
@@ -368,9 +353,7 @@ type QueryVectorsResponse struct {
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
-//  idxs, err := pc.ListIndexes(ctx)
-//
-//  idx, err := pc.Index(idxs[0].Host)
+//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //  }
@@ -446,9 +429,7 @@ type QueryByVectorIdRequest struct {
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
-//  idxs, err := pc.ListIndexes(ctx)
-//
-//  idx, err := pc.Index(idxs[0].Host)
+//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //  }
@@ -504,9 +485,7 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
-//  idxs, err := pc.ListIndexes(ctx)
-//
-//  idx, err := pc.Index(idxs[0].Host)
+//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //  }
@@ -548,9 +527,7 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
-//  idxs, err := pc.ListIndexes(ctx)
-//
-//  idx, err := pc.Index(idxs[0].Host)
+//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //  }
@@ -577,6 +554,7 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *F
 	return idx.delete(ctx, &req)
 }
 
+// TODO: make sure this one is correct w/the namespace stuff
 // DeleteAllVectorsInNamespace deletes all vectors in a specific namespace.
 //
 // Returns an error if the request fails, otherwise returns nil.
@@ -598,14 +576,12 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *F
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
-//  idxs, err := pc.ListIndexes(ctx)
-//
-// 	idxWithNamespace, err := pc.IndexWithNamespace(idxs[0].Host, "test-namespace")
+//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //  }
 //
-//  err = idxWithNamespace.DeleteAllVectorsInNamespace(ctx)
+//  err = idx.DeleteAllVectorsInNamespace(ctx)
 //	if err != nil {
 //	  fmt.Println("Error:", err)
 //  }
@@ -655,9 +631,7 @@ type UpdateVectorRequest struct {
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
-//  idxs, err := pc.ListIndexes(ctx)
-//
-//  idx, err := pc.Index(idxs[0].Host)
+//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //  }
@@ -718,9 +692,7 @@ type DescribeIndexStatsResponse struct {
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
-//  idxs, err := pc.ListIndexes(ctx)
-//
-//  idx, err := pc.Index(idxs[0].Host)
+//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //  }
@@ -758,9 +730,7 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
-//  idxs, err := pc.ListIndexes(ctx)
-//
-//  idx, err := pc.Index(idxs[0].Host)
+//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //  }
