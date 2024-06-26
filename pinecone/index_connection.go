@@ -13,11 +13,11 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-// IndexConnection holds the parameters for Pinecone IndexConnection object.
+// IndexConnection holds the parameters for a Pinecone IndexConnection object.
 //
 // Fields:
-// 	- Namespace: The namespace of the index.
-//  - additionalMetadata: Additional metadata to be sent with each request.
+//  - Namespace: The namespace where index operations will be performed.
+//  - additionalMetadata: Additional metadata to be sent with each RPC request.
 //  - dataClient: The gRPC client for the index.
 //  - grpcConn: The gRPC connection.
 type IndexConnection struct {
@@ -56,18 +56,15 @@ func newIndexConnection(in newIndexParameters) (*IndexConnection, error) {
 	return &idx, nil
 }
 
-// Close closes the connection to a Pinecone index.
+// Close closes the grpc.ClientConn to a Pinecone index.
 //
-// Returns a pointer to an IndexConnection object and an error if the connection cannot be closed.
-//
-// Parameters:
-//   idx: The IndexConnection object.
+// Returns an error if the connection cannot be closed, otherwise returns nil.
 //
 // Example:
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//	  ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  ApiKey:    "YOUR_API_KEY",
 //	  SourceTag: "your_source_identifier", // optional
 //	}
 //
@@ -96,20 +93,20 @@ func (idx *IndexConnection) Close() error {
 	return err
 }
 
-// UpsertVectors indexes vectors into a Pinecone index.
+// UpsertVectors upserts vectors into a Pinecone index.
 //
 // Parameters:
 //  - ctx: A context.Context object controls the request's lifetime,
 //  allowing for the request to be canceled or to timeout according to the context's deadline.
 //  - in: The vectors to index.
 //
-// Returns the number of vectors upserted and an error if the request fails.
+// Returns the number of vectors upserted or an error if the request fails.
 //
 // Example:
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//	  ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  ApiKey:    "YOUR_API_KEY",
 //	  SourceTag: "your_source_identifier", // optional
 //	}
 //
@@ -119,6 +116,9 @@ func (idx *IndexConnection) Close() error {
 //  }
 //
 //  idxs, err := pc.ListIndexes(ctx)
+//  if err != nil {
+//	  fmt.Println("Error:", err)
+//  }
 //
 //  idx, err := pc.Index(idxs[0].Host)
 //  if err != nil {
@@ -180,7 +180,7 @@ type FetchVectorsResponse struct {
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//	  ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  ApiKey:    "YOUR_API_KEY",
 //	  SourceTag: "your_source_identifier", // optional
 //	}
 //
@@ -263,7 +263,7 @@ type ListVectorsResponse struct {
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//	  ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  ApiKey:    "YOUR_API_KEY",
 //	  SourceTag: "your_source_identifier", // optional
 //	}
 //
@@ -320,7 +320,7 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 // which is passed into the QueryByVectorValues method.
 //
 // Fields:
-//  - Vector: The vector for which you want to grab nearest neighbors.
+//  - Vector: The vector to which you want to grab similar vectors.
 //  - TopK: The number of vectors to return.
 //  - Filter: The filter to apply to your query.
 //  - IncludeValues: Whether to include the values of the vectors in the response.
@@ -339,15 +339,14 @@ type QueryByVectorValuesRequest struct {
 // which is returned by the QueryByVectorValues method.
 //
 // Fields:
-//  - Matches: The vectors (nearest neighbors) that are most similar to the query vector.
+//  - Matches: The vectors that are most similar to the query vector.
 //  - Usage: The usage information for the request.
 type QueryVectorsResponse struct {
 	Matches []*ScoredVector `json:"matches,omitempty"`
 	Usage   *Usage          `json:"usage,omitempty"`
 }
 
-// QueryByVectorValues queries a Pinecone index for vectors (
-// nearest neighbors) that are most similar to a provided query vector.
+// QueryByVectorValues queries a Pinecone index for vectors that are most similar to a provided query vector.
 //
 // Returns a pointer to a QueryVectorsResponse object and an error if the request fails.
 //
@@ -360,7 +359,7 @@ type QueryVectorsResponse struct {
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//	  ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  ApiKey:    "YOUR_API_KEY",
 //	  SourceTag: "your_source_identifier", // optional
 //	}
 //
@@ -381,7 +380,7 @@ type QueryVectorsResponse struct {
 //
 //	res, err := idx.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
 //	  Vector:        queryVector,
-//	  TopK:          topK,  // number of vectors (nearest neighbors) you want returned
+//	  TopK:          topK,  // number of vectors to be returned
 //	  IncludeValues: true,
 //	  IncludeMetadata: true,
 //	 })
@@ -409,7 +408,7 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 // which is passed into the QueryByVectorId method.
 //
 // Fields:
-//  - VectorId: The ID of the vector for which you want to grab nearest neighbors.
+//  - VectorId: The ID of the vector to which you want to grab similar vectors.
 //  - TopK: The number of vectors to return.
 //  - Filter: The filter to apply to your query.
 //  - IncludeValues: Whether to include the values of the vectors in the response.
@@ -424,8 +423,8 @@ type QueryByVectorIdRequest struct {
 	SparseValues    *SparseValues
 }
 
-// QueryByVectorId uses a vector ID to query a Pinecone index and retrieve vectors (
-// nearest neighbors) that are most similar to the provided ID's underlying vector.
+// QueryByVectorId uses a vector ID to query a Pinecone index and retrieve vectors that are most similar to the
+// provided ID's underlying vector.
 //
 // Returns a pointer to a QueryVectorsResponse object and an error if the request fails.
 //
@@ -438,7 +437,7 @@ type QueryByVectorIdRequest struct {
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//	  ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  ApiKey:    "YOUR_API_KEY",
 //	  SourceTag: "your_source_identifier", // optional
 //	}
 //
@@ -459,7 +458,7 @@ type QueryByVectorIdRequest struct {
 //
 //	res, err := idx.QueryByVectorId(ctx, &pinecone.QueryByVectorIdRequest{
 //	  VectorId:      vectorId,
-//	  TopK:          topK,  // number of vectors (nearest neighbors) you want returned
+//	  TopK:          topK,  // number of vectors you want returned
 //	  IncludeValues: true,
 //	  IncludeMetadata: true,
 //	 })	index
@@ -485,7 +484,7 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 
 // DeleteVectorsById deletes vectors by ID from a Pinecone index.
 //
-// Returns an error if the request fails.
+// Returns an error if the request fails, otherwise returns nil.
 //
 // Parameters:
 //  - ctx: A context.Context object controls the request's lifetime,
@@ -496,7 +495,7 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//	  ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//	  ApiKey:    "YOUR_API_KEY",
 //	  SourceTag: "your_source_identifier", // optional
 //	}
 //
@@ -527,7 +526,7 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 
 // DeleteVectorsByFilter deletes vectors from a Pinecone index, given a filter.
 //
-// Returns an error if the request fails.
+// Returns an error if the request fails, otherwise returns nil.
 //
 // Note: DeleteVectorsByFilter is only available on pods-based indexes.
 //
@@ -540,7 +539,7 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    ApiKey:    "YOUR_API_KEY",
 //	  SourceTag: "your_source_identifier", // optional
 //  }
 //
@@ -580,7 +579,7 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *F
 
 // DeleteAllVectorsInNamespace deletes all vectors in a specific namespace.
 //
-// Returns an error if the request fails.
+// Returns an error if the request fails, otherwise returns nil.
 //
 // Parameters:
 //  - ctx: A context.Context object controls the request's lifetime,
@@ -590,7 +589,7 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *F
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    ApiKey:    "YOUR_API_KEY",
 //	  SourceTag: "your_source_identifier", // optional
 //  }
 //
@@ -647,7 +646,7 @@ type UpdateVectorRequest struct {
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    ApiKey:    "YOUR_API_KEY",
 //	  SourceTag: "your_source_identifier", // optional
 //  }
 //
@@ -710,7 +709,7 @@ type DescribeIndexStatsResponse struct {
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    ApiKey:    "YOUR_API_KEY",
 //	  SourceTag: "your_source_identifier", // optional
 //  }
 //
@@ -750,7 +749,7 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
+//    ApiKey:    "YOUR_API_KEY",
 //	  SourceTag: "your_source_identifier", // optional
 //  }
 //
