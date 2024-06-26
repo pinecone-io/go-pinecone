@@ -133,7 +133,7 @@ func (idx *IndexConnection) Close() error {
 //
 //  count, err := idxConnection.UpsertVectors(ctx, vectors)
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Println("Failed to upsert vectors:", err)
 //	} else {
 //	  fmt.Printf("Successfully upserted %d vector(s)!\n", count)
 //	}
@@ -173,7 +173,7 @@ type FetchVectorsResponse struct {
 //   allowing for the request to be canceled or to timeout according to the context's deadline.
 //  - ids: The IDs of the vectors to fetch.
 //
-// Returns a pointer to any fetched vectors and an error if the request fails.
+// Returns a pointer to any fetched vectors or an error if the request fails.
 //
 // Example:
 //  ctx := context.Background()
@@ -202,7 +202,11 @@ type FetchVectorsResponse struct {
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //	}
-//  fmt.Println(res)
+// 	if len(res.Vectors) != 0 {
+//    fmt.Println(res)
+//	} else {
+//	  fmt.Println("No vectors found")
+//	}
 func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*FetchVectorsResponse, error) {
 	req := &data.FetchRequest{
 		Ids:       ids,
