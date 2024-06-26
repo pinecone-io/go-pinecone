@@ -78,7 +78,12 @@ func newIndexConnection(in newIndexParameters) (*IndexConnection, error) {
 //	  fmt.Println("Error:", err)
 //  }
 //
-//  err = idx.Close()
+//  idxConnection, err := pc.Index(idx.Host)
+//	if err != nil {
+//	  log.Fatalf("Failed to create IndexConnection: %v", err)
+//	}
+//
+//  err = idxConnection.Close()
 //	if err != nil {
 //	  fmt.Println("Error:", err)
 //  }
@@ -114,6 +119,11 @@ func (idx *IndexConnection) Close() error {
 //	  fmt.Println("Error:", err)
 //  }
 //
+// 	idxConnection, err := pc.Index(idx.Host)
+//	if err != nil {
+//	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	}
+//
 // 	vectors := []*pinecone.Vector{
 //    {
 //     Id:     "abc-1",
@@ -121,7 +131,7 @@ func (idx *IndexConnection) Close() error {
 //     },
 //  }
 //
-//  count, err := idx.UpsertVectors(ctx, vectors)
+//  count, err := idxConnection.UpsertVectors(ctx, vectors)
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //	} else {
@@ -183,7 +193,12 @@ type FetchVectorsResponse struct {
 //	  fmt.Println("Error:", err)
 //  }
 //
-//  res, err := idx.FetchVectors(ctx, []string{"abc-1"})
+// 	idxConnection, err := pc.Index(idx.Host)
+//	if err != nil {
+//	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	}
+//
+//  res, err := idxConnection.FetchVectors(ctx, []string{"abc-1"})
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //	}
@@ -264,10 +279,15 @@ type ListVectorsResponse struct {
 //	  fmt.Println("Error:", err)
 //  }
 //
+// 	idxConnection, err := pc.Index(idx.Host)
+//	if err != nil {
+//	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	}
+//
 //  prefix := "abc"
 //	limit := uint32(10)
 //
-//	res, err := idx.ListVectors(ctx, &pinecone.ListVectorsRequest{
+//	res, err := idxConnection.ListVectors(ctx, &pinecone.ListVectorsRequest{
 //	  Prefix: &prefix,
 //	  Limit:  &limit,
 //	})
@@ -358,10 +378,15 @@ type QueryVectorsResponse struct {
 //	  fmt.Println("Error:", err)
 //  }
 //
+// 	idxConnection, err := pc.Index(idx.Host)
+//	if err != nil {
+//	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	}
+//
 //  queryVector := []float32{1.0, 2.0}
 //	topK := uint32(10)
 //
-//	res, err := idx.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
+//	res, err := idxConnection.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
 //	  Vector:        queryVector,
 //	  TopK:          topK,  // number of vectors to be returned
 //	  IncludeValues: true,
@@ -434,10 +459,15 @@ type QueryByVectorIdRequest struct {
 //	  fmt.Println("Error:", err)
 //  }
 //
+// 	idxConnection, err := pc.Index(idx.Host)
+//	if err != nil {
+//	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	}
+//
 //  vectorId := "abc-1"
 //	topK := uint32(10)
 //
-//	res, err := idx.QueryByVectorId(ctx, &pinecone.QueryByVectorIdRequest{
+//	res, err := idxConnection.QueryByVectorId(ctx, &pinecone.QueryByVectorIdRequest{
 //	  VectorId:      vectorId,
 //	  TopK:          topK,  // number of vectors you want returned
 //	  IncludeValues: true,
@@ -490,7 +520,12 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 //	  fmt.Println("Error:", err)
 //  }
 //
-//  err = idx.DeleteVectorsById(ctx, []string{"abc-1"})
+// 	idxConnection, err := pc.Index(idx.Host)
+//	if err != nil {
+//	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	}
+//
+//  err = idxConnection.DeleteVectorsById(ctx, []string{"abc-1"})
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //  }
@@ -532,6 +567,11 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 //	  fmt.Println("Error:", err)
 //  }
 //
+// 	idxConnection, err := pc.Index(idx.Host)
+//	if err != nil {
+//	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	}
+//
 //  metadataFilter := map[string]interface{}{
 //    "genre": "classical",
 //  }
@@ -541,7 +581,7 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 //    fmt.Println("Error:", err)
 //  }
 //
-//  err = idx.DeleteVectorsByFilter(ctx, filter)
+//  err = idxConnection.DeleteVectorsByFilter(ctx, filter)
 //  if err != nil {
 //    fmt.Println("Error:", err)
 //  }
@@ -581,7 +621,12 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *F
 //	  fmt.Println("Error:", err)
 //  }
 //
-//  err = idx.DeleteAllVectorsInNamespace(ctx)
+// 	idxConnection, err := pc.Index(idx.Host)
+//	if err != nil {
+//	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	}
+//
+//  err = idxConnection.DeleteAllVectorsInNamespace(ctx)
 //	if err != nil {
 //	  fmt.Println("Error:", err)
 //  }
@@ -636,7 +681,12 @@ type UpdateVectorRequest struct {
 //	  fmt.Println("Error:", err)
 //  }
 //
-//  err = idx.UpdateVector(ctx, &pinecone.UpdateVectorRequest{
+// 	idxConnection, err := pc.Index(idx.Host)
+//	if err != nil {
+//	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	}
+//
+//  err = idxConnection.UpdateVector(ctx, &pinecone.UpdateVectorRequest{
 //	  Id:     "abc-1",
 //	  Values: []float32{7.0, 8.0},
 //	})
@@ -697,7 +747,12 @@ type DescribeIndexStatsResponse struct {
 //	  fmt.Println("Error:", err)
 //  }
 //
-//  res, err := idx.DescribeIndexStats(ctx)
+// 	idxConnection, err := pc.Index(idx.Host)
+//	if err != nil {
+//	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	}
+//
+//  res, err := idxConnection.DescribeIndexStats(ctx)
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //	}
@@ -735,6 +790,11 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 //	  fmt.Println("Error:", err)
 //  }
 //
+// 	idxConnection, err := pc.Index(idx.Host)
+//	if err != nil {
+//	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	}
+//
 //  metadataFilter := map[string]interface{}{
 //    "genre": "classical",
 //  }
@@ -744,11 +804,14 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 //    fmt.Println("Error:", err)
 //  }
 //
-//  res, err := idx.DescribeIndexStatsFiltered(ctx, filter)
+//  res, err := idxConnection.DescribeIndexStatsFiltered(ctx, filter)
 //  if err != nil {
 //	  fmt.Println("Error:", err)
 //	}
-//  fmt.Println(res)
+//
+//	for name, summary := range res.Namespaces {
+//	  fmt.Printf("Namespace: \"%s\", has %d vector(s) that match the given filter\n", name, summary.VectorCount)
+//	}
 func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, filter *Filter) (*DescribeIndexStatsResponse, error) {
 	req := &data.DescribeIndexStatsRequest{
 		Filter: filter,
