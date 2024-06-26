@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"log"
-
 	"github.com/pinecone-io/go-pinecone/internal/gen/data"
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
 	"google.golang.org/grpc"
@@ -46,7 +44,7 @@ func newIndexConnection(in newIndexParameters) (*IndexConnection, error) {
 	)
 
 	if err != nil {
-		log.Fatalf("fail to dial: %v", err)
+		fmt.Printf("fail to dial: %v", err)
 		return nil, err
 	}
 
@@ -70,7 +68,7 @@ func newIndexConnection(in newIndexParameters) (*IndexConnection, error) {
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //	if err != nil {
-//		log.Fatalf("Failed to create Client: %v", err)
+//		fmt.Printf("Failed to create Client: %v", err)
 //  }
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
@@ -80,7 +78,7 @@ func newIndexConnection(in newIndexParameters) (*IndexConnection, error) {
 //
 //  idxConnection, err := pc.Index(idx.Host)
 //	if err != nil {
-//	  log.Fatalf("Failed to create IndexConnection: %v", err)
+//	  fmt.Printf("Failed to create IndexConnection: %v", err)
 //	}
 //
 //  err = idxConnection.Close()
@@ -111,7 +109,7 @@ func (idx *IndexConnection) Close() error {
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
+//    fmt.Printf("Failed to create Client: %v", err)
 //  }
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
@@ -185,7 +183,7 @@ type FetchVectorsResponse struct {
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
+//    fmt.Printf("Failed to create Client: %v", err)
 //  }
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
@@ -275,7 +273,7 @@ type ListVectorsResponse struct {
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
+//    fmt.Printf("Failed to create Client: %v", err)
 //  }
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
@@ -374,7 +372,7 @@ type QueryVectorsResponse struct {
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
+//    fmt.Printf("Failed to create Client: %v", err)
 //  }
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
@@ -461,7 +459,7 @@ type QueryByVectorIdRequest struct {
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
+//    fmt.Printf("Failed to create Client: %v", err)
 //  }
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
@@ -507,7 +505,12 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 
 // DeleteVectorsById deletes vectors by ID from a Pinecone index.
 //
-// Returns an error if the request fails, otherwise returns nil.
+// Returns an error if the request fails,
+// otherwise returns nil. This method will also return nil if the passed vector ID does not exist in the index or
+// namespace.
+//
+// Note: You must instantiate an IndexWithNamespace connection in order to delete vectors by ID in namespaces other
+// than the default.
 //
 // Parameters:
 //  - ctx: A context.Context object controls the request's lifetime,
@@ -524,7 +527,7 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
+//    fmt.Printf("Failed to create Client: %v", err)
 //  }
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
@@ -532,15 +535,15 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 //	  fmt.Println("Error:", err)
 //  }
 //
-// 	idxConnection, err := pc.Index(idx.Host)
+// 	idxConnection, err := pc.IndexWithNamespace(idx.Host, "custom-namespace")
 //	if err != nil {
-//	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		fmt.Printf("!! Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	}
 //
-//  err = idxConnection.DeleteVectorsById(ctx, []string{"abc-1"})
-//  if err != nil {
-//	  fmt.Println("Error:", err)
-//  }
+// 	err = idxConnection.DeleteVectorsById(ctx, []string{id})
+//	if err != nil {
+//		fmt.Printf("Failed to delete vector with ID: %s. Error: %s\n", id, err)
+//	}
 func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string) error {
 	req := data.DeleteRequest{
 		Ids:       ids,
@@ -571,7 +574,7 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
+//    fmt.Printf("Failed to create Client: %v", err)
 //  }
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
@@ -625,7 +628,7 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *F
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
+//    fmt.Printf("Failed to create Client: %v", err)
 //  }
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
@@ -685,7 +688,7 @@ type UpdateVectorRequest struct {
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
+//    fmt.Printf("Failed to create Client: %v", err)
 //  }
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
@@ -751,7 +754,7 @@ type DescribeIndexStatsResponse struct {
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
+//    fmt.Printf("Failed to create Client: %v", err)
 //  }
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
@@ -794,7 +797,7 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
+//    fmt.Printf("Failed to create Client: %v", err)
 //  }
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
