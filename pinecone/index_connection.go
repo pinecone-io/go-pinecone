@@ -402,7 +402,7 @@ type QueryVectorsResponse struct {
 //	}
 //
 // 	for _, match := range res.Matches {
-//    fmt.Printf("Match vector `%s`, with score %f ", match.Vector.Id, match.Score)
+//    fmt.Printf("Match vector `%s`, with score %f\n", match.Vector.Id, match.Score)
 //	}
 func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryByVectorValuesRequest) (*QueryVectorsResponse, error) {
 	req := &data.QueryRequest{
@@ -440,7 +440,11 @@ type QueryByVectorIdRequest struct {
 // QueryByVectorId uses a vector ID to query a Pinecone index and retrieve vectors that are most similar to the
 // provided ID's underlying vector.
 //
-// Returns a pointer to a QueryVectorsResponse object and an error if the request fails.
+// Returns a pointer to a QueryVectorsResponse object or an error if the request fails.
+//
+// Note: QueryByVectorId executes a nearest neighbors search,
+// meaning that unless TopK=1 in the QueryByVectorIdRequest object,
+// it will return 2+ vectors. The vector with a score of 1.0 is the vector with the same ID as the query vector.
 //
 // Parameters:
 //  - ctx: A context.Context object controls the request's lifetime,
@@ -481,10 +485,12 @@ type QueryByVectorIdRequest struct {
 //	 })	index
 //
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Printf("Error encountered when querying by vector ID `%s`. Error: %s", id, err)
 //	}
 //
-// fmt.Println(res)
+// 	for _, match := range res.Matches {
+//	  fmt.Printf("Match vector with ID `%s`, with score %f\n", match.Vector.Id, match.Score)
+//	}
 func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVectorIdRequest) (*QueryVectorsResponse, error) {
 	req := &data.QueryRequest{
 		Id:              in.VectorId,
