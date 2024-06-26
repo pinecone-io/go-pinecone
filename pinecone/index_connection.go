@@ -398,10 +398,12 @@ type QueryVectorsResponse struct {
 //	 })
 //
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Println("Error encountered when querying by vector:", err)
 //	}
 //
-// fmt.Println(res)
+// 	for _, match := range res.Matches {
+//    fmt.Printf("Match vector `%s`, with score %f ", match.Vector.Id, match.Score)
+//	}
 func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryByVectorValuesRequest) (*QueryVectorsResponse, error) {
 	req := &data.QueryRequest{
 		Namespace:       idx.Namespace,
