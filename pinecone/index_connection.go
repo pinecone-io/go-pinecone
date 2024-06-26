@@ -320,7 +320,7 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 // which is passed into the QueryByVectorValues method.
 //
 // Fields:
-//  - Vector: The vector to which you want to grab similar vectors.
+//  - Vector: The ID of the vector for which you want to find similar vectors.
 //  - TopK: The number of vectors to return.
 //  - Filter: The filter to apply to your query.
 //  - IncludeValues: Whether to include the values of the vectors in the response.
@@ -408,7 +408,7 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 // which is passed into the QueryByVectorId method.
 //
 // Fields:
-//  - VectorId: The ID of the vector to which you want to grab similar vectors.
+//  - VectorId: The ID of the vector for which you want to find similar vectors.
 //  - TopK: The number of vectors to return.
 //  - Filter: The filter to apply to your query.
 //  - IncludeValues: Whether to include the values of the vectors in the response.
