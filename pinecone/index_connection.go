@@ -114,7 +114,7 @@ func (idx *IndexConnection) Close() error {
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Printf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //  }
 //
 // 	idxConnection, err := pc.Index(idx.Host)
@@ -188,7 +188,7 @@ type FetchVectorsResponse struct {
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Printf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //  }
 //
 // 	idxConnection, err := pc.Index(idx.Host)
@@ -280,7 +280,7 @@ type ListVectorsResponse struct {
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Printf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //  }
 //
 // 	idxConnection, err := pc.Index(idx.Host)
@@ -365,8 +365,8 @@ type QueryVectorsResponse struct {
 //
 // Parameters:
 //  - ctx: A context.Context object controls the request's lifetime,
-//  - allowing for the request to be canceled or to timeout according to the context's deadline.
-//   in: A QueryByVectorValuesRequest object with the parameters for the request.
+//   allowing for the request to be canceled or to timeout according to the context's deadline.
+//  - in: A QueryByVectorValuesRequest object with the parameters for the request.
 //
 // Example:
 //  ctx := context.Background()
@@ -383,7 +383,7 @@ type QueryVectorsResponse struct {
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Printf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //  }
 //
 // 	idxConnection, err := pc.Index(idx.Host)
@@ -399,7 +399,7 @@ type QueryVectorsResponse struct {
 //	  TopK:          topK,  // number of vectors to be returned
 //	  IncludeValues: true,
 //	  IncludeMetadata: true,
-//	 })
+//	})
 //
 //  if err != nil {
 //	  fmt.Println("Error encountered when querying by vector:", err)
@@ -470,7 +470,7 @@ type QueryByVectorIdRequest struct {
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Printf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //  }
 //
 // 	idxConnection, err := pc.Index(idx.Host)
@@ -543,7 +543,7 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 //
 // 	idxConnection, err := pc.IndexWithNamespace(idx.Host, "custom-namespace")
 //	if err != nil {
-//		fmt.Printf("!! Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		fmt.Printf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	}
 //
 // 	err = idxConnection.DeleteVectorsById(ctx, []string{id})
@@ -564,6 +564,8 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 // Returns an error if the request fails, otherwise returns nil.
 //
 // Note: DeleteVectorsByFilter is only available on pods-based indexes.
+// Additionally, you must instantiate an IndexWithNamespace connection in order to delete vectors in namespaces
+// other than the default.
 //
 // Parameters:
 //  - ctx: A context.Context object controls the request's lifetime,
@@ -585,7 +587,7 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+//    fmt.Printf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //  }
 //
 // 	idxConnection, err := pc.Index(idx.Host)
@@ -599,12 +601,12 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 //
 //  filter, err := structpb.NewStruct(metadataFilter)
 //  if err != nil {
-//    fmt.Println("Error:", err)
+//    fmt.Println("Failed to create metadata filter:", err)
 //  }
 //
 //  err = idxConnection.DeleteVectorsByFilter(ctx, filter)
 //  if err != nil {
-//    fmt.Println("Error:", err)
+//    fmt.Printf("Failed to delete vector(s) with filter: %+v. Error: %s\n", filter, err)
 //  }
 func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *Filter) error {
 	req := data.DeleteRequest{
@@ -615,7 +617,6 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *F
 	return idx.delete(ctx, &req)
 }
 
-// TODO: make sure this one is correct w/the namespace stuff
 // DeleteAllVectorsInNamespace deletes all vectors in a specific namespace.
 //
 // Returns an error if the request fails, otherwise returns nil.
@@ -639,7 +640,7 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *F
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+// 	  fmt.Printf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //  }
 //
 // 	idxConnection, err := pc.Index(idx.Host)
@@ -649,7 +650,7 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *F
 //
 //  err = idxConnection.DeleteAllVectorsInNamespace(ctx)
 //	if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Printf("Failed to delete vectors in namespace: \"%s\". Error: %s", idxConnection.Namespace, err)
 //  }
 func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx context.Context) error {
 	req := data.DeleteRequest{
@@ -677,7 +678,7 @@ type UpdateVectorRequest struct {
 
 // UpdateVector updates a vector in a Pinecone index by ID.
 //
-// Returns an error if the request fails.
+// Returns an error if the request fails, returns nil otherwise.
 //
 // Parameters:
 //  - ctx: A context.Context object controls the request's lifetime,
@@ -699,7 +700,7 @@ type UpdateVectorRequest struct {
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Printf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //  }
 //
 // 	idxConnection, err := pc.Index(idx.Host)
@@ -707,12 +708,14 @@ type UpdateVectorRequest struct {
 //	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	}
 //
+//  id := "abc-1"
+//
 //  err = idxConnection.UpdateVector(ctx, &pinecone.UpdateVectorRequest{
-//	  Id:     "abc-1",
+//	  Id:     id,
 //	  Values: []float32{7.0, 8.0},
 //	})
 //	if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Printf("Failed to update vector with ID %s. Error: %s", id, err)
 //  }
 func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRequest) error {
 	req := &data.UpdateRequest{
@@ -774,10 +777,11 @@ type DescribeIndexStatsResponse struct {
 //	}
 //
 //  res, err := idxConnection.DescribeIndexStats(ctx)
-//  if err != nil {
-//	  fmt.Println("Error:", err)
+//	if err != nil {
+//	  fmt.Printf("Failed to describe index \"%s\". Error: %s", idx.Name, err)
 //	}
-//  fmt.Println(res)
+//
+//	fmt.Printf("%+v", *res)
 func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIndexStatsResponse, error) {
 	return idx.DescribeIndexStatsFiltered(ctx, nil)
 }
@@ -808,7 +812,7 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Printf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //  }
 //
 // 	idxConnection, err := pc.Index(idx.Host)
@@ -822,12 +826,12 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 //
 //  filter, err := structpb.NewStruct(metadataFilter)
 //  if err != nil {
-//    fmt.Println("Error:", err)
+//    fmt.Printf("Failed to create filter %+v. Error: %s", metadataFilter, err)
 //  }
 //
 //  res, err := idxConnection.DescribeIndexStatsFiltered(ctx, filter)
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Printf("Failed to describe index \"%s\". Error: %s", idx.Name, err)
 //	}
 //
 //	for name, summary := range res.Namespaces {
