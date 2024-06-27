@@ -45,14 +45,15 @@ import (
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
-//  idxs, err := pc.ListIndexes(ctx)
-//	if err != nil {
-//	  fmt.Println("Error:", err)
-//	 }
+//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//  if err != nil {
+//	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//  }
 //
-//	for _, idx := range idxs {
-//	  fmt.Println(idx)
-//	 }
+// 	idxConnection, err := pc.Index(idx.Host)
+//	if err != nil {
+//	  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	}
 //
 // Note that Client methods are designed to be safe for concurrent use by multiple
 // goroutines, assuming that its configuration (e.g., the API key) is not modified after
@@ -245,12 +246,12 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//	  fmt.Printf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //  }
 //
 // 	idxConnection, err := pc.IndexWithNamespace(idx.Host, "custom-namespace")
 //	if err != nil {
-//	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	}
 func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnection, error) {
 	return c.IndexWithAdditionalMetadata(host, namespace, nil)
@@ -282,7 +283,7 @@ func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnec
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//	  fmt.Printf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //  }
 //
 //  indexMetadata := map[string]string{
@@ -291,7 +292,7 @@ func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnec
 //
 //  idxConnection, err := pc.IndexWithAdditionalMetadata(idx.Host, "custom-namespace", indexMetadata)
 //	if err != nil {
-//	  fmt.Printf("Failed to create IndexConnection: %v", err)
+//	  log.Fatalf("Failed to create IndexConnection: %v", err)
 //	} else {
 //    fmt.Printf("IndexConnection created successfully for index: %s , with namespace \"%s\"\n", idx.Name,
 //    idxConnection.Namespace)
@@ -337,7 +338,7 @@ func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, addi
 //
 //  idxs, err := pc.ListIndexes(ctx)
 //	if err != nil {
-//	  fmt.Println("Failed to list indexes:", err)
+//	  log.Fatalf("Failed to list indexes:", err)
 //  } else {
 //	  fmt.Println("Your project has the following indexes:")
 //	  for _, idx := range idxs {
@@ -407,7 +408,7 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //  )
 //
 //  if err != nil {
-//	  fmt.Println("Failed to create pod index:", err)
+//	  log.Fatalf("Failed to create pod index:", err)
 //	} else {
 //	  fmt.Printf("Successfully created pod index: %s", idx.Name)
 //  }
@@ -475,7 +476,7 @@ func (req CreatePodIndexRequest) TotalCount() *int {
 //  )
 //
 // 	if err != nil {
-//	  fmt.Println("Failed to create pod index:", err)
+//	  log.Fatalf("Failed to create pod index:", err)
 //	} else {
 //	  fmt.Printf("Successfully created pod index: %s", idx.Name)
 //	}
@@ -560,12 +561,14 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //    Metric:  pinecone.Cosine,
 //    Cloud:   pinecone.Aws,
 //    Region:  "us-east-1",
-//  }
-//)
+//    }
+//  )
 //
 //  if err != nil {
-//    fmt.Println("Error:", err)
-//  }
+//    log.Fatalf("Failed to create serverless index: %s", idx.Name)
+//  } else {
+//    fmt.Printf("Successfully created serverless index: %s", idx.Name)
+// }
 type CreateServerlessIndexRequest struct {
 	Name      string
 	Dimension int32
@@ -606,8 +609,10 @@ type CreateServerlessIndexRequest struct {
 //)
 //
 //  if err != nil {
-//    fmt.Println("Error:", err)
-//  }
+//    log.Fatalf("Failed to create serverless index: %s", idx.Name)
+//  } else {
+//    fmt.Printf("Successfully created serverless index: %s", idx.Name)
+// }
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
 	metric := control.IndexMetric(in.Metric)
 	req := control.CreateIndexRequest{
@@ -667,8 +672,10 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 //
 //  idx, err := pc.DescribeIndex(ctx, "the-name-of-my-index")
 //  if err != nil {
-//    fmt.Println("Error:", err)
-//  }
+//    log.Fatalf("Failed to describe index: %s", err)
+//  } else {
+//    fmt.Printf("%+v", *idx)
+// }
 func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, error) {
 	res, err := c.restClient.DescribeIndex(ctx, idxName)
 	if err != nil {
@@ -705,10 +712,12 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
-//  err := pc.DeleteIndex(ctx, "the-name-of-my-index")
-//  if err != nil {
-//    fmt.Println("Error:", err)
-//  }
+// 	err = pc.DeleteIndex(ctx, "the-name-of-my-index")
+//	if err != nil {
+//	  fmt.Println("Error:", err)
+//	} else {
+//	  fmt.Printf("Index \"%s\" deleted successfully", idx.Name)
+//	}
 func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	res, err := c.restClient.DeleteIndex(ctx, idxName)
 	if err != nil {
@@ -749,8 +758,17 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //
 //  collections, err := pc.ListCollections(ctx)
 //	if err != nil {
-//	  fmt.Println("Error:", err)
-//	 }
+//	  fmt.Println("Failed to list collections:", err)
+//	} else {
+//	  if len(collections) == 0 {
+//	    fmt.Printf("No collections found in project")
+//	  } else {
+//	    fmt.Println("Collections in project:")
+//		for _, collection := range collections {
+//		  fmt.Printf("Collection: %s\n", collection.Name)
+//		}
+//	  }
+//	}
 func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	res, err := c.restClient.ListCollections(ctx)
 	if err != nil {
@@ -784,6 +802,8 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 //
 // Returns a pointer to a Collection object. In case of failure, it returns nil and the error encountered.
 //
+// Note: Collections are only available for pods-based indexes.
+//
 // Since the returned value is a pointer to a Collection object, it will have the following fields:
 //   - Name: The name of the collection.
 //   - Size: The size of the collection.
@@ -791,8 +811,6 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 //   - Dimension: The dimension of the collection.
 //   - VectorCount: The number of vectors in the collection.
 //   - Environment: The cloud environment in which the collection resides.
-//
-// Note: Collections are only available for pods-based indexes.
 //
 // Example:
 //  ctx := context.Background()
@@ -802,15 +820,17 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 //	  SourceTag: "your_source_identifier", // optional
 //	}
 //
-// pc, err := pinecone.NewClient(clientParams)
+//  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
 //  collection, err := pc.DescribeCollection(ctx, "my-collection")
 //  if err != nil {
-//    fmt.Println("Error:", err)
-//  }
+//	  fmt.Println("Error describing collection:", err)
+//	} else {
+//	  fmt.Printf("Collection: %+v\n", *collection)
+//	}
 func (c *Client) DescribeCollection(ctx context.Context, collectionName string) (*Collection, error) {
 	res, err := c.restClient.DescribeCollection(ctx, collectionName)
 	if err != nil {
@@ -849,12 +869,13 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string) 
 //  collection, err := pc.CreateCollection(ctx, &pinecone.CreateCollectionRequest{
 //    Name:   "my-collection",
 //    Source: "my-source-pods-based-index",
-//  }
-//)
-//
+//    },
+//  )
 //  if err != nil {
-//    fmt.Println("Error:", err)
-//  }
+//	  log.Fatalf("Failed to create collection: %s", err)
+//	} else {
+//	  fmt.Printf("Successfully created collection \"%s\".", collection.Name)
+//	}
 type CreateCollectionRequest struct {
 	Name   string
 	Source string
@@ -887,12 +908,13 @@ type CreateCollectionRequest struct {
 //  collection, err := pc.CreateCollection(ctx, &pinecone.CreateCollectionRequest{
 //    Name:   "my-collection",
 //    Source: "my-source-pods-based-index",
-//  }
-//)
-//
-//  if err != nil {
-//    fmt.Println("Error:", err)
-//  }
+//    }
+//  )
+// 	if err != nil {
+//	  log.Fatalf("Failed to create collection: %s", err)
+//	} else {
+//	  fmt.Printf("Successfully created collection \"%s\".", collection.Name)
+//	}
 func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionRequest) (*Collection, error) {
 	req := control.CreateCollectionRequest{
 		Name:   in.Name,
@@ -936,10 +958,14 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
-//  err = pc.DeleteCollection(ctx, "my-collection")
-//  if err != nil {
-//    fmt.Println("Error:", err)
-//  }
+//  collectionName := "my-collection"
+//
+//  err = pc.DeleteCollection(ctx, collectionName)
+//	if err != nil {
+//	  log.Fatalf("Failed to create collection: %s\n", err)
+//	} else {
+//	  log.Printf("Successfully deleted collection \"%s\"\n", collectionName)
+//	}
 func (c *Client) DeleteCollection(ctx context.Context, collectionName string) error {
 	res, err := c.restClient.DeleteCollection(ctx, collectionName)
 	if err != nil {
