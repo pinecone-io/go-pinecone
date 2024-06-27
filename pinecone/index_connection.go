@@ -379,6 +379,9 @@ type QueryVectorsResponse struct {
 //
 // Returns a pointer to a QueryVectorsResponse object or an error if the request fails.
 //
+// Note: To issue a hybrid query with both dense and sparse values,
+// your index's similarity metric must be dot-product.
+//
 // Parameters:
 //  - ctx: A context.Context object controls the request's lifetime,
 //   allowing for the request to be canceled or to timeout according to the context's deadline.
@@ -409,10 +412,24 @@ type QueryVectorsResponse struct {
 //
 //  queryVector := []float32{1.0, 2.0}
 //	topK := uint32(10)
+// 	metadataMap := map[string]interface{}{
+//		"genre": "classical",
+//	}
+//	metadataFilter, err := structpb.NewStruct(metadataMap)
+//	if err != nil {
+//		fmt.Println("Failed to create metadata map:", err)
+//	}
+//
+// 	sparseValues := pinecone.SparseValues{
+//	  Indices: []uint32{0, 1},
+//	  Values:  []float32{1.0, 2.0},
+//	}
 //
 //	res, err := idxConnection.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
 //	  Vector:        queryVector,
 //	  TopK:          topK,  // number of vectors to be returned
+//	  Filter:        metadataFilter,
+//	  SparseValues:  &sparseValues,
 //	  IncludeValues: true,
 //	  IncludeMetadata: true,
 //	})
