@@ -73,7 +73,7 @@ func newIndexConnection(in newIndexParameters) (*IndexConnection, error) {
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Printf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //  }
 //
 //  idxConnection, err := pc.Index(idx.Host)
@@ -83,7 +83,7 @@ func newIndexConnection(in newIndexParameters) (*IndexConnection, error) {
 //
 //  err = idxConnection.Close()
 //	if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Println("Failed to close index connection:", err)
 //  }
 func (idx *IndexConnection) Close() error {
 	err := idx.grpcConn.Close()
@@ -213,7 +213,7 @@ type FetchVectorsResponse struct {
 //
 //  res, err := idxConnection.FetchVectors(ctx, []string{"abc-1"})
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Println("Failed to fetch vectors, error:", err)
 //	}
 // 	if len(res.Vectors) != 0 {
 //    fmt.Println(res)
@@ -804,7 +804,7 @@ type DescribeIndexStatsResponse struct {
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//	  fmt.Println("Error:", err)
+//	  fmt.Println("Failed to describe index:", err)
 //  }
 //
 // 	idxConnection, err := pc.Index(idx.Host)
