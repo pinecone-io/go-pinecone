@@ -36,14 +36,14 @@ import (
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
+//  }
 //
 //  idxs, err := pc.ListIndexes(ctx)
 //	if err != nil {
@@ -92,6 +92,9 @@ type NewClientBaseParams struct {
 //   - RestClient: An optional custom HTTP client to use for communication with the control plane API.
 //   - SourceTag: An optional string used to help Pinecone attribute API activity to our partners.
 //
+// Note: It is important to handle the error returned by this function to ensure that the
+// control plane client has been created successfully before attempting to make API calls.
+//
 // Returns a pointer to an initialized Client instance on success. In case of
 // failure, it returns nil and an error describing the issue encountered. Possible errors
 // include issues with setting up the API key provider or problems initializing the
@@ -101,26 +104,14 @@ type NewClientBaseParams struct {
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
-//
-//  idxs, err := pc.ListIndexes(ctx)
-//	if err != nil {
-//	  fmt.Println("Error:", err)
-//	 }
-//
-//	for _, idx := range idxs {
-//	  fmt.Println(idx)
-//	 }
-//
-// It is important to handle the error returned by this function to ensure that the
-// control plane client has been created successfully before attempting to make API calls.
+//  }
 func NewClient(in NewClientParams) (*Client, error) {
 	osApiKey := os.Getenv("PINECONE_API_KEY")
 	hasApiKey := (valueOrFallback(in.ApiKey, osApiKey) != "")
@@ -154,6 +145,9 @@ func NewClient(in NewClientParams) (*Client, error) {
 //   - RestClient: An optional custom HTTP client to use for communication with the control plane API.
 //   - SourceTag: An optional string used to help Pinecone attribute API activity to our partners.
 //
+// Note: It is important to handle the error returned by this function to ensure that the
+// control plane client has been created successfully before attempting to make API calls.
+//
 // Returns a pointer to an initialized Client instance on success. In case of
 // failure, it returns nil and an error describing the issue encountered. Possible errors
 // include issues with setting up the headers or problems initializing the
@@ -166,26 +160,14 @@ func NewClient(in NewClientParams) (*Client, error) {
 //    Headers: map[string]string{
 //     "Authorization": "Bearer " + "<your JWT token>"
 //     "X-Project-Id": "<Your Pinecone project ID>"
-//      },
+//    },
 //    SourceTag: "your_source_identifier", // optional
-//    }
+//  }
 //
 //  pc, err := pinecone.NewClientBase(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
-//
-//  idxs, err := pc.ListIndexes(ctx)
-//	if err != nil {
-//	  fmt.Println("Error:", err)
-//	 }
-//
-//	for _, idx := range idxs {
-//	  fmt.Println(idx)
-//	 }
-//
-// It is important to handle the error returned by this function to ensure that the
-// control plane client has been created successfully before attempting to make API calls.
+//  }
 func NewClientBase(in NewClientBaseParams) (*Client, error) {
 	clientOptions := buildClientBaseOptions(in)
 	var err error
@@ -218,26 +200,24 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
+//  }
 //
-//  idxs, err := pc.ListIndexes(ctx)
-//	if err != nil {
-//	  fmt.Println("Error:", err)
-//	 }
-//
-//  idx, err := pc.Index(idxs[0].Host) // You can now use idx to interact with your index.
-//  defer idx.Close()
-//
+//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//    fmt.Println("Error:", err)
-//   }
+//	  fmt.Printf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//  }
+//
+// 	idxConnection, err := pc.Index(idx.Host)
+//	if err != nil {
+//	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	}
  func (c *Client) Index(host string) (*IndexConnection, error) {
 	return c.IndexWithAdditionalMetadata(host, "", nil)
 }
@@ -254,32 +234,30 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
+//  }
 //
-//  idxs, err := pc.ListIndexes(ctx)
-//	if err != nil {
-//	  fmt.Println("Error:", err)
-//	 }
-//
-//  idx, err := pc.IndexWithNamespace(idxs[0].Host, <"sample-namespace">) // You can now use idx to interact with your index.
-//  defer idx.Close()
-//
+//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//    fmt.Println("Error:", err)
-//   }
+//	  fmt.Printf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//  }
+//
+// 	idxConnection, err := pc.IndexWithNamespace(idx.Host, "custom-namespace")
+//	if err != nil {
+//	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	}
 func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnection, error) {
 	return c.IndexWithAdditionalMetadata(host, namespace, nil)
 }
 
 // IndexWithAdditionalMetadata creates an IndexConnection to the specified host within the specified namespace,
-// with the addition of custom metadata fields.
+// with the addition of custom metadata.
 //
 // Parameters:
 //   - host: The host URL of your Pinecone index.
@@ -293,30 +271,31 @@ func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnec
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
+//  }
 //
-//  idxs, err := pc.ListIndexes(ctx)
-//	if err != nil {
-//	  fmt.Println("Error:", err)
-//	 }
-//
-//  idx, err := pc.IndexWithAdditionalMetadata(
-//                idxs[0].Host,
-//                <"sample-namespace">,
-//                map[string]string{"custom-request-metadata": "custom-metadata-values"}
-//              ) // You can now use idx to interact with your index.
-//  defer idx.Close()
-//
+//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//    fmt.Println("Error:", err)
-//   }
+//	  fmt.Printf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//  }
+//
+//  indexMetadata := map[string]string{
+//	  "indexMetadata": "custom-index-level-metadata",
+//	}
+//
+//  idxConnection, err := pc.IndexWithAdditionalMetadata(idx.Host, "custom-namespace", indexMetadata)
+//	if err != nil {
+//	  fmt.Printf("Failed to create IndexConnection: %v", err)
+//	} else {
+//    fmt.Printf("IndexConnection created successfully for index: %s , with namespace \"%s\"\n", idx.Name,
+//    idxConnection.Namespace)
+//	}
 func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, additionalMetadata map[string]string) (*IndexConnection, error) {
 	authHeader := c.extractAuthHeader()
 
@@ -347,23 +326,24 @@ func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, addi
 //
 // Example:
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
+//  }
 //
 //  idxs, err := pc.ListIndexes(ctx)
 //	if err != nil {
-//	  fmt.Println("Error:", err)
-//	 }
-//
-//	for _, idx := range idxs {
-//	  fmt.Println(idx)
-//	 }
+//	  fmt.Println("Failed to list indexes:", err)
+//  } else {
+//	  fmt.Println("Your project has the following indexes:")
+//	  for _, idx := range idxs {
+//	    fmt.Printf("- \"%s\"\n", idx.Name)
+//	  }
+//  }
 func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	res, err := c.restClient.ListIndexes(ctx)
 	if err != nil {
@@ -402,20 +382,20 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //   - SourceCollection: The Collection from which to create the index.
 //   - MetadataConfig: The metadata configuration for the index.
 //
-// To create a new Pods-based index, use the CreatePodIndex method on the Client object.
+// To create a new pods-based index, use the CreatePodIndex method on the Client object.
 //
 // Example:
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
+//  }
 //
 //  idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
 //    Name:        "my-pod-index",
@@ -423,11 +403,14 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //    Metric:      pinecone.Cosine,
 //    Environment: "us-west1-gcp",
 //    PodType:     "s1",
-//   })
+//    },
+//  )
 //
 //  if err != nil {
-//    fmt.Println("Error:", err)
-//   }
+//	  fmt.Println("Failed to create pod index:", err)
+//	} else {
+//	  fmt.Printf("Successfully created pod index: %s", idx.Name)
+//  }
 type CreatePodIndexRequest struct {
 	Name             string
 	Dimension        int32
@@ -473,14 +456,14 @@ func (req CreatePodIndexRequest) TotalCount() *int {
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
+//  }
 //
 //  idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
 //    Name:        "my-pod-index",
@@ -488,11 +471,14 @@ func (req CreatePodIndexRequest) TotalCount() *int {
 //    Metric:      pinecone.Cosine,
 //    Environment: "us-west1-gcp",
 //    PodType:     "s1",
-//   })
+//    }
+//  )
 //
-//  if err != nil {
-//    fmt.Println("Error:", err)
-//   }
+// 	if err != nil {
+//	  fmt.Println("Failed to create pod index:", err)
+//	} else {
+//	  fmt.Printf("Successfully created pod index: %s", idx.Name)
+//	}
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
 	metric := control.IndexMetric(in.Metric)
 	req := control.CreateIndexRequest{
@@ -559,14 +545,14 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
+//  }
 //
 //  idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
 //    Name:    "my-serverless-index",
@@ -574,11 +560,12 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //    Metric:  pinecone.Cosine,
 //    Cloud:   pinecone.Aws,
 //    Region:  "us-east-1",
-//   })
+//  }
+//)
 //
 //  if err != nil {
 //    fmt.Println("Error:", err)
-//   }
+//  }
 type CreateServerlessIndexRequest struct {
 	Name      string
 	Dimension int32
@@ -600,14 +587,14 @@ type CreateServerlessIndexRequest struct {
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
+//  }
 //
 //  idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
 //    Name:    "my-serverless-index",
@@ -615,11 +602,12 @@ type CreateServerlessIndexRequest struct {
 //    Metric:  pinecone.Cosine,
 //    Cloud:   pinecone.Aws,
 //    Region:  "us-east-1",
-//   })
+//  }
+//)
 //
 //  if err != nil {
 //    fmt.Println("Error:", err)
-//   }
+//  }
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
 	metric := control.IndexMetric(in.Metric)
 	req := control.CreateIndexRequest{
@@ -668,19 +656,19 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
+//  }
 //
 //  idx, err := pc.DescribeIndex(ctx, "the-name-of-my-index")
 //  if err != nil {
 //    fmt.Println("Error:", err)
-//   }
+//  }
 func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, error) {
 	res, err := c.restClient.DescribeIndex(ctx, idxName)
 	if err != nil {
@@ -708,19 +696,19 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
 //
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
+//  }
 //
 //  err := pc.DeleteIndex(ctx, "the-name-of-my-index")
 //  if err != nil {
 //    fmt.Println("Error:", err)
-//   }
+//  }
 func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	res, err := c.restClient.DeleteIndex(ctx, idxName)
 	if err != nil {
@@ -750,13 +738,14 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
+//
 // pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
+//  }
 //
 //  collections, err := pc.ListCollections(ctx)
 //	if err != nil {
@@ -809,19 +798,19 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
 //
 // pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
+//  }
 //
 //  collection, err := pc.DescribeCollection(ctx, "my-collection")
 //  if err != nil {
 //    fmt.Println("Error:", err)
-//   }
+//  }
 func (c *Client) DescribeCollection(ctx context.Context, collectionName string) (*Collection, error) {
 	res, err := c.restClient.DescribeCollection(ctx, collectionName)
 	if err != nil {
@@ -848,23 +837,24 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string) 
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
 //
 // pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
+//  }
 //
 //  collection, err := pc.CreateCollection(ctx, &pinecone.CreateCollectionRequest{
 //    Name:   "my-collection",
 //    Source: "my-source-pods-based-index",
-//   })
+//  }
+//)
 //
 //  if err != nil {
 //    fmt.Println("Error:", err)
-//   }
+//  }
 type CreateCollectionRequest struct {
 	Name   string
 	Source string
@@ -885,23 +875,24 @@ type CreateCollectionRequest struct {
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
 //
 // pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
+//  }
 //
 //  collection, err := pc.CreateCollection(ctx, &pinecone.CreateCollectionRequest{
 //    Name:   "my-collection",
 //    Source: "my-source-pods-based-index",
-//   })
+//  }
+//)
 //
 //  if err != nil {
 //    fmt.Println("Error:", err)
-//   }
+//  }
 func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionRequest) (*Collection, error) {
 	req := control.CreateCollectionRequest{
 		Name:   in.Name,
@@ -936,19 +927,19 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 //  ctx := context.Background()
 //
 //  clientParams := pinecone.NewClientParams{
-//    ApiKey:    getEnvVars("PINECONE_API_KEY"),
-//    SourceTag: "your_source_identifier", // optional
-//   }
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
 //
 // pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//   }
+//  }
 //
 //  err = pc.DeleteCollection(ctx, "my-collection")
 //  if err != nil {
 //    fmt.Println("Error:", err)
-//   }
+//  }
 func (c *Client) DeleteCollection(ctx context.Context, collectionName string) error {
 	res, err := c.restClient.DeleteCollection(ctx, collectionName)
 	if err != nil {
