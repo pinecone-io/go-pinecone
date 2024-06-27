@@ -101,24 +101,17 @@ type NewClientBaseParams struct {
 }
 
 // NewClient creates and initializes a new instance of Client.
-// This function sets up the control plane client with the necessary configuration for authentication and communication
-// with the control plane API.
+// This function sets up the control plane client with the necessary configuration for authentication and communication.
 //
-// This function requires an input parameter of type NewClientParams, which includes:
-//   - ApiKey: The API key used to authenticate with the Pinecone control plane API.
-//   - Headers: An optional map of additional HTTP headers to include in each API request to the control plane.
-//   Provided through NewClientParams.Headers or NewClientBaseParams.Headers.
-//   - Host: The host URL of the Pinecone control plane API. If not provided,
-//     the default value is "https://api.pinecone.io".
-//   - RestClient: An optional custom HTTP client to use for communication with the control plane API.
-//   - SourceTag: An optional string used to help Pinecone attribute API activity to our partners.
+// Parameters:
+//   - in: A NewClientParams object that includes the API key used to authenticate with the Pinecone control plane
+//  API. See NewClientParams for more information.
 //
 // Note: It is important to handle the error returned by this function to ensure that the
 // control plane client has been created successfully before attempting to make API calls.
 //
-// Returns a pointer to an initialized Client instance on success. In case of
-// failure, it returns nil and an error describing the issue encountered. Possible errors
-// include issues with setting up the API key provider or problems initializing the
+// Returns a pointer to an initialized Client instance on success or an error describing the issue encountered.
+// Possible errors include issues with setting up the API key provider or problems initializing the
 // underlying REST client.
 //
 // Example:
@@ -155,24 +148,17 @@ func NewClient(in NewClientParams) (*Client, error) {
 	return NewClientBase(NewClientBaseParams{Headers: clientHeaders, Host: in.Host, RestClient: in.RestClient, SourceTag: in.SourceTag})
 }
 
-// NewClientBase creates and initializes a new instance of Client with custom authentication headers,
-// allowing users to authenticate in ways other than passing an API key.
+// NewClientBase creates and initializes a new instance of Client with custom authentication headers.
 //
-// This function requires an input parameter of type NewClientBaseParams, which includes:
-//   - Headers: An optional map of additional HTTP headers to include in each API request to the control plane.
-//    Provided through NewClientParams.Headers or NewClientBaseParams.Headers.
-//    "Authorization" and "X-Project-Id" headers are required.
-//   - Host: The host URL of the Pinecone control plane API. If not provided,
-//     the default value is "https://api.pinecone.io".
-//   - RestClient: An optional custom HTTP client to use for communication with the control plane API.
-//   - SourceTag: An optional string used to help Pinecone attribute API activity to our partners.
+// Parameters:
+//   - in: A NewClientBaseParams object that includes the necessary configuration for the control plane client. See
+//   NewClientBaseParams for more information.
 //
 // Note: It is important to handle the error returned by this function to ensure that the
 // control plane client has been created successfully before attempting to make API calls.
 //
-// Returns a pointer to an initialized Client instance on success. In case of
-// failure, it returns nil and an error describing the issue encountered. Possible errors
-// include issues with setting up the headers or problems initializing the
+// Returns a pointer to an initialized Client instance on success or an error describing the issue encountered.
+// Possible errors include issues with setting up the headers or problems initializing the
 // underlying REST client.
 //
 // Example:
@@ -211,12 +197,12 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 	return &c, nil
 }
 
-// Index creates an IndexConnection to the specified host.
+// Index creates an IndexConnection to a specified host.
 //
 // Parameters:
-//   - host: The host URL of your Pinecone index.
+//   - host: The host URL of a Pinecone index.
 //
-// Returns a pointer to an IndexConnection instance on success. In case of failure, it returns nil and an error.
+// Returns a pointer to an IndexConnection instance or an error.
 //
 // Example:
 //  ctx := context.Background()
@@ -244,13 +230,13 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 	return c.IndexWithAdditionalMetadata(host, "", nil)
 }
 
-// IndexWithNamespace creates an IndexConnection to the specified host within the specified namespace.
+// IndexWithNamespace creates an IndexConnection to a specified host and a specified namespace.
 //
 // Parameters:
-//   - host: The host URL of your Pinecone index.
-//   - namespace: The target namespace.
+//   - host: The host URL of a Pinecone index.
+//   - namespace: The namespace where index operations will be performed.
 //
-// Returns a pointer to an IndexConnection instance on success. In case of failure, it returns nil and an error.
+// Returns a pointer to an IndexConnection or an error.
 //
 // Example:
 //  ctx := context.Background()
@@ -279,15 +265,14 @@ func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnec
 }
 
 // IndexWithAdditionalMetadata creates an IndexConnection to the specified host within the specified namespace,
-// with the addition of custom metadata.
+// with the addition of custom metadata. Read more about how gRPC handles metadata at [grpc.io/docs].
 //
 // Parameters:
 //   - host: The host URL of your Pinecone index.
-//   - namespace: The target namespace.
-//   - additionalMetadata: A map of additional metadata fields to include in the API request.
+//   - namespace: The namespace where index operations will be performed.
+//   - additionalMetadata: Additional metadata to be sent with each RPC request.
 //
-// Returns a pointer to an IndexConnection instance on success. In case of failure,
-// it returns nil and the error encountered.
+// Returns a pointer to an IndexConnection or error.
 //
 // Example:
 //  ctx := context.Background()
@@ -318,6 +303,8 @@ func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnec
 //    fmt.Printf("IndexConnection created successfully for index: %s , with namespace \"%s\"\n", idx.Name,
 //    idxConnection.Namespace)
 //	}
+//
+// [grpc.io/docs]: https://grpc.io/docs/guides/metadata/
 func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, additionalMetadata map[string]string) (*IndexConnection, error) {
 	authHeader := c.extractAuthHeader()
 
@@ -337,14 +324,13 @@ func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, addi
 	return idx, nil
 }
 
-// ListIndexes retrieves a list of all indexes in a Pinecone project.
+// ListIndexes retrieves a list of all indexes in a Pinecone [project].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //   to be canceled or to timeout according to the context's deadline.
 //
-// Returns a slice of pointers to Index objects on success. In case of failure,
-// it returns nil and the error encountered.
+// Returns a slice of pointers to Index objects or an error.
 //
 // Example:
 //  clientParams := pinecone.NewClientParams{
@@ -366,6 +352,8 @@ func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, addi
 //	    fmt.Printf("- \"%s\"\n", idx.Name)
 //	  }
 //  }
+//
+// [project]: https://docs.pinecone.io/guides/projects/understanding-projects
 func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	res, err := c.restClient.ListIndexes(ctx)
 	if err != nil {
@@ -391,18 +379,18 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	return indexes, nil
 }
 
-// CreatePodIndexRequest holds the parameters for creating a new Pods-based index.
+// CreatePodIndexRequest holds the parameters for creating a new pods-based index.
 //
 // Fields:
-//   - Name: The name of the index.
-//   - Dimension: The dimension of the index.
-//   - Metric: The metric used to measure the similarity between vectors ("Cosine", "Euclidean", or "Dotproduct").
-//   - Environment: The cloud environment in which the index will be created.
-//   - PodType: The type of pod to use for the index ("p1", "p2", or "s2").
+//   - Name: The name of the pods-based index to be created.
+//   - Dimension: The dimension of the index (must match [dimensionality] of upserted vectors).
+//   - Metric: The metric used to measure the [similarity] between vectors.
+//   - Environment: The [cloud environment] in which the index will be created.
+//   - PodType: The [type of pod] to use for the index.
 //   - Shards: The number of shards to use for the index (defaults to 1).
-//   - Replicas: The number of replicas to use for the index (defaults to 1).
+//   - Replicas: The number of [replicas] to use for the index (defaults to 1).
 //   - SourceCollection: The Collection from which to create the index.
-//   - MetadataConfig: The metadata configuration for the index.
+//   - MetadataConfig: The [metadata configuration] for the index.
 //
 // To create a new pods-based index, use the CreatePodIndex method on the Client object.
 //
@@ -433,6 +421,13 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //	} else {
 //	  fmt.Printf("Successfully created pod index: %s", idx.Name)
 //  }
+//
+// [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
+// [similarity]: https://docs.pinecone.io/guides/indexes/understanding-indexes#distance-metrics
+// [type of pods]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size
+// [metadata configuration]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes#selective-metadata-indexing
+// [cloud environment]: https://docs.pinecone.io/guides/indexes/understanding-indexes#pod-environments
+// [replicas]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes#add-replicas
 type CreatePodIndexRequest struct {
 	Name             string
 	Dimension        int32
@@ -445,21 +440,21 @@ type CreatePodIndexRequest struct {
 	MetadataConfig   *PodSpecMetadataConfig
 }
 
-// ReplicaCount ensures the replica count is >1 and returns a pointer to the number of replicas on the
-// CreatePodIndexRequest object.
+// ReplicaCount ensures the replica count of a pods-based index is >1.
+// It returns a pointer to the number of replicas on a CreatePodIndexRequest object.
 func (req CreatePodIndexRequest) ReplicaCount() *int32 {
 	x := minOne(req.Replicas)
 	return &x
 }
 
-// ShardCount ensures the number of shards is >1 and returns a pointer to the number of shards on the
-// CreatePodIndexRequest object.
+// ShardCount ensures the number of shards on a pods-based index is >1. It returns a pointer to the number of shards on
+// a CreatePodIndexRequest object.
 func (req CreatePodIndexRequest) ShardCount() *int32 {
 	x := minOne(req.Shards)
 	return &x
 }
 
-// TotalCount calculates and returns the total number of pods (replicas*shards) on the CreatePodIndexRequest object.
+// TotalCount calculates and returns the total number of pods (replicas*shards) on a CreatePodIndexRequest object.
 func (req CreatePodIndexRequest) TotalCount() *int {
 	x := int(*req.ReplicaCount() * *req.ShardCount())
 	return &x
@@ -470,9 +465,9 @@ func (req CreatePodIndexRequest) TotalCount() *int {
 // Parameters:
 // 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
 //  to be canceled or to timeout according to the context's deadline.
-//  - in: A pointer to a CreatePodIndexRequest object.
+//  - in: A pointer to a CreatePodIndexRequest object. See CreatePodIndexRequest for more information.
 //
-// Returns a pointer to an Index object. In case of failure, it returns nil and the error encountered.
+// Returns a pointer to an Index object or an error.
 //
 // Example:
 //  ctx := context.Background()
@@ -552,14 +547,14 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 	return decodeIndex(res.Body)
 }
 
-// CreateServerlessIndexRequest holds the parameters for creating a new Serverless index.
+// CreateServerlessIndexRequest holds the parameters for creating a new [Serverless] index.
 //
 // Fields:
-//   - Name: The name of the index.
-//   - Dimension: The dimension of the index.
-//   - Metric: The metric used to measure the similarity between vectors ("Cosine", "Euclidean", or "Dotproduct").
-//   - Cloud: The cloud provider in which the index will be created.
-//   - Region: The region in which the index will be created.
+//   - Name: The name of the Serverless index.
+//   - Dimension: The dimension of the index (must match dimensionality of upserted vectors).
+//   - Metric: The metric used to measure the [similarity] between vectors.
+//   - Cloud: The [cloud provider] in which the index will be created.
+//   - Region: The [region] in which the index will be created.
 //
 // To create a new Serverless index, use the CreateServerlessIndex method on the Client object.
 //
@@ -590,6 +585,11 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //  } else {
 //    fmt.Printf("Successfully created serverless index: %s", idx.Name)
 // }
+//
+// [Serverless]: https://docs.pinecone.io/guides/indexes/understanding-indexes#serverless-indexes
+// [similarity]: https://docs.pinecone.io/guides/indexes/understanding-indexes#distance-metrics
+// [region]: https://docs.pinecone.io/troubleshooting/available-cloud-regions
+// [cloud provider]: https://docs.pinecone.io/troubleshooting/available-cloud-regions#regions-available-for-serverless-indexes
 type CreateServerlessIndexRequest struct {
 	Name      string
 	Dimension int32
