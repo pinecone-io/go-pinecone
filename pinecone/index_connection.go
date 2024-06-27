@@ -122,9 +122,25 @@ func (idx *IndexConnection) Close() error {
 //	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	}
 //
+// 	metadataMap := map[string]interface{}{
+//		"genre": "classical",
+//	}
+//
+// 	metadata, err := structpb.NewStruct(metadataMap)
+//	if err != nil {
+//		fmt.Println("Failed to create metadata map:", err)
+//	}
+//
+// 	sparseValues := pinecone.SparseValues{
+//	  Indices: []uint32{0, 1},
+//	  Values:  []float32{1.0, 2.0},
+//	}
+//
 // 	vectors := []*pinecone.Vector{
 //    {Id:     "abc-1",
 //     Values: []float32{1.0, 2.0},
+//     Metadata: metadata,
+//     SparseValues: &sparseValues,
 //    },
 //  }
 //
