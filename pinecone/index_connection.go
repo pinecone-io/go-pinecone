@@ -433,7 +433,8 @@ type QueryVectorsResponse struct {
 //	  SparseValues:  &sparseValues,
 //	  IncludeValues: true,
 //	  IncludeMetadata: true,
-//	})
+//	  }
+//  )
 //
 //  if err != nil {
 //	  log.Fatalf("Error encountered when querying by vector:", err)
@@ -441,7 +442,7 @@ type QueryVectorsResponse struct {
 //  for _, match := range res.Matches {
 //    fmt.Printf("Match vector `%s`, with score %f\n", match.Vector.Id, match.Score)
 //    }
-// }
+//  }
 func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryByVectorValuesRequest) (*QueryVectorsResponse, error) {
 	req := &data.QueryRequest{
 		Namespace:       idx.Namespace,
