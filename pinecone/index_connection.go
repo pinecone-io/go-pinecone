@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
+	"log"
 )
 
 // IndexConnection holds the parameters for a Pinecone IndexConnection object.
@@ -44,7 +45,7 @@ func newIndexConnection(in newIndexParameters) (*IndexConnection, error) {
 	)
 
 	if err != nil {
-		fmt.Printf("fail to dial: %v", err)
+		log.Fatalf("fail to dial: %v", err)
 		return nil, err
 	}
 
