@@ -95,7 +95,7 @@ func (idx *IndexConnection) Close() error {
 // Parameters:
 //  - ctx: A context.Context object controls the request's lifetime,
 //  allowing for the request to be canceled or to timeout according to the context's deadline.
-//  - in: The vectors to index.
+//  - in: The vectors to upsert.
 //
 // Returns the number of vectors upserted or an error if the request fails.
 //
@@ -123,10 +123,9 @@ func (idx *IndexConnection) Close() error {
 //	}
 //
 // 	vectors := []*pinecone.Vector{
-//    {
-//     Id:     "abc-1",
-//    Values: []float32{1.0, 2.0},
-//     },
+//    {Id:     "abc-1",
+//     Values: []float32{1.0, 2.0},
+//    },
 //  }
 //
 //  count, err := idxConnection.UpsertVectors(ctx, vectors)
@@ -169,7 +168,7 @@ type FetchVectorsResponse struct {
 // Parameters:
 //  - ctx: A context.Context object controls the request's lifetime,
 //   allowing for the request to be canceled or to timeout according to the context's deadline.
-//  - ids: The IDs of the vectors to fetch.
+//  - ids: The unique IDs of the vectors to fetch.
 //
 // Returns a pointer to any fetched vectors or an error if the request fails.
 //
@@ -231,8 +230,9 @@ func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*Fe
 // which is passed into the ListVectors method.
 //
 // Fields:
-//  - Prefix: The prefix by which to filter.
-//  - Limit: The maximum number of vectors to return.
+//  - Prefix: The prefix by which to filter. If unspecified,
+//  an empty string will be used which will list all vector ids in the namespace
+//  - Limit: The maximum number of vectors to return. If unspecified, the server will use a default value.
 //  - PaginationToken: The token for paginating through results.
 type ListVectorsRequest struct {
 	Prefix          *string
@@ -244,7 +244,7 @@ type ListVectorsRequest struct {
 // which is returned by the ListVectors method.
 //
 // Fields:
-//  - VectorIds: The IDs of the returned vectors.
+//  - VectorIds: The unique IDs of the returned vectors.
 //  - Usage: The usage information for the request.
 //  - NextPaginationToken: The token for paginating through results.
 type ListVectorsResponse struct {
@@ -333,7 +333,7 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 // which is passed into the QueryByVectorValues method.
 //
 // Fields:
-//  - Vector: The ID of the vector for which you want to find similar vectors.
+//  - Vector: The query vector used to find similar vectors.
 //  - TopK: The number of vectors to return.
 //  - Filter: The filter to apply to your query.
 //  - IncludeValues: Whether to include the values of the vectors in the response.
@@ -426,7 +426,7 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 // which is passed into the QueryByVectorId method.
 //
 // Fields:
-//  - VectorId: The ID of the vector for which you want to find similar vectors.
+//  - VectorId: The unique ID of the vector used to find similar vectors.
 //  - TopK: The number of vectors to return.
 //  - Filter: The filter to apply to your query.
 //  - IncludeValues: Whether to include the values of the vectors in the response.
@@ -621,6 +621,9 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *F
 //
 // Returns an error if the request fails, otherwise returns nil.
 //
+// Note: You must instantiate an IndexWithNamespace connection in order to delete vectors by ID in namespaces other
+// than the default.
+//
 // Parameters:
 //  - ctx: A context.Context object controls the request's lifetime,
 //   allowing for the request to be canceled or to timeout according to the context's deadline.
@@ -665,7 +668,7 @@ func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx context.Context) err
 // which is passed into the UpdateVector method.
 //
 // Fields:
-//  - Id: The ID of the vector to update.
+//  - Id: The unique ID of the vector to update.
 //  - Values: The values with which you want to update the vector.
 //  - SparseValues: The sparse values with which you want to update the vector.
 //  - Metadata: The metadata with which you want to update the vector.
