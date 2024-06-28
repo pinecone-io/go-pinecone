@@ -19,7 +19,7 @@ import (
 
 // Client holds the parameters for connecting to the Pinecone service. It is returned by the NewClient and NewClientBase
 // functions. To use Client, first build the parameters of the request using NewClientParams (or NewClientBaseParams).
-// Then, pass those parameters into the NewClient (or NewBaseClient) function to create a new Client object.
+// Then, pass those parameters into the NewClient (or NewClientBase) function to create a new Client object.
 // Once instantiated, you can use Client to execute control plane API requests (e.g. create an index, list indexes,
 // etc.). Read more about different control plane API routes at [pinecone.io/docs].
 //
@@ -27,8 +27,8 @@ import (
 //
 // Fields:
 //   - headers: An optional map of additional HTTP headers to include in each API request to the control plane,
-//    Provided through NewClientParams.Headers or NewClientBaseParams.Headers.
-//   - restClient: The underlying REST client (managed internally) used to communicate with the Pinecone control plane API.
+//   provided through NewClientParams.Headers or NewClientBaseParams.Headers.
+//   - restClient: The underlying REST client used to communicate with the Pinecone control plane API.
 //   - sourceTag: An optional string used to help Pinecone attribute API activity, provided through NewClientParams.SourceTag
 //  or NewClientBaseParams.SourceTag.
 //
@@ -48,12 +48,16 @@ import (
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
 //	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//  }
+//  } else {
+//	  fmt.Printf("Successfully found the \"%s\" index!\n", idx.Name)
+//	}
 //
 // 	idxConnection, err := pc.Index(idx.Host)
 //	if err != nil {
 //	  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	}
+//	} else {
+//	  log.Println("IndexConnection created successfully!")
+//  }
 //
 // [pinecone.io/docs]: https://docs.pinecone.io/reference/api/control-plane/list_indexes
 type Client struct {
@@ -62,7 +66,7 @@ type Client struct {
 	sourceTag  string
 }
 
-// NewClientParams holds the parameters for creating a new Client while authenticating with an API key.
+// NewClientParams holds the parameters for creating a new Client instance while authenticating via an API key.
 //
 // Fields:
 //   - ApiKey: The API key used to authenticate with the Pinecone control plane API.
@@ -81,11 +85,11 @@ type NewClientParams struct {
 	SourceTag  string            // optional
 }
 
-// NewClientBaseParams holds the parameters for creating a new Client while passing custom authentication headers.
+// NewClientBaseParams holds the parameters for creating a new Client instance while passing custom authentication
+// headers.
 //
 // Fields:
-//   - Headers: An optional map of additional HTTP headers to include in each API request to the control plane,
-//   provided through NewClientParams.Headers or NewClientBaseParams.Headers.
+//   - Headers: An optional map of additional HTTP headers to include in each API request to the control plane.
 //   "Authorization" and "X-Project-Id" headers are required if authenticating using a JWT.
 //   - Host: The host URL of the Pinecone control plane API. If not provided,
 //   the default value is "https://api.pinecone.io".
@@ -104,15 +108,12 @@ type NewClientBaseParams struct {
 // This function sets up the control plane client with the necessary configuration for authentication and communication.
 //
 // Parameters:
-//   - in: A NewClientParams object that includes the API key used to authenticate with the Pinecone control plane
-//  API. See NewClientParams for more information.
+//   - in: A NewClientParams object. See NewClientParams for more information.
 //
 // Note: It is important to handle the error returned by this function to ensure that the
 // control plane client has been created successfully before attempting to make API calls.
 //
-// Returns a pointer to an initialized Client instance on success or an error describing the issue encountered.
-// Possible errors include issues with setting up the API key provider or problems initializing the
-// underlying REST client.
+// Returns a pointer to an initialized Client instance or an error.
 //
 // Example:
 //  ctx := context.Background()
@@ -125,7 +126,9 @@ type NewClientBaseParams struct {
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
+//	}
 func NewClient(in NewClientParams) (*Client, error) {
 	osApiKey := os.Getenv("PINECONE_API_KEY")
 	hasApiKey := (valueOrFallback(in.ApiKey, osApiKey) != "")
@@ -157,9 +160,7 @@ func NewClient(in NewClientParams) (*Client, error) {
 // Note: It is important to handle the error returned by this function to ensure that the
 // control plane client has been created successfully before attempting to make API calls.
 //
-// Returns a pointer to an initialized Client instance on success or an error describing the issue encountered.
-// Possible errors include issues with setting up the headers or problems initializing the
-// underlying REST client.
+// Returns a pointer to an initialized Client instance or an error.
 //
 // Example:
 //  ctx := context.Background()
@@ -175,7 +176,9 @@ func NewClient(in NewClientParams) (*Client, error) {
 //  pc, err := pinecone.NewClientBase(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
+//	}
 func NewClientBase(in NewClientBaseParams) (*Client, error) {
 	clientOptions := buildClientBaseOptions(in)
 	var err error
@@ -215,17 +218,23 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
 //  }
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
-//	  fmt.Printf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//  }
+//	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//  } else {
+//	  fmt.Printf("Successfully found the \"%s\" index!\n", idx.Name)
+//	}
 //
 // 	idxConnection, err := pc.Index(idx.Host)
 //	if err != nil {
-//	  fmt.Println("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	}
+//	  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	} else {
+//	  log.Println("IndexConnection created successfully!")
+//  }
  func (c *Client) Index(host string) (*IndexConnection, error) {
 	return c.IndexWithAdditionalMetadata(host, "", nil)
 }
@@ -236,7 +245,7 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 //   - host: The host URL of a Pinecone index.
 //   - namespace: The namespace where index operations will be performed.
 //
-// Returns a pointer to an IndexConnection or an error.
+// Returns a pointer to an IndexConnection instance or an error.
 //
 // Example:
 //  ctx := context.Background()
@@ -249,17 +258,23 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
+//	}
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
 //	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//  }
+//  } else {
+//	  fmt.Printf("Successfully found the \"%s\" index!\n", idx.Name)
+//	}
 //
 // 	idxConnection, err := pc.IndexWithNamespace(idx.Host, "custom-namespace")
 //	if err != nil {
 //	  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	}
+//	} else {
+//	  log.Println("IndexConnection created successfully!")
+//  }
 func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnection, error) {
 	return c.IndexWithAdditionalMetadata(host, namespace, nil)
 }
@@ -272,7 +287,7 @@ func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnec
 //   - namespace: The namespace where index operations will be performed.
 //   - additionalMetadata: Additional metadata to be sent with each RPC request.
 //
-// Returns a pointer to an IndexConnection or error.
+// Returns a pointer to an IndexConnection instance or error.
 //
 // Example:
 //  ctx := context.Background()
@@ -285,12 +300,16 @@ func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnec
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
+//	}
 //
 //  idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //  if err != nil {
 //	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//  }
+//  } else {
+//	  fmt.Printf("Successfully found the \"%s\" index!\n", idx.Name)
+//	}
 //
 //  indexMetadata := map[string]string{
 //	  "indexMetadata": "custom-index-level-metadata",
@@ -341,11 +360,13 @@ func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, addi
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
+//	}
 //
 //  idxs, err := pc.ListIndexes(ctx)
 //	if err != nil {
-//	  log.Fatalf("Failed to list indexes:", err)
+//	  log.Fatalf("Failed to list indexes: %v", err)
 //  } else {
 //	  fmt.Println("Your project has the following indexes:")
 //	  for _, idx := range idxs {
@@ -405,7 +426,9 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
+//	}
 //
 //  idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
 //    Name:        "my-pod-index",
@@ -417,7 +440,7 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //  )
 //
 //  if err != nil {
-//	  log.Fatalf("Failed to create pod index:", err)
+//	  log.Fatalf("Failed to create pod index: %v", err)
 //	} else {
 //	  fmt.Printf("Successfully created pod index: %s", idx.Name)
 //  }
@@ -480,7 +503,9 @@ func (req CreatePodIndexRequest) TotalCount() *int {
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
+//	}
 //
 //  idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
 //    Name:        "my-pod-index",
@@ -569,7 +594,9 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
+//	}
 //
 //  idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
 //    Name:    "my-serverless-index",
@@ -584,7 +611,7 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //    log.Fatalf("Failed to create serverless index: %s", idx.Name)
 //  } else {
 //    fmt.Printf("Successfully created serverless index: %s", idx.Name)
-// }
+//  }
 //
 // [Serverless]: https://docs.pinecone.io/guides/indexes/understanding-indexes#serverless-indexes
 // [similarity]: https://docs.pinecone.io/guides/indexes/understanding-indexes#distance-metrics
@@ -618,7 +645,9 @@ type CreateServerlessIndexRequest struct {
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
+//	}
 //
 //  idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
 //    Name:    "my-serverless-index",
@@ -633,7 +662,7 @@ type CreateServerlessIndexRequest struct {
 //    log.Fatalf("Failed to create serverless index: %s", idx.Name)
 //  } else {
 //    fmt.Printf("Successfully created serverless index: %s", idx.Name)
-// }
+//  }
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
 	metric := control.IndexMetric(in.Metric)
 	req := control.CreateIndexRequest{
@@ -681,7 +710,9 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
+//	}
 //
 //  idx, err := pc.DescribeIndex(ctx, "the-name-of-my-index")
 //  if err != nil {
@@ -723,13 +754,15 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
+//	}
 //
 // 	indexName := "the-name-of-my-index"
 //
 //	err = pc.DeleteIndex(ctx, indexName)
 //	if err != nil {
-//	  fmt.Println("Error:", err)
+//	  log.Fatalf("Error: %v", err)
 //	} else {
 //    fmt.Printf("Index \"%s\" deleted successfully", indexName)
 //	}
@@ -765,14 +798,16 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //	  SourceTag: "your_source_identifier", // optional
 //	}
 //
-// pc, err := pinecone.NewClient(clientParams)
+//  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
+//	}
 //
 //  collections, err := pc.ListCollections(ctx)
 //	if err != nil {
-//	  fmt.Println("Failed to list collections:", err)
+//	  log.Fatalf("Failed to list collections: %v", err)
 //	} else {
 //	  if len(collections) == 0 {
 //	    fmt.Printf("No collections found in project")
@@ -840,11 +875,13 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 //  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
+//	}
 //
 //  collection, err := pc.DescribeCollection(ctx, "my-collection")
 //  if err != nil {
-//	  fmt.Println("Error describing collection:", err)
+//	  log.Fatalf("Error describing collection: %v", err)
 //	} else {
 //	  fmt.Printf("Collection: %+v\n", *collection)
 //	}
@@ -882,10 +919,12 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string) 
 //	  SourceTag: "your_source_identifier", // optional
 //	}
 //
-// pc, err := pinecone.NewClient(clientParams)
+//  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
+//	}
 //
 //  collection, err := pc.CreateCollection(ctx, &pinecone.CreateCollectionRequest{
 //    Name:   "my-collection",
@@ -893,7 +932,7 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string) 
 //    },
 //  )
 //  if err != nil {
-//	  log.Fatalf("Failed to create collection: %s", err)
+//	  log.Fatalf("Failed to create collection: %v", err)
 //	} else {
 //	  fmt.Printf("Successfully created collection \"%s\".", collection.Name)
 //	}
@@ -923,10 +962,12 @@ type CreateCollectionRequest struct {
 //	  SourceTag: "your_source_identifier", // optional
 //	}
 //
-// pc, err := pinecone.NewClient(clientParams)
+//  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
+//	}
 //
 //  collection, err := pc.CreateCollection(ctx, &pinecone.CreateCollectionRequest{
 //    Name:   "my-collection",
@@ -934,7 +975,7 @@ type CreateCollectionRequest struct {
 //    }
 //  )
 // 	if err != nil {
-//	  log.Fatalf("Failed to create collection: %s", err)
+//	  log.Fatalf("Failed to create collection: %v", err)
 //	} else {
 //	  fmt.Printf("Successfully created collection \"%s\".", collection.Name)
 //	}
@@ -978,10 +1019,12 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 //	  SourceTag: "your_source_identifier", // optional
 //	}
 //
-// pc, err := pinecone.NewClient(clientParams)
+//  pc, err := pinecone.NewClient(clientParams)
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//  } else {
+//	  fmt.Println("Successfully created a new Client object!")
+//	}
 //
 //  collectionName := "my-collection"
 //
