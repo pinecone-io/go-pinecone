@@ -1070,8 +1070,6 @@ func (c *Client) extractAuthHeader() map[string]string {
 	for key, value := range c.headers {
 		for _, checkKey := range possibleAuthKeys {
 			if strings.ToLower(key) == checkKey {
-				//fmt.Println("!! key in extractAuthHeader here", key)
-				//fmt.Println("!! Return value from extractAuthHeader looks like this: ", map[string]string{key: value})
 				return map[string]string{key: value}
 			}
 		}
