@@ -577,7 +577,7 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //    Metric:  pinecone.Cosine,
 //    Cloud:   pinecone.Aws,
 //    Region:  "us-east-1",
-//    }
+//    },
 //  )
 //
 //  if err != nil {
@@ -603,9 +603,9 @@ type CreateServerlessIndexRequest struct {
 // Parameters:
 // 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
 //  to be canceled or to timeout according to the context's deadline.
-//  - in: A pointer to a CreateServerlessIndexRequest object.
+//  - in: A pointer to a CreateServerlessIndexRequest object. See CreateServerlessIndexRequest for more information.
 //
-// Returns a pointer to an Index object. In case of failure, it returns nil and the error encountered.
+// Returns a pointer to an Index object or an error.
 //
 // Example:
 //  ctx := context.Background()
@@ -626,8 +626,8 @@ type CreateServerlessIndexRequest struct {
 //    Metric:  pinecone.Cosine,
 //    Cloud:   pinecone.Aws,
 //    Region:  "us-east-1",
-//  }
-//)
+//   },
+//  )
 //
 //  if err != nil {
 //    log.Fatalf("Failed to create serverless index: %s", idx.Name)
@@ -661,22 +661,14 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 	return decodeIndex(res.Body)
 }
 
-// DescribeIndex retrieves information about a specific index.
+// DescribeIndex retrieves information about a specific index. See Index for more information.
 //
 // Parameters:
 // 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
 //  to be canceled or to timeout according to the context's deadline.
 //  - idxName: The name of the index to describe.
 //
-// Returns a pointer to an Index object. In case of failure, it returns nil and the error encountered.
-//
-// Since the returned value is a pointer to an Index object, it will have the following fields:
-//   - Name: The name of the index.
-//   - Dimension: The dimension of the index.
-//   - Host: The host URL of the index.
-//   - Metric: The metric used to measure the similarity between vectors.
-//   - Spec: The specification of the index.
-//   - Status: The status of the index.
+// Returns a pointer to an Index object or an error.
 //
 // Example:
 //  ctx := context.Background()
@@ -696,7 +688,7 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 //    log.Fatalf("Failed to describe index: %s", err)
 //  } else {
 //    fmt.Printf("%+v", *idx)
-// }
+//  }
 func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, error) {
 	res, err := c.restClient.DescribeIndex(ctx, idxName)
 	if err != nil {
@@ -733,11 +725,13 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
 //
-// 	err = pc.DeleteIndex(ctx, "the-name-of-my-index")
+// 	indexName := "the-name-of-my-index"
+//
+//	err = pc.DeleteIndex(ctx, indexName)
 //	if err != nil {
 //	  fmt.Println("Error:", err)
 //	} else {
-//	  fmt.Printf("Index \"%s\" deleted successfully", idx.Name)
+//    fmt.Printf("Index \"%s\" deleted successfully", indexName)
 //	}
 func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	res, err := c.restClient.DeleteIndex(ctx, idxName)
@@ -753,14 +747,13 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	return nil
 }
 
-// ListCollections retrieves a list of all collections in a Pinecone project.
+// ListCollections retrieves a list of all collections in a Pinecone [project]. See Collection for more information.
 //
 // Parameters:
 // 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
 //  to be canceled or to timeout according to the context's deadline.
 //
-// Returns a slice of pointers to Collection objects on success. In case of failure,
-// it returns nil and the error encountered.
+// Returns a slice of pointers to [Collection] objects or an error.
 //
 // Note: Collections are only available for pods-based indexes.
 //
@@ -786,10 +779,13 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //	  } else {
 //	    fmt.Println("Collections in project:")
 //		for _, collection := range collections {
-//		  fmt.Printf("Collection: %s\n", collection.Name)
+//		  fmt.Printf("- %s\n", collection.Name)
 //		}
 //	  }
 //	}
+//
+// [project]: https://docs.pinecone.io/guides/projects/understanding-projects
+// [collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	res, err := c.restClient.ListCollections(ctx)
 	if err != nil {
@@ -814,14 +810,14 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	return collections, nil
 }
 
-// DescribeCollection retrieves information about a specific collection.
+// DescribeCollection retrieves information about a specific [collection].
 //
 // Parameters:
 // 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
 //  to be canceled or to timeout according to the context's deadline.
 //  - collectionName: The name of the collection to describe.
 //
-// Returns a pointer to a Collection object. In case of failure, it returns nil and the error encountered.
+// Returns a pointer to a Collection object or an error.
 //
 // Note: Collections are only available for pods-based indexes.
 //
@@ -852,6 +848,8 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 //	} else {
 //	  fmt.Printf("Collection: %+v\n", *collection)
 //	}
+//
+// [collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) DescribeCollection(ctx context.Context, collectionName string) (*Collection, error) {
 	res, err := c.restClient.DescribeCollection(ctx, collectionName)
 	if err != nil {
@@ -866,50 +864,13 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string) 
 	return decodeCollection(res.Body)
 }
 
-// CreateCollectionRequest holds the parameters for creating a new collection.
+// CreateCollectionRequest holds the parameters for creating a new [collection].
 //
 // Fields:
-//   - Name: The name of the collection.
+//   - Name: The name of the collection to create.
 //   - Source: The source index from which the collection will be made.
 //
 // To create a new collection, use the CreateCollection method on the Client object.
-//
-// Example:
-//  ctx := context.Background()
-//
-//  clientParams := pinecone.NewClientParams{
-//	  ApiKey:    "YOUR_API_KEY",
-//	  SourceTag: "your_source_identifier", // optional
-//	}
-//
-// pc, err := pinecone.NewClient(clientParams)
-//  if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
-//  }
-//
-//  collection, err := pc.CreateCollection(ctx, &pinecone.CreateCollectionRequest{
-//    Name:   "my-collection",
-//    Source: "my-source-pods-based-index",
-//    },
-//  )
-//  if err != nil {
-//	  log.Fatalf("Failed to create collection: %s", err)
-//	} else {
-//	  fmt.Printf("Successfully created collection \"%s\".", collection.Name)
-//	}
-type CreateCollectionRequest struct {
-	Name   string
-	Source string
-}
-
-// CreateCollection creates and initializes a new collection via the specified Client.
-//
-// Parameters:
-// 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
-//  to be canceled or to timeout according to the context's deadline.
-//  - in: A pointer to a CreateCollectionRequest object.
-//
-// Returns a pointer to a Collection object. In case of failure, it returns nil and the error encountered.
 //
 // Note: Collections are only available for pods-based indexes.
 //
@@ -928,7 +889,48 @@ type CreateCollectionRequest struct {
 //
 //  collection, err := pc.CreateCollection(ctx, &pinecone.CreateCollectionRequest{
 //    Name:   "my-collection",
-//    Source: "my-source-pods-based-index",
+//    Source: "my-source-index",
+//    },
+//  )
+//  if err != nil {
+//	  log.Fatalf("Failed to create collection: %s", err)
+//	} else {
+//	  fmt.Printf("Successfully created collection \"%s\".", collection.Name)
+//	}
+//
+// [collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
+type CreateCollectionRequest struct {
+	Name   string
+	Source string
+}
+
+// CreateCollection creates and initializes a new [collection] via the specified Client.
+//
+// Parameters:
+// 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
+//  to be canceled or to timeout according to the context's deadline.
+//  - in: A pointer to a CreateCollectionRequest object.
+//
+// Note: Collections are only available for pods-based indexes.
+//
+// Returns a pointer to a Collection object or an error.
+//
+// Example:
+//  ctx := context.Background()
+//
+//  clientParams := pinecone.NewClientParams{
+//	  ApiKey:    "YOUR_API_KEY",
+//	  SourceTag: "your_source_identifier", // optional
+//	}
+//
+// pc, err := pinecone.NewClient(clientParams)
+//  if err != nil {
+//    log.Fatalf("Failed to create Client: %v", err)
+//  }
+//
+//  collection, err := pc.CreateCollection(ctx, &pinecone.CreateCollectionRequest{
+//    Name:   "my-collection",
+//    Source: "my-source-index",
 //    }
 //  )
 // 	if err != nil {
@@ -936,6 +938,8 @@ type CreateCollectionRequest struct {
 //	} else {
 //	  fmt.Printf("Successfully created collection \"%s\".", collection.Name)
 //	}
+//
+// [collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionRequest) (*Collection, error) {
 	req := control.CreateCollectionRequest{
 		Name:   in.Name,
@@ -955,16 +959,16 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 	return decodeCollection(res.Body)
 }
 
-// DeleteCollection deletes a specific collection.
+// DeleteCollection deletes a specific [collection].
 //
 // Parameters:
 // 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
 //  to be canceled or to timeout according to the context's deadline.
 //  - collectionName: The name of the collection to delete.
 //
-// Returns an error if the deletion fails.
-//
 // Note: Collections are only available for pods-based indexes.
+//
+// Returns an error if the deletion fails.
 //
 // Example:
 //  ctx := context.Background()
@@ -987,6 +991,8 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 //	} else {
 //	  log.Printf("Successfully deleted collection \"%s\"\n", collectionName)
 //	}
+//
+// [collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) DeleteCollection(ctx context.Context, collectionName string) error {
 	res, err := c.restClient.DeleteCollection(ctx, collectionName)
 	if err != nil {
