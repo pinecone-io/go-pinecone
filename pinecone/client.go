@@ -176,7 +176,7 @@ func NewClient(in NewClientParams) (*Client, error) {
 //  if err != nil {
 //    log.Fatalf("Failed to create Client: %v", err)
 //  }
-	func NewClientBase(in NewClientBaseParams) (*Client, error) {
+func NewClientBase(in NewClientBaseParams) (*Client, error) {
 	clientOptions := buildClientBaseOptions(in)
 	var err error
 
