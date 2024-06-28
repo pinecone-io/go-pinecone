@@ -430,12 +430,17 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //	  fmt.Println("Successfully created a new Client object!")
 //	}
 //
+// 	podIndexMetadata := &pinecone.PodSpecMetadataConfig{
+//	  Indexed: &[]string{"title", "description"},
+//	}
+//
 //  idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
 //    Name:        "my-pod-index",
 //    Dimension:   3,
 //    Metric:      pinecone.Cosine,
 //    Environment: "us-west1-gcp",
 //    PodType:     "s1",
+//    MetadataConfig: podIndexMetadata,
 //    },
 //  )
 //
@@ -507,12 +512,17 @@ func (req CreatePodIndexRequest) TotalCount() *int {
 //	  fmt.Println("Successfully created a new Client object!")
 //	}
 //
+// 	podIndexMetadata := &pinecone.PodSpecMetadataConfig{
+//	  Indexed: &[]string{"title", "description"},
+//	}
+//
 //  idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
 //    Name:        "my-pod-index",
 //    Dimension:   3,
 //    Metric:      pinecone.Cosine,
 //    Environment: "us-west1-gcp",
 //    PodType:     "s1",
+//    MetadataConfig: podIndexMetadata,
 //    }
 //  )
 //
