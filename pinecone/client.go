@@ -273,6 +273,102 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	return nil
 }
 
+func (c *Client) ConfigureIndex(ctx context.Context, name string, pods string,
+	replicas int32) (*control.ConfigureIndexResponse,
+	error) {
+
+		podType := control.PodSpecPodType(pods)
+		replicas = control.PodSpecReplicas(replicas)
+
+		request := control.ConfigureIndexRequest{
+			Spec: struct {
+				Pod struct {
+					PodType  *control.PodSpecPodType  `json:"pod_type,omitempty"`
+					Replicas *control.PodSpecReplicas `json:"replicas,omitempty"`
+				} `json:"pod"`
+			}{
+				Pod: struct {
+					PodType  *control.PodSpecPodType  `json:"pod_type,omitempty"`
+					Replicas *control.PodSpecReplicas `json:"replicas,omitempty"`
+				}{
+					PodType:  &podType,
+					Replicas: &replicas,
+				},
+			},
+		}
+
+	res, err := c.restClient.ConfigureIndex(ctx, name, request)
+	if err != nil {
+		return nil, err
+	}
+
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		//bodyBytes, err := io.ReadAll(res.Body)
+		//if err != nil {
+		//	return nil, fmt.Errorf("failed to read response body: %w", err)
+		//}
+		//fmt.Printf("Error response body: %s\n", string(bodyBytes))
+
+		handleErrorResponseBody(res, "failed to configure index: ")}
+
+
+	// Inspect the response body
+	bodyBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	response := &control.ConfigureIndexResponse{
+		Body:         bodyBytes,
+		HTTPResponse: res,
+	}
+
+	return response, nil // TODO: why do I need nil here?
+
+}
+
+
+
+
+//func (c *Client) ConfigureIndex(ctx context.Context, in *ConfigureIndexRequest) (*Index, error) {
+//
+//	indexToConfigure, err := c.Index(in.Host)
+//
+//	podType := control.PodSpecPodType(in.Pods)
+//	replicas := control.PodSpecReplicas(in.Replicas)
+//
+//	request := control.ConfigureIndexRequest{
+//		Spec: struct {
+//			Pod struct {
+//				PodType  *control.PodSpecPodType  `json:"pod_type,omitempty"`
+//				Replicas *control.PodSpecReplicas `json:"replicas,omitempty"`
+//			} `json:"pod"`
+//		}{
+//			Pod: struct {
+//				PodType  *control.PodSpecPodType  `json:"pod_type,omitempty"`
+//				Replicas *control.PodSpecReplicas `json:"replicas,omitempty"`
+//			}{
+//				PodType:  &podType,
+//				Replicas: &replicas,
+//			},
+//		},
+//	}
+//	fmt.Printf("!! Request: %+v\n", request)
+//	fmt.Printf("Index name: %s\n", c.restClient.In)
+//	res, err := c.restClient.ConfigureIndex(ctx, in.Name, request)
+//	if err != nil {
+//		return nil, err
+//	}
+//	defer res.Body.Close()
+//
+//	if res.StatusCode != http.StatusCreated {
+//		handleErrorResponseBody(res, "failed to configure index: ")}
+//
+//	return decodeIndex(res.Body)
+//}
+
 func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	res, err := c.restClient.ListCollections(ctx)
 	if err != nil {
