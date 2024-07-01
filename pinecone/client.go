@@ -273,6 +273,44 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	return nil
 }
 
+type ConfigureIndexRequest struct {
+	Name string
+	Pods string // Changes the *size* of your current pod type; cannot change *type* of pod itself
+	Replicas int32
+}
+
+func (c *Client) ConfigureIndex(ctx context.Context, in *ConfigureIndexRequest) (*Index, error) {
+	podType := control.PodSpecPodType(in.Pods)
+	replicas := control.PodSpecReplicas(in.Replicas)
+
+	request := control.ConfigureIndexRequest{
+		Spec: struct {
+			Pod struct {
+				PodType  *control.PodSpecPodType  `json:"pod_type,omitempty"`
+				Replicas *control.PodSpecReplicas `json:"replicas,omitempty"`
+			} `json:"pod"`
+		}{
+			Pod: struct {
+				PodType  *control.PodSpecPodType  `json:"pod_type,omitempty"`
+				Replicas *control.PodSpecReplicas `json:"replicas,omitempty"`
+			}{
+				PodType:  &podType,
+				Replicas: &replicas,
+			},
+		},
+	}
+	res, err := c.restClient.ConfigureIndex(ctx, in.Name, request)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		handleErrorResponseBody(res, "failed to configure index: ")}
+
+	return decodeIndex(res.Body)
+}
+
 func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	res, err := c.restClient.ListCollections(ctx)
 	if err != nil {
