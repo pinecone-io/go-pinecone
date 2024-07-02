@@ -4,21 +4,22 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log"
+
 	"github.com/pinecone-io/go-pinecone/internal/gen/data"
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
-	"log"
 )
 
 // IndexConnection holds the parameters for a Pinecone IndexConnection object.
 //
 // Fields:
-//  - Namespace: The namespace where index operations will be performed.
-//  - additionalMetadata: Additional metadata to be sent with each RPC request.
-//  - dataClient: The gRPC client for the index.
-//  - grpcConn: The gRPC connection.
+//   - Namespace: The namespace where index operations will be performed.
+//   - additionalMetadata: Additional metadata to be sent with each RPC request.
+//   - dataClient: The gRPC client for the index.
+//   - grpcConn: The gRPC connection.
 type IndexConnection struct {
 	Namespace          string
 	additionalMetadata map[string]string
@@ -33,25 +34,37 @@ type newIndexParameters struct {
 	additionalMetadata map[string]string
 }
 
-func newIndexConnection(in newIndexParameters) (*IndexConnection, error) {
+func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*IndexConnection, error) {
 	config := &tls.Config{}
 	target := fmt.Sprintf("%s:443", in.host)
-	conn, err := grpc.Dial(
-		target,
+
+	// configure default gRPC DialOptions
+	grpcOptions := []grpc.DialOption{
 		grpc.WithTransportCredentials(credentials.NewTLS(config)),
 		grpc.WithAuthority(target),
-		grpc.WithBlock(),
 		grpc.WithUserAgent(useragent.BuildUserAgentGRPC(in.sourceTag)),
-	)
+	}
 
+	// if we have user-provided dialOpts, append them to the defaults here
+	dialOpts = append(grpcOptions, dialOpts...)
+
+	conn, err := grpc.NewClient(
+		target,
+		dialOpts...,
+	)
 	if err != nil {
-		log.Fatalf("fail to dial: %v", err)
+		log.Fatalf("failed to create grpc client: %v", err)
 		return nil, err
 	}
 
 	dataClient := data.NewVectorServiceClient(conn)
 
-	idx := IndexConnection{Namespace: in.namespace, dataClient: &dataClient, grpcConn: conn, additionalMetadata: in.additionalMetadata}
+	idx := IndexConnection{
+		Namespace:          in.namespace,
+		dataClient:         &dataClient,
+		grpcConn:           conn,
+		additionalMetadata: in.additionalMetadata,
+	}
 	return &idx, nil
 }
 
@@ -60,32 +73,33 @@ func newIndexConnection(in newIndexParameters) (*IndexConnection, error) {
 // Returns an error if the connection cannot be closed, otherwise returns nil.
 //
 // Example:
-//  ctx := context.Background()
 //
-//  clientParams := pinecone.NewClientParams{
-//	  ApiKey:    "YOUR_API_KEY",
-//	  SourceTag: "your_source_identifier", // optional
-//	}
+//	 ctx := context.Background()
 //
-//  pc, err := pinecone.NewClient(clientParams)
-//	if err != nil {
-//		log.Fatalf("Failed to create Client: %v", err)
-//  }
+//	 clientParams := pinecone.NewClientParams{
+//		  ApiKey:    "YOUR_API_KEY",
+//		  SourceTag: "your_source_identifier", // optional
+//		}
 //
-//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//  if err != nil {
-//	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//  }
+//	 pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//			log.Fatalf("Failed to create Client: %v", err)
+//	 }
 //
-//  idxConnection, err := pc.Index(idx.Host)
-//	if err != nil {
-//	  log.Fatalf("Failed to create IndexConnection: %v", err)
-//	}
+//	 idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	 if err != nil {
+//		  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	 }
 //
-//  err = idxConnection.Close()
-//	if err != nil {
-//	  log.Fatalf("Failed to close index connection:", err)
-//  }
+//	 idxConnection, err := pc.Index(idx.Host)
+//		if err != nil {
+//		  log.Fatalf("Failed to create IndexConnection: %v", err)
+//		}
+//
+//	 err = idxConnection.Close()
+//		if err != nil {
+//		  log.Fatalf("Failed to close index connection:", err)
+//	 }
 func (idx *IndexConnection) Close() error {
 	err := idx.grpcConn.Close()
 	return err
@@ -94,63 +108,64 @@ func (idx *IndexConnection) Close() error {
 // UpsertVectors upserts vectors into a Pinecone index.
 //
 // Parameters:
-//  - ctx: A context.Context object controls the request's lifetime,
-//  allowing for the request to be canceled or to timeout according to the context's deadline.
-//  - in: The vectors to upsert.
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - in: The vectors to upsert.
 //
 // Returns the number of vectors upserted or an error if the request fails.
 //
 // Example:
-//  ctx := context.Background()
 //
-//  clientParams := pinecone.NewClientParams{
-//	  ApiKey:    "YOUR_API_KEY",
-//	  SourceTag: "your_source_identifier", // optional
-//	}
+//	 ctx := context.Background()
 //
-//  pc, err := pinecone.NewClient(clientParams)
-//	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//	 clientParams := pinecone.NewClientParams{
+//		  ApiKey:    "YOUR_API_KEY",
+//		  SourceTag: "your_source_identifier", // optional
+//		}
 //
-//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//  if err != nil {
-//	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//  }
+//	 pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//	   log.Fatalf("Failed to create Client: %v", err)
+//	 }
 //
-// 	idxConnection, err := pc.Index(idx.Host)
-//	if err != nil {
-//	  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	}
+//	 idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	 if err != nil {
+//		  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	 }
 //
-// 	metadataMap := map[string]interface{}{
-//		"genre": "classical",
-//	}
+//		idxConnection, err := pc.Index(idx.Host)
+//		if err != nil {
+//		  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		}
 //
-// 	metadata, err := structpb.NewStruct(metadataMap)
-//	if err != nil {
-//		log.Fatalf("Failed to create metadata map:", err)
-//	}
+//		metadataMap := map[string]interface{}{
+//			"genre": "classical",
+//		}
 //
-// 	sparseValues := pinecone.SparseValues{
-//	  Indices: []uint32{0, 1},
-//	  Values:  []float32{1.0, 2.0},
-//	}
+//		metadata, err := structpb.NewStruct(metadataMap)
+//		if err != nil {
+//			log.Fatalf("Failed to create metadata map:", err)
+//		}
 //
-// 	vectors := []*pinecone.Vector{
-//    {Id:     "abc-1",
-//     Values: []float32{1.0, 2.0},
-//     Metadata: metadata,
-//     SparseValues: &sparseValues,
-//    },
-//  }
+//		sparseValues := pinecone.SparseValues{
+//		  Indices: []uint32{0, 1},
+//		  Values:  []float32{1.0, 2.0},
+//		}
 //
-//  count, err := idxConnection.UpsertVectors(ctx, vectors)
-//  if err != nil {
-//	  log.Fatalf("Failed to upsert vectors:", err)
-//	} else {
-//	  log.Fatalf("Successfully upserted %d vector(s)!\n", count)
-//	}
+//		vectors := []*pinecone.Vector{
+//	   {Id:     "abc-1",
+//	    Values: []float32{1.0, 2.0},
+//	    Metadata: metadata,
+//	    SparseValues: &sparseValues,
+//	   },
+//	 }
+//
+//	 count, err := idxConnection.UpsertVectors(ctx, vectors)
+//	 if err != nil {
+//		  log.Fatalf("Failed to upsert vectors:", err)
+//		} else {
+//		  log.Fatalf("Successfully upserted %d vector(s)!\n", count)
+//		}
 func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (uint32, error) {
 	vectors := make([]*data.Vector, len(in))
 	for i, v := range in {
@@ -173,8 +188,8 @@ func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (ui
 // which is returned by the FetchVectors method.
 //
 // Fields:
-//  - Vectors: The vectors fetched.
-//  - Usage: The usage information for the request.
+//   - Vectors: The vectors fetched.
+//   - Usage: The usage information for the request.
 type FetchVectorsResponse struct {
 	Vectors map[string]*Vector `json:"vectors,omitempty"`
 	Usage   *Usage             `json:"usage,omitempty"`
@@ -183,44 +198,45 @@ type FetchVectorsResponse struct {
 // FetchVectors fetches vectors by ID from a Pinecone index.
 //
 // Parameters:
-//  - ctx: A context.Context object controls the request's lifetime,
-//   allowing for the request to be canceled or to timeout according to the context's deadline.
-//  - ids: The unique IDs of the vectors to fetch.
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - ids: The unique IDs of the vectors to fetch.
 //
 // Returns a pointer to any fetched vectors or an error if the request fails.
 //
 // Example:
-//  ctx := context.Background()
 //
-//  clientParams := pinecone.NewClientParams{
-//	  ApiKey:    "YOUR_API_KEY",
-//	  SourceTag: "your_source_identifier", // optional
-//	}
+//	 ctx := context.Background()
 //
-//  pc, err := pinecone.NewClient(clientParams)
-//	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//	 clientParams := pinecone.NewClientParams{
+//		  ApiKey:    "YOUR_API_KEY",
+//		  SourceTag: "your_source_identifier", // optional
+//		}
 //
-//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//  if err != nil {
-//	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//  }
+//	 pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//	   log.Fatalf("Failed to create Client: %v", err)
+//	 }
 //
-// 	idxConnection, err := pc.Index(idx.Host)
-//	if err != nil {
-//	  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	}
+//	 idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	 if err != nil {
+//		  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	 }
 //
-//  res, err := idxConnection.FetchVectors(ctx, []string{"abc-1"})
-//  if err != nil {
-//	  log.Fatalf("Failed to fetch vectors, error:", err)
-//	}
-// 	if len(res.Vectors) != 0 {
-//    fmt.Println(res)
-//	} else {
-//	  fmt.Println("No vectors found")
-//	}
+//		idxConnection, err := pc.Index(idx.Host)
+//		if err != nil {
+//		  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		}
+//
+//	 res, err := idxConnection.FetchVectors(ctx, []string{"abc-1"})
+//	 if err != nil {
+//		  log.Fatalf("Failed to fetch vectors, error:", err)
+//		}
+//		if len(res.Vectors) != 0 {
+//	   fmt.Println(res)
+//		} else {
+//		  fmt.Println("No vectors found")
+//		}
 func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*FetchVectorsResponse, error) {
 	req := &data.FetchRequest{
 		Ids:       ids,
@@ -247,10 +263,10 @@ func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*Fe
 // which is passed into the ListVectors method.
 //
 // Fields:
-//  - Prefix: The prefix by which to filter. If unspecified,
-//  an empty string will be used which will list all vector ids in the namespace
-//  - Limit: The maximum number of vectors to return. If unspecified, the server will use a default value.
-//  - PaginationToken: The token for paginating through results.
+//   - Prefix: The prefix by which to filter. If unspecified,
+//     an empty string will be used which will list all vector ids in the namespace
+//   - Limit: The maximum number of vectors to return. If unspecified, the server will use a default value.
+//   - PaginationToken: The token for paginating through results.
 type ListVectorsRequest struct {
 	Prefix          *string
 	Limit           *uint32
@@ -261,9 +277,9 @@ type ListVectorsRequest struct {
 // which is returned by the ListVectors method.
 //
 // Fields:
-//  - VectorIds: The unique IDs of the returned vectors.
-//  - Usage: The usage information for the request.
-//  - NextPaginationToken: The token for paginating through results.
+//   - VectorIds: The unique IDs of the returned vectors.
+//   - Usage: The usage information for the request.
+//   - NextPaginationToken: The token for paginating through results.
 type ListVectorsResponse struct {
 	VectorIds           []*string `json:"vector_ids,omitempty"`
 	Usage               *Usage    `json:"usage,omitempty"`
@@ -278,50 +294,51 @@ type ListVectorsResponse struct {
 // Returns a pointer to a ListVectorsResponse object or an error if the request fails.
 //
 // Parameters:
-//  - ctx: A context.Context object controls the request's lifetime,
-//   allowing for the request to be canceled or to timeout according to the context's deadline.
-//  - in: A ListVectorsRequest object with the parameters for the request.
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - in: A ListVectorsRequest object with the parameters for the request.
 //
 // Example:
-//  ctx := context.Background()
 //
-//  clientParams := pinecone.NewClientParams{
-//	  ApiKey:    "YOUR_API_KEY",
-//	  SourceTag: "your_source_identifier", // optional
-//	}
+//	 ctx := context.Background()
 //
-//  pc, err := pinecone.NewClient(clientParams)
-//	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//	 clientParams := pinecone.NewClientParams{
+//		  ApiKey:    "YOUR_API_KEY",
+//		  SourceTag: "your_source_identifier", // optional
+//		}
 //
-//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//  if err != nil {
-//	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//  }
+//	 pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//	   log.Fatalf("Failed to create Client: %v", err)
+//	 }
 //
-// 	idxConnection, err := pc.Index(idx.Host)
-//	if err != nil {
-//	  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	}
+//	 idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	 if err != nil {
+//		  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	 }
 //
-//  prefix := "abc"
-//	limit := uint32(10)
+//		idxConnection, err := pc.Index(idx.Host)
+//		if err != nil {
+//		  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		}
 //
-//	res, err := idxConnection.ListVectors(ctx, &pinecone.ListVectorsRequest{
-//	  Prefix: &prefix,
-//	  Limit:  &limit,
-//	})
+//	 prefix := "abc"
+//		limit := uint32(10)
 //
-//  if err != nil {
-//	  log.Fatalf("Failed to list vectors in index: %s. Error: %s\n", idx.Name, err)
-//	}
+//		res, err := idxConnection.ListVectors(ctx, &pinecone.ListVectorsRequest{
+//		  Prefix: &prefix,
+//		  Limit:  &limit,
+//		})
 //
-//  if len(res.VectorIds) == 0 {
-//	  fmt.Println("No vectors found")
-//	} else {
-//	  fmt.Printf("Found %d vector(s)\n", len(res.VectorIds))
-//  }
+//	 if err != nil {
+//		  log.Fatalf("Failed to list vectors in index: %s. Error: %s\n", idx.Name, err)
+//		}
+//
+//	 if len(res.VectorIds) == 0 {
+//		  fmt.Println("No vectors found")
+//		} else {
+//		  fmt.Printf("Found %d vector(s)\n", len(res.VectorIds))
+//	 }
 func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequest) (*ListVectorsResponse, error) {
 	req := &data.ListRequest{
 		Prefix:          in.Prefix,
@@ -350,12 +367,12 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 // which is passed into the QueryByVectorValues method.
 //
 // Fields:
-//  - Vector: The query vector used to find similar vectors.
-//  - TopK: The number of vectors to return.
-//  - Filter: The filter to apply to your query.
-//  - IncludeValues: Whether to include the values of the vectors in the response.
-//  - IncludeMetadata: Whether to include the metadata associated with the vectors in the response.
-//  - SparseValues: The sparse values of the query vector, if applicable.
+//   - Vector: The query vector used to find similar vectors.
+//   - TopK: The number of vectors to return.
+//   - Filter: The filter to apply to your query.
+//   - IncludeValues: Whether to include the values of the vectors in the response.
+//   - IncludeMetadata: Whether to include the metadata associated with the vectors in the response.
+//   - SparseValues: The sparse values of the query vector, if applicable.
 type QueryByVectorValuesRequest struct {
 	Vector          []float32
 	TopK            uint32
@@ -369,8 +386,8 @@ type QueryByVectorValuesRequest struct {
 // which is returned by the QueryByVectorValues method.
 //
 // Fields:
-//  - Matches: The vectors that are most similar to the query vector.
-//  - Usage: The usage information for the request.
+//   - Matches: The vectors that are most similar to the query vector.
+//   - Usage: The usage information for the request.
 type QueryVectorsResponse struct {
 	Matches []*ScoredVector `json:"matches,omitempty"`
 	Usage   *Usage          `json:"usage,omitempty"`
@@ -384,65 +401,66 @@ type QueryVectorsResponse struct {
 // your index's similarity metric must be dot-product.
 //
 // Parameters:
-//  - ctx: A context.Context object controls the request's lifetime,
-//   allowing for the request to be canceled or to timeout according to the context's deadline.
-//  - in: A QueryByVectorValuesRequest object with the parameters for the request.
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - in: A QueryByVectorValuesRequest object with the parameters for the request.
 //
 // Example:
-//  ctx := context.Background()
 //
-//  clientParams := pinecone.NewClientParams{
-//	  ApiKey:    "YOUR_API_KEY",
-//	  SourceTag: "your_source_identifier", // optional
-//	}
+//	 ctx := context.Background()
 //
-//  pc, err := pinecone.NewClient(clientParams)
-//	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//	 clientParams := pinecone.NewClientParams{
+//		  ApiKey:    "YOUR_API_KEY",
+//		  SourceTag: "your_source_identifier", // optional
+//		}
 //
-//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//  if err != nil {
-//	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//  }
+//	 pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//	   log.Fatalf("Failed to create Client: %v", err)
+//	 }
 //
-// 	idxConnection, err := pc.Index(idx.Host)
-//	if err != nil {
-//	  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	}
+//	 idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	 if err != nil {
+//		  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	 }
 //
-//  queryVector := []float32{1.0, 2.0}
-//	topK := uint32(10)
-// 	metadataMap := map[string]interface{}{
-//		"genre": "classical",
-//	}
-//	metadataFilter, err := structpb.NewStruct(metadataMap)
-//	if err != nil {
-//		log.Fatalf("Failed to create metadata map:", err)
-//	}
+//		idxConnection, err := pc.Index(idx.Host)
+//		if err != nil {
+//		  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		}
 //
-// 	sparseValues := pinecone.SparseValues{
-//	  Indices: []uint32{0, 1},
-//	  Values:  []float32{1.0, 2.0},
-//	}
+//	 queryVector := []float32{1.0, 2.0}
+//		topK := uint32(10)
+//		metadataMap := map[string]interface{}{
+//			"genre": "classical",
+//		}
+//		metadataFilter, err := structpb.NewStruct(metadataMap)
+//		if err != nil {
+//			log.Fatalf("Failed to create metadata map:", err)
+//		}
 //
-//	res, err := idxConnection.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
-//	  Vector:        queryVector,
-//	  TopK:          topK,  // number of vectors to be returned
-//	  Filter:        metadataFilter,
-//	  SparseValues:  &sparseValues,
-//	  IncludeValues: true,
-//	  IncludeMetadata: true,
-//	  }
-//  )
+//		sparseValues := pinecone.SparseValues{
+//		  Indices: []uint32{0, 1},
+//		  Values:  []float32{1.0, 2.0},
+//		}
 //
-//  if err != nil {
-//	  log.Fatalf("Error encountered when querying by vector:", err)
-//	} else {
-//  for _, match := range res.Matches {
-//    fmt.Printf("Match vector `%s`, with score %f\n", match.Vector.Id, match.Score)
-//    }
-//  }
+//		res, err := idxConnection.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
+//		  Vector:        queryVector,
+//		  TopK:          topK,  // number of vectors to be returned
+//		  Filter:        metadataFilter,
+//		  SparseValues:  &sparseValues,
+//		  IncludeValues: true,
+//		  IncludeMetadata: true,
+//		  }
+//	 )
+//
+//	 if err != nil {
+//		  log.Fatalf("Error encountered when querying by vector:", err)
+//		} else {
+//	 for _, match := range res.Matches {
+//	   fmt.Printf("Match vector `%s`, with score %f\n", match.Vector.Id, match.Score)
+//	   }
+//	 }
 func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryByVectorValuesRequest) (*QueryVectorsResponse, error) {
 	req := &data.QueryRequest{
 		Namespace:       idx.Namespace,
@@ -461,12 +479,12 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 // which is passed into the QueryByVectorId method.
 //
 // Fields:
-//  - VectorId: The unique ID of the vector used to find similar vectors.
-//  - TopK: The number of vectors to return.
-//  - Filter: The filter to apply to your query.
-//  - IncludeValues: Whether to include the values of the vectors in the response.
-//  - IncludeMetadata: Whether to include the metadata associated with the vectors in the response.
-//  - SparseValues: The sparse values of the query vector, if applicable.
+//   - VectorId: The unique ID of the vector used to find similar vectors.
+//   - TopK: The number of vectors to return.
+//   - Filter: The filter to apply to your query.
+//   - IncludeValues: Whether to include the values of the vectors in the response.
+//   - IncludeMetadata: Whether to include the metadata associated with the vectors in the response.
+//   - SparseValues: The sparse values of the query vector, if applicable.
 type QueryByVectorIdRequest struct {
 	VectorId        string
 	TopK            uint32
@@ -486,50 +504,51 @@ type QueryByVectorIdRequest struct {
 // it will return 2+ vectors. The vector with a score of 1.0 is the vector with the same ID as the query vector.
 //
 // Parameters:
-//  - ctx: A context.Context object controls the request's lifetime,
-//   allowing for the request to be canceled or to timeout according to the context's deadline.
-//  - in: A QueryByVectorIdRequest object with the parameters for the request.
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - in: A QueryByVectorIdRequest object with the parameters for the request.
 //
 // Example:
-//  ctx := context.Background()
 //
-//  clientParams := pinecone.NewClientParams{
-//	  ApiKey:    "YOUR_API_KEY",
-//	  SourceTag: "your_source_identifier", // optional
-//	}
+//	 ctx := context.Background()
 //
-//  pc, err := pinecone.NewClient(clientParams)
-//	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//	 clientParams := pinecone.NewClientParams{
+//		  ApiKey:    "YOUR_API_KEY",
+//		  SourceTag: "your_source_identifier", // optional
+//		}
 //
-//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//  if err != nil {
-//	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//  }
+//	 pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//	   log.Fatalf("Failed to create Client: %v", err)
+//	 }
 //
-// 	idxConnection, err := pc.Index(idx.Host)
-//	if err != nil {
-//	  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	}
+//	 idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	 if err != nil {
+//		  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	 }
 //
-//  vectorId := "abc-1"
-//	topK := uint32(10)
+//		idxConnection, err := pc.Index(idx.Host)
+//		if err != nil {
+//		  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		}
 //
-//	res, err := idxConnection.QueryByVectorId(ctx, &pinecone.QueryByVectorIdRequest{
-//	  VectorId:      vectorId,
-//	  TopK:          topK,  // number of vectors you want returned
-//	  IncludeValues: true,
-//	  IncludeMetadata: true,
-//	 })	index
+//	 vectorId := "abc-1"
+//		topK := uint32(10)
 //
-//  if err != nil {
-//	  log.Fatalf("Error encountered when querying by vector ID `%s`. Error: %s", id, err)
-//	} else {
-//    for _, match := range res.Matches {
-//	    fmt.Printf("Match vector with ID `%s`, with score %f\n", match.Vector.Id, match.Score)
-//	  }
-//	}
+//		res, err := idxConnection.QueryByVectorId(ctx, &pinecone.QueryByVectorIdRequest{
+//		  VectorId:      vectorId,
+//		  TopK:          topK,  // number of vectors you want returned
+//		  IncludeValues: true,
+//		  IncludeMetadata: true,
+//		 })	index
+//
+//	 if err != nil {
+//		  log.Fatalf("Error encountered when querying by vector ID `%s`. Error: %s", id, err)
+//		} else {
+//	   for _, match := range res.Matches {
+//		    fmt.Printf("Match vector with ID `%s`, with score %f\n", match.Vector.Id, match.Score)
+//		  }
+//		}
 func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVectorIdRequest) (*QueryVectorsResponse, error) {
 	req := &data.QueryRequest{
 		Id:              in.VectorId,
@@ -554,37 +573,38 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 // than the default.
 //
 // Parameters:
-//  - ctx: A context.Context object controls the request's lifetime,
-//   allowing for the request to be canceled or to timeout according to the context's deadline.
-//  - ids: IDs of the vectors you want to delete.
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - ids: IDs of the vectors you want to delete.
 //
 // Example:
-//  ctx := context.Background()
 //
-//  clientParams := pinecone.NewClientParams{
-//	  ApiKey:    "YOUR_API_KEY",
-//	  SourceTag: "your_source_identifier", // optional
-//	}
+//	 ctx := context.Background()
 //
-//  pc, err := pinecone.NewClient(clientParams)
-//	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//	 clientParams := pinecone.NewClientParams{
+//		  ApiKey:    "YOUR_API_KEY",
+//		  SourceTag: "your_source_identifier", // optional
+//		}
 //
-//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//  if err != nil {
-//	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//  }
+//	 pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//	   log.Fatalf("Failed to create Client: %v", err)
+//	 }
 //
-// 	idxConnection, err := pc.IndexWithNamespace(idx.Host, "custom-namespace")
-//	if err != nil {
-//		log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	}
+//	 idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	 if err != nil {
+//		  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	 }
 //
-// 	err = idxConnection.DeleteVectorsById(ctx, []string{id})
-//	if err != nil {
-//		log.Fatalf("Failed to delete vector with ID: %s. Error: %s\n", id, err)
-//	}
+//		idxConnection, err := pc.IndexWithNamespace(idx.Host, "custom-namespace")
+//		if err != nil {
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		}
+//
+//		err = idxConnection.DeleteVectorsById(ctx, []string{id})
+//		if err != nil {
+//			log.Fatalf("Failed to delete vector with ID: %s. Error: %s\n", id, err)
+//		}
 func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string) error {
 	req := data.DeleteRequest{
 		Ids:       ids,
@@ -603,46 +623,47 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 // other than the default.
 //
 // Parameters:
-//  - ctx: A context.Context object controls the request's lifetime,
-//   allowing for the request to be canceled or to timeout according to the context's deadline.
-//  - filter: The filter to apply to the deletion.
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - filter: The filter to apply to the deletion.
 //
 // Example:
-//  ctx := context.Background()
 //
-//  clientParams := pinecone.NewClientParams{
-//    ApiKey:    "YOUR_API_KEY",
-//	  SourceTag: "your_source_identifier", // optional
-//  }
+//	 ctx := context.Background()
 //
-//  pc, err := pinecone.NewClient(clientParams)
-//	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//	 clientParams := pinecone.NewClientParams{
+//	   ApiKey:    "YOUR_API_KEY",
+//		  SourceTag: "your_source_identifier", // optional
+//	 }
 //
-//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//  if err != nil {
-//    log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//  }
+//	 pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//	   log.Fatalf("Failed to create Client: %v", err)
+//	 }
 //
-// 	idxConnection, err := pc.Index(idx.Host)
-//	if err != nil {
-//	  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	}
+//	 idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	 if err != nil {
+//	   log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	 }
 //
-//  metadataFilter := map[string]interface{}{
-//    "genre": "classical",
-//  }
+//		idxConnection, err := pc.Index(idx.Host)
+//		if err != nil {
+//		  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		}
 //
-//  filter, err := structpb.NewStruct(metadataFilter)
-//  if err != nil {
-//    log.Fatalf("Failed to create metadata filter:", err)
-//  }
+//	 metadataFilter := map[string]interface{}{
+//	   "genre": "classical",
+//	 }
 //
-//  err = idxConnection.DeleteVectorsByFilter(ctx, filter)
-//  if err != nil {
-//    log.Fatalf("Failed to delete vector(s) with filter: %+v. Error: %s\n", filter, err)
-//  }
+//	 filter, err := structpb.NewStruct(metadataFilter)
+//	 if err != nil {
+//	   log.Fatalf("Failed to create metadata filter:", err)
+//	 }
+//
+//	 err = idxConnection.DeleteVectorsByFilter(ctx, filter)
+//	 if err != nil {
+//	   log.Fatalf("Failed to delete vector(s) with filter: %+v. Error: %s\n", filter, err)
+//	 }
 func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *Filter) error {
 	req := data.DeleteRequest{
 		Filter:    filter,
@@ -660,36 +681,37 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *F
 // than the default.
 //
 // Parameters:
-//  - ctx: A context.Context object controls the request's lifetime,
-//   allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
 //
 // Example:
-//  ctx := context.Background()
 //
-//  clientParams := pinecone.NewClientParams{
-//    ApiKey:    "YOUR_API_KEY",
-//	  SourceTag: "your_source_identifier", // optional
-//  }
+//	 ctx := context.Background()
 //
-//  pc, err := pinecone.NewClient(clientParams)
-//	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//	 clientParams := pinecone.NewClientParams{
+//	   ApiKey:    "YOUR_API_KEY",
+//		  SourceTag: "your_source_identifier", // optional
+//	 }
 //
-//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//  if err != nil {
-// 	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//  }
+//	 pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//	   log.Fatalf("Failed to create Client: %v", err)
+//	 }
 //
-// 	idxConnection, err := pc.Index(idx.Host)
-//	if err != nil {
-//	  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	}
+//	 idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	 if err != nil {
+//		  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	 }
 //
-//  err = idxConnection.DeleteAllVectorsInNamespace(ctx)
-//	if err != nil {
-//	  log.Fatalf("Failed to delete vectors in namespace: \"%s\". Error: %s", idxConnection.Namespace, err)
-//  }
+//		idxConnection, err := pc.Index(idx.Host)
+//		if err != nil {
+//		  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		}
+//
+//	 err = idxConnection.DeleteAllVectorsInNamespace(ctx)
+//		if err != nil {
+//		  log.Fatalf("Failed to delete vectors in namespace: \"%s\". Error: %s", idxConnection.Namespace, err)
+//	 }
 func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx context.Context) error {
 	req := data.DeleteRequest{
 		Namespace: idx.Namespace,
@@ -703,10 +725,10 @@ func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx context.Context) err
 // which is passed into the UpdateVector method.
 //
 // Fields:
-//  - Id: The unique ID of the vector to update.
-//  - Values: The values with which you want to update the vector.
-//  - SparseValues: The sparse values with which you want to update the vector.
-//  - Metadata: The metadata with which you want to update the vector.
+//   - Id: The unique ID of the vector to update.
+//   - Values: The values with which you want to update the vector.
+//   - SparseValues: The sparse values with which you want to update the vector.
+//   - Metadata: The metadata with which you want to update the vector.
 type UpdateVectorRequest struct {
 	Id           string
 	Values       []float32
@@ -719,43 +741,44 @@ type UpdateVectorRequest struct {
 // Returns an error if the request fails, returns nil otherwise.
 //
 // Parameters:
-//  - ctx: A context.Context object controls the request's lifetime,
-//   allowing for the request to be canceled or to timeout according to the context's deadline.
-//  - in: An UpdateVectorRequest object with the parameters for the request.
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - in: An UpdateVectorRequest object with the parameters for the request.
 //
 // Example:
-//  ctx := context.Background()
 //
-//  clientParams := pinecone.NewClientParams{
-//    ApiKey:    "YOUR_API_KEY",
-//	  SourceTag: "your_source_identifier", // optional
-//  }
+//	 ctx := context.Background()
 //
-//  pc, err := pinecone.NewClient(clientParams)
-//	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//	 clientParams := pinecone.NewClientParams{
+//	   ApiKey:    "YOUR_API_KEY",
+//		  SourceTag: "your_source_identifier", // optional
+//	 }
 //
-//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//  if err != nil {
-//	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//  }
+//	 pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//	   log.Fatalf("Failed to create Client: %v", err)
+//	 }
 //
-// 	idxConnection, err := pc.Index(idx.Host)
-//	if err != nil {
-//	  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	}
+//	 idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	 if err != nil {
+//		  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	 }
 //
-//  id := "abc-1"
+//		idxConnection, err := pc.Index(idx.Host)
+//		if err != nil {
+//		  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		}
 //
-//  err = idxConnection.UpdateVector(ctx, &pinecone.UpdateVectorRequest{
-//    Id:     id,
-//	  Values: []float32{7.0, 8.0},
-//	  }
-//  )
-//	if err != nil {
-//	  log.Fatalf("Failed to update vector with ID %s. Error: %s", id, err)
-//  }
+//	 id := "abc-1"
+//
+//	 err = idxConnection.UpdateVector(ctx, &pinecone.UpdateVectorRequest{
+//	   Id:     id,
+//		  Values: []float32{7.0, 8.0},
+//		  }
+//	 )
+//		if err != nil {
+//		  log.Fatalf("Failed to update vector with ID %s. Error: %s", id, err)
+//	 }
 func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRequest) error {
 	req := &data.UpdateRequest{
 		Id:           in.Id,
@@ -773,10 +796,10 @@ func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRe
 // which is returned by the DescribeIndexStats method.
 //
 // Fields:
-//  - Dimension: The dimension of the index.
-//  - IndexFullness: The fullness level of the index. Note: only available on pods-based indexes.
-//  - TotalVectorCount: The total number of vectors in the index.
-//  - Namespaces: The namespace(s) in the index.
+//   - Dimension: The dimension of the index.
+//   - IndexFullness: The fullness level of the index. Note: only available on pods-based indexes.
+//   - TotalVectorCount: The total number of vectors in the index.
+//   - Namespaces: The namespace(s) in the index.
 type DescribeIndexStatsResponse struct {
 	Dimension        uint32                       `json:"dimension"`
 	IndexFullness    float32                      `json:"index_fullness"`
@@ -789,38 +812,39 @@ type DescribeIndexStatsResponse struct {
 // Returns a pointer to a DescribeIndexStatsResponse object or an error if the request fails.
 //
 // Parameters:
-//  - ctx: A context.Context object controls the request's lifetime,
-//   allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
 //
 // Example:
-//  ctx := context.Background()
 //
-//  clientParams := pinecone.NewClientParams{
-//    ApiKey:    "YOUR_API_KEY",
-//	  SourceTag: "your_source_identifier", // optional
-//  }
+//	 ctx := context.Background()
 //
-//  pc, err := pinecone.NewClient(clientParams)
-//	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//	 clientParams := pinecone.NewClientParams{
+//	   ApiKey:    "YOUR_API_KEY",
+//		  SourceTag: "your_source_identifier", // optional
+//	 }
 //
-//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//  if err != nil {
-//	  log.Fatalf("Failed to describe index:", err)
-//  }
+//	 pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//	   log.Fatalf("Failed to create Client: %v", err)
+//	 }
 //
-// 	idxConnection, err := pc.Index(idx.Host)
-//	if err != nil {
-//	  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	}
+//	 idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	 if err != nil {
+//		  log.Fatalf("Failed to describe index:", err)
+//	 }
 //
-//  res, err := idxConnection.DescribeIndexStats(ctx)
-//	if err != nil {
-//	  log.Fatalf("Failed to describe index \"%s\". Error: %s", idx.Name, err)
-//	} else {
-//    log.Fatalf("%+v", *res)
-//	}
+//		idxConnection, err := pc.Index(idx.Host)
+//		if err != nil {
+//		  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		}
+//
+//	 res, err := idxConnection.DescribeIndexStats(ctx)
+//		if err != nil {
+//		  log.Fatalf("Failed to describe index \"%s\". Error: %s", idx.Name, err)
+//		} else {
+//	   log.Fatalf("%+v", *res)
+//		}
 func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIndexStatsResponse, error) {
 	return idx.DescribeIndexStatsFiltered(ctx, nil)
 }
@@ -832,50 +856,51 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 // Note: DescribeIndexStatsFiltered is only available on pods-based indexes.
 //
 // Parameters:
-//  - ctx: A context.Context object controls the request's lifetime,
-//   allowing for the request to be canceled or to timeout according to the context's deadline.
-//  - filter: The filter to apply to the request.
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - filter: The filter to apply to the request.
 //
 // Example:
-//  ctx := context.Background()
 //
-//  clientParams := pinecone.NewClientParams{
-//    ApiKey:    "YOUR_API_KEY",
-//	  SourceTag: "your_source_identifier", // optional
-//  }
+//	 ctx := context.Background()
 //
-//  pc, err := pinecone.NewClient(clientParams)
-//	if err != nil {
-//    log.Fatalf("Failed to create Client: %v", err)
-//  }
+//	 clientParams := pinecone.NewClientParams{
+//	   ApiKey:    "YOUR_API_KEY",
+//		  SourceTag: "your_source_identifier", // optional
+//	 }
 //
-//  idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//  if err != nil {
-//	  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//  }
+//	 pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//	   log.Fatalf("Failed to create Client: %v", err)
+//	 }
 //
-// 	idxConnection, err := pc.Index(idx.Host)
-//	if err != nil {
-//	  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	}
+//	 idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	 if err != nil {
+//		  log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	 }
 //
-//  metadataFilter := map[string]interface{}{
-//    "genre": "classical",
-//  }
+//		idxConnection, err := pc.Index(idx.Host)
+//		if err != nil {
+//		  log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		}
 //
-//  filter, err := structpb.NewStruct(metadataFilter)
-//  if err != nil {
-//    log.Fatalf("Failed to create filter %+v. Error: %s", metadataFilter, err)
-//  }
+//	 metadataFilter := map[string]interface{}{
+//	   "genre": "classical",
+//	 }
 //
-//  res, err := idxConnection.DescribeIndexStatsFiltered(ctx, filter)
-//  if err != nil {
-//	  log.Fatalf("Failed to describe index \"%s\". Error: %s", idx.Name, err)
-//	} else {
-//	  for name, summary := range res.Namespaces {
-//	    fmt.Printf("Namespace: \"%s\", has %d vector(s) that match the given filter\n", name, summary.VectorCount)
-//	  }
-//	}
+//	 filter, err := structpb.NewStruct(metadataFilter)
+//	 if err != nil {
+//	   log.Fatalf("Failed to create filter %+v. Error: %s", metadataFilter, err)
+//	 }
+//
+//	 res, err := idxConnection.DescribeIndexStatsFiltered(ctx, filter)
+//	 if err != nil {
+//		  log.Fatalf("Failed to describe index \"%s\". Error: %s", idx.Name, err)
+//		} else {
+//		  for name, summary := range res.Namespaces {
+//		    fmt.Printf("Namespace: \"%s\", has %d vector(s) that match the given filter\n", name, summary.VectorCount)
+//		  }
+//		}
 func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, filter *Filter) (*DescribeIndexStatsResponse, error) {
 	req := &data.DescribeIndexStatsRequest{
 		Filter: filter,
