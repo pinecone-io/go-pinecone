@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -23,7 +22,6 @@ func MetadataInterceptor(t *testing.T, expectedMetadata map[string]string) grpc.
 		opts ...grpc.CallOption,
 	) error {
 		metadata, _ := metadata.FromOutgoingContext(ctx)
-		fmt.Printf("METADATA ?: %+v\n", metadata)
 		metadataString := metadata.String()
 
 		// Check that the outgoing context has the metadata we expect

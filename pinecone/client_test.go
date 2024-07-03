@@ -253,6 +253,31 @@ func (ts *ClientTests) TestControllerHostOverrideFromEnv() {
 }
 
 // TODO - test Index() function applying proper sourceTag and extractAuthHeader is working as expected
+func (ts *ClientTests) TestApiKeyPassedToIndexConnection() {
+	apiKey := "test-api-key"
+
+	client, err := NewClient(NewClientParams{ApiKey: apiKey})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+
+	indexConn, err := client.Index(NewIndexConnParams{Host: "my-index-host.io"})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+
+	indexMetadata := indexConn.additionalMetadata
+	metadataHasApiKey := false
+	fmt.Printf("INDEX METADATA: %v\n", indexMetadata)
+	for key, value := range indexMetadata {
+		if key == "Api-Key" && value == apiKey {
+			metadataHasApiKey = true
+			break
+		}
+	}
+
+	assert.True(ts.T(), metadataHasApiKey, "Expected IndexConnection metadata to contain 'Api-Key' with value '%s'", apiKey)
+}
 
 func (ts *ClientTests) TestControllerHostNormalization() {
 	tests := []struct {
