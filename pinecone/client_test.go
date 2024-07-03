@@ -252,7 +252,50 @@ func (ts *ClientTests) TestControllerHostOverrideFromEnv() {
 	os.Unsetenv("PINECONE_CONTROLLER_HOST")
 }
 
-// TODO - test Index() function applying proper sourceTag and extractAuthHeader is working as expected
+func (ts *ClientTests) TestExtractAuthHeader() {
+	globalApiKey := os.Getenv("PINECONE_API_KEY")
+	os.Unsetenv("PINECONE_API_KEY")
+
+	// Passing an API key should result in an 'Api-Key' header
+	apiKey := "test-api-key"
+	expectedHeader := map[string]string{"Api-Key": apiKey}
+	client, err := NewClient(NewClientParams{ApiKey: apiKey})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	assert.Equal(ts.T(),
+		expectedHeader,
+		client.extractAuthHeader(),
+		"Expected client.extractAuthHeader to return %v but got '%s'", expectedHeader, client.extractAuthHeader(),
+	)
+
+	// Passing a custom auth header with "authorization" should be returned as is
+	expectedHeader = map[string]string{"Authorization": "Bearer test-token-123456"}
+	client, err = NewClientBase(NewClientBaseParams{Headers: expectedHeader})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	assert.Equal(ts.T(),
+		expectedHeader,
+		client.extractAuthHeader(),
+		"Expected client.extractAuthHeader to return %v but got '%s'", expectedHeader, client.extractAuthHeader(),
+	)
+
+	// Passing a custom auth header with "access_token" should be returned as is
+	expectedHeader = map[string]string{"access_token": "test-token-123456"}
+	client, err = NewClientBase(NewClientBaseParams{Headers: expectedHeader})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	assert.Equal(ts.T(),
+		expectedHeader,
+		client.extractAuthHeader(),
+		"Expected client.extractAuthHeader to return %v but got '%s'", expectedHeader, client.extractAuthHeader(),
+	)
+
+	os.Setenv("PINECONE_API_KEY", globalApiKey)
+}
+
 func (ts *ClientTests) TestApiKeyPassedToIndexConnection() {
 	apiKey := "test-api-key"
 
@@ -268,7 +311,6 @@ func (ts *ClientTests) TestApiKeyPassedToIndexConnection() {
 
 	indexMetadata := indexConn.additionalMetadata
 	metadataHasApiKey := false
-	fmt.Printf("INDEX METADATA: %v\n", indexMetadata)
 	for key, value := range indexMetadata {
 		if key == "Api-Key" && value == apiKey {
 			metadataHasApiKey = true
