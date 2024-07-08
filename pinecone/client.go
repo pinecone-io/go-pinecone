@@ -360,7 +360,6 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, pods *string,
 		}
 	}
 
-
 	response, err := control.ParseConfigureIndexResponse(req) // TODO: need this?
 	if err != nil {
 		log.Fatalf("Failed to configure index %s. Error: %v", name, err)
