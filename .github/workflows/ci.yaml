@@ -22,4 +22,3 @@ jobs:
           TEST_POD_INDEX_NAME: ${{ secrets.TEST_POD_INDEX_NAME }}
           TEST_SERVERLESS_INDEX_NAME: ${{ secrets.TEST_SERVERLESS_INDEX_NAME }}
           PINECONE_API_KEY: ${{ secrets.API_KEY }}
-          TEST_CONFIGURE_INDEX_NAME: ${{ secrets.TEST_CONFIGURE_INDEX_NAME }}
