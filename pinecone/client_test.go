@@ -3,18 +3,18 @@ package pinecone
 import (
 	"context"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
-	"reflect"
-	"strings"
-	"testing"
-
 	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/internal/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"reflect"
+	"strings"
+	"testing"
 )
 
 type ClientTests struct {
@@ -24,6 +24,7 @@ type ClientTests struct {
 	sourceTag       string
 	podIndex        string
 	serverlessIndex string
+	configureIndex string
 }
 
 func TestClient(t *testing.T) {
@@ -80,6 +81,9 @@ func (ts *ClientTests) SetupSuite() {
 
 	ts.serverlessIndex = os.Getenv("TEST_SERVERLESS_INDEX_NAME")
 	require.NotEmpty(ts.T(), ts.serverlessIndex, "TEST_SERVERLESS_INDEX_NAME env variable not set")
+
+	ts.configureIndex = os.Getenv("TEST_CONFIGURE_INDEX_NAME")
+	require.NotEmpty(ts.T(), ts.configureIndex, "TEST_CONFIGURE_INDEX_NAME env variable not set")
 
 	client, err := NewClient(NewClientParams{})
 	require.NoError(ts.T(), err)
@@ -497,38 +501,113 @@ func (ts *ClientTests) TestDeleteCollection() {
 }
 
 func (ts *ClientTests) TestConfigureIndexIllegalScaleDown() {
-	indexName := "go-pinecone-pods-test-index" // This index is created with p1.x2
-	pods := "p1.x1"
-	replicas := int32(1)
-	_, err := ts.client.ConfigureIndex(context.Background(), indexName, &pods, &replicas)
+	_, erdr := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
+		Name: ts.configureIndex,
+		Dimension: 10,
+		Metric: Cosine,
+		Environment: "us-east1-gcp",
+		PodType: "p1.x2",
+	},)
+	if erdr != nil {
+		log.Fatalf("Error creating index %s: %v", ts.configureIndex, erdr)
+	}
+
+	pods := "p1.x1" // test index originally created with "p1.x2" pods
+	replicas := int32(1) // could be nil, but do not want to test nil case here
+	_, err := ts.client.ConfigureIndex(context.Background(), ts.configureIndex, &pods, &replicas)
 	require.ErrorContainsf(ts.T(), err, "Cannot scale down", err.Error())
+
+	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
+	if deleteErr != nil {
+		log.Fatalf("Error recreating index %s: %v", ts.configureIndex, deleteErr)
+	}
 }
 
-func (ts *ClientTests) TestConfigureIndexNoPods() {
-	indexName := "go-pinecone-pods-test-index" // This index is created with p1.x2
+func (ts *ClientTests) TestConfigureIndexScaleUpNoPods() {
+	_, erdr := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
+		Name: ts.configureIndex,
+		Dimension: 10,
+		Metric: Cosine,
+		Environment: "us-east1-gcp",
+		PodType: "p1.x2",
+	},)
+	if erdr != nil {
+		log.Fatalf("Error creating index %s: %v", ts.configureIndex, erdr)
+	}
+
 	replicas := int32(2)
-	_, err := ts.client.ConfigureIndex(context.Background(), indexName, nil, &replicas)
+	_, err := ts.client.ConfigureIndex(context.Background(), ts.configureIndex, nil, &replicas)
 	require.NoError(ts.T(), err)
+
+	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
+	if deleteErr != nil {
+		log.Fatalf("Error recreating index %s: %v", ts.configureIndex, deleteErr)
+	}
 }
 
-func (ts *ClientTests) TestConfigureIndexNoReplicas() {
-	indexName := "go-pinecone-pods-test-index" // This index is created with p1.x2
+func (ts *ClientTests) TestConfigureIndexScaleUpNoReplicas() {
+	_, erdr := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
+		Name: ts.configureIndex,
+		Dimension: 10,
+		Metric: Cosine,
+		Environment: "us-east1-gcp",
+		PodType: "p1.x2",
+	},)
+	if erdr != nil {
+		log.Fatalf("Error creating index %s: %v", ts.configureIndex, erdr)
+	}
+
 	pods := "p1.x4"
-	_, err := ts.client.ConfigureIndex(context.Background(), indexName, &pods, nil)
+	_, err := ts.client.ConfigureIndex(context.Background(), ts.configureIndex, &pods, nil)
 	require.NoError(ts.T(), err)
+
+	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
+	if deleteErr != nil {
+		log.Fatalf("Error recreating index %s: %v", ts.configureIndex, deleteErr)
+	}
 }
 
-func (ts *ClientTests) TestConfigureIndexNoPodsOrReplicas() {
-	indexName := "go-pinecone-pods-test-index" // This index is created with p1.x8
-	_, err := ts.client.ConfigureIndex(context.Background(), indexName, nil, nil)
+func (ts *ClientTests) TestConfigureIndexIllegalNoPodsOrReplicas() {
+	_, erdr := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
+		Name: ts.configureIndex,
+		Dimension: 10,
+		Metric: Cosine,
+		Environment: "us-east1-gcp",
+		PodType: "p1.x2",
+	},)
+	if erdr != nil {
+		log.Fatalf("Error creating index %s: %v", ts.configureIndex, erdr)
+	}
+
+	_, err := ts.client.ConfigureIndex(context.Background(), ts.configureIndex, nil, nil)
 	require.ErrorContainsf(ts.T(), err, "Must specify either pods or replicas", err.Error())
+
+	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
+	if deleteErr != nil {
+		log.Fatalf("Error recreating index %s: %v", ts.configureIndex, deleteErr)
+	}
 }
 
 func (ts *ClientTests) TestConfigureIndexHitPodLimit() {
-	indexName := "go-pinecone-pods-test-index" // This index is created with p1.x2
+	_, erdr := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
+		Name: ts.configureIndex,
+		Dimension: 10,
+		Metric: Cosine,
+		Environment: "us-east1-gcp",
+		PodType: "p1.x2",
+	},)
+	if erdr != nil {
+		log.Fatalf("Error creating index %s: %v", ts.configureIndex, erdr)
+	}
+
 	replicas := int32(30000)
-	_, err := ts.client.ConfigureIndex(context.Background(), indexName, nil, &replicas)
+	_, err := ts.client.ConfigureIndex(context.Background(), ts.configureIndex, nil, &replicas)
 	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
+
+	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
+	if deleteErr != nil {
+		log.Fatalf("Error recreating index %s: %v", ts.configureIndex, deleteErr)
+	}
 }
 
 func (ts *ClientTests) deleteIndex(name string) error {
