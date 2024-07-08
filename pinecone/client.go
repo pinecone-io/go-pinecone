@@ -273,21 +273,23 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	return nil
 }
 
-// ConfigureIndex is used to [scale a pods-based index] up or down by changing the size of pods or the number of
+// ConfigureIndex is used to [scale a pods-based index] up or down by changing the size of the pods or the number of
 //replicas.
 //
 // Parameters:
-// - name: The name of the index to configure.
-// - pods: The size of pods to scale the index to (e.g. for a "p1" pod type, you could pass "p1.x2", "p1.x4",
-// "p1.x6", etc. Optional.
-// - replicas: The number of replicas to scale the index to. Optional.
-// This is capped by the maximum number of replicas allowed in your Pinecone project. To configure this number,
-// go to app.pinecone.io, select your project, and configure the maximum number of pods.
+//  - name: The name of the index to configure.
+//  - pods: (Optional) The pod size to scale the index to (e.g. for a "p1" pod type,
+//  you could pass "p1.x2" to scale your index to the "x2" size,
+//  or you could pass "p1.x4" to scale your index to the "x4" size, and
+//  so forth.
+//  - replicas: (Optional) The number of replicas to scale the index to.
+//   This is capped by the maximum number of replicas allowed in your Pinecone project. To configure this number,
+//   go to [app.pinecone.io], select your project, and configure the maximum number of pods.
 //
 // Note: You can only scale an index up, not down. If you want to scale an index down,
-//  you must create a new index with the desired configuration.
+// you must create a new index with the desired configuration.
 //
-// It returns a ConfigureIndexResponse object, which contains the new configuration of the index, or an error.
+// Returns a ConfigureIndexResponse object, which contains the new configuration of the index, or an error.
 //
 // Example for a pods-based index originally configured with 1 "p1" pod of size "x2" and 1 replica:
 //  // To scale the size of your pods from "x2" to "x4":
@@ -309,6 +311,7 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //   }
 //
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
+// [app.pinecone.io]: https://app.pinecone.io
 func (c *Client) ConfigureIndex(ctx context.Context, name string, pods *string,
 	replicas *int32) (*control.ConfigureIndexResponse,
 	error) {
