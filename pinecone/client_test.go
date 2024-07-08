@@ -496,6 +496,41 @@ func (ts *ClientTests) TestDeleteCollection() {
 	require.NoError(ts.T(), err)
 }
 
+func (ts *ClientTests) TestConfigureIndexIllegalScaleDown() {
+	indexName := "go-pinecone-pods-test-index" // This index is created with p1.x2
+	pods := "p1.x1"
+	replicas := int32(1)
+	_, err := ts.client.ConfigureIndex(context.Background(), indexName, &pods, &replicas)
+	require.ErrorContainsf(ts.T(), err, "Cannot scale down", err.Error())
+}
+
+func (ts *ClientTests) TestConfigureIndexNoPods() {
+	indexName := "go-pinecone-pods-test-index" // This index is created with p1.x2
+	replicas := int32(2)
+	_, err := ts.client.ConfigureIndex(context.Background(), indexName, nil, &replicas)
+	require.NoError(ts.T(), err)
+}
+
+func (ts *ClientTests) TestConfigureIndexNoReplicas() {
+	indexName := "go-pinecone-pods-test-index" // This index is created with p1.x2
+	pods := "p1.x4"
+	_, err := ts.client.ConfigureIndex(context.Background(), indexName, &pods, nil)
+	require.NoError(ts.T(), err)
+}
+
+func (ts *ClientTests) TestConfigureIndexNoPodsOrReplicas() {
+	indexName := "go-pinecone-pods-test-index" // This index is created with p1.x8
+	_, err := ts.client.ConfigureIndex(context.Background(), indexName, nil, nil)
+	require.ErrorContainsf(ts.T(), err, "Must specify either pods or replicas", err.Error())
+}
+
+func (ts *ClientTests) TestConfigureIndexHitPodLimit() {
+	indexName := "go-pinecone-pods-test-index" // This index is created with p1.x2
+	replicas := int32(30000)
+	_, err := ts.client.ConfigureIndex(context.Background(), indexName, nil, &replicas)
+	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
+}
+
 func (ts *ClientTests) deleteIndex(name string) error {
 	return ts.client.DeleteIndex(context.Background(), name)
 }
