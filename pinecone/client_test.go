@@ -519,7 +519,7 @@ func (ts *ClientTests) TestConfigureIndexIllegalScaleDown() {
 
 	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
 	if deleteErr != nil {
-		log.Fatalf("Error recreating index %s: %v", ts.configureIndex, deleteErr)
+		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr)
 	}
 }
 
@@ -541,7 +541,7 @@ func (ts *ClientTests) TestConfigureIndexScaleUpNoPods() {
 
 	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
 	if deleteErr != nil {
-		log.Fatalf("Error recreating index %s: %v", ts.configureIndex, deleteErr)
+		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr)
 	}
 }
 
@@ -563,7 +563,7 @@ func (ts *ClientTests) TestConfigureIndexScaleUpNoReplicas() {
 
 	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
 	if deleteErr != nil {
-		log.Fatalf("Error recreating index %s: %v", ts.configureIndex, deleteErr)
+		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr)
 	}
 }
 
@@ -584,7 +584,7 @@ func (ts *ClientTests) TestConfigureIndexIllegalNoPodsOrReplicas() {
 
 	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
 	if deleteErr != nil {
-		log.Fatalf("Error recreating index %s: %v", ts.configureIndex, deleteErr)
+		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr)
 	}
 }
 
@@ -606,7 +606,7 @@ func (ts *ClientTests) TestConfigureIndexHitPodLimit() {
 
 	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
 	if deleteErr != nil {
-		log.Fatalf("Error recreating index %s: %v", ts.configureIndex, deleteErr)
+		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr)
 	}
 }
 
