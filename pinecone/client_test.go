@@ -501,6 +501,10 @@ func (ts *ClientTests) TestDeleteCollection() {
 }
 
 func (ts *ClientTests) TestConfigureIndexIllegalScaleDown() {
+	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
+	if deleteErr != nil {
+		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr)
+	}
 	_, erdr := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name: ts.configureIndex,
 		Dimension: 10,
@@ -517,13 +521,17 @@ func (ts *ClientTests) TestConfigureIndexIllegalScaleDown() {
 	_, err := ts.client.ConfigureIndex(context.Background(), ts.configureIndex, &pods, &replicas)
 	require.ErrorContainsf(ts.T(), err, "Cannot scale down", err.Error())
 
-	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
+	deleteErr2 := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
 	if deleteErr != nil {
-		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr)
+		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr2)
 	}
 }
 
 func (ts *ClientTests) TestConfigureIndexScaleUpNoPods() {
+	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
+	if deleteErr != nil {
+		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr)
+	}
 	_, erdr := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name: ts.configureIndex,
 		Dimension: 10,
@@ -539,13 +547,17 @@ func (ts *ClientTests) TestConfigureIndexScaleUpNoPods() {
 	_, err := ts.client.ConfigureIndex(context.Background(), ts.configureIndex, nil, &replicas)
 	require.NoError(ts.T(), err)
 
-	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
+	deleteErr2 := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
 	if deleteErr != nil {
-		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr)
+		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr2)
 	}
 }
 
 func (ts *ClientTests) TestConfigureIndexScaleUpNoReplicas() {
+	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
+	if deleteErr != nil {
+		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr)
+	}
 	_, erdr := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name: ts.configureIndex,
 		Dimension: 10,
@@ -561,13 +573,17 @@ func (ts *ClientTests) TestConfigureIndexScaleUpNoReplicas() {
 	_, err := ts.client.ConfigureIndex(context.Background(), ts.configureIndex, &pods, nil)
 	require.NoError(ts.T(), err)
 
-	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
+	deleteErr2 := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
 	if deleteErr != nil {
-		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr)
+		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr2)
 	}
 }
 
 func (ts *ClientTests) TestConfigureIndexIllegalNoPodsOrReplicas() {
+	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
+	if deleteErr != nil {
+		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr)
+	}
 	_, erdr := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name: ts.configureIndex,
 		Dimension: 10,
@@ -582,13 +598,17 @@ func (ts *ClientTests) TestConfigureIndexIllegalNoPodsOrReplicas() {
 	_, err := ts.client.ConfigureIndex(context.Background(), ts.configureIndex, nil, nil)
 	require.ErrorContainsf(ts.T(), err, "Must specify either pods or replicas", err.Error())
 
-	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
+	deleteErr2 := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
 	if deleteErr != nil {
-		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr)
+		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr2)
 	}
 }
 
 func (ts *ClientTests) TestConfigureIndexHitPodLimit() {
+	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
+	if deleteErr != nil {
+		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr)
+	}
 	_, erdr := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name: ts.configureIndex,
 		Dimension: 10,
@@ -604,9 +624,9 @@ func (ts *ClientTests) TestConfigureIndexHitPodLimit() {
 	_, err := ts.client.ConfigureIndex(context.Background(), ts.configureIndex, nil, &replicas)
 	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
 
-	deleteErr := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
+	deleteErr2 := ts.client.DeleteIndex(context.Background(), ts.configureIndex)
 	if deleteErr != nil {
-		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr)
+		log.Fatalf("Error deleting index %s: %v", ts.configureIndex, deleteErr2)
 	}
 }
 
