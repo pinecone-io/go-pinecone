@@ -20,15 +20,17 @@ import (
 // Client holds the parameters for connecting to the Pinecone service. It is returned by the NewClient and NewClientBase
 // functions. To use Client, first build the parameters of the request using NewClientParams (or NewClientBaseParams).
 // Then, pass those parameters into the NewClient (or NewClientBase) function to create a new Client object.
-// Once instantiated, you can use Client to execute control plane API requests (e.g. create an index, list indexes,
-// etc.). Read more about different control plane API routes at [pinecone.io/docs].
+// Once instantiated, you can use Client to execute control plane API requests (e.g. create an Index, list Indexes,
+// etc.). Read more about different control plane API routes at [docs.pinecone.io/reference/api].
 //
 // Note: Client methods are safe for concurrent use.
 //
 // Fields:
 //   - headers: An optional map of additional HTTP headers to include in each API request to the control plane,
 //   provided through NewClientParams.Headers or NewClientBaseParams.Headers.
-//   - restClient: The underlying REST client used to communicate with the Pinecone control plane API.
+//   - restClient: Optional underlying *http.Client object used to communicate with the Pinecone control plane API,
+//   provided through NewClientParams.RestClient or NewClientBaseParams.RestClient. If not provided,
+//   a default client is created for you.
 //   - sourceTag: An optional string used to help Pinecone attribute API activity, provided through NewClientParams.SourceTag
 //  or NewClientBaseParams.SourceTag.
 //
@@ -59,7 +61,7 @@ import (
 //	  log.Println("IndexConnection created successfully!")
 //  }
 //
-// [pinecone.io/docs]: https://docs.pinecone.io/reference/api/control-plane/list_indexes
+// [docs.pinecone.io/reference/api]: https://docs.pinecone.io/reference/api/control-plane/list_indexes
 type Client struct {
 	headers    map[string]string
 	restClient *control.Client
@@ -94,7 +96,7 @@ type NewClientParams struct {
 //   "Authorization" and "X-Project-Id" headers are required if authenticating using a JWT.
 //   - Host: The host URL of the Pinecone control plane API. If not provided,
 //   the default value is "https://api.pinecone.io".
-//   - RestClient: An optional HTTP client to use for communication with the control plane API.
+//   - RestClient: An optional *http.Client object to use for communication with the control plane API.
 //   - SourceTag: An optional string used to help Pinecone attribute API activity.
 //
 // See Client for code example.
@@ -206,7 +208,7 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 // Index creates an IndexConnection to a specified host.
 //
 // Parameters:
-//   - host: The host URL of a Pinecone index.
+//   - host: The URL address where the Index is hosted.
 //
 // Returns a pointer to an IndexConnection instance or an error.
 //
@@ -245,8 +247,8 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 // IndexWithNamespace creates an IndexConnection to a specified host and a specified namespace.
 //
 // Parameters:
-//   - host: The host URL of a Pinecone index.
-//   - namespace: The namespace where index operations will be performed.
+//   - host: The URL address where the Index is hosted.
+//   - namespace: The namespace where Index operations will be performed.
 //
 // Returns a pointer to an IndexConnection instance or an error.
 //
@@ -286,8 +288,8 @@ func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnec
 // with the addition of custom metadata. Read more about how gRPC handles metadata in the [gRPC documentation].
 //
 // Parameters:
-//   - host: The host URL of your Pinecone index.
-//   - namespace: The namespace where index operations will be performed.
+//   - host: The URL address where the Index is hosted.
+//   - namespace: The namespace where Index operations will be performed.
 //   - additionalMetadata: Additional metadata to be sent with each RPC request.
 //
 // Returns a pointer to an IndexConnection instance or error.
@@ -346,7 +348,7 @@ func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, addi
 	return idx, nil
 }
 
-// ListIndexes retrieves a list of all indexes in a Pinecone [project].
+// ListIndexes retrieves a list of all Indexes in a Pinecone [project].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -403,29 +405,29 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	return indexes, nil
 }
 
-// CreatePodIndexRequest holds the parameters for creating a new pods-based index.
+// CreatePodIndexRequest holds the parameters for creating a new pods-based Index.
 //
 // Fields:
 //   - Name: The name of the Index. Resource name must be 1-45 characters long,
 //   start and end with an alphanumeric character,
 //   and consist only of lower case alphanumeric characters or '-'.
-//   - Dimension: The [dimensionality] of the vectors to be inserted in the index.
+//   - Dimension: The [dimensionality] of the vectors to be inserted in the Index.
 //   - Metric: The distance metric to be used for [similarity] search. You can use
 //   'euclidean', 'cosine', or 'dotproduct'.
-//   - Environment: The [cloud environment] where the index will be hosted.
-//   - PodType: The [type of pod] to use for the index. One of `s1`, `p1`, or `p2` appended with `.` and
+//   - Environment: The [cloud environment] where the Index will be hosted.
+//   - PodType: The [type of pod] to use for the Index. One of `s1`, `p1`, or `p2` appended with `.` and
 //    one of `x1`, `x2`, `x4`, or `x8`.
-//   - Shards: The number of shards to use for the index (defaults to 1).
-//    Shards split your data across multiple pods, so you can fit more data into an index.
-//   - Replicas: The number of [replicas] to use for the index (defaults to 1). Replicas duplicate your index.
+//   - Shards: The number of shards to use for the Index (defaults to 1).
+//    Shards split your data across multiple pods, so you can fit more data into an Index.
+//   - Replicas: The number of [replicas] to use for the Index (defaults to 1). Replicas duplicate your Index.
 //    They provide higher availability and throughput. Replicas can be scaled up or down as your needs change.
-//   - SourceCollection: The name of the Collection to be used as the source for the index.
-//   - MetadataConfig: The [metadata configuration] for the behavior of Pinecone's internal metadata index. By
+//   - SourceCollection: The name of the Collection to be used as the source for the Index.
+//   - MetadataConfig: The [metadata configuration] for the behavior of Pinecone's internal metadata Index. By
 //   default, all metadata is indexed; when `metadata_config` is present,
 //   only specified metadata fields are indexed. These configurations are
-//   only valid for use with pod-based indexes.
+//   only valid for use with pod-based Indexes.
 //
-// To create a new pods-based index, use the CreatePodIndex method on the Client object.
+// To create a new pods-based Index, use the CreatePodIndex method on the Client object.
 //
 // Example:
 //  ctx := context.Background()
@@ -480,14 +482,14 @@ type CreatePodIndexRequest struct {
 	MetadataConfig   *PodSpecMetadataConfig
 }
 
-// ReplicaCount ensures the replica count of a pods-based index is >1.
+// ReplicaCount ensures the replica count of a pods-based Index is >1.
 // It returns a pointer to the number of replicas on a CreatePodIndexRequest object.
 func (req CreatePodIndexRequest) ReplicaCount() *int32 {
 	x := minOne(req.Replicas)
 	return &x
 }
 
-// ShardCount ensures the number of shards on a pods-based index is >1. It returns a pointer to the number of shards on
+// ShardCount ensures the number of shards on a pods-based Index is >1. It returns a pointer to the number of shards on
 // a CreatePodIndexRequest object.
 func (req CreatePodIndexRequest) ShardCount() *int32 {
 	x := minOne(req.Shards)
@@ -500,7 +502,7 @@ func (req CreatePodIndexRequest) TotalCount() *int {
 	return &x
 }
 
-// CreatePodIndex creates and initializes a new pods-based index via the specified Client.
+// CreatePodIndex creates and initializes a new pods-based Index via the specified Client.
 //
 // Parameters:
 // 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -594,19 +596,19 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 	return decodeIndex(res.Body)
 }
 
-// CreateServerlessIndexRequest holds the parameters for creating a new [Serverless] index.
+// CreateServerlessIndexRequest holds the parameters for creating a new [Serverless] Index.
 //
 // Fields:
 //   - Name: The name of the Index. Resource name must be 1-45 characters long,
 //   start and end with an alphanumeric character,
 //   and consist only of lower case alphanumeric characters or '-'.
-//   - Dimension: The dimension of the index (must match dimensionality of upserted vectors).
+//   - Dimension: The [dimensionality] of the vectors to be inserted in the Index.
 //   - Metric: The metric used to measure the [similarity] between vectors ('euclidean', 'cosine', or 'dotproduct').
-//   - Cloud: The public [cloud provider] where you would like your index hosted.
-//   For serverless indexes, you define only the cloud and region where the index should be hosted.
-//   - Region: The [region] where you would like your index to be created.
+//   - Cloud: The public [cloud provider] where you would like your Index hosted.
+//   For serverless Indexes, you define only the cloud and region where the Index should be hosted.
+//   - Region: The [region] where you would like your Index to be created.
 //
-// To create a new Serverless index, use the CreateServerlessIndex method on the Client object.
+// To create a new Serverless Index, use the CreateServerlessIndex method on the Client object.
 //
 // Example:
 //  ctx := context.Background()
@@ -638,6 +640,7 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //    fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //  }
 //
+// [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
 // [Serverless]: https://docs.pinecone.io/guides/indexes/understanding-indexes#serverless-indexes
 // [similarity]: https://docs.pinecone.io/guides/indexes/understanding-indexes#distance-metrics
 // [region]: https://docs.pinecone.io/troubleshooting/available-cloud-regions
@@ -650,7 +653,7 @@ type CreateServerlessIndexRequest struct {
 	Region    string
 }
 
-// CreateServerlessIndex creates and initializes a new serverless index via the specified Client.
+// CreateServerlessIndex creates and initializes a new serverless Index via the specified Client.
 //
 // Parameters:
 // 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -715,12 +718,12 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 	return decodeIndex(res.Body)
 }
 
-// DescribeIndex retrieves information about a specific index. See Index for more information.
+// DescribeIndex retrieves information about a specific Index. See Index for more information.
 //
 // Parameters:
 // 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
 //  to be canceled or to timeout according to the context's deadline.
-//  - idxName: The name of the index to describe.
+//  - idxName: The name of the Index to describe.
 //
 // Returns a pointer to an Index object or an error.
 //
@@ -759,12 +762,12 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 	return decodeIndex(res.Body)
 }
 
-// DeleteIndex deletes a specific index.
+// DeleteIndex deletes a specific Index.
 //
 // Parameters:
 // 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
 //  to be canceled or to timeout according to the context's deadline.
-//  - idxName: The name of the index to delete.
+//  - idxName: The name of the Index to delete.
 //
 // Returns an error if the deletion fails.
 //
@@ -805,7 +808,7 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	return nil
 }
 
-// ListCollections retrieves a list of all collections in a Pinecone [project]. See Collection for more information.
+// ListCollections retrieves a list of all Collections in a Pinecone [project]. See Collection for more information.
 //
 // Parameters:
 // 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -813,7 +816,7 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //
 // Returns a slice of pointers to [Collection] objects or an error.
 //
-// Note: Collections are only available for pods-based indexes.
+// Note: Collections are only available for pods-based Indexes.
 //
 // Example:
 //  ctx := context.Background()
@@ -845,7 +848,7 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //	}
 //
 // [project]: https://docs.pinecone.io/guides/projects/understanding-projects
-// [collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
+// [Collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	res, err := c.restClient.ListCollections(ctx)
 	if err != nil {
@@ -870,22 +873,22 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	return collections, nil
 }
 
-// DescribeCollection retrieves information about a specific [collection].
+// DescribeCollection retrieves information about a specific [Collection].
 //
 // Parameters:
 // 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
 //  to be canceled or to timeout according to the context's deadline.
-//  - collectionName: The name of the collection to describe.
+//  - collectionName: The name of the Collection to describe.
 //
 // Returns a pointer to a Collection object or an error.
 //
-// Note: Collections are only available for pods-based indexes.
+// Note: Collections are only available for pods-based Indexes.
 //
 // Since the returned value is a pointer to a Collection object, it will have the following fields:
 //   - Name: The name of the Collection.
 //   - Size: The size of the Collection in bytes.
 //   - Status: The status of the Collection.
-//   - Dimension: The dimension of the vectors stored in each record held in the Collection.
+//   - Dimension: The [dimensionality] of the vectors stored in each record held in the Collection.
 //   - VectorCount: The number of records stored in the Collection.
 //   - Environment: The cloud environment where the Collection is hosted.
 //
@@ -911,7 +914,8 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 //	  fmt.Printf("Collection: %+v\n", *collection)
 //	}
 //
-// [collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
+// [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
+// [Collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) DescribeCollection(ctx context.Context, collectionName string) (*Collection, error) {
 	res, err := c.restClient.DescribeCollection(ctx, collectionName)
 	if err != nil {
@@ -926,15 +930,15 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string) 
 	return decodeCollection(res.Body)
 }
 
-// CreateCollectionRequest holds the parameters for creating a new [collection].
+// CreateCollectionRequest holds the parameters for creating a new [Collection].
 //
 // Fields:
 //   - Name: The name of the Collection.
 //   - Source: The name of the Index to be used as the source for the Collection.
 //
-// To create a new collection, use the CreateCollection method on the Client object.
+// To create a new Collection, use the CreateCollection method on the Client object.
 //
-// Note: Collections are only available for pods-based indexes.
+// Note: Collections are only available for pods-based Indexes.
 //
 // Example:
 //  ctx := context.Background()
@@ -962,20 +966,20 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string) 
 //	  fmt.Printf("Successfully created collection \"%s\".", collection.Name)
 //	}
 //
-// [collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
+// [Collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
 type CreateCollectionRequest struct {
 	Name   string
 	Source string
 }
 
-// CreateCollection creates and initializes a new [collection] via the specified Client.
+// CreateCollection creates and initializes a new [Collection] via the specified Client.
 //
 // Parameters:
 // 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
 //  to be canceled or to timeout according to the context's deadline.
 //  - in: A pointer to a CreateCollectionRequest object.
 //
-// Note: Collections are only available for pods-based indexes.
+// Note: Collections are only available for pods-based Indexes.
 //
 // Returns a pointer to a Collection object or an error.
 //
@@ -1005,7 +1009,7 @@ type CreateCollectionRequest struct {
 //	  fmt.Printf("Successfully created collection \"%s\".", collection.Name)
 //	}
 //
-// [collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
+// [Collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionRequest) (*Collection, error) {
 	req := control.CreateCollectionRequest{
 		Name:   in.Name,
@@ -1025,14 +1029,14 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 	return decodeCollection(res.Body)
 }
 
-// DeleteCollection deletes a specific [collection].
+// DeleteCollection deletes a specific [Collection].
 //
 // Parameters:
 // 	- ctx: A context.Context object controls the request's lifetime, allowing for the request
 //  to be canceled or to timeout according to the context's deadline.
-//  - collectionName: The name of the collection to delete.
+//  - collectionName: The name of the Collection to delete.
 //
-// Note: Collections are only available for pods-based indexes.
+// Note: Collections are only available for pods-based Indexes.
 //
 // Returns an error if the deletion fails.
 //
@@ -1060,7 +1064,7 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 //	  log.Printf("Successfully deleted collection \"%s\"\n", collectionName)
 //	}
 //
-// [collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
+// [Collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) DeleteCollection(ctx context.Context, collectionName string) error {
 	res, err := c.restClient.DeleteCollection(ctx, collectionName)
 	if err != nil {
