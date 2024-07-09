@@ -69,7 +69,8 @@ type Client struct {
 // NewClientParams holds the parameters for creating a new Client instance while authenticating via an API key.
 //
 // Fields:
-//   - ApiKey: The API key used to authenticate with the Pinecone control plane API.
+//   - ApiKey: (Required) The API key used to authenticate with the Pinecone control plane API.
+//   This value must be passed by the user unless it is set as an environment variable ("PINECONE_API_KEY").
 //   - Headers: An optional map of additional HTTP headers to include in each API request to the control plane.
 //   - Host: The host URL of the Pinecone control plane API. If not provided,
 //   the default value is "https://api.pinecone.io".
@@ -157,8 +158,10 @@ func NewClient(in NewClientParams) (*Client, error) {
 //   - in: A NewClientBaseParams object that includes the necessary configuration for the control plane client. See
 //   NewClientBaseParams for more information.
 //
-// Note: It is important to handle the error returned by this function to ensure that the
-// control plane client has been created successfully before attempting to make API calls.
+// Notes:
+//  - It is important to handle the error returned by this function to ensure that the
+//   control plane client has been created successfully before attempting to make API calls.
+//  - A Pinecone API key is not requried when using NewClientBase.
 //
 // Returns a pointer to an initialized Client instance or an error.
 //
@@ -280,7 +283,7 @@ func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnec
 }
 
 // IndexWithAdditionalMetadata creates an IndexConnection to the specified host within the specified namespace,
-// with the addition of custom metadata. Read more about how gRPC handles metadata at [grpc.io/docs].
+// with the addition of custom metadata. Read more about how gRPC handles metadata in the [gRPC documentation].
 //
 // Parameters:
 //   - host: The host URL of your Pinecone index.
@@ -323,7 +326,7 @@ func (c *Client) IndexWithNamespace(host string, namespace string) (*IndexConnec
 //    idxConnection.Namespace)
 //	}
 //
-// [grpc.io/docs]: https://grpc.io/docs/guides/metadata/
+// [gRPC documentation]: https://grpc.io/docs/guides/metadata/
 func (c *Client) IndexWithAdditionalMetadata(host string, namespace string, additionalMetadata map[string]string) (*IndexConnection, error) {
 	authHeader := c.extractAuthHeader()
 
@@ -403,15 +406,24 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 // CreatePodIndexRequest holds the parameters for creating a new pods-based index.
 //
 // Fields:
-//   - Name: The name of the pods-based index to be created.
-//   - Dimension: The dimension of the index (must match [dimensionality] of upserted vectors).
-//   - Metric: The metric used to measure the [similarity] between vectors.
-//   - Environment: The [cloud environment] in which the index will be created.
-//   - PodType: The [type of pod] to use for the index.
+//   - Name: The name of the Index. Resource name must be 1-45 characters long,
+//   start and end with an alphanumeric character,
+//   and consist only of lower case alphanumeric characters or '-'.
+//   - Dimension: The [dimensionality] of the vectors to be inserted in the index.
+//   - Metric: The distance metric to be used for [similarity] search. You can use
+//   'euclidean', 'cosine', or 'dotproduct'.
+//   - Environment: The [cloud environment] where the index will be hosted.
+//   - PodType: The [type of pod] to use for the index. One of `s1`, `p1`, or `p2` appended with `.` and
+//    one of `x1`, `x2`, `x4`, or `x8`.
 //   - Shards: The number of shards to use for the index (defaults to 1).
-//   - Replicas: The number of [replicas] to use for the index (defaults to 1).
-//   - SourceCollection: The Collection from which to create the index.
-//   - MetadataConfig: The [metadata configuration] for the index.
+//    Shards split your data across multiple pods, so you can fit more data into an index.
+//   - Replicas: The number of [replicas] to use for the index (defaults to 1). Replicas duplicate your index.
+//    They provide higher availability and throughput. Replicas can be scaled up or down as your needs change.
+//   - SourceCollection: The name of the Collection to be used as the source for the index.
+//   - MetadataConfig: The [metadata configuration] for the behavior of Pinecone's internal metadata index. By
+//   default, all metadata is indexed; when `metadata_config` is present,
+//   only specified metadata fields are indexed. These configurations are
+//   only valid for use with pod-based indexes.
 //
 // To create a new pods-based index, use the CreatePodIndex method on the Client object.
 //
@@ -585,11 +597,15 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 // CreateServerlessIndexRequest holds the parameters for creating a new [Serverless] index.
 //
 // Fields:
-//   - Name: The name of the Serverless index.
+//   - Name: The name of the Index. Resource name must be 1-45 characters long,
+//   start and end with an alphanumeric character,
+//   and consist only of lower case alphanumeric characters or '-'.
 //   - Dimension: The dimension of the index (must match dimensionality of upserted vectors).
-//   - Metric: The metric used to measure the [similarity] between vectors.
-//   - Cloud: The [cloud provider] in which the index will be created.
-//   - Region: The [region] in which the index will be created.
+//   - Metric: The metric used to measure the [similarity] between vectors ('euclidean', 'cosine', or 'dotproduct').
+//   - Cloud: The public [cloud provider] where you would like your index hosted.
+//   For serverless indexes, you define only the cloud and region where the index should be hosted.
+//   - Region: The [region] where you would like your index to be created.
+//   Serverless indexes can be created only in the us-east-1, us-west-2, and eu-west-1 regions of AWS at this time.
 //
 // To create a new Serverless index, use the CreateServerlessIndex method on the Client object.
 //
@@ -867,12 +883,12 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 // Note: Collections are only available for pods-based indexes.
 //
 // Since the returned value is a pointer to a Collection object, it will have the following fields:
-//   - Name: The name of the collection.
-//   - Size: The size of the collection.
-//   - Status: The status of the collection.
-//   - Dimension: The dimension of the collection.
-//   - VectorCount: The number of vectors in the collection.
-//   - Environment: The cloud environment in which the collection resides.
+//   - Name: The name of the Collection.
+//   - Size: The size of the Collection in bytes.
+//   - Status: The status of the Collection.
+//   - Dimension: The dimension of the vectors stored in each record held in the Collection.
+//   - VectorCount: The number of records stored in the Collection.
+//   - Environment: The cloud environment where the Collection is hosted.
 //
 // Example:
 //  ctx := context.Background()
@@ -914,8 +930,8 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string) 
 // CreateCollectionRequest holds the parameters for creating a new [collection].
 //
 // Fields:
-//   - Name: The name of the collection to create.
-//   - Source: The source index from which the collection will be made.
+//   - Name: The name of the Collection.
+//   - Source: The name of the Index to be used as the source for the Collection.
 //
 // To create a new collection, use the CreateCollection method on the Client object.
 //
