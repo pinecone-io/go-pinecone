@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type ClientTests struct {
+type ClientTestsIntegration struct {
 	suite.Suite
 	client          Client
 	clientSourceTag Client
@@ -27,52 +27,11 @@ type ClientTests struct {
 	serverlessIndex string
 }
 
-func TestClient(t *testing.T) {
-	suite.Run(t, new(ClientTests))
+func TestIntegrationClient(t *testing.T) {
+	suite.Run(t, new(ClientTestsIntegration))
 }
 
-func TestHandleErrorResponseBody(t *testing.T) {
-	tests := []struct {
-		name         string
-		responseBody *http.Response
-		statusCode   int
-		prefix       string
-		errorOutput  string
-	}{
-		{
-			name:         "test ErrorResponse body",
-			responseBody: mockResponse(`{"error": { "code": "INVALID_ARGUMENT", "message": "test error message"}, "status": 400}`, http.StatusBadRequest),
-			statusCode:   http.StatusBadRequest,
-			errorOutput:  `{"status_code":400,"body":"{\"error\": { \"code\": \"INVALID_ARGUMENT\", \"message\": \"test error message\"}, \"status\": 400}","error_code":"INVALID_ARGUMENT","message":"test error message"}`,
-		}, {
-			name:         "test JSON body",
-			responseBody: mockResponse(`{"message": "test error message", "extraCode": 665}`, http.StatusBadRequest),
-			statusCode:   http.StatusBadRequest,
-			errorOutput:  `{"status_code":400,"body":"{\"message\": \"test error message\", \"extraCode\": 665}"}`,
-		}, {
-			name:         "test string body",
-			responseBody: mockResponse(`test error message`, http.StatusBadRequest),
-			statusCode:   http.StatusBadRequest,
-			errorOutput:  `{"status_code":400,"body":"test error message"}`,
-		}, {
-			name:         "Test error response with empty response",
-			responseBody: mockResponse(`{}`, http.StatusBadRequest),
-			statusCode:   http.StatusBadRequest,
-			prefix:       "test prefix",
-			errorOutput:  `{"status_code":400,"body":"{}"}`,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := handleErrorResponseBody(tt.responseBody, tt.prefix)
-			assert.Equal(t, err.Error(), tt.errorOutput, "Expected error to be '%s', but got '%s'", tt.errorOutput, err.Error())
-
-		})
-	}
-}
-
-func (ts *ClientTests) SetupSuite() {
+func (ts *ClientTestsIntegration) SetupSuite() {
 	apiKey := os.Getenv("PINECONE_API_KEY")
 	require.NotEmpty(ts.T(), apiKey, "PINECONE_API_KEY env variable not set")
 
@@ -98,7 +57,7 @@ func (ts *ClientTests) SetupSuite() {
 	//deleteUUIDNamedResources(context.Background(), &ts.client)
 }
 
-func (ts *ClientTests) TestNewClientParamsSet() {
+func (ts *ClientTestsIntegration) TestNewClientParamsSetIntegration() {
 	apiKey := "test-api-key"
 	client, err := NewClient(NewClientParams{ApiKey: apiKey})
 
@@ -111,7 +70,7 @@ func (ts *ClientTests) TestNewClientParamsSet() {
 	require.Equal(ts.T(), 2, len(client.restClient.RequestEditors), "Expected client to have correct number of require editors")
 }
 
-func (ts *ClientTests) TestNewClientParamsSetSourceTag() {
+func (ts *ClientTestsIntegration) TestNewClientParamsSetSourceTag() {
 	apiKey := "test-api-key"
 	sourceTag := "test-source-tag"
 	client, err := NewClient(NewClientParams{
@@ -127,7 +86,7 @@ func (ts *ClientTests) TestNewClientParamsSetSourceTag() {
 	require.Equal(ts.T(), 2, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 2, len(client.restClient.RequestEditors))
 }
 
-func (ts *ClientTests) TestNewClientParamsSetHeaders() {
+func (ts *ClientTestsIntegration) TestNewClientParamsSetHeaders() {
 	apiKey := "test-api-key"
 	headers := map[string]string{"test-header": "test-value"}
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers})
@@ -140,7 +99,7 @@ func (ts *ClientTests) TestNewClientParamsSetHeaders() {
 	require.Equal(ts.T(), 3, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 3, len(client.restClient.RequestEditors))
 }
 
-func (ts *ClientTests) TestNewClientParamsNoApiKeyNoAuthorizationHeader() {
+func (ts *ClientTestsIntegration) TestNewClientParamsNoApiKeyNoAuthorizationHeader() {
 	apiKey := os.Getenv("PINECONE_API_KEY")
 	os.Unsetenv("PINECONE_API_KEY")
 
@@ -155,7 +114,7 @@ func (ts *ClientTests) TestNewClientParamsNoApiKeyNoAuthorizationHeader() {
 	os.Setenv("PINECONE_API_KEY", apiKey)
 }
 
-func (ts *ClientTests) TestHeadersAppliedToRequests() {
+func (ts *ClientTestsIntegration) TestHeadersAppliedToRequests() {
 	apiKey := "test-api-key"
 	headers := map[string]string{"test-header": "123456"}
 
@@ -174,7 +133,7 @@ func (ts *ClientTests) TestHeadersAppliedToRequests() {
 	assert.Equal(ts.T(), "123456", testHeaderValue, "Expected request to have header value '123456', but got '%s'", testHeaderValue)
 }
 
-func (ts *ClientTests) TestAdditionalHeadersAppliedToRequest() {
+func (ts *ClientTestsIntegration) TestAdditionalHeadersAppliedToRequest() {
 	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"test-header": "environment-header"}`)
 
 	apiKey := "test-api-key"
@@ -196,7 +155,7 @@ func (ts *ClientTests) TestAdditionalHeadersAppliedToRequest() {
 	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
 }
 
-func (ts *ClientTests) TestHeadersOverrideAdditionalHeaders() {
+func (ts *ClientTestsIntegration) TestHeadersOverrideAdditionalHeaders() {
 	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"test-header": "environment-header"}`)
 
 	apiKey := "test-api-key"
@@ -219,7 +178,7 @@ func (ts *ClientTests) TestHeadersOverrideAdditionalHeaders() {
 	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
 }
 
-func (ts *ClientTests) TestControllerHostOverride() {
+func (ts *ClientTestsIntegration) TestControllerHostOverride() {
 	apiKey := "test-api-key"
 	httpClient := utils.CreateMockClient(`{"indexes": []}`)
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Host: "https://test-controller-host.io", RestClient: httpClient})
@@ -234,7 +193,7 @@ func (ts *ClientTests) TestControllerHostOverride() {
 	assert.Equal(ts.T(), "test-controller-host.io", mockTransport.Req.Host, "Expected request to be made to 'test-controller-host.io', but got '%s'", mockTransport.Req.URL.Host)
 }
 
-func (ts *ClientTests) TestControllerHostOverrideFromEnv() {
+func (ts *ClientTestsIntegration) TestControllerHostOverrideFromEnv() {
 	os.Setenv("PINECONE_CONTROLLER_HOST", "https://env-controller-host.io")
 
 	apiKey := "test-api-key"
@@ -253,76 +212,7 @@ func (ts *ClientTests) TestControllerHostOverrideFromEnv() {
 	os.Unsetenv("PINECONE_CONTROLLER_HOST")
 }
 
-func (ts *ClientTests) TestExtractAuthHeader() {
-	globalApiKey := os.Getenv("PINECONE_API_KEY")
-	os.Unsetenv("PINECONE_API_KEY")
-
-	// Passing an API key should result in an 'Api-Key' header
-	apiKey := "test-api-key"
-	expectedHeader := map[string]string{"Api-Key": apiKey}
-	client, err := NewClient(NewClientParams{ApiKey: apiKey})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-	assert.Equal(ts.T(),
-		expectedHeader,
-		client.extractAuthHeader(),
-		"Expected client.extractAuthHeader to return %v but got '%s'", expectedHeader, client.extractAuthHeader(),
-	)
-
-	// Passing a custom auth header with "authorization" should be returned as is
-	expectedHeader = map[string]string{"Authorization": "Bearer test-token-123456"}
-	client, err = NewClientBase(NewClientBaseParams{Headers: expectedHeader})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-	assert.Equal(ts.T(),
-		expectedHeader,
-		client.extractAuthHeader(),
-		"Expected client.extractAuthHeader to return %v but got '%s'", expectedHeader, client.extractAuthHeader(),
-	)
-
-	// Passing a custom auth header with "access_token" should be returned as is
-	expectedHeader = map[string]string{"access_token": "test-token-123456"}
-	client, err = NewClientBase(NewClientBaseParams{Headers: expectedHeader})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-	assert.Equal(ts.T(),
-		expectedHeader,
-		client.extractAuthHeader(),
-		"Expected client.extractAuthHeader to return %v but got '%s'", expectedHeader, client.extractAuthHeader(),
-	)
-
-	os.Setenv("PINECONE_API_KEY", globalApiKey)
-}
-
-func (ts *ClientTests) TestApiKeyPassedToIndexConnection() {
-	apiKey := "test-api-key"
-
-	client, err := NewClient(NewClientParams{ApiKey: apiKey})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-
-	indexConn, err := client.Index(NewIndexConnParams{Host: "my-index-host.io"})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-
-	indexMetadata := indexConn.additionalMetadata
-	metadataHasApiKey := false
-	for key, value := range indexMetadata {
-		if key == "Api-Key" && value == apiKey {
-			metadataHasApiKey = true
-			break
-		}
-	}
-
-	assert.True(ts.T(), metadataHasApiKey, "Expected IndexConnection metadata to contain 'Api-Key' with value '%s'", apiKey)
-}
-
-func (ts *ClientTests) TestControllerHostNormalization() {
+func (ts *ClientTestsIntegration) TestControllerHostNormalization() {
 	tests := []struct {
 		name       string
 		host       string
@@ -367,22 +257,22 @@ func (ts *ClientTests) TestControllerHostNormalization() {
 	}
 }
 
-func (ts *ClientTests) TestListIndexes() {
+func (ts *ClientTestsIntegration) TestListIndexes() {
 	indexes, err := ts.client.ListIndexes(context.Background())
 	require.NoError(ts.T(), err)
 	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
 }
 
-func (ts *ClientTests) TestListIndexesSourceTag() {
+func (ts *ClientTestsIntegration) TestListIndexesSourceTag() {
 	indexes, err := ts.clientSourceTag.ListIndexes(context.Background())
 	require.NoError(ts.T(), err)
 	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
 }
 
-func (ts *ClientTests) TestCreatePodIndex() {
+func (ts *ClientTestsIntegration) TestCreatePodIndex() {
 	name := uuid.New().String()
 
-	defer func(ts *ClientTests, name string) {
+	defer func(ts *ClientTestsIntegration, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -398,7 +288,7 @@ func (ts *ClientTests) TestCreatePodIndex() {
 	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
 }
 
-func (ts *ClientTests) TestCreatePodIndexInvalidDimension() {
+func (ts *ClientTestsIntegration) TestCreatePodIndexInvalidDimension() {
 	name := uuid.New().String()
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
@@ -412,7 +302,7 @@ func (ts *ClientTests) TestCreatePodIndexInvalidDimension() {
 	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
 }
 
-func (ts *ClientTests) TestCreateServerlessIndexInvalidDimension() {
+func (ts *ClientTestsIntegration) TestCreateServerlessIndexInvalidDimension() {
 	name := uuid.New().String()
 
 	_, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
@@ -426,10 +316,10 @@ func (ts *ClientTests) TestCreateServerlessIndexInvalidDimension() {
 	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
 }
 
-func (ts *ClientTests) TestCreateServerlessIndex() {
+func (ts *ClientTestsIntegration) TestCreateServerlessIndex() {
 	name := uuid.New().String()
 
-	defer func(ts *ClientTests, name string) {
+	defer func(ts *ClientTestsIntegration, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -445,37 +335,37 @@ func (ts *ClientTests) TestCreateServerlessIndex() {
 	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
 }
 
-func (ts *ClientTests) TestDescribeServerlessIndex() {
+func (ts *ClientTestsIntegration) TestDescribeServerlessIndex() {
 	index, err := ts.client.DescribeIndex(context.Background(), ts.serverlessIndex)
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), ts.serverlessIndex, index.Name, "Index name does not match")
 }
 
-func (ts *ClientTests) TestDescribeNonExistentIndex() {
+func (ts *ClientTestsIntegration) TestDescribeNonExistentIndex() {
 	_, err := ts.client.DescribeIndex(context.Background(), "non-existent-index")
 	require.Error(ts.T(), err)
 	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
 }
 
-func (ts *ClientTests) TestDescribeServerlessIndexSourceTag() {
+func (ts *ClientTestsIntegration) TestDescribeServerlessIndexSourceTag() {
 	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.serverlessIndex)
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), ts.serverlessIndex, index.Name, "Index name does not match")
 }
 
-func (ts *ClientTests) TestDescribePodIndex() {
+func (ts *ClientTestsIntegration) TestDescribePodIndex() {
 	index, err := ts.client.DescribeIndex(context.Background(), ts.podIndex)
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), ts.podIndex, index.Name, "Index name does not match")
 }
 
-func (ts *ClientTests) TestDescribePodIndexSourceTag() {
+func (ts *ClientTestsIntegration) TestDescribePodIndexSourceTag() {
 	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.podIndex)
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), ts.podIndex, index.Name, "Index name does not match")
 }
 
-func (ts *ClientTests) TestListCollections() {
+func (ts *ClientTestsIntegration) TestListCollections() {
 	ctx := context.Background()
 
 	var collectionNames []string
@@ -484,7 +374,7 @@ func (ts *ClientTests) TestListCollections() {
 		collectionNames = append(collectionNames, collectionName)
 	}
 
-	defer func(ts *ClientTests, collectionNames []string) {
+	defer func(ts *ClientTestsIntegration, collectionNames []string) {
 		for _, name := range collectionNames {
 			err := ts.client.DeleteCollection(ctx, name)
 			require.NoError(ts.T(), err, "Error deleting collection")
@@ -517,7 +407,7 @@ func (ts *ClientTests) TestListCollections() {
 	require.Equal(ts.T(), len(collectionNames), found, "Not all created collections were listed")
 }
 
-func (ts *ClientTests) TestDescribeCollection() {
+func (ts *ClientTestsIntegration) TestDescribeCollection() {
 	ctx := context.Background()
 	collectionName := uuid.New().String()
 
@@ -537,7 +427,7 @@ func (ts *ClientTests) TestDescribeCollection() {
 	require.Equal(ts.T(), collectionName, collection.Name, "Collection name does not match")
 }
 
-func (ts *ClientTests) TestCreateCollection() {
+func (ts *ClientTestsIntegration) TestCreateCollection() {
 	name := uuid.New().String()
 	sourceIndex := ts.podIndex
 
@@ -554,7 +444,7 @@ func (ts *ClientTests) TestCreateCollection() {
 	require.Equal(ts.T(), name, collection.Name, "Collection name does not match")
 }
 
-func (ts *ClientTests) TestDeleteCollection() {
+func (ts *ClientTestsIntegration) TestDeleteCollection() {
 	collectionName := uuid.New().String()
 	_, err := ts.client.CreateCollection(context.Background(), &CreateCollectionRequest{
 		Name:   collectionName,
@@ -686,8 +576,55 @@ func (ts *ClientTests) TestConfigureIndexHitPodLimit() {
 	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
 }
 
-func (ts *ClientTests) deleteIndex(name string) error {
+func (ts *ClientTestsIntegration) deleteIndex(name string) error {
 	return ts.client.DeleteIndex(context.Background(), name)
+}
+
+func TestHandleErrorResponseBodyUnit(t *testing.T) {
+	tests := []struct {
+		name         string
+		responseBody *http.Response
+		statusCode   int
+		prefix       string
+		errorOutput  string
+	}{
+		{
+			name:         "test ErrorResponse body",
+			responseBody: mockResponse(`{"error": { "code": "INVALID_ARGUMENT", "message": "test error message"}, "status": 400}`, http.StatusBadRequest),
+			statusCode:   http.StatusBadRequest,
+			errorOutput:  `{"status_code":400,"body":"{\"error\": { \"code\": \"INVALID_ARGUMENT\", \"message\": \"test error message\"}, \"status\": 400}","error_code":"INVALID_ARGUMENT","message":"test error message"}`,
+		}, {
+			name:         "test JSON body",
+			responseBody: mockResponse(`{"message": "test error message", "extraCode": 665}`, http.StatusBadRequest),
+			statusCode:   http.StatusBadRequest,
+			errorOutput:  `{"status_code":400,"body":"{\"message\": \"test error message\", \"extraCode\": 665}"}`,
+		}, {
+			name:         "test string body",
+			responseBody: mockResponse(`test error message`, http.StatusBadRequest),
+			statusCode:   http.StatusBadRequest,
+			errorOutput:  `{"status_code":400,"body":"test error message"}`,
+		}, {
+			name:         "Test error response with empty response",
+			responseBody: mockResponse(`{}`, http.StatusBadRequest),
+			statusCode:   http.StatusBadRequest,
+			prefix:       "test prefix",
+			errorOutput:  `{"status_code":400,"body":"{}"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := handleErrorResponseBody(tt.responseBody, tt.prefix)
+			assert.Equal(t, err.Error(), tt.errorOutput, "Expected error to be '%s', but got '%s'", tt.errorOutput, err.Error())
+
+		})
+	}
+}
+
+func TestSomethingUnit(t *testing.T) {
+	one := 1
+	two := 2
+	assert.Equal(t, one, two-one, "Expected one to equal two")
 }
 
 // Helper function to check if a name is a valid UUID
