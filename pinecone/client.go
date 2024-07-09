@@ -605,7 +605,6 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //   - Cloud: The public [cloud provider] where you would like your index hosted.
 //   For serverless indexes, you define only the cloud and region where the index should be hosted.
 //   - Region: The [region] where you would like your index to be created.
-//   Serverless indexes can be created only in the us-east-1, us-west-2, and eu-west-1 regions of AWS at this time.
 //
 // To create a new Serverless index, use the CreateServerlessIndex method on the Client object.
 //
