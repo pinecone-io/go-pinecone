@@ -982,7 +982,7 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 	return decodeCollection(res.Body)
 }
 
-// DeleteCollection deletes a specific [Collection].
+// DeleteCollection deletes a specific [Collection].test
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
