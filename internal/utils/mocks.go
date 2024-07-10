@@ -1,4 +1,4 @@
-package mocks
+package utils
 
 import (
 	"bytes"
@@ -7,9 +7,9 @@ import (
 )
 
 type MockTransport struct {
-	Req *http.Request
+	Req  *http.Request
 	Resp *http.Response
-	Err error
+	Err  error
 }
 
 func (m *MockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -18,12 +18,12 @@ func (m *MockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func CreateMockClient(jsonBody string) *http.Client {
-	return &http.Client {
+	return &http.Client{
 		Transport: &MockTransport{
 			Resp: &http.Response{
 				StatusCode: 200,
-				Body: io.NopCloser(bytes.NewReader([]byte(jsonBody))),
-				Header: make(http.Header),
+				Body:       io.NopCloser(bytes.NewReader([]byte(jsonBody))),
+				Header:     make(http.Header),
 			},
 		},
 	}

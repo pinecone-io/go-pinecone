@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/pinecone-io/go-pinecone/internal/mocks"
+	"github.com/pinecone-io/go-pinecone/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -158,12 +158,12 @@ func (ts *ClientTests) TestHeadersAppliedToRequests() {
 	apiKey := "test-api-key"
 	headers := map[string]string{"test-header": "123456"}
 
-	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+	httpClient := utils.CreateMockClient(`{"indexes": []}`)
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers, RestClient: httpClient})
 	if err != nil {
 		ts.FailNow(err.Error())
 	}
-	mockTransport := httpClient.Transport.(*mocks.MockTransport)
+	mockTransport := httpClient.Transport.(*utils.MockTransport)
 
 	_, err = client.ListIndexes(context.Background())
 	require.NoError(ts.T(), err)
@@ -178,12 +178,12 @@ func (ts *ClientTests) TestAdditionalHeadersAppliedToRequest() {
 
 	apiKey := "test-api-key"
 
-	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+	httpClient := utils.CreateMockClient(`{"indexes": []}`)
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, RestClient: httpClient})
 	if err != nil {
 		ts.FailNow(err.Error())
 	}
-	mockTransport := httpClient.Transport.(*mocks.MockTransport)
+	mockTransport := httpClient.Transport.(*utils.MockTransport)
 
 	_, err = client.ListIndexes(context.Background())
 	require.NoError(ts.T(), err)
@@ -201,12 +201,12 @@ func (ts *ClientTests) TestHeadersOverrideAdditionalHeaders() {
 	apiKey := "test-api-key"
 	headers := map[string]string{"test-header": "param-header"}
 
-	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+	httpClient := utils.CreateMockClient(`{"indexes": []}`)
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers, RestClient: httpClient})
 	if err != nil {
 		ts.FailNow(err.Error())
 	}
-	mockTransport := httpClient.Transport.(*mocks.MockTransport)
+	mockTransport := httpClient.Transport.(*utils.MockTransport)
 
 	_, err = client.ListIndexes(context.Background())
 	require.NoError(ts.T(), err)
@@ -220,12 +220,12 @@ func (ts *ClientTests) TestHeadersOverrideAdditionalHeaders() {
 
 func (ts *ClientTests) TestControllerHostOverride() {
 	apiKey := "test-api-key"
-	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+	httpClient := utils.CreateMockClient(`{"indexes": []}`)
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Host: "https://test-controller-host.io", RestClient: httpClient})
 	if err != nil {
 		ts.FailNow(err.Error())
 	}
-	mockTransport := httpClient.Transport.(*mocks.MockTransport)
+	mockTransport := httpClient.Transport.(*utils.MockTransport)
 
 	_, err = client.ListIndexes(context.Background())
 	require.NoError(ts.T(), err)
@@ -237,12 +237,12 @@ func (ts *ClientTests) TestControllerHostOverrideFromEnv() {
 	os.Setenv("PINECONE_CONTROLLER_HOST", "https://env-controller-host.io")
 
 	apiKey := "test-api-key"
-	httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+	httpClient := utils.CreateMockClient(`{"indexes": []}`)
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, RestClient: httpClient})
 	if err != nil {
 		ts.FailNow(err.Error())
 	}
-	mockTransport := httpClient.Transport.(*mocks.MockTransport)
+	mockTransport := httpClient.Transport.(*utils.MockTransport)
 
 	_, err = client.ListIndexes(context.Background())
 	require.NoError(ts.T(), err)
@@ -250,6 +250,75 @@ func (ts *ClientTests) TestControllerHostOverrideFromEnv() {
 	assert.Equal(ts.T(), "env-controller-host.io", mockTransport.Req.Host, "Expected request to be made to 'env-controller-host.io', but got '%s'", mockTransport.Req.URL.Host)
 
 	os.Unsetenv("PINECONE_CONTROLLER_HOST")
+}
+
+func (ts *ClientTests) TestExtractAuthHeader() {
+	globalApiKey := os.Getenv("PINECONE_API_KEY")
+	os.Unsetenv("PINECONE_API_KEY")
+
+	// Passing an API key should result in an 'Api-Key' header
+	apiKey := "test-api-key"
+	expectedHeader := map[string]string{"Api-Key": apiKey}
+	client, err := NewClient(NewClientParams{ApiKey: apiKey})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	assert.Equal(ts.T(),
+		expectedHeader,
+		client.extractAuthHeader(),
+		"Expected client.extractAuthHeader to return %v but got '%s'", expectedHeader, client.extractAuthHeader(),
+	)
+
+	// Passing a custom auth header with "authorization" should be returned as is
+	expectedHeader = map[string]string{"Authorization": "Bearer test-token-123456"}
+	client, err = NewClientBase(NewClientBaseParams{Headers: expectedHeader})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	assert.Equal(ts.T(),
+		expectedHeader,
+		client.extractAuthHeader(),
+		"Expected client.extractAuthHeader to return %v but got '%s'", expectedHeader, client.extractAuthHeader(),
+	)
+
+	// Passing a custom auth header with "access_token" should be returned as is
+	expectedHeader = map[string]string{"access_token": "test-token-123456"}
+	client, err = NewClientBase(NewClientBaseParams{Headers: expectedHeader})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	assert.Equal(ts.T(),
+		expectedHeader,
+		client.extractAuthHeader(),
+		"Expected client.extractAuthHeader to return %v but got '%s'", expectedHeader, client.extractAuthHeader(),
+	)
+
+	os.Setenv("PINECONE_API_KEY", globalApiKey)
+}
+
+func (ts *ClientTests) TestApiKeyPassedToIndexConnection() {
+	apiKey := "test-api-key"
+
+	client, err := NewClient(NewClientParams{ApiKey: apiKey})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+
+	indexConn, err := client.Index(NewIndexConnParams{Host: "my-index-host.io"})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+
+	indexMetadata := indexConn.additionalMetadata
+	metadataHasApiKey := false
+	for key, value := range indexMetadata {
+		if key == "Api-Key" && value == apiKey {
+			metadataHasApiKey = true
+			break
+		}
+	}
+
+	assert.True(ts.T(), metadataHasApiKey, "Expected IndexConnection metadata to contain 'Api-Key' with value '%s'", apiKey)
 }
 
 func (ts *ClientTests) TestControllerHostNormalization() {
@@ -280,12 +349,12 @@ func (ts *ClientTests) TestControllerHostNormalization() {
 	for _, tt := range tests {
 		ts.Run(tt.name, func() {
 			apiKey := "test-api-key"
-			httpClient := mocks.CreateMockClient(`{"indexes": []}`)
+			httpClient := utils.CreateMockClient(`{"indexes": []}`)
 			client, err := NewClient(NewClientParams{ApiKey: apiKey, Host: tt.host, RestClient: httpClient})
 			if err != nil {
 				ts.FailNow(err.Error())
 			}
-			mockTransport := httpClient.Transport.(*mocks.MockTransport)
+			mockTransport := httpClient.Transport.(*utils.MockTransport)
 
 			_, err = client.ListIndexes(context.Background())
 			require.NoError(ts.T(), err)
