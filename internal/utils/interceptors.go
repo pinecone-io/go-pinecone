@@ -22,7 +22,7 @@ func MetadataInterceptor(t *testing.T, expectedMetadata map[string]string) grpc.
 		opts ...grpc.CallOption,
 	) error {
 		metadata, _ := metadata.FromOutgoingContext(ctx)
-		metadataString := metadata.String()
+		metadataString := mdToString(metadata)
 
 		// Check that the outgoing context has the metadata we expect
 		for key, value := range expectedMetadata {
@@ -33,4 +33,15 @@ func MetadataInterceptor(t *testing.T, expectedMetadata map[string]string) grpc.
 
 		return nil
 	}
+}
+
+func mdToString(md metadata.MD) string {
+	builder := strings.Builder{}
+	for key, values := range md {
+		builder.WriteString(key + ": [")
+		builder.WriteString(strings.Join(values, ", "))
+		builder.WriteString("]\n")
+	}
+
+	return builder.String()
 }
