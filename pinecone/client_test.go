@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+// Integration tests:
 type ClientTestsIntegration struct {
 	suite.Suite
 	client          Client
@@ -580,6 +581,7 @@ func (ts *ClientTestsIntegration) deleteIndex(name string) error {
 	return ts.client.DeleteIndex(context.Background(), name)
 }
 
+// Unit tests:
 func TestHandleErrorResponseBodyUnit(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -624,10 +626,10 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 func TestSomethingUnit(t *testing.T) {
 	one := 1
 	two := 2
-	assert.Equal(t, one, two-one, "Expected one to equal two")
+	assert.Equal(t, one, two-one, "Expected one to equal (two-one)")
 }
 
-// Helper function to check if a name is a valid UUID
+// Helper functions:
 func isValidUUID(u string) bool {
 	_, err := uuid.Parse(u)
 	return err == nil
