@@ -8,9 +8,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/pinecone-io/go-pinecone/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -280,6 +282,94 @@ func (ts *IndexConnectionTests) TestListVectors() {
 	assert.NotNil(ts.T(), res)
 }
 
+func (ts *IndexConnectionTests) loadData() {
+	vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
+	vectors := make([]*Vector, len(vals))
+	ts.vectorIds = make([]string, len(vals))
+
+	for i, val := range vals {
+		vec := make([]float32, ts.dimension)
+		for i := range vec {
+			vec[i] = val
+		}
+
+		id := fmt.Sprintf("vec-%d", i+1)
+		ts.vectorIds[i] = id
+
+		vectors[i] = &Vector{
+			Id:     id,
+			Values: vec,
+		}
+	}
+
+	ctx := context.Background()
+	_, err := ts.idxConn.UpsertVectors(ctx, vectors)
+	assert.NoError(ts.T(), err)
+}
+
+func (ts *IndexConnectionTests) loadDataSourceTag() {
+	vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
+	vectors := make([]*Vector, len(vals))
+	ts.vectorIds = make([]string, len(vals))
+
+	for i, val := range vals {
+		vec := make([]float32, ts.dimension)
+		for i := range vec {
+			vec[i] = val
+		}
+
+		id := fmt.Sprintf("vec-%d", i+1)
+		ts.vectorIds[i] = id
+
+		vectors[i] = &Vector{
+			Id:     id,
+			Values: vec,
+		}
+	}
+
+	ctx := context.Background()
+	_, err := ts.idxConnSourceTag.UpsertVectors(ctx, vectors)
+	assert.NoError(ts.T(), err)
+}
+
+func (ts *IndexConnectionTests) truncateData() {
+	ctx := context.Background()
+	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
+	assert.NoError(ts.T(), err)
+}
+
+func (ts *IndexConnectionTests) TestMetadataAppliedToRequests() {
+	apiKey := "test-api-key"
+	namespace := "test-namespace"
+	sourceTag := "test-source-tag"
+	additionalMetadata := map[string]string{"api-key": apiKey, "test-meta": "test-value"}
+
+	idxConn, err := newIndexConnection(newIndexParameters{
+		additionalMetadata: additionalMetadata,
+		host:               ts.host,
+		namespace:          namespace,
+		sourceTag:          sourceTag,
+	},
+		grpc.WithUnaryInterceptor(utils.MetadataInterceptor(ts.T(), additionalMetadata)),
+	)
+
+	require.NoError(ts.T(), err)
+	apiKeyHeader, ok := idxConn.additionalMetadata["api-key"]
+	require.True(ts.T(), ok, "Expected client to have an 'api-key' header")
+	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'api-key' header to equal %s", apiKey)
+	require.Equal(ts.T(), namespace, idxConn.Namespace, "Expected idxConn to have namespace '%s', but got '%s'", namespace, idxConn.Namespace)
+	require.NotNil(ts.T(), idxConn.dataClient, "Expected idxConn to have non-nil dataClient")
+	require.NotNil(ts.T(), idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
+
+	// initiate request to trigger the MetadataInterceptor
+	stats, err := idxConn.DescribeIndexStats(context.Background())
+	if err != nil {
+		ts.FailNow(fmt.Sprintf("Failed to describe index stats: %v", err))
+	}
+
+	require.NotNil(ts.T(), stats)
+}
+
 func TestMarshalFetchVectorsResponse(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -464,60 +554,4 @@ func TestMarshalDescribeIndexStatsResponse(t *testing.T) {
 			}
 		})
 	}
-}
-
-func (ts *IndexConnectionTests) loadData() {
-	vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
-	vectors := make([]*Vector, len(vals))
-	ts.vectorIds = make([]string, len(vals))
-
-	for i, val := range vals {
-		vec := make([]float32, ts.dimension)
-		for i := range vec {
-			vec[i] = val
-		}
-
-		id := fmt.Sprintf("vec-%d", i+1)
-		ts.vectorIds[i] = id
-
-		vectors[i] = &Vector{
-			Id:     id,
-			Values: vec,
-		}
-	}
-
-	ctx := context.Background()
-	_, err := ts.idxConn.UpsertVectors(ctx, vectors)
-	assert.NoError(ts.T(), err)
-}
-
-func (ts *IndexConnectionTests) loadDataSourceTag() {
-	vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
-	vectors := make([]*Vector, len(vals))
-	ts.vectorIds = make([]string, len(vals))
-
-	for i, val := range vals {
-		vec := make([]float32, ts.dimension)
-		for i := range vec {
-			vec[i] = val
-		}
-
-		id := fmt.Sprintf("vec-%d", i+1)
-		ts.vectorIds[i] = id
-
-		vectors[i] = &Vector{
-			Id:     id,
-			Values: vec,
-		}
-	}
-
-	ctx := context.Background()
-	_, err := ts.idxConnSourceTag.UpsertVectors(ctx, vectors)
-	assert.NoError(ts.T(), err)
-}
-
-func (ts *IndexConnectionTests) truncateData() {
-	ctx := context.Background()
-	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
-	assert.NoError(ts.T(), err)
 }
