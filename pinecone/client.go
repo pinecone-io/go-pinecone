@@ -799,24 +799,12 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
 // [app.pinecone.io]: https://app.pinecone.io
-func (c *Client) ConfigureIndex(ctx context.Context, name string, pods *string,
+func (c *Client) ConfigureIndex(ctx context.Context, name string, podType *string,
 	replicas *int32) (*control.ConfigureIndexResponse,
 	error) {
 
-	var podType *control.PodSpecPodType
-	var replicasAmt *control.PodSpecReplicas
-
-	if pods == nil && replicas == nil {
-		return nil, fmt.Errorf("Must specify either pods or replicas")
-	}
-
-	if pods != nil {
-		podTypeVal := control.PodSpecPodType(*pods)
-		podType = &podTypeVal
-	}
-	if replicas != nil {
-		replicasVal := control.PodSpecReplicas(*replicas)
-		replicasAmt = &replicasVal
+	if podType == nil && replicas == nil {
+		return nil, fmt.Errorf("must specify either podType or replicas")
 	}
 
 	request := control.ConfigureIndexRequest{
@@ -831,29 +819,23 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, pods *string,
 				Replicas *control.PodSpecReplicas `json:"replicas,omitempty"`
 			}{
 				PodType:  podType,
-				Replicas: replicasAmt,
+				Replicas: replicas,
 			},
 		},
 	}
 
-	req, err := c.restClient.ConfigureIndex(ctx, name, request)
+	res, err := c.restClient.ConfigureIndex(ctx, name, request)
 	if err != nil {
-		log.Fatalf("Failed to configure index %s. Error: %v", name, err)
-	}
-	if req.StatusCode != http.StatusOK {
-		err := handleErrorResponseBody(req, "failed to configure index: ")
-		if err != nil {
-			return nil, err
-		}
+		return nil, handleErrorResponseBody(res, "failed to configure index: ")
 	}
 
-	response, err := control.ParseConfigureIndexResponse(req) // TODO: need this?
+	response, err := control.ParseConfigureIndexResponse(res) // TODO: get rid of internal here
 	if err != nil {
 		log.Fatalf("Failed to configure index %s. Error: %v", name, err)
 		return nil, err
 	}
 
-	defer req.Body.Close()
+	defer res.Body.Close()
 
 	return response, nil
 }

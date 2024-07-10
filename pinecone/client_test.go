@@ -658,7 +658,7 @@ func (ts *ClientTests) TestConfigureIndexIllegalNoPodsOrReplicas() {
 	}
 
 	_, err = ts.client.ConfigureIndex(context.Background(), name, nil, nil)
-	require.ErrorContainsf(ts.T(), err, "Must specify either pods or replicas", err.Error())
+	require.ErrorContainsf(ts.T(), err, "must specify either podType or replicas", err.Error())
 }
 
 func (ts *ClientTests) TestConfigureIndexHitPodLimit() {
