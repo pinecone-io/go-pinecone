@@ -623,10 +623,192 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 	}
 }
 
-func TestSomethingUnit(t *testing.T) {
-	one := 1
-	two := 2
-	assert.Equal(t, one, two-one, "Expected one to equal (two-one)")
+func TestValueOrFallBackUnit(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    string
+		fallback string
+		expected string
+	}{
+		{
+			name:     "Confirm value is returned",
+			value:    "test-value",
+			fallback: "fallback-value",
+			expected: "test-value",
+		}, {
+			name:     "Confirm fallback is returned",
+			value:    "",
+			fallback: "fallback-value",
+			expected: "fallback-value",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := valueOrFallback(tt.value, tt.fallback)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+}
+
+func TestMinOneUnit(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    int
+		expected int
+	}{
+		{
+			name:     "Confirm positive value if input is positive",
+			value:    5,
+			expected: 5,
+		}, {
+			name:     "Confirm coercion to 1 if input is zero",
+			value:    0,
+			expected: 1,
+		}, {
+			name:     "Confirm coercion to 1 if input is negative",
+			value:    -5,
+			expected: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := minOne(int32(tt.value))
+			assert.Equal(t, int32(tt.expected), result, "Expected result to be '%d', but got '%d'", tt.expected, result)
+		})
+	}
+
+}
+
+func TestTotalCountUnit(t *testing.T) {
+	tests := []struct {
+		name           string
+		replicaCount   int32
+		shardCount     int32
+		expectedResult int
+	}{
+		{
+			name:           "Confirm correct multiplication if all values are >0",
+			replicaCount:   2,
+			shardCount:     3,
+			expectedResult: 6,
+		}, {
+			name:           "Confirm value of 0 get ignored in calculation",
+			replicaCount:   0,
+			shardCount:     5,
+			expectedResult: 5,
+		},
+		{
+			name:           "Confirm negative value gets ignored in calculation",
+			replicaCount:   -2,
+			shardCount:     3,
+			expectedResult: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := CreatePodIndexRequest{
+				Replicas: tt.replicaCount,
+				Shards:   tt.shardCount,
+			}
+			result := req.TotalCount()
+			assert.Equal(t, tt.expectedResult, *result, "Expected result to be '%d', but got '%d'", tt.expectedResult, *result)
+		})
+	}
+}
+
+func TestEnsureURLSchemeUnit(t *testing.T) {
+	tests := []struct {
+		name     string
+		url      string
+		expected string
+	}{
+		{
+			name:     "Confirm https prefix is added",
+			url:      "pinecone-api.io",
+			expected: "https://pinecone-api.io",
+		}, {
+			name:     "Confirm http prefix is added",
+			url:      "http://pinecone-api.io",
+			expected: "http://pinecone-api.io", // TODO: should this be https?
+		},
+		{
+			name:     "Confirm https prefix is added",
+			url:      "https://pinecone-api.io",
+			expected: "https://pinecone-api.io",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, _ := ensureURLScheme(tt.url)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+
+}
+
+func TestFormatErrorUnit(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      int
+		expected *PineconeError
+	}{
+		{ // TODO: should really add a negative case here, but triggering a marshalling error is hard
+			name: "Confirm error message is formatted as expected",
+			err:  202,
+			expected: &PineconeError{
+				Code: 202,
+				Msg:  fmt.Errorf(`{"status_code":202}`)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := errorResponseMap{
+				StatusCode: tt.err,
+			}
+			result := formatError(req)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+
+}
+
+// NOTE: Must keep `expectedError.Msg` as single line to avoid breaking the test
+func TestHandleErrorResponseBody(t *testing.T) {
+	tests := []struct {
+		name          string
+		responseBody  string
+		statusCode    int
+		errMsgPrefix  string
+		expectedError *PineconeError
+	}{
+		{
+			name:         "Test error response body",
+			responseBody: `{"error": {"message": "some error message", "code": "some_error_code"}}`,
+			statusCode:   500,
+			errMsgPrefix: "Some error prefix: ",
+			expectedError: &PineconeError{
+				Code: 500,
+				Msg:  fmt.Errorf(`{"status_code":500,"body":"{\"error\": {\"message\": \"some error message\", \"code\": \"some_error_code\"}}"}`),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := &http.Response{
+				StatusCode: tt.statusCode,
+				Body:       io.NopCloser(strings.NewReader(tt.responseBody)),
+			}
+			result := handleErrorResponseBody(req, tt.errMsgPrefix)
+			assert.Equal(t, tt.expectedError.Code, result.(*PineconeError).Code)
+			assert.Equal(t, tt.expectedError.Msg.Error(), result.Error(), "Expected result to be '%s', but got '%s'", tt.expectedError.Msg.Error(), result.(*PineconeError).Msg.Error())
+		})
+	}
 }
 
 // Helper functions:
