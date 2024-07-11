@@ -775,7 +775,7 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 // Note: You can only scale an index up, not down. If you want to scale an index down,
 // you must create a new index with the desired configuration.
 //
-// Returns a ConfigureIndexResponse object, which contains the new configuration of the index, or an error.
+// Returns a pointer to a configured Index object or an error.
 //
 // Example for a pods-based index originally configured with 1 "p1" pod of size "x2" and 1 replica:
 //
@@ -800,8 +800,7 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
 // [app.pinecone.io]: https://app.pinecone.io
 func (c *Client) ConfigureIndex(ctx context.Context, name string, podType *string,
-	replicas *int32) (*control.ConfigureIndexResponse,
-	error) {
+	replicas *int32) (*Index, error) {
 
 	if podType == nil && replicas == nil {
 		return nil, fmt.Errorf("must specify either podType or replicas")
@@ -829,13 +828,14 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, podType *strin
 		return nil, handleErrorResponseBody(res, "failed to configure index: ")
 	}
 
-	response, err := control.ParseConfigureIndexResponse(res) // TODO: get rid of internal here
+	defer res.Body.Close()
+
+	response, err := decodeIndex(res.Body)
+
 	if err != nil {
 		log.Fatalf("Failed to configure index %s. Error: %v", name, err)
 		return nil, err
 	}
-
-	defer res.Body.Close()
 
 	return response, nil
 }
