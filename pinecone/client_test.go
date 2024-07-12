@@ -11,6 +11,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/pinecone-io/go-pinecone/internal/gen/control"
+
 	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/internal/utils"
 	"github.com/stretchr/testify/assert"
@@ -807,6 +810,123 @@ func TestHandleErrorResponseBody(t *testing.T) {
 			result := handleErrorResponseBody(req, tt.errMsgPrefix)
 			assert.Equal(t, tt.expectedError.Code, result.(*PineconeError).Code)
 			assert.Equal(t, tt.expectedError.Msg.Error(), result.Error(), "Expected result to be '%s', but got '%s'", tt.expectedError.Msg.Error(), result.(*PineconeError).Msg.Error())
+		})
+	}
+}
+
+func TestNewClientUnit(t *testing.T) {
+	tests := []struct {
+		name           string
+		originalInput  *control.IndexModel
+		expectedOutput *Index
+	}{
+		{
+			name:           "nil input",
+			originalInput:  nil,
+			expectedOutput: nil,
+		},
+		{
+			name: "pod index input",
+			originalInput: &control.IndexModel{
+				Name:      "testIndex",
+				Dimension: 128,
+				Host:      "test-host",
+				Metric:    "cosine",
+				Spec: struct {
+					Pod        *control.PodSpec        `json:"pod,omitempty"`
+					Serverless *control.ServerlessSpec `json:"serverless,omitempty"`
+				}(struct {
+					Pod        *control.PodSpec
+					Serverless *control.ServerlessSpec
+				}{Pod: &control.PodSpec{
+					Environment:      "test-environ",
+					PodType:          "p1.x2",
+					Pods:             1,
+					Replicas:         1,
+					Shards:           1,
+					SourceCollection: nil,
+					MetadataConfig:   nil,
+				}}),
+				Status: struct {
+					Ready bool                          `json:"ready"`
+					State control.IndexModelStatusState `json:"state"`
+				}{
+					Ready: true,
+					State: "active",
+				},
+			},
+			expectedOutput: &Index{
+				Name:      "testIndex",
+				Dimension: 128,
+				Host:      "test-host",
+				Metric:    "cosine",
+				Spec: &IndexSpec{
+					Pod: &PodSpec{
+						Environment:      "test-environ",
+						PodType:          "p1.x2",
+						PodCount:         1,
+						Replicas:         1,
+						ShardCount:       1,
+						SourceCollection: nil,
+					},
+				},
+				Status: &IndexStatus{
+					Ready: true,
+					State: IndexStatusState("active"),
+				},
+			},
+		},
+		{
+			name: "serverless index input",
+			originalInput: &control.IndexModel{
+				Name:      "testIndex",
+				Dimension: 128,
+				Host:      "test-host",
+				Metric:    "cosine",
+				Spec: struct {
+					Pod        *control.PodSpec        `json:"pod,omitempty"`
+					Serverless *control.ServerlessSpec `json:"serverless,omitempty"`
+				}(struct {
+					Pod        *control.PodSpec
+					Serverless *control.ServerlessSpec
+				}{Serverless: &control.ServerlessSpec{
+					Cloud:  "test-environ",
+					Region: "test-region",
+				}}),
+				Status: struct {
+					Ready bool                          `json:"ready"`
+					State control.IndexModelStatusState `json:"state"`
+				}{
+					Ready: true,
+					State: "active",
+				},
+			},
+			expectedOutput: &Index{
+				Name:      "testIndex",
+				Dimension: 128,
+				Host:      "test-host",
+				Metric:    "cosine",
+				Spec: &IndexSpec{
+					Serverless: &ServerlessSpec{
+						Cloud:  Cloud("test-environ"),
+						Region: "test-region",
+					},
+				},
+				Status: &IndexStatus{
+					Ready: true,
+					State: IndexStatusState("active"),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := toIndex(tt.originalInput)
+			if diff := cmp.Diff(tt.expectedOutput, input); diff != "" {
+				t.Errorf("toIndex() mismatch (-expectedOutput +input):\n%s", diff)
+			}
+			assert.EqualValues(t, tt.expectedOutput, input)
 		})
 	}
 }
