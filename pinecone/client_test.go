@@ -1043,9 +1043,38 @@ func TestNewClientNoHeadersProvidedUnit(t *testing.T) {
 	}
 
 	// When headers are nil, NewClient should replace with "Api-Key":"<passed api key>"
-	expectedHeaders := map[string]string(map[string]string{"Api-Key": "test-api-key"})
+	expectedHeaders := map[string]string{"Api-Key": "test-api-key"}
 
 	assert.Equal(t, client.headers, expectedHeaders, "Expected request to have header of \"Api-Key\":\"test-api-key\"}, but got '%s'",
+		client.headers)
+}
+
+func TestNewClientHeadersProvidedUnit(t *testing.T) {
+	apiKey := "test-api-key"
+	CustomHeader := map[string]string{"Test-Header": "custom-header-value"}
+	mockNewClientParams := NewClientParams{
+		ApiKey:  apiKey,
+		Headers: CustomHeader,
+	}
+
+	client, err := NewClient(mockNewClientParams)
+	if err != nil {
+		t.FailNow()
+	}
+
+	// When custom header is provided, NewClient should add it to the headers map (which should include the passed api key)
+	expectedHeadersMap := make(map[string]string)
+	headerOne := map[string]string{"Api-Key": "test-api-key"}
+	headerTwo := map[string]string{"Test-Header": "custom-header-value"}
+	for k, v := range headerOne {
+		expectedHeadersMap[k] = v
+	}
+	for k, v := range headerTwo {
+		expectedHeadersMap[k] = v
+	}
+
+	assert.Equal(t, client.headers, expectedHeadersMap, "Expected request to have header of \"Api-Key\":\"test-api-key\"}, "+
+		"but got '%s'",
 		client.headers)
 }
 
