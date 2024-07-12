@@ -1031,6 +1031,24 @@ func TestDerefOrDefaultUnit(t *testing.T) {
 	}
 }
 
+func TestNewClientNoHeadersProvidedUnit(t *testing.T) {
+	apiKey := "test-api-key"
+	mockNewClientParams := NewClientParams{
+		ApiKey: apiKey,
+	}
+
+	client, err := NewClient(mockNewClientParams)
+	if err != nil {
+		t.FailNow()
+	}
+
+	// When headers are nil, NewClient should replace with "Api-Key":"<passed api key>"
+	expectedHeaders := map[string]string(map[string]string{"Api-Key": "test-api-key"})
+
+	assert.Equal(t, client.headers, expectedHeaders, "Expected request to have header of \"Api-Key\":\"test-api-key\"}, but got '%s'",
+		client.headers)
+}
+
 // Helper functions:
 func isValidUUID(u string) bool {
 	_, err := uuid.Parse(u)
