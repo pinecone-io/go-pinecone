@@ -1226,7 +1226,6 @@ type errorResponseMap struct {
 }
 
 func handleErrorResponseBody(response *http.Response, errMsgPrefix string) error {
-	fmt.Println("Inside handleErrorResponseBody!, first line")
 	resBodyBytes, err := io.ReadAll(response.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
