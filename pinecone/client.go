@@ -825,19 +825,16 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, podType *strin
 
 	res, err := c.restClient.ConfigureIndex(ctx, name, request)
 	if err != nil {
-		return nil, handleErrorResponseBody(res, "failed to configure index: ")
+		return nil, err
 	}
 
 	defer res.Body.Close()
 
-	response, err := decodeIndex(res.Body)
-
-	if err != nil {
-		log.Fatalf("Failed to configure index %s. Error: %v", name, err)
-		return nil, err
+	if res.StatusCode != http.StatusCreated {
+		return nil, handleErrorResponseBody(res, "failed to configure index: ")
 	}
 
-	return response, nil
+	return decodeIndex(res.Body)
 }
 
 // ListCollections retrieves a list of all Collections in a Pinecone [project]. See Collection for more information.
@@ -1229,6 +1226,7 @@ type errorResponseMap struct {
 }
 
 func handleErrorResponseBody(response *http.Response, errMsgPrefix string) error {
+	fmt.Println("Inside handleErrorResponseBody!, first line")
 	resBodyBytes, err := io.ReadAll(response.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
