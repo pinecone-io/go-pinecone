@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"reflect"
@@ -563,6 +564,126 @@ func (ts *ClientTests) TestDeleteCollection() {
 
 	err = ts.client.DeleteCollection(context.Background(), collectionName)
 	require.NoError(ts.T(), err)
+}
+
+func (ts *ClientTests) TestConfigureIndexIllegalScaleDown() {
+	name := uuid.New().String()
+
+	defer func(ts *ClientTests, name string) {
+		err := ts.deleteIndex(name)
+		require.NoError(ts.T(), err)
+	}(ts, name)
+
+	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
+		Name:        name,
+		Dimension:   10,
+		Metric:      Cosine,
+		Environment: "us-east1-gcp",
+		PodType:     "p1.x2",
+	})
+	if err != nil {
+		log.Fatalf("Error creating index %s: %v", name, err)
+	}
+
+	pods := "p1.x1"      // test index originally created with "p1.x2" pods
+	replicas := int32(1) // could be nil, but do not want to test nil case here
+	_, err = ts.client.ConfigureIndex(context.Background(), name, &pods, &replicas)
+	require.ErrorContainsf(ts.T(), err, "Cannot scale down", err.Error())
+}
+
+func (ts *ClientTests) TestConfigureIndexScaleUpNoPods() {
+	name := uuid.New().String()
+
+	defer func(ts *ClientTests, name string) {
+		err := ts.deleteIndex(name)
+		require.NoError(ts.T(), err)
+	}(ts, name)
+
+	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
+		Name:        name,
+		Dimension:   10,
+		Metric:      Cosine,
+		Environment: "us-east1-gcp",
+		PodType:     "p1.x2",
+	})
+	if err != nil {
+		log.Fatalf("Error creating index %s: %v", name, err)
+	}
+
+	replicas := int32(2)
+	_, err = ts.client.ConfigureIndex(context.Background(), name, nil, &replicas)
+	require.NoError(ts.T(), err)
+}
+
+func (ts *ClientTests) TestConfigureIndexScaleUpNoReplicas() {
+	name := uuid.New().String()
+
+	defer func(ts *ClientTests, name string) {
+		err := ts.deleteIndex(name)
+		require.NoError(ts.T(), err)
+	}(ts, name)
+
+	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
+		Name:        name,
+		Dimension:   10,
+		Metric:      Cosine,
+		Environment: "us-east1-gcp",
+		PodType:     "p1.x2",
+	})
+	if err != nil {
+		log.Fatalf("Error creating index %s: %v", name, err)
+	}
+
+	pods := "p1.x4"
+	_, err = ts.client.ConfigureIndex(context.Background(), name, &pods, nil)
+	require.NoError(ts.T(), err)
+}
+
+func (ts *ClientTests) TestConfigureIndexIllegalNoPodsOrReplicas() {
+	name := uuid.New().String()
+
+	defer func(ts *ClientTests, name string) {
+		err := ts.deleteIndex(name)
+		require.NoError(ts.T(), err)
+	}(ts, name)
+
+	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
+		Name:        name,
+		Dimension:   10,
+		Metric:      Cosine,
+		Environment: "us-east1-gcp",
+		PodType:     "p1.x2",
+	})
+	if err != nil {
+		log.Fatalf("Error creating index %s: %v", name, err)
+	}
+
+	_, err = ts.client.ConfigureIndex(context.Background(), name, nil, nil)
+	require.ErrorContainsf(ts.T(), err, "must specify either podType or replicas", err.Error())
+}
+
+func (ts *ClientTests) TestConfigureIndexHitPodLimit() {
+	name := uuid.New().String()
+
+	defer func(ts *ClientTests, name string) {
+		err := ts.deleteIndex(name)
+		require.NoError(ts.T(), err)
+	}(ts, name)
+
+	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
+		Name:        name,
+		Dimension:   10,
+		Metric:      Cosine,
+		Environment: "us-east1-gcp",
+		PodType:     "p1.x2",
+	})
+	if err != nil {
+		log.Fatalf("Error creating index %s: %v", name, err)
+	}
+
+	replicas := int32(30000)
+	_, err = ts.client.ConfigureIndex(context.Background(), name, nil, &replicas)
+	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
 }
 
 func (ts *ClientTests) deleteIndex(name string) error {
