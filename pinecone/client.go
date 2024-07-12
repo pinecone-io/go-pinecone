@@ -830,7 +830,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, podType *strin
 
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusCreated {
+	if res.StatusCode != http.StatusOK {
 		return nil, handleErrorResponseBody(res, "failed to configure index: ")
 	}
 
