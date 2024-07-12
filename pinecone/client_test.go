@@ -3,6 +3,7 @@ package pinecone
 import (
 	"context"
 	"fmt"
+	"github.com/pinecone-io/go-pinecone/internal/provider"
 	"io"
 	"log"
 	"net/http"
@@ -1076,6 +1077,71 @@ func TestNewClientHeadersProvidedUnit(t *testing.T) {
 	assert.Equal(t, client.headers, expectedHeadersMap, "Expected request to have header of \"Api-Key\":\"test-api-key\"}, "+
 		"but got '%s'",
 		client.headers)
+}
+
+func TestBuildClientBaseOptionsWithAddtlHeadersUnit(t *testing.T) {
+	// Set environment variables
+	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"Env-Header": "env-value"}`)
+	defer os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
+
+	tests := []struct {
+		name   string
+		params NewClientBaseParams
+		expect []control.ClientOption
+	}{
+		{
+			name: "Construct base params with additional env headers present",
+			params: NewClientBaseParams{
+				SourceTag: "source-tag",
+				Headers:   map[string]string{"Param-Header": "param-value"},
+			},
+			expect: []control.ClientOption{
+				control.WithRequestEditorFn(provider.NewHeaderProvider("Env-Header", "env-value").Intercept),
+				control.WithRequestEditorFn(provider.NewHeaderProvider("User-Agent", "test-user-agent").Intercept),
+				control.WithRequestEditorFn(provider.NewHeaderProvider("Param-Header", "param-value").Intercept),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clientOptions := buildClientBaseOptions(tt.params)
+			assert.Equal(t, len(tt.expect), len(clientOptions))
+
+			for i, opt := range tt.expect {
+				assert.IsType(t, opt, clientOptions[i])
+			}
+		})
+	}
+}
+
+func TestBuildClientBaseOptionsUnit(t *testing.T) {
+	tests := []struct {
+		name   string
+		params NewClientBaseParams
+		expect []control.ClientOption
+	}{
+		{
+			name: "Construct base params without additional env headers present",
+			params: NewClientBaseParams{
+				SourceTag: "source-tag",
+				Headers:   map[string]string{"Param-Header": "param-value"},
+			},
+			expect: []control.ClientOption{
+				control.WithRequestEditorFn(provider.NewHeaderProvider("User-Agent", "test-user-agent").Intercept),
+				control.WithRequestEditorFn(provider.NewHeaderProvider("Param-Header", "param-value").Intercept),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clientOptions := buildClientBaseOptions(tt.params)
+			assert.Equal(t, len(tt.expect), len(clientOptions))
+
+			for i, opt := range tt.expect {
+				assert.IsType(t, opt, clientOptions[i])
+			}
+		})
+	}
 }
 
 // Helper functions:
