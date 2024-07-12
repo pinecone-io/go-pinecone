@@ -627,6 +627,33 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 	}
 }
 
+func TestFormatErrorUnit(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      int
+		expected *PineconeError
+	}{
+		{ // TODO: should really add a negative case here, but triggering a marshalling error is hard
+			name: "Confirm error message is formatted as expected",
+			err:  202,
+			expected: &PineconeError{
+				Code: 202,
+				Msg:  fmt.Errorf(`{"status_code":202}`)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := errorResponseMap{
+				StatusCode: tt.err,
+			}
+			result := formatError(req)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+
+}
+
 func TestValueOrFallBackUnit(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -752,67 +779,6 @@ func TestEnsureURLSchemeUnit(t *testing.T) {
 		})
 	}
 
-}
-
-func TestFormatErrorUnit(t *testing.T) {
-	tests := []struct {
-		name     string
-		err      int
-		expected *PineconeError
-	}{
-		{ // TODO: should really add a negative case here, but triggering a marshalling error is hard
-			name: "Confirm error message is formatted as expected",
-			err:  202,
-			expected: &PineconeError{
-				Code: 202,
-				Msg:  fmt.Errorf(`{"status_code":202}`)},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := errorResponseMap{
-				StatusCode: tt.err,
-			}
-			result := formatError(req)
-			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
-		})
-	}
-
-}
-
-// NOTE: Must keep `expectedError.Msg` as single line to avoid breaking the test
-func TestHandleErrorResponseBody(t *testing.T) {
-	tests := []struct {
-		name          string
-		responseBody  string
-		statusCode    int
-		errMsgPrefix  string
-		expectedError *PineconeError
-	}{
-		{
-			name:         "Test error response body",
-			responseBody: `{"error": {"message": "some error message", "code": "some_error_code"}}`,
-			statusCode:   500,
-			errMsgPrefix: "Some error prefix: ",
-			expectedError: &PineconeError{
-				Code: 500,
-				Msg:  fmt.Errorf(`{"status_code":500,"body":"{\"error\": {\"message\": \"some error message\", \"code\": \"some_error_code\"}}"}`),
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := &http.Response{
-				StatusCode: tt.statusCode,
-				Body:       io.NopCloser(strings.NewReader(tt.responseBody)),
-			}
-			result := handleErrorResponseBody(req, tt.errMsgPrefix)
-			assert.Equal(t, tt.expectedError.Code, result.(*PineconeError).Code)
-			assert.Equal(t, tt.expectedError.Msg.Error(), result.Error(), "Expected result to be '%s', but got '%s'", tt.expectedError.Msg.Error(), result.(*PineconeError).Msg.Error())
-		})
-	}
 }
 
 func TestToIndexUnit(t *testing.T) {
@@ -1079,6 +1045,38 @@ func TestNewClientHeadersProvidedUnit(t *testing.T) {
 		client.headers)
 }
 
+// TODO: build newclientbase tests with and without host override. test with jwt stuff or no?
+
+func TestBuildClientBaseOptionsUnit(t *testing.T) {
+	tests := []struct {
+		name   string
+		params NewClientBaseParams
+		expect []control.ClientOption
+	}{
+		{
+			name: "Construct base params without additional env headers present",
+			params: NewClientBaseParams{
+				SourceTag: "source-tag",
+				Headers:   map[string]string{"Param-Header": "param-value"},
+			},
+			expect: []control.ClientOption{
+				control.WithRequestEditorFn(provider.NewHeaderProvider("User-Agent", "test-user-agent").Intercept),
+				control.WithRequestEditorFn(provider.NewHeaderProvider("Param-Header", "param-value").Intercept),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clientOptions := buildClientBaseOptions(tt.params)
+			assert.Equal(t, len(tt.expect), len(clientOptions))
+
+			for i, opt := range tt.expect {
+				assert.IsType(t, opt, clientOptions[i])
+			}
+		})
+	}
+}
+
 func TestBuildClientBaseOptionsWithAddtlHeadersUnit(t *testing.T) {
 	// Set environment variables
 	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"Env-Header": "env-value"}`)
@@ -1114,35 +1112,6 @@ func TestBuildClientBaseOptionsWithAddtlHeadersUnit(t *testing.T) {
 	}
 }
 
-func TestBuildClientBaseOptionsUnit(t *testing.T) {
-	tests := []struct {
-		name   string
-		params NewClientBaseParams
-		expect []control.ClientOption
-	}{
-		{
-			name: "Construct base params without additional env headers present",
-			params: NewClientBaseParams{
-				SourceTag: "source-tag",
-				Headers:   map[string]string{"Param-Header": "param-value"},
-			},
-			expect: []control.ClientOption{
-				control.WithRequestEditorFn(provider.NewHeaderProvider("User-Agent", "test-user-agent").Intercept),
-				control.WithRequestEditorFn(provider.NewHeaderProvider("Param-Header", "param-value").Intercept),
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			clientOptions := buildClientBaseOptions(tt.params)
-			assert.Equal(t, len(tt.expect), len(clientOptions))
-
-			for i, opt := range tt.expect {
-				assert.IsType(t, opt, clientOptions[i])
-			}
-		})
-	}
-}
 
 // Helper functions:
 func isValidUUID(u string) bool {
