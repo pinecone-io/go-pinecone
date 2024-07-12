@@ -92,7 +92,7 @@ func (ts *ClientTestsIntegration) TestNewClientParamsSetSourceTag() {
 
 func (ts *ClientTestsIntegration) TestNewClientParamsSetHeaders() {
 	apiKey := "test-api-key"
-	headers := map[string]string{"test-header": "test-value"}
+	headers := map[string]string{"test-header": "test-ptr"}
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers})
 
 	require.NoError(ts.T(), err)
@@ -134,7 +134,7 @@ func (ts *ClientTestsIntegration) TestHeadersAppliedToRequests() {
 	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
 
 	testHeaderValue := mockTransport.Req.Header.Get("test-header")
-	assert.Equal(ts.T(), "123456", testHeaderValue, "Expected request to have header value '123456', but got '%s'", testHeaderValue)
+	assert.Equal(ts.T(), "123456", testHeaderValue, "Expected request to have header ptr '123456', but got '%s'", testHeaderValue)
 }
 
 func (ts *ClientTestsIntegration) TestAdditionalHeadersAppliedToRequest() {
@@ -154,7 +154,7 @@ func (ts *ClientTestsIntegration) TestAdditionalHeadersAppliedToRequest() {
 	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
 
 	testHeaderValue := mockTransport.Req.Header.Get("test-header")
-	assert.Equal(ts.T(), "environment-header", testHeaderValue, "Expected request to have header value 'environment-header', but got '%s'", testHeaderValue)
+	assert.Equal(ts.T(), "environment-header", testHeaderValue, "Expected request to have header ptr 'environment-header', but got '%s'", testHeaderValue)
 
 	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
 }
@@ -177,7 +177,7 @@ func (ts *ClientTestsIntegration) TestHeadersOverrideAdditionalHeaders() {
 	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
 
 	testHeaderValue := mockTransport.Req.Header.Get("test-header")
-	assert.Equal(ts.T(), "param-header", testHeaderValue, "Expected request to have header value 'param-header', but got '%s'", testHeaderValue)
+	assert.Equal(ts.T(), "param-header", testHeaderValue, "Expected request to have header ptr 'param-header', but got '%s'", testHeaderValue)
 
 	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
 }
@@ -634,15 +634,15 @@ func TestValueOrFallBackUnit(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "Confirm value is returned",
-			value:    "test-value",
-			fallback: "fallback-value",
-			expected: "test-value",
+			name:     "Confirm ptr is returned",
+			value:    "test-ptr",
+			fallback: "fallback-ptr",
+			expected: "test-ptr",
 		}, {
 			name:     "Confirm fallback is returned",
 			value:    "",
-			fallback: "fallback-value",
-			expected: "fallback-value",
+			fallback: "fallback-ptr",
+			expected: "fallback-ptr",
 		},
 	}
 
@@ -661,7 +661,7 @@ func TestMinOneUnit(t *testing.T) {
 		expected int
 	}{
 		{
-			name:     "Confirm positive value if input is positive",
+			name:     "Confirm positive ptr if input is positive",
 			value:    5,
 			expected: 5,
 		}, {
@@ -697,13 +697,13 @@ func TestTotalCountUnit(t *testing.T) {
 			shardCount:     3,
 			expectedResult: 6,
 		}, {
-			name:           "Confirm value of 0 get ignored in calculation",
+			name:           "Confirm ptr of 0 get ignored in calculation",
 			replicaCount:   0,
 			shardCount:     5,
 			expectedResult: 5,
 		},
 		{
-			name:           "Confirm negative value gets ignored in calculation",
+			name:           "Confirm negative ptr gets ignored in calculation",
 			replicaCount:   -2,
 			shardCount:     3,
 			expectedResult: 3,
@@ -814,7 +814,7 @@ func TestHandleErrorResponseBody(t *testing.T) {
 	}
 }
 
-func TestNewClientUnit(t *testing.T) {
+func TestToIndexUnit(t *testing.T) {
 	tests := []struct {
 		name           string
 		originalInput  *control.IndexModel
@@ -927,6 +927,106 @@ func TestNewClientUnit(t *testing.T) {
 				t.Errorf("toIndex() mismatch (-expectedOutput +input):\n%s", diff)
 			}
 			assert.EqualValues(t, tt.expectedOutput, input)
+		})
+	}
+}
+
+func TestToCollectionUnit(t *testing.T) {
+	size := int64(100)
+	dimension := int32(128)
+	vectorCount := int32(1000)
+
+	tests := []struct {
+		name           string
+		originalInput  *control.CollectionModel
+		expectedOutput *Collection
+	}{
+		{
+			name:           "nil input",
+			originalInput:  nil,
+			expectedOutput: nil,
+		},
+		{
+			name: "collection input",
+			originalInput: &control.CollectionModel{
+				Dimension:   &dimension,
+				Name:        "testCollection",
+				Environment: "test-environ",
+				Size:        &size,
+				VectorCount: &vectorCount,
+				Status:      "active",
+			},
+			expectedOutput: &Collection{
+				Name:        "testCollection",
+				Size:        size,
+				Status:      "active",
+				Dimension:   128,
+				VectorCount: vectorCount,
+				Environment: "test-environ",
+			},
+		},
+		{
+			name: "collection input",
+			originalInput: &control.CollectionModel{
+				Dimension:   &dimension,
+				Name:        "testCollection",
+				Environment: "test-environ",
+				Size:        &size,
+				VectorCount: &vectorCount,
+				Status:      "active",
+			},
+			expectedOutput: &Collection{
+				Name:        "testCollection",
+				Size:        size,
+				Status:      "active",
+				Dimension:   128,
+				VectorCount: vectorCount,
+				Environment: "test-environ",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := toCollection(tt.originalInput)
+			if diff := cmp.Diff(tt.expectedOutput, input); diff != "" {
+				t.Errorf("toCollection() mismatch (-expectedOutput +input):\n%s", diff)
+			}
+			assert.EqualValues(t, tt.expectedOutput, input)
+		})
+	}
+}
+
+func TestDerefOrDefaultUnit(t *testing.T) {
+	tests := []struct {
+		name         string
+		ptr          any
+		defaultValue any
+		expected     any
+	}{
+		{
+			name:         "Confirm defaultValue is returned when ptr is nil",
+			ptr:          nil,
+			defaultValue: "fallback-ptr",
+			expected:     "fallback-ptr",
+		}, {
+			name:         "Confirm ptr is returned when provided (string)",
+			ptr:          "some provided ptr",
+			defaultValue: "fallback-ptr",
+			expected:     "some provided ptr",
+		},
+		{
+			name:         "Confirm ptr is returned when provided (int)",
+			ptr:          78,
+			defaultValue: 92,
+			expected:     78,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := valueOrFallback(tt.ptr, tt.defaultValue)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
 		})
 	}
 }
