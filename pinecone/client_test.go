@@ -3,11 +3,6 @@ package pinecone
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/pinecone-io/go-pinecone/internal/utils"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
 	"io"
 	"log"
 	"net/http"
@@ -15,6 +10,12 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+	"github.com/pinecone-io/go-pinecone/internal/utils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 )
 
 type ClientTests struct {
@@ -574,17 +575,17 @@ func (ts *ClientTests) TestConfigureIndexIllegalScaleDown() {
 	}(ts, name)
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
-		Name: name,
-		Dimension: 10,
-		Metric: Cosine,
+		Name:        name,
+		Dimension:   10,
+		Metric:      Cosine,
 		Environment: "us-east1-gcp",
-		PodType: "p1.x2",
-	},)
+		PodType:     "p1.x2",
+	})
 	if err != nil {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
 
-	pods := "p1.x1" // test index originally created with "p1.x2" pods
+	pods := "p1.x1"      // test index originally created with "p1.x2" pods
 	replicas := int32(1) // could be nil, but do not want to test nil case here
 	_, err = ts.client.ConfigureIndex(context.Background(), name, &pods, &replicas)
 	require.ErrorContainsf(ts.T(), err, "Cannot scale down", err.Error())
@@ -599,12 +600,12 @@ func (ts *ClientTests) TestConfigureIndexScaleUpNoPods() {
 	}(ts, name)
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
-		Name: name,
-		Dimension: 10,
-		Metric: Cosine,
+		Name:        name,
+		Dimension:   10,
+		Metric:      Cosine,
 		Environment: "us-east1-gcp",
-		PodType: "p1.x2",
-	},)
+		PodType:     "p1.x2",
+	})
 	if err != nil {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
@@ -623,12 +624,12 @@ func (ts *ClientTests) TestConfigureIndexScaleUpNoReplicas() {
 	}(ts, name)
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
-		Name: name,
-		Dimension: 10,
-		Metric: Cosine,
+		Name:        name,
+		Dimension:   10,
+		Metric:      Cosine,
 		Environment: "us-east1-gcp",
-		PodType: "p1.x2",
-	},)
+		PodType:     "p1.x2",
+	})
 	if err != nil {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
@@ -647,12 +648,12 @@ func (ts *ClientTests) TestConfigureIndexIllegalNoPodsOrReplicas() {
 	}(ts, name)
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
-		Name: name,
-		Dimension: 10,
-		Metric: Cosine,
+		Name:        name,
+		Dimension:   10,
+		Metric:      Cosine,
 		Environment: "us-east1-gcp",
-		PodType: "p1.x2",
-	},)
+		PodType:     "p1.x2",
+	})
 	if err != nil {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
@@ -670,12 +671,12 @@ func (ts *ClientTests) TestConfigureIndexHitPodLimit() {
 	}(ts, name)
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
-		Name: name,
-		Dimension: 10,
-		Metric: Cosine,
+		Name:        name,
+		Dimension:   10,
+		Metric:      Cosine,
 		Environment: "us-east1-gcp",
-		PodType: "p1.x2",
-	},)
+		PodType:     "p1.x2",
+	})
 	if err != nil {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
