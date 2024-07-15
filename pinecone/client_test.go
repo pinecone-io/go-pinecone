@@ -3,6 +3,7 @@ package pinecone
 import (
 	"context"
 	"fmt"
+	"github.com/pinecone-io/go-pinecone/internal/provider"
 	"io"
 	"log"
 	"net/http"
@@ -10,8 +11,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/pinecone-io/go-pinecone/internal/provider"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pinecone-io/go-pinecone/internal/gen/control"
@@ -1113,13 +1112,13 @@ func TestNewClientBaseUnit(t *testing.T) {
 	}
 }
 
-func TestNewClientBaseNoHostOverride(t *testing.T) {}
-
-func TestBuildClientBaseOptionsUnit(t *testing.T) {
+func TestBuildClientBaseOptions(t *testing.T) {
 	tests := []struct {
-		name   string
-		params NewClientBaseParams
-		expect []control.ClientOption
+		name           string
+		params         NewClientBaseParams
+		envHeaders     string
+		expect         []control.ClientOption
+		expectEnvUnset bool
 	}{
 		{
 			name: "Construct base params without additional env headers present",
@@ -1131,36 +1130,15 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 				control.WithRequestEditorFn(provider.NewHeaderProvider("User-Agent", "test-user-agent").Intercept),
 				control.WithRequestEditorFn(provider.NewHeaderProvider("Param-Header", "param-value").Intercept),
 			},
+			expectEnvUnset: true,
 		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			clientOptions := buildClientBaseOptions(tt.params)
-			assert.Equal(t, len(tt.expect), len(clientOptions))
-
-			for i, opt := range tt.expect {
-				assert.IsType(t, opt, clientOptions[i])
-			}
-		})
-	}
-}
-
-func TestBuildClientBaseOptionsWithAddtlHeadersUnit(t *testing.T) {
-	// Set environment variables
-	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"Env-Header": "env-value"}`)
-	defer os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
-
-	tests := []struct {
-		name   string
-		params NewClientBaseParams
-		expect []control.ClientOption
-	}{
 		{
 			name: "Construct base params with additional env headers present",
 			params: NewClientBaseParams{
 				SourceTag: "source-tag",
 				Headers:   map[string]string{"Param-Header": "param-value"},
 			},
+			envHeaders: `{"Env-Header": "env-value"}`,
 			expect: []control.ClientOption{
 				control.WithRequestEditorFn(provider.NewHeaderProvider("Env-Header", "env-value").Intercept),
 				control.WithRequestEditorFn(provider.NewHeaderProvider("User-Agent", "test-user-agent").Intercept),
@@ -1168,8 +1146,14 @@ func TestBuildClientBaseOptionsWithAddtlHeadersUnit(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.envHeaders != "" {
+				os.Setenv("PINECONE_ADDITIONAL_HEADERS", tt.envHeaders)
+				defer os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
+			}
+
 			clientOptions := buildClientBaseOptions(tt.params)
 			assert.Equal(t, len(tt.expect), len(clientOptions))
 
