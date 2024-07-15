@@ -3,7 +3,6 @@ package pinecone
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/internal/provider"
 	"io"
 	"log"
 	"net/http"
@@ -11,6 +10,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/pinecone-io/go-pinecone/internal/provider"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pinecone-io/go-pinecone/internal/gen/control"
@@ -998,24 +999,6 @@ func TestDerefOrDefaultUnit(t *testing.T) {
 	}
 }
 
-func TestNewClientNoHeadersProvidedUnit(t *testing.T) {
-	apiKey := "test-api-key"
-	mockNewClientParams := NewClientParams{
-		ApiKey: apiKey,
-	}
-
-	client, err := NewClient(mockNewClientParams)
-	if err != nil {
-		t.FailNow()
-	}
-
-	// When headers are nil, NewClient should replace with "Api-Key":"<passed api key>"
-	expectedHeaders := map[string]string{"Api-Key": "test-api-key"}
-
-	assert.Equal(t, client.headers, expectedHeaders, "Expected request to have header of \"Api-Key\":\"test-api-key\"}, but got '%s'",
-		client.headers)
-}
-
 func TestNewClientHeadersProvidedUnit(t *testing.T) {
 	apiKey := "test-api-key"
 	CustomHeader := map[string]string{"Test-Header": "custom-header-value"}
@@ -1045,7 +1028,108 @@ func TestNewClientHeadersProvidedUnit(t *testing.T) {
 		client.headers)
 }
 
-// TODO: build newclientbase tests with and without host override. test with jwt stuff or no?
+func TestNewClientNoHeadersProvidedUnit(t *testing.T) {
+	apiKey := "test-api-key"
+	mockNewClientParams := NewClientParams{
+		ApiKey: apiKey,
+	}
+
+	client, err := NewClient(mockNewClientParams)
+	if err != nil {
+		t.FailNow()
+	}
+
+	// When headers are nil, NewClient should replace with "Api-Key":"<passed api key>"
+	expectedHeaders := map[string]string{"Api-Key": "test-api-key"}
+
+	assert.Equal(t, client.headers, expectedHeaders, "Expected request to have header of \"Api-Key\":\"test-api-key\"}, but got '%s'",
+		client.headers)
+}
+
+func TestNewClientBaseHostCustomHeadersUnit(t *testing.T) {
+	auth := "Bearer " + "test JWT token"
+	xProjectId := "test-pinecone-project-id"
+	mockNewClientBaseParams := NewClientBaseParams{
+		Headers: map[string]string{"Authorization": auth, "X-Project-Id": xProjectId},
+	}
+
+	client, err := NewClientBase(mockNewClientBaseParams)
+	if err != nil {
+		t.FailNow()
+	}
+
+	expectedHeaders := map[string]string{"Authorization": auth, "X-Project-Id": xProjectId}
+
+	assert.Equal(t, client.headers, expectedHeaders, "Expected request to have headers of \"https://api."+
+		"pinecone.io\"}, but got '%s'")
+}
+
+func TestNewClientBaseHostOverrideUnit(t *testing.T) {
+	// Save the current environment variable value and defer restoring it
+	originalHostEnv := os.Getenv("PINECONE_CONTROLLER_HOST")
+	defer os.Setenv("PINECONE_CONTROLLER_HOST", originalHostEnv)
+
+	testCases := []struct {
+		name         string
+		host         string
+		envHost      string
+		expectedHost string
+		expectedErr  bool
+	}{
+		{
+			name:         "Host provided in parameters",
+			host:         "https://custom-host.com/",
+			envHost:      "",
+			expectedHost: "https://custom-host.com/",
+			expectedErr:  false,
+		},
+		{
+			name:         "Host from environment variable",
+			host:         "",
+			envHost:      "https://env-host.com/",
+			expectedHost: "https://env-host.com/",
+			expectedErr:  false,
+		},
+		{
+			name:         "Default host",
+			host:         "",
+			envHost:      "",
+			expectedHost: "https://api.pinecone.io/",
+			expectedErr:  false,
+		},
+		{
+			name:         "Invalid URL scheme",
+			host:         "invalid-host			", // invalid b/c tab chars in url
+			envHost:      "",
+			expectedHost: "",
+			expectedErr:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set environment variable for the test case
+			os.Setenv("PINECONE_CONTROLLER_HOST", tc.envHost)
+
+			params := NewClientBaseParams{
+				Host: tc.host,
+			}
+			client, err := NewClientBase(params)
+
+			if tc.expectedErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, client)
+				if tc.expectedHost != "" {
+					assert.Equal(t, tc.expectedHost, client.restClient.Server)
+				}
+			}
+		})
+	}
+}
+
+func TestNewClientBaseNoHostOverride(t *testing.T) {}
 
 func TestBuildClientBaseOptionsUnit(t *testing.T) {
 	tests := []struct {
@@ -1111,7 +1195,6 @@ func TestBuildClientBaseOptionsWithAddtlHeadersUnit(t *testing.T) {
 		})
 	}
 }
-
 
 // Helper functions:
 func isValidUUID(u string) bool {
