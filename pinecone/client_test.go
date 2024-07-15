@@ -1112,7 +1112,7 @@ func TestNewClientBaseUnit(t *testing.T) {
 	}
 }
 
-func TestBuildClientBaseOptions(t *testing.T) {
+func TestBuildClientBaseOptionsUnit(t *testing.T) {
 	tests := []struct {
 		name           string
 		params         NewClientBaseParams
