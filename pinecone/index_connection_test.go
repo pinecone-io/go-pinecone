@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/internal/gen/data"
 	"os"
 	"testing"
+
+	"github.com/pinecone-io/go-pinecone/internal/gen/data"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/internal/utils"
@@ -940,6 +942,133 @@ func TestSparseValToGrpcUnit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := sparseValToGrpc(tt.sparseValues)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+}
+
+func TestAkCtxUnit(t *testing.T) {
+	tests := []struct {
+		name               string
+		additionalMetadata map[string]string
+		initialMetadata    map[string]string
+		expectedMetadata   map[string]string
+	}{
+		{
+			name:               "No additional metadata in IndexConnection obj",
+			additionalMetadata: nil,
+			initialMetadata:    map[string]string{"initial-key": "initial-value"},
+			expectedMetadata:   map[string]string{"initial-key": "initial-value"},
+		},
+		{
+			name:               "With additional metadata in IndexConnection obj",
+			additionalMetadata: map[string]string{"addtl-key1": "addtl-value1", "addtl-key2": "addtl-value2"},
+			initialMetadata:    map[string]string{"initial-key": "initial-value"},
+			expectedMetadata: map[string]string{
+				"initial-key": "initial-value",
+				"addtl-key1":  "addtl-value1",
+				"addtl-key2":  "addtl-value2",
+			},
+		},
+		{
+			name: "Only additional metadata",
+			additionalMetadata: map[string]string{
+				"addtl-key1": "addtl-value1",
+				"addtl-key2": "addtl-value2",
+			},
+			initialMetadata: nil,
+			expectedMetadata: map[string]string{
+				"addtl-key1": "addtl-value1",
+				"addtl-key2": "addtl-value2",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			idx := &IndexConnection{additionalMetadata: tt.additionalMetadata}
+			ctx := context.Background()
+
+			// Add initial metadata to the context if provided
+			if tt.initialMetadata != nil {
+				md := metadata.New(tt.initialMetadata)
+				ctx = metadata.NewOutgoingContext(ctx, md)
+			}
+
+			// Call the method
+			newCtx := idx.akCtx(ctx)
+
+			// Retrieve metadata from the new context
+			md, ok := metadata.FromOutgoingContext(newCtx)
+			assert.True(t, ok)
+
+			// Check that the metadata matches the expected metadata
+			for key, expectedValue := range tt.expectedMetadata {
+				values := md[key]
+				assert.Contains(t, values, expectedValue)
+			}
+		})
+	}
+}
+
+func TestToUsageUnit(t *testing.T) {
+	u5 := uint32(5)
+
+	tests := []struct {
+		name     string
+		usage    *data.Usage
+		expected *Usage
+	}{
+		{
+			name:     "Pass nil usage, expect nil to be returned",
+			usage:    nil,
+			expected: nil,
+		},
+		{
+			name: "Pass usage",
+			usage: &data.Usage{
+				ReadUnits: &u5,
+			},
+			expected: &Usage{
+				ReadUnits: 5,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := toUsage(tt.usage)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+}
+
+func TestToPaginationToken(t *testing.T) {
+	tokenForNilCase := ""
+	tokenForPositiveCase := "next-token"
+
+	tests := []struct {
+		name     string
+		token    *data.Pagination
+		expected *string
+	}{
+		{
+			name:     "Pass empty token, expect empty string to be returned",
+			token:    &data.Pagination{},
+			expected: &tokenForNilCase,
+		},
+		{
+			name: "Pass token",
+			token: &data.Pagination{
+				Next: "next-token",
+			},
+			expected: &tokenForPositiveCase,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := toPaginationToken(tt.token)
 			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
 		})
 	}
