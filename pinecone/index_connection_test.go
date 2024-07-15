@@ -798,3 +798,149 @@ func TestToScoredVectorUnit(t *testing.T) {
 		})
 	}
 }
+
+func TestVecToGrpcUnit(t *testing.T) {
+	tests := []struct {
+		name     string
+		vector   *Vector
+		expected *data.Vector
+	}{
+		{
+			name:     "Pass nil vector, expect nil to be returned",
+			vector:   nil,
+			expected: nil,
+		},
+		{
+			name: "Pass dense vector",
+			vector: &Vector{
+				Id:     "dense-1",
+				Values: []float32{0.01, 0.02, 0.03},
+			},
+			expected: &data.Vector{
+				Id:     "dense-1",
+				Values: []float32{0.01, 0.02, 0.03},
+			},
+		},
+		{
+			name: "Pass sparse vector",
+			vector: &Vector{
+				Id:     "sparse-1",
+				Values: nil,
+				SparseValues: &SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+			},
+			expected: &data.Vector{
+				Id: "sparse-1",
+				SparseValues: &data.SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+			},
+		},
+		{
+			name: "Pass hybrid vector",
+			vector: &Vector{
+				Id:     "hybrid-1",
+				Values: []float32{0.01, 0.02, 0.03},
+				SparseValues: &SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+			},
+			expected: &data.Vector{
+				Id:     "hybrid-1",
+				Values: []float32{0.01, 0.02, 0.03},
+				SparseValues: &data.SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+			},
+		},
+		{
+			name: "Pass hybrid vector with metadata",
+			vector: &Vector{
+				Id:     "hybrid-metadata-1",
+				Values: []float32{0.01, 0.02, 0.03},
+				SparseValues: &SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
+					},
+				},
+			},
+			expected: &data.Vector{
+				Id:     "hybrid-metadata-1",
+				Values: []float32{0.01, 0.02, 0.03},
+				SparseValues: &data.SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := vecToGrpc(tt.vector)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+}
+
+func TestSparseValToGrpcUnit(t *testing.T) {
+	tests := []struct {
+		name         string
+		sparseValues *SparseValues
+		metadata     *structpb.Struct
+		expected     *data.SparseValues
+	}{
+		{
+			name:         "Pass nil sparse values, expect nil to be returned",
+			sparseValues: nil,
+			expected:     nil,
+		},
+		{
+			name: "Pass sparse values",
+			sparseValues: &SparseValues{
+				Indices: []uint32{0, 2},
+				Values:  []float32{0.01, 0.03},
+			},
+			expected: &data.SparseValues{
+				Indices: []uint32{0, 2},
+				Values:  []float32{0.01, 0.03},
+			},
+		},
+		{
+			name: "Pass sparse values with metadata (metadata is ignored)",
+			sparseValues: &SparseValues{
+				Indices: []uint32{0, 2},
+				Values:  []float32{0.01, 0.03},
+			},
+			metadata: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
+				},
+			},
+			expected: &data.SparseValues{
+				Indices: []uint32{0, 2},
+				Values:  []float32{0.01, 0.03},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sparseValToGrpc(tt.sparseValues)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+}
