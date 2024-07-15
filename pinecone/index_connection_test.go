@@ -655,3 +655,146 @@ func TestToVectorUnit(t *testing.T) {
 		})
 	}
 }
+
+func TestToSparseValuesUnit(t *testing.T) {
+	tests := []struct {
+		name         string
+		sparseValues *data.SparseValues
+		expected     *SparseValues
+	}{
+		{
+			name:         "Pass nil sparse values, expect nil to be returned",
+			sparseValues: nil,
+			expected:     nil,
+		},
+		{
+			name: "Pass sparse values",
+			sparseValues: &data.SparseValues{
+				Indices: []uint32{0, 2},
+				Values:  []float32{0.01, 0.03},
+			},
+			expected: &SparseValues{
+				Indices: []uint32{0, 2},
+				Values:  []float32{0.01, 0.03},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := toSparseValues(tt.sparseValues)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+}
+
+func TestToScoredVectorUnit(t *testing.T) {
+	tests := []struct {
+		name         string
+		scoredVector *data.ScoredVector
+		expected     *ScoredVector
+	}{
+		{
+			name:         "Pass nil scored vector, expect nil to be returned",
+			scoredVector: nil,
+			expected:     nil,
+		},
+		{
+			name: "Pass scored dense vector",
+			scoredVector: &data.ScoredVector{
+				Id:     "dense-1",
+				Values: []float32{0.01, 0.01, 0.01},
+				Score:  0.1,
+			},
+			expected: &ScoredVector{
+				Vector: &Vector{
+					Id:     "dense-1",
+					Values: []float32{0.01, 0.01, 0.01},
+				},
+				Score: 0.1,
+			},
+		},
+		{
+			name: "Pass scored sparse vector",
+			scoredVector: &data.ScoredVector{
+				Id: "sparse-1",
+				SparseValues: &data.SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+				Score: 0.2,
+			},
+			expected: &ScoredVector{
+				Vector: &Vector{
+					Id: "sparse-1",
+					SparseValues: &SparseValues{
+						Indices: []uint32{0, 2},
+						Values:  []float32{0.01, 0.03},
+					},
+				},
+				Score: 0.2,
+			},
+		},
+		{
+			name: "Pass scored hybrid vector",
+			scoredVector: &data.ScoredVector{
+				Id:     "hybrid-1",
+				Values: []float32{0.01, 0.02, 0.03},
+				SparseValues: &data.SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+				Score: 0.3,
+			},
+			expected: &ScoredVector{
+				Vector: &Vector{
+					Id:     "hybrid-1",
+					Values: []float32{0.01, 0.02, 0.03},
+					SparseValues: &SparseValues{
+						Indices: []uint32{0, 2},
+						Values:  []float32{0.01, 0.03},
+					},
+				},
+				Score: 0.3,
+			},
+		},
+		{
+			name: "Pass scored hybrid vector with metadata",
+			scoredVector: &data.ScoredVector{
+				Id:     "hybrid-metadata-1",
+				Values: []float32{0.01, 0.02, 0.03},
+				SparseValues: &data.SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
+					},
+				},
+				Score: 0.4,
+			},
+			expected: &ScoredVector{
+				Vector: &Vector{
+					Id:     "hybrid-metadata-1",
+					Values: []float32{0.01, 0.02, 0.03},
+					SparseValues: &SparseValues{
+						Indices: []uint32{0, 2},
+						Values:  []float32{0.01, 0.03},
+					},
+					Metadata: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
+						},
+					},
+				},
+				Score: 0.4,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := toScoredVector(tt.scoredVector)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+}
