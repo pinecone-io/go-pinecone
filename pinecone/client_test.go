@@ -462,10 +462,10 @@ func (ts *ClientTestsIntegration) TestDeleteCollection() {
 	require.NoError(ts.T(), err)
 }
 
-func (ts *ClientTests) TestConfigureIndexIllegalScaleDown() {
+func (ts *ClientTestsIntegration) TestConfigureIndexIllegalScaleDown() {
 	name := uuid.New().String()
 
-	defer func(ts *ClientTests, name string) {
+	defer func(ts *ClientTestsIntegration, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -487,10 +487,10 @@ func (ts *ClientTests) TestConfigureIndexIllegalScaleDown() {
 	require.ErrorContainsf(ts.T(), err, "Cannot scale down", err.Error())
 }
 
-func (ts *ClientTests) TestConfigureIndexScaleUpNoPods() {
+func (ts *ClientTestsIntegration) TestConfigureIndexScaleUpNoPods() {
 	name := uuid.New().String()
 
-	defer func(ts *ClientTests, name string) {
+	defer func(ts *ClientTestsIntegration, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -511,10 +511,10 @@ func (ts *ClientTests) TestConfigureIndexScaleUpNoPods() {
 	require.NoError(ts.T(), err)
 }
 
-func (ts *ClientTests) TestConfigureIndexScaleUpNoReplicas() {
+func (ts *ClientTestsIntegration) TestConfigureIndexScaleUpNoReplicas() {
 	name := uuid.New().String()
 
-	defer func(ts *ClientTests, name string) {
+	defer func(ts *ClientTestsIntegration, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -535,10 +535,10 @@ func (ts *ClientTests) TestConfigureIndexScaleUpNoReplicas() {
 	require.NoError(ts.T(), err)
 }
 
-func (ts *ClientTests) TestConfigureIndexIllegalNoPodsOrReplicas() {
+func (ts *ClientTestsIntegration) TestConfigureIndexIllegalNoPodsOrReplicas() {
 	name := uuid.New().String()
 
-	defer func(ts *ClientTests, name string) {
+	defer func(ts *ClientTestsIntegration, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -558,10 +558,10 @@ func (ts *ClientTests) TestConfigureIndexIllegalNoPodsOrReplicas() {
 	require.ErrorContainsf(ts.T(), err, "must specify either podType or replicas", err.Error())
 }
 
-func (ts *ClientTests) TestConfigureIndexHitPodLimit() {
+func (ts *ClientTestsIntegration) TestConfigureIndexHitPodLimit() {
 	name := uuid.New().String()
 
-	defer func(ts *ClientTests, name string) {
+	defer func(ts *ClientTestsIntegration, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
