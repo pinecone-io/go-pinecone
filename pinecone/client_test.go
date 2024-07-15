@@ -999,72 +999,56 @@ func TestDerefOrDefaultUnit(t *testing.T) {
 	}
 }
 
-func TestNewClientHeadersProvidedUnit(t *testing.T) {
-	apiKey := "test-api-key"
-	CustomHeader := map[string]string{"Test-Header": "custom-header-value"}
-	mockNewClientParams := NewClientParams{
-		ApiKey:  apiKey,
-		Headers: CustomHeader,
+func TestNewClientUnit(t *testing.T) {
+	testCases := []struct {
+		name            string
+		apiKey          string
+		headers         map[string]string
+		expectedHeaders map[string]string
+		expectedErr     bool
+	}{
+		{
+			name:   "Custom headers provided",
+			apiKey: "test-api-key",
+			headers: map[string]string{
+				"Test-Header": "custom-header-value",
+			},
+			expectedHeaders: map[string]string{
+				"Api-Key":     "test-api-key",
+				"Test-Header": "custom-header-value",
+			},
+			expectedErr: false,
+		},
+		{
+			name:            "No headers provided",
+			apiKey:          "test-api-key",
+			headers:         nil,
+			expectedHeaders: map[string]string{"Api-Key": "test-api-key"},
+			expectedErr:     false,
+		},
 	}
 
-	client, err := NewClient(mockNewClientParams)
-	if err != nil {
-		t.FailNow()
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockNewClientParams := NewClientParams{
+				ApiKey:  tc.apiKey,
+				Headers: tc.headers,
+			}
 
-	// When custom header is provided, NewClient should add it to the headers map (which should include the passed api key)
-	expectedHeadersMap := make(map[string]string)
-	headerOne := map[string]string{"Api-Key": "test-api-key"}
-	headerTwo := map[string]string{"Test-Header": "custom-header-value"}
-	for k, v := range headerOne {
-		expectedHeadersMap[k] = v
-	}
-	for k, v := range headerTwo {
-		expectedHeadersMap[k] = v
-	}
+			client, err := NewClient(mockNewClientParams)
 
-	assert.Equal(t, client.headers, expectedHeadersMap, "Expected request to have header of \"Api-Key\":\"test-api-key\"}, "+
-		"but got '%s'",
-		client.headers)
+			if tc.expectedErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, client)
+				assert.Equal(t, tc.expectedHeaders, client.headers, "Expected headers to be '%v', but got '%v'", tc.expectedHeaders, client.headers)
+			}
+		})
+	}
 }
 
-func TestNewClientNoHeadersProvidedUnit(t *testing.T) {
-	apiKey := "test-api-key"
-	mockNewClientParams := NewClientParams{
-		ApiKey: apiKey,
-	}
-
-	client, err := NewClient(mockNewClientParams)
-	if err != nil {
-		t.FailNow()
-	}
-
-	// When headers are nil, NewClient should replace with "Api-Key":"<passed api key>"
-	expectedHeaders := map[string]string{"Api-Key": "test-api-key"}
-
-	assert.Equal(t, client.headers, expectedHeaders, "Expected request to have header of \"Api-Key\":\"test-api-key\"}, but got '%s'",
-		client.headers)
-}
-
-func TestNewClientBaseHostCustomHeadersUnit(t *testing.T) {
-	auth := "Bearer " + "test JWT token"
-	xProjectId := "test-pinecone-project-id"
-	mockNewClientBaseParams := NewClientBaseParams{
-		Headers: map[string]string{"Authorization": auth, "X-Project-Id": xProjectId},
-	}
-
-	client, err := NewClientBase(mockNewClientBaseParams)
-	if err != nil {
-		t.FailNow()
-	}
-
-	expectedHeaders := map[string]string{"Authorization": auth, "X-Project-Id": xProjectId}
-
-	assert.Equal(t, client.headers, expectedHeaders, "Expected request to have headers of \"https://api."+
-		"pinecone.io\"}, but got '%s'")
-}
-
-func TestNewClientBaseHostOverrideUnit(t *testing.T) {
+func TestNewClientBaseUnit(t *testing.T) {
 	// Save the current environment variable value and defer restoring it
 	originalHostEnv := os.Getenv("PINECONE_CONTROLLER_HOST")
 	defer os.Setenv("PINECONE_CONTROLLER_HOST", originalHostEnv)
