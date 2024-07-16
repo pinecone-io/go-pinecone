@@ -8,7 +8,7 @@ import "google.golang.org/protobuf/types/known/structpb"
 type IndexMetric string
 
 const (
-	Cosine     IndexMetric = "cosine"     // Default similarity metric, ideal for textual data
+	Cosine     IndexMetric = "cosine"     // Default distance metric, ideal for textual data
 	Dotproduct IndexMetric = "dotproduct" // Ideal for hybrid search
 	Euclidean  IndexMetric = "euclidean"  // Ideal for distance-based data (e.g. lat/long points)
 )
