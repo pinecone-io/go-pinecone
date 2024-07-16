@@ -387,14 +387,14 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 // Fields:
 //   - Vector: The query vector used to find similar vectors.
 //   - TopK: The number of vectors to return.
-//   - Filter: The filter to apply to your query.
+//   - MetadataFilter: The filter to apply to your query.
 //   - IncludeValues: Whether to include the values of the vectors in the response.
 //   - IncludeMetadata: Whether to include the metadata associated with the vectors in the response.
 //   - SparseValues: The sparse values of the query vector, if applicable.
 type QueryByVectorValuesRequest struct {
 	Vector          []float32
 	TopK            uint32
-	Filter          *Filter
+	Filter          *MetadataFilter
 	IncludeValues   bool
 	IncludeMetadata bool
 	SparseValues    *SparseValues
@@ -471,7 +471,7 @@ type QueryVectorsResponse struct {
 //	    res, err := idxConnection.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
 //		       Vector:          queryVector,
 //		       TopK:            topK, // number of vectors to be returned
-//		       Filter:          metadataFilter,
+//		       MetadataFilter:          metadataFilter,
 //		       SparseValues:    &sparseValues,
 //		       IncludeValues:   true,
 //		       IncludeMetadata: true,
@@ -504,14 +504,14 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 // Fields:
 //   - VectorId: The unique ID of the vector used to find similar vectors.
 //   - TopK: The number of vectors to return.
-//   - Filter: The filter to apply to your query.
+//   - MetadataFilter: The filter to apply to your query.
 //   - IncludeValues: Whether to include the values of the vectors in the response.
 //   - IncludeMetadata: Whether to include the metadata associated with the vectors in the response.
 //   - SparseValues: The sparse values of the query vector, if applicable.
 type QueryByVectorIdRequest struct {
 	VectorId        string
 	TopK            uint32
-	Filter          *Filter
+	Filter          *MetadataFilter
 	IncludeValues   bool
 	IncludeMetadata bool
 	SparseValues    *SparseValues
@@ -700,7 +700,7 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 //	    if err != nil {
 //		       log.Fatalf("Failed to delete vector(s) with filter: %+v. Error: %s\n", filter, err)
 //	    }
-func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *Filter) error {
+func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *MetadataFilter) error {
 	req := data.DeleteRequest{
 		Filter:    filter,
 		Namespace: idx.Namespace,
@@ -953,7 +953,7 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 //			       fmt.Printf("Namespace: \"%s\", has %d vector(s) that match the given filter\n", name, summary.VectorCount)
 //		       }
 //	    }
-func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, filter *Filter) (*DescribeIndexStatsResponse, error) {
+func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, filter *MetadataFilter) (*DescribeIndexStatsResponse, error) {
 	req := &data.DescribeIndexStatsRequest{
 		Filter: filter,
 	}

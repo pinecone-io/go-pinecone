@@ -267,7 +267,7 @@ func (ts *IndexConnectionTests) TestDescribeIndexStats() {
 
 func (ts *IndexConnectionTests) TestDescribeIndexStatsFiltered() {
 	ctx := context.Background()
-	res, err := ts.idxConn.DescribeIndexStatsFiltered(ctx, &Filter{})
+	res, err := ts.idxConn.DescribeIndexStatsFiltered(ctx, &MetadataFilter{})
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
