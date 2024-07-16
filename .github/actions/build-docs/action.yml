@@ -5,5 +5,5 @@ runs:
   steps:
     - name: Write html file to docs directory
       run: |
-        @godoc -url pkg/github.com/pinecone-io/go-pinecone/pinecone/ > ../../../docs/godoc-documentation.html
+        @godoc -url pkg/github.com/pinecone-io/go-pinecone/pinecone/ > ../../../docs/index.html
       shell: bash
