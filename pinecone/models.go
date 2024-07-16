@@ -142,11 +142,11 @@ type Usage struct {
 	ReadUnits uint32 `json:"read_units"`
 }
 
-// Filter represents the [metadata filters] attached to a Pinecone request.
+// MetadataFilter represents the [metadata filters] attached to a Pinecone request.
 // These optional metadata filters are applied to query and deletion requests.
 //
 // [metadata filters]: https://docs.pinecone.io/guides/data/filter-with-metadata#querying-an-index-with-metadata-filters
-type Filter = structpb.Struct
+type MetadataFilter = structpb.Struct
 
 // Metadata represents optional,
 // additional information that can be [attached to, or updated for, a vector] in a Pinecone Index.
