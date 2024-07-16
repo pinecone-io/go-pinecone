@@ -1,0 +1,9 @@
+name: 'Build client documentation'
+description: 'Generates client documentation using godoc'
+runs:
+  using: 'composite'
+  steps:
+    - name: Write html file to docs directory
+      run: |
+        godoc -url pkg/github.com/pinecone-io/go-pinecone/pinecone/ > ./docs/index.html
+      shell: bash

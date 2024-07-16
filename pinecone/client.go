@@ -1,3 +1,6 @@
+// Package pinecone provides a client for the [Pinecone managed vector database].
+//
+// [Pinecone managed vector database]: https://www.pinecone.io/
 package pinecone
 
 import (
