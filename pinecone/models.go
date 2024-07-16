@@ -8,7 +8,7 @@ import "google.golang.org/protobuf/types/known/structpb"
 type IndexMetric string
 
 const (
-	Cosine     IndexMetric = "cosine" // Default similarity, ideal for textual data
+	Cosine     IndexMetric = "cosine"     // Default similarity metric, ideal for textual data
 	Dotproduct IndexMetric = "dotproduct" // Ideal for hybrid search
 	Euclidean  IndexMetric = "euclidean"  // Ideal for distance-based data (e.g. lat/long points)
 )
@@ -50,7 +50,7 @@ type IndexSpec struct {
 	Serverless *ServerlessSpec `json:"serverless,omitempty"`
 }
 
-// Index is a Pinecone Index object. Can be either a pod-based or a serverless Index, depending on passed IndexSpec.
+// Index is a Pinecone Index object. Can be either a pod-based or a serverless Index, depending on the IndexSpec.
 type Index struct {
 	Name      string       `json:"name"`
 	Dimension int32        `json:"dimension"`
@@ -81,7 +81,7 @@ const (
 	CollectionStatusTerminating  CollectionStatus = "Terminating"
 )
 
-// PodSpecMetadataConfig is the metadata fields to be indexed when a Pinecone Index is created.
+// PodSpecMetadataConfig represents the metadata fields to be indexed when a Pinecone Index is created.
 type PodSpecMetadataConfig struct {
 	Indexed *[]string `json:"indexed,omitempty"`
 }
@@ -142,12 +142,14 @@ type Usage struct {
 	ReadUnits uint32 `json:"read_units"`
 }
 
-// Filter is the structure that holds the conditions for a query sent to a Pinecone Index,
-// e.g. 'give me all vectors where "author" is "John"'.
+// Filter represents the [metadata filters] attached to a Pinecone request.
+// These optional metadata filters are applied to query and deletion requests.
+//
+// [metadata filters]: https://docs.pinecone.io/guides/data/filter-with-metadata#querying-an-index-with-metadata-filters
 type Filter = structpb.Struct
 
-// Metadata defines [the conditions for a query] sent to a Pinecone Index, or the additional metadata [to be indexed with a vector].
+// Metadata represents optional,
+// additional information that can be [attached to, or updated for, a vector] in a Pinecone Index.
 //
-// [the conditions for a query]: https://docs.pinecone.io/guides/data/filter-with-metadata#querying-an-index-with-metadata-filters
-// [to be indexed with a vector]: https://docs.pinecone.io/guides/data/filter-with-metadata#inserting-metadata-into-an-index
+// [attached to, or updated for, a vector]: https://docs.pinecone.io/guides/data/filter-with-metadata#inserting-metadata-into-an-index
 type Metadata = structpb.Struct
