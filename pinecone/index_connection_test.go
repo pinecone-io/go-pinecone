@@ -561,12 +561,6 @@ func TestMarshalDescribeIndexStatsResponseUnit(t *testing.T) {
 }
 
 func TestToVectorUnit(t *testing.T) {
-	metadataForTesting := map[string]interface{}{
-		"genre": "classical",
-	}
-
-	metadata, _ := structpb.NewStruct(metadataForTesting)
-
 	tests := []struct {
 		name     string
 		vector   *data.Vector
@@ -636,7 +630,10 @@ func TestToVectorUnit(t *testing.T) {
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
 				},
-				Metadata: metadata,
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
+					}},
 			},
 			expected: &Vector{
 				Id:     "hybrid-metadata-1",
@@ -645,7 +642,10 @@ func TestToVectorUnit(t *testing.T) {
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
 				},
-				Metadata: metadata,
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
+					}},
 			},
 		},
 	}

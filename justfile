@@ -9,7 +9,7 @@ test-integration:
     set -o allexport
     source .env
     set +o allexport
-    go test -count=1 -v -run TestIntegrationClient ./pinecone
+    go test -v -run Integration ./pinecone
 test-unit:
     #!/usr/bin/env bash
     set -o allexport
