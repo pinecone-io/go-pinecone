@@ -13,3 +13,7 @@ runs:
       uses: actions/setup-go@v5
       with:
         go-version: ${{ inputs.go-version }}
+
+    - name: Install Go dependencies
+      shell: bash
+      run: go mod download
