@@ -5,9 +5,14 @@
 
 # go-pinecone
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/pinecone-io/go-pinecone.svg)](https://pkg.go.dev/github.com/pinecone-io/go-pinecone)
+[![Go Reference](https://pkg.go.dev/badge/github.com/pinecone-io/go-pinecone.svg)](https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone)
 
 Official Pinecone Go Client
+
+## Documentation
+To see the latest documentation on `main`, visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone.
+
+To see the latest versioned-release's documentation, visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/pinecone.
 
 ## Features
 
