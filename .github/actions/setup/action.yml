@@ -17,3 +17,7 @@ runs:
     - name: Install Go dependencies
       shell: bash
       run: go mod download
+
+    - name: Install godoc
+      shell: bash
+      run: go install golang.org/x/tools/cmd/godoc@latest
