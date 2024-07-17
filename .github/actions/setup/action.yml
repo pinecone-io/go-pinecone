@@ -1,0 +1,23 @@
+name: 'Setup Go'
+description: 'Sets up Go using actions/setup-go@v5'
+inputs:
+  go-version:
+    description: 'The version of Go to use'
+    required: true
+    default: '1.21'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go-version }}
+
+    - name: Install Go dependencies
+      shell: bash
+      run: go mod download
+
+    - name: Install godoc
+      shell: bash
+      run: go install golang.org/x/tools/cmd/godoc@latest
