@@ -5,6 +5,8 @@
 
 # go-pinecone
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/pinecone-io/go-pinecone.svg)](https://pkg.go.dev/github.com/pinecone-io/go-pinecone)
+
 Official Pinecone Go Client
 
 ## Features
