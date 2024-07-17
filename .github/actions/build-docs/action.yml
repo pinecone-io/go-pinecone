@@ -1,8 +1,12 @@
-name: 'Build client documentation'
+name: 'Generate client documentation'
 description: 'Generates client documentation using godoc'
+
 runs:
   using: 'composite'
   steps:
+    - name: Check out the repository
+      uses: actions/checkout@v4
+
     - name: Write html file to docs directory
       shell: bash
       run: |
@@ -13,7 +17,5 @@ runs:
           echo "Directory ./docs does not exist. Creating it now..."
           mkdir ./docs
         fi
-          
-        # Run the godoc command
         godoc -url pkg/github.com/pinecone-io/go-pinecone/pinecone/ > ./docs/index.html
         echo "godoc command has been executed and the output has been saved to ./docs/index.html"
