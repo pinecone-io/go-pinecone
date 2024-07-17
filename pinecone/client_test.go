@@ -3,7 +3,6 @@ package pinecone
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/internal/provider"
 	"io"
 	"log"
 	"net/http"
@@ -11,6 +10,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/pinecone-io/go-pinecone/internal/provider"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pinecone-io/go-pinecone/internal/gen/control"
@@ -633,7 +634,7 @@ func TestFormatErrorUnit(t *testing.T) {
 		err      int
 		expected *PineconeError
 	}{
-		{ // TODO: should really add a negative case here, but triggering a marshalling error is hard
+		{
 			name: "Confirm error message is formatted as expected",
 			err:  202,
 			expected: &PineconeError{
@@ -763,7 +764,7 @@ func TestEnsureURLSchemeUnit(t *testing.T) {
 		}, {
 			name:     "Confirm http prefix is added",
 			url:      "http://pinecone-api.io",
-			expected: "http://pinecone-api.io", // TODO: should this be https?
+			expected: "http://pinecone-api.io",
 		},
 		{
 			name:     "Confirm https prefix is added",
