@@ -7,15 +7,7 @@ runs:
     - name: Check out the repository
       uses: actions/checkout@v4
 
-    - name: Write html file to docs directory
+    - name: Run gopages to generate documentation
       shell: bash
       run: |
-        # Check if the ./docs directory exists
-        if [ -d "./docs" ]; then
-          echo "Directory ./docs exists."
-        else
-          echo "Directory ./docs does not exist. Creating it now..."
-          mkdir ./docs
-        fi
-        godoc -url pkg/github.com/pinecone-io/go-pinecone/pinecone/ > ./docs/index.html
-        echo "godoc command has been executed and the output has been saved to ./docs/index.html"
+        gopages
