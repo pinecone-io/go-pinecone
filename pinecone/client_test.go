@@ -1061,28 +1061,29 @@ func TestNewClientBaseUnit(t *testing.T) {
 		expectedErr  bool
 	}{
 		{
-			name:         "Host provided in parameters",
+			name:         "Host passed in explicitly",
 			host:         "https://custom-host.com/",
 			envHost:      "",
 			expectedHost: "https://custom-host.com/",
 			expectedErr:  false,
 		},
 		{
-			name:         "Host from environment variable",
+			name:         "Host taken from environment variable",
 			host:         "",
 			envHost:      "https://env-host.com/",
 			expectedHost: "https://env-host.com/",
 			expectedErr:  false,
 		},
 		{
-			name:         "Default host",
+			name: "Host is not passed explicitly nor is it stored as an environment variable, " +
+				"so default host is used",
 			host:         "",
 			envHost:      "",
 			expectedHost: "https://api.pinecone.io/",
 			expectedErr:  false,
 		},
 		{
-			name:         "Invalid URL scheme",
+			name:         "Pass an invalid URL scheme",
 			host:         "invalid-host			", // invalid b/c tab chars in url
 			envHost:      "",
 			expectedHost: "",
