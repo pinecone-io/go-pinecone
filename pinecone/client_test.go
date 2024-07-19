@@ -308,6 +308,23 @@ func (ts *ClientTestsIntegration) TestCreatePodIndexInvalidDimension() {
 	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
 }
 
+func (ts *ClientTestsIntegration) TestCreatePodIndexFromCollection() {
+	name := uuid.New().String()
+
+	defer func(ts *ClientTestsIntegration, name string) {
+		err := ts.deleteCollection(name)
+		require.NoError(ts.T(), err)
+	}(ts, name)
+
+	collection, err := ts.client.CreateCollection(context.Background(), &CreateCollectionRequest{
+		Name:   name,
+		Source: ts.podIndex,
+	})
+	require.NoError(ts.T(), err)
+
+	assert.Equal(ts.T(), collection.Name, name)
+}
+
 func (ts *ClientTestsIntegration) TestCreateServerlessIndexInvalidDimension() {
 	name := uuid.New().String()
 
@@ -580,10 +597,6 @@ func (ts *ClientTestsIntegration) TestConfigureIndexHitPodLimit() {
 	replicas := int32(30000)
 	_, err = ts.client.ConfigureIndex(context.Background(), name, nil, &replicas)
 	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
-}
-
-func (ts *ClientTestsIntegration) deleteIndex(name string) error {
-	return ts.client.DeleteIndex(context.Background(), name)
 }
 
 func (ts *ClientTestsIntegration) TestExtractAuthHeader() {
@@ -1282,4 +1295,12 @@ func mockResponse(body string, statusCode int) *http.Response {
 		Body:       io.NopCloser(strings.NewReader(body)),
 		Header:     make(http.Header),
 	}
+}
+
+func (ts *ClientTestsIntegration) deleteIndex(name string) error {
+	return ts.client.DeleteIndex(context.Background(), name)
+}
+
+func (ts *ClientTestsIntegration) deleteCollection(name string) error {
+	return ts.client.DeleteCollection(context.Background(), name)
 }

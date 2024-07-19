@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"testing"
 
@@ -41,33 +42,22 @@ func TestIntegrationIndexConnection(t *testing.T) {
 		t.FailNow()
 	}
 
-	podIndexName := os.Getenv("TEST_POD_INDEX_NAME")
-	assert.NotEmptyf(t, podIndexName, "TEST_POD_INDEX_NAME env variable not set")
+	serverlessIdx := buildServerlessTestIndex(t, client)
+	podIdx := buildPodTestIndex(t, client)
 
-	podIdx, err := client.DescribeIndex(context.Background(), podIndexName)
-	if err != nil {
-		t.FailNow()
+	podTestSuite := &IndexConnectionTestsIntegration{
+		host:      podIdx.Host,
+		dimension: podIdx.Dimension,
+		apiKey:    apiKey,
+		indexType: "pod",
 	}
 
-	podTestSuite := new(IndexConnectionTestsIntegration)
-	podTestSuite.indexType = "pod"
-	podTestSuite.host = podIdx.Host
-	podTestSuite.dimension = podIdx.Dimension
-	podTestSuite.apiKey = apiKey
-
-	serverlessIndexName := os.Getenv("TEST_SERVERLESS_INDEX_NAME")
-	assert.NotEmptyf(t, serverlessIndexName, "TEST_SERVERLESS_INDEX_NAME env variable not set")
-
-	serverlessIdx, err := client.DescribeIndex(context.Background(), serverlessIndexName)
-	if err != nil {
-		t.FailNow()
+	serverlessTestSuite := &IndexConnectionTestsIntegration{
+		host:      serverlessIdx.Host,
+		dimension: serverlessIdx.Dimension,
+		apiKey:    apiKey,
+		indexType: "serverless",
 	}
-
-	serverlessTestSuite := new(IndexConnectionTestsIntegration)
-	serverlessTestSuite.indexType = "serverless"
-	serverlessTestSuite.host = serverlessIdx.Host
-	serverlessTestSuite.dimension = serverlessIdx.Dimension
-	serverlessTestSuite.apiKey = apiKey
 
 	suite.Run(t, podTestSuite)
 	suite.Run(t, serverlessTestSuite)
@@ -89,6 +79,18 @@ func (ts *IndexConnectionTestsIntegration) SetupSuite() {
 	assert.NoError(ts.T(), err)
 	ts.idxConn = idxConn
 
+	vectors := setVectorsForUpsert()
+	for _, vector := range vectors {
+		fmt.Printf("%+v\n", vector)
+	}
+	upsertVectors, err := idxConn.UpsertVectors(context.Background(), vectors)
+	if err != nil {
+		log.Fatalf("Failed to upsert vectors: %v", err)
+		return
+	}
+	fmt.Printf("Upserted vectors: %v into host: %s\n", upsertVectors, ts.host)
+	//podTestSuite.idxConn.UpsertVectors(context.Background(), vectors)
+
 	ts.sourceTag = "test_source_tag"
 	idxConnSourceTag, err := newIndexConnection(newIndexParameters{
 		additionalMetadata: additionalMetadata,
@@ -98,17 +100,20 @@ func (ts *IndexConnectionTestsIntegration) SetupSuite() {
 	assert.NoError(ts.T(), err)
 	ts.idxConnSourceTag = idxConnSourceTag
 
-	ts.loadData()
+	//ts.loadData()
+	fmt.Println("\nSetupSuite completed successfully")
+
 }
 
 func (ts *IndexConnectionTestsIntegration) TearDownSuite() {
-	ts.truncateData()
+	//ts.truncateData()
 
 	err := ts.idxConn.Close()
 	assert.NoError(ts.T(), err)
 
 	err = ts.idxConnSourceTag.Close()
 	assert.NoError(ts.T(), err)
+	fmt.Println("\nSetup suite torn down successfullly")
 }
 
 func (ts *IndexConnectionTestsIntegration) TestNewIndexConnection() {
@@ -228,7 +233,7 @@ func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsById() {
 	err := ts.idxConn.DeleteVectorsById(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
 
-	ts.loadData() //reload deleted data
+	//ts.loadData() //reload deleted data
 }
 
 func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsByFilter() {
@@ -250,7 +255,7 @@ func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsByFilter() {
 		assert.NoError(ts.T(), err)
 	}
 
-	ts.loadData() //reload deleted data
+	//ts.loadData() //reload deleted data
 }
 
 func (ts *IndexConnectionTestsIntegration) TestDeleteAllVectorsInNamespace() {
@@ -258,7 +263,7 @@ func (ts *IndexConnectionTestsIntegration) TestDeleteAllVectorsInNamespace() {
 	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
 	assert.NoError(ts.T(), err)
 
-	ts.loadData() //reload deleted data
+	//ts.loadData() //reload deleted data
 }
 
 func (ts *IndexConnectionTestsIntegration) TestDescribeIndexStats() {
@@ -283,62 +288,6 @@ func (ts *IndexConnectionTestsIntegration) TestListVectors() {
 	res, err := ts.idxConn.ListVectors(ctx, req)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
-}
-
-func (ts *IndexConnectionTestsIntegration) loadData() {
-	vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
-	vectors := make([]*Vector, len(vals))
-	ts.vectorIds = make([]string, len(vals))
-
-	for i, val := range vals {
-		vec := make([]float32, ts.dimension)
-		for i := range vec {
-			vec[i] = val
-		}
-
-		id := fmt.Sprintf("vec-%d", i+1)
-		ts.vectorIds[i] = id
-
-		vectors[i] = &Vector{
-			Id:     id,
-			Values: vec,
-		}
-	}
-
-	ctx := context.Background()
-	_, err := ts.idxConn.UpsertVectors(ctx, vectors)
-	assert.NoError(ts.T(), err)
-}
-
-func (ts *IndexConnectionTestsIntegration) loadDataSourceTag() {
-	vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
-	vectors := make([]*Vector, len(vals))
-	ts.vectorIds = make([]string, len(vals))
-
-	for i, val := range vals {
-		vec := make([]float32, ts.dimension)
-		for i := range vec {
-			vec[i] = val
-		}
-
-		id := fmt.Sprintf("vec-%d", i+1)
-		ts.vectorIds[i] = id
-
-		vectors[i] = &Vector{
-			Id:     id,
-			Values: vec,
-		}
-	}
-
-	ctx := context.Background()
-	_, err := ts.idxConnSourceTag.UpsertVectors(ctx, vectors)
-	assert.NoError(ts.T(), err)
-}
-
-func (ts *IndexConnectionTestsIntegration) truncateData() {
-	ctx := context.Background()
-	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
-	assert.NoError(ts.T(), err)
 }
 
 func (ts *IndexConnectionTestsIntegration) TestMetadataAppliedToRequests() {
@@ -371,6 +320,87 @@ func (ts *IndexConnectionTestsIntegration) TestMetadataAppliedToRequests() {
 	}
 
 	require.NotNil(ts.T(), stats)
+}
+
+func (ts *IndexConnectionTestsIntegration) TestUpdateVectorValues() {
+	ctx := context.Background()
+	dims := int(ts.dimension)
+
+	podsConn := ts.idxConn
+	fmt.Printf("\nPodsConn... %+v", podsConn)
+	fmt.Printf("\nidxConn... %+v", ts.idxConn)
+
+	idxStats, _ := ts.idxConn.DescribeIndexStats(ctx)
+	//serverlessConn := *ts.idxConn
+	fmt.Printf("\nIndex stats: %+v", idxStats)
+	//fmt.Printf("\nserverlessConn Namespaces... %+v", serverlessConn.Namespace)
+
+	//idx, _ := ts.idxConn.DescribeIndexStats(ctx)
+	//fmt.Printf("\nidxConn... global? %+v", idx.Namespaces)
+
+	fmt.Printf("\nHost: %s", ts.host)
+
+	err := podsConn.UpdateVector(ctx, &UpdateVectorRequest{
+		Id:     ts.vectorIds[0],
+		Values: generateFloat32Array(dims),
+	})
+	assert.NoError(ts.T(), err)
+}
+
+func (ts *IndexConnectionTestsIntegration) TestUpdateVectorMetadata() {
+	ctx := context.Background()
+
+	metadataMap := map[string]interface{}{
+		"genre": "classical",
+	}
+
+	metadata, err := structpb.NewStruct(metadataMap)
+
+	err = ts.idxConn.UpdateVector(ctx, &UpdateVectorRequest{
+		Id:       ts.vectorIds[0],
+		Metadata: metadata,
+	})
+	assert.NoError(ts.T(), err)
+}
+
+func (ts *IndexConnectionTestsIntegration) TestUpdateVectorSparseValues() {
+	ctx := context.Background()
+	dims := int(ts.dimension)
+	generatedSparseIndices := generateUint32Array(dims)
+	generatedSparseValues := generateFloat32Array(dims)
+
+	err := ts.idxConn.UpdateVector(ctx, &UpdateVectorRequest{
+		Id: ts.vectorIds[0],
+		SparseValues: &SparseValues{
+			Indices: generatedSparseIndices,
+			Values:  generatedSparseValues,
+		},
+	})
+	assert.NoError(ts.T(), err)
+
+	fmt.Printf("Vector ID is: %v\n", ts.vectorIds[0])
+
+	vector, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
+	fmt.Printf("Ignore me %v", &vector)
+	//fmt.Printf("Vector sparse valuse: %v\n", vector.Vectors[ts.vectorIds[0]].SparseValues.Values)
+	//fmt.Printf("Generated sparse values: %v\n", generatedSparseValues)
+	//assert.Equal(ts.T(), vector.Vectors[ts.vectorIds[0]].SparseValues.Values, generatedValues)
+}
+
+func generateFloat32Array(n int) []float32 {
+	array := make([]float32, n)
+	for i := 0; i < n; i++ {
+		array[i] = float32(i)
+	}
+	return array
+}
+
+func generateUint32Array(n int) []uint32 {
+	array := make([]uint32, n)
+	for i := 0; i < n; i++ {
+		array[i] = uint32(i)
+	}
+	return array
 }
 
 // Unit tests:
@@ -1072,4 +1102,177 @@ func TestToPaginationToken(t *testing.T) {
 			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
 		})
 	}
+}
+
+// Helper functions:
+func (ts *IndexConnectionTestsIntegration) truncateData() {
+	ctx := context.Background()
+	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
+	assert.NoError(ts.T(), err)
+}
+
+func setIdsForUpsert() []string {
+	return []string{"vec-1", "vec-2", "vec-3", "vec-4", "vec-5"}
+}
+
+func setVectorsForUpsert() []*Vector {
+	//values := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
+	vectors := make([]*Vector, 5)
+	for i := 0; i < 5; i++ {
+		vectors[i] = &Vector{
+			Id:     fmt.Sprintf("vector_%d", i+1),
+			Values: []float32{float32(i), float32(i) + 0.1, float32(i) + 0.2}, // Example values
+			SparseValues: &SparseValues{
+				Indices: []uint32{0, 1, 2},
+				Values:  []float32{float32(i) + 0.3, float32(i) + 0.4, float32(i) + 0.5},
+			},
+			Metadata: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
+				},
+			},
+		}
+	}
+	return vectors
+
+}
+
+func setDimensionsForTestIndexes() uint32 {
+	return uint32(5)
+}
+
+func listAndDeleteIndexes(in *Client, context context.Context, indexNameToDelete string) bool {
+	var deletedIndex bool
+
+	indexes, err := in.ListIndexes(context)
+	if err != nil {
+		log.Fatalf("Failed to list indexes in Integration Tests: %v", err)
+	}
+
+	for _, v := range indexes {
+		if v.Name == indexNameToDelete {
+			err := in.DeleteIndex(context, v.Name)
+			if err != nil {
+				log.Fatalf("Failed to delete Pod index in Integration Tests: %v", err)
+			}
+			deletedIndex = true
+		}
+	}
+	return deletedIndex
+
+}
+
+func buildServerlessTestIndex(t *testing.T, in *Client) *Index {
+	ctx := context.Background()
+
+	serverlessIndexName := os.Getenv("TEST_SERVERLESS_INDEX_NAME")
+	assert.NotEmptyf(t, serverlessIndexName, "TEST_SERVERLESS_INDEX_NAME env variable not set")
+
+	needToDeleteIndex := listAndDeleteIndexes(in, ctx, serverlessIndexName)
+
+	if !needToDeleteIndex {
+		serverlessIdx, err := in.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
+			Name:      serverlessIndexName,
+			Dimension: int32(setDimensionsForTestIndexes()),
+			Metric:    Cosine,
+			Region:    "us-east-1",
+			Cloud:     "aws",
+		})
+		if err != nil {
+			log.Fatalf("Failed to create Serverless index in Integration Tests: %v", err)
+		} else {
+			fmt.Printf("Successfully created a new Serverless index: %s!\n", serverlessIndexName)
+		}
+
+		return serverlessIdx
+	}
+
+	fmt.Printf("Using existing Serverless index: %s\n", serverlessIndexName)
+	return &Index{
+		Host:      "your-existing-serverless-host", // Replace with actual host if known
+		Dimension: int32(setDimensionsForTestIndexes()),
+	}
+}
+
+func buildPodTestIndex(t *testing.T, in *Client) *Index {
+	ctx := context.Background()
+
+	podIndexName := os.Getenv("TEST_POD_INDEX_NAME")
+	assert.NotEmptyf(t, podIndexName, "TEST_POD_INDEX_NAME env variable not set")
+
+	needToDeleteIndex := listAndDeleteIndexes(in, ctx, podIndexName)
+
+	if !needToDeleteIndex {
+		podIdx, err := in.CreatePodIndex(ctx, &CreatePodIndexRequest{
+			Name:        podIndexName,
+			Dimension:   int32(setDimensionsForTestIndexes()),
+			Metric:      Cosine,
+			Environment: "us-east-1-aws",
+			PodType:     "p1",
+		})
+		if err != nil {
+			log.Fatalf("Failed to create Pod index in Integration Tests: %v", err)
+		} else {
+			fmt.Printf("Successfully created a new Pod index: %s!\n", podIndexName)
+		}
+
+		return podIdx
+	}
+
+	fmt.Printf("Using existing Pod index: %s\n", podIndexName)
+	return &Index{
+		Host:      "your-existing-pod-host", // Replace with actual host if known
+		Dimension: int32(setDimensionsForTestIndexes()),
+	}
+}
+
+func (ts *IndexConnectionTestsIntegration) loadData(indexName string) {
+
+	//vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
+	//vectors := writeVectorsForUpsert()
+	//ts.vectorIds = writeIdsForUpsert()
+	//
+	//for i, v := range vectors {
+	//	vec := make([]float32, ts.dimension)
+	//	for i := range vec {
+	//		vec[i] = val
+	//	}
+	//
+	//	id := fmt.Sprintf("vec-%d", i+1)
+	//	ts.vectorIds[i] = id
+	//
+	//	vectors[i] = &Vector{
+	//		Id:     id,
+	//		Values: vec,
+	//	}
+	//}
+
+	//ctx := context.Background()
+	//_, err := ts.idxConn.UpsertVectors(ctx, vectors)
+	//assert.NoError(ts.T(), err)
+}
+
+func (ts *IndexConnectionTestsIntegration) loadDataSourceTag() {
+	vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
+	vectors := make([]*Vector, len(vals))
+	ts.vectorIds = make([]string, len(vals))
+
+	for i, val := range vals {
+		vec := make([]float32, ts.dimension)
+		for i := range vec {
+			vec[i] = val
+		}
+
+		id := fmt.Sprintf("vec-%d", i+1)
+		ts.vectorIds[i] = id
+
+		vectors[i] = &Vector{
+			Id:     id,
+			Values: vec,
+		}
+	}
+
+	ctx := context.Background()
+	_, err := ts.idxConnSourceTag.UpsertVectors(ctx, vectors)
+	assert.NoError(ts.T(), err)
 }
