@@ -4,6 +4,18 @@ test:
   source .env
   set +o allexport
   go test -count=1 -v ./pinecone
+test-integration:
+    #!/usr/bin/env bash
+    set -o allexport
+    source .env
+    set +o allexport
+    go test -v -run Integration ./pinecone
+test-unit:
+    #!/usr/bin/env bash
+    set -o allexport
+    source .env
+    set +o allexport
+    go test -v -run Unit ./pinecone
 bootstrap:
     go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.32
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3

@@ -7,6 +7,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/pinecone-io/go-pinecone/internal/gen/data"
+	"google.golang.org/grpc/metadata"
+
 	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/internal/utils"
 	"github.com/stretchr/testify/assert"
@@ -16,7 +19,8 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-type IndexConnectionTests struct {
+// Integration tests:
+type IndexConnectionTestsIntegration struct {
 	suite.Suite
 	host             string
 	dimension        int32
@@ -28,8 +32,7 @@ type IndexConnectionTests struct {
 	vectorIds        []string
 }
 
-// Runs the test suite with `go test`
-func TestIndexConnection(t *testing.T) {
+func TestIntegrationIndexConnection(t *testing.T) {
 	apiKey := os.Getenv("PINECONE_API_KEY")
 	assert.NotEmptyf(t, apiKey, "PINECONE_API_KEY env variable not set")
 
@@ -46,7 +49,7 @@ func TestIndexConnection(t *testing.T) {
 		t.FailNow()
 	}
 
-	podTestSuite := new(IndexConnectionTests)
+	podTestSuite := new(IndexConnectionTestsIntegration)
 	podTestSuite.indexType = "pod"
 	podTestSuite.host = podIdx.Host
 	podTestSuite.dimension = podIdx.Dimension
@@ -60,7 +63,7 @@ func TestIndexConnection(t *testing.T) {
 		t.FailNow()
 	}
 
-	serverlessTestSuite := new(IndexConnectionTests)
+	serverlessTestSuite := new(IndexConnectionTestsIntegration)
 	serverlessTestSuite.indexType = "serverless"
 	serverlessTestSuite.host = serverlessIdx.Host
 	serverlessTestSuite.dimension = serverlessIdx.Dimension
@@ -70,7 +73,7 @@ func TestIndexConnection(t *testing.T) {
 	suite.Run(t, serverlessTestSuite)
 }
 
-func (ts *IndexConnectionTests) SetupSuite() {
+func (ts *IndexConnectionTestsIntegration) SetupSuite() {
 	assert.NotEmptyf(ts.T(), ts.host, "HOST env variable not set")
 	assert.NotEmptyf(ts.T(), ts.apiKey, "API_KEY env variable not set")
 	additionalMetadata := map[string]string{"api-key": ts.apiKey}
@@ -98,7 +101,7 @@ func (ts *IndexConnectionTests) SetupSuite() {
 	ts.loadData()
 }
 
-func (ts *IndexConnectionTests) TearDownSuite() {
+func (ts *IndexConnectionTestsIntegration) TearDownSuite() {
 	ts.truncateData()
 
 	err := ts.idxConn.Close()
@@ -108,7 +111,7 @@ func (ts *IndexConnectionTests) TearDownSuite() {
 	assert.NoError(ts.T(), err)
 }
 
-func (ts *IndexConnectionTests) TestNewIndexConnection() {
+func (ts *IndexConnectionTestsIntegration) TestNewIndexConnection() {
 	apiKey := "test-api-key"
 	namespace := ""
 	sourceTag := ""
@@ -128,7 +131,7 @@ func (ts *IndexConnectionTests) TestNewIndexConnection() {
 	require.NotNil(ts.T(), idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
 }
 
-func (ts *IndexConnectionTests) TestNewIndexConnectionNamespace() {
+func (ts *IndexConnectionTestsIntegration) TestNewIndexConnectionNamespace() {
 	apiKey := "test-api-key"
 	namespace := "test-namespace"
 	sourceTag := "test-source-tag"
@@ -148,21 +151,21 @@ func (ts *IndexConnectionTests) TestNewIndexConnectionNamespace() {
 	require.NotNil(ts.T(), idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
 }
 
-func (ts *IndexConnectionTests) TestFetchVectors() {
+func (ts *IndexConnectionTestsIntegration) TestFetchVectors() {
 	ctx := context.Background()
 	res, err := ts.idxConn.FetchVectors(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTests) TestFetchVectorsSourceTag() {
+func (ts *IndexConnectionTestsIntegration) TestFetchVectorsSourceTag() {
 	ctx := context.Background()
 	res, err := ts.idxConnSourceTag.FetchVectors(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTests) TestQueryByVector() {
+func (ts *IndexConnectionTestsIntegration) TestQueryByVector() {
 	vec := make([]float32, ts.dimension)
 	for i := range vec {
 		vec[i] = 0.01
@@ -179,7 +182,7 @@ func (ts *IndexConnectionTests) TestQueryByVector() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTests) TestQueryByVectorSourceTag() {
+func (ts *IndexConnectionTestsIntegration) TestQueryByVectorSourceTag() {
 	vec := make([]float32, ts.dimension)
 	for i := range vec {
 		vec[i] = 0.01
@@ -196,7 +199,7 @@ func (ts *IndexConnectionTests) TestQueryByVectorSourceTag() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTests) TestQueryById() {
+func (ts *IndexConnectionTestsIntegration) TestQueryById() {
 	req := &QueryByVectorIdRequest{
 		VectorId: ts.vectorIds[0],
 		TopK:     5,
@@ -208,7 +211,7 @@ func (ts *IndexConnectionTests) TestQueryById() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTests) TestQueryByIdSourceTag() {
+func (ts *IndexConnectionTestsIntegration) TestQueryByIdSourceTag() {
 	req := &QueryByVectorIdRequest{
 		VectorId: ts.vectorIds[0],
 		TopK:     5,
@@ -220,7 +223,7 @@ func (ts *IndexConnectionTests) TestQueryByIdSourceTag() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTests) TestDeleteVectorsById() {
+func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsById() {
 	ctx := context.Background()
 	err := ts.idxConn.DeleteVectorsById(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
@@ -228,7 +231,7 @@ func (ts *IndexConnectionTests) TestDeleteVectorsById() {
 	ts.loadData() //reload deleted data
 }
 
-func (ts *IndexConnectionTests) TestDeleteVectorsByFilter() {
+func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsByFilter() {
 	metadataFilter := map[string]interface{}{
 		"genre": "classical",
 	}
@@ -250,7 +253,7 @@ func (ts *IndexConnectionTests) TestDeleteVectorsByFilter() {
 	ts.loadData() //reload deleted data
 }
 
-func (ts *IndexConnectionTests) TestDeleteAllVectorsInNamespace() {
+func (ts *IndexConnectionTestsIntegration) TestDeleteAllVectorsInNamespace() {
 	ctx := context.Background()
 	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
 	assert.NoError(ts.T(), err)
@@ -258,21 +261,21 @@ func (ts *IndexConnectionTests) TestDeleteAllVectorsInNamespace() {
 	ts.loadData() //reload deleted data
 }
 
-func (ts *IndexConnectionTests) TestDescribeIndexStats() {
+func (ts *IndexConnectionTestsIntegration) TestDescribeIndexStats() {
 	ctx := context.Background()
 	res, err := ts.idxConn.DescribeIndexStats(ctx)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTests) TestDescribeIndexStatsFiltered() {
+func (ts *IndexConnectionTestsIntegration) TestDescribeIndexStatsFiltered() {
 	ctx := context.Background()
 	res, err := ts.idxConn.DescribeIndexStatsFiltered(ctx, &MetadataFilter{})
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTests) TestListVectors() {
+func (ts *IndexConnectionTestsIntegration) TestListVectors() {
 	ts.T().Skip()
 	req := &ListVectorsRequest{}
 
@@ -282,7 +285,7 @@ func (ts *IndexConnectionTests) TestListVectors() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTests) loadData() {
+func (ts *IndexConnectionTestsIntegration) loadData() {
 	vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
 	vectors := make([]*Vector, len(vals))
 	ts.vectorIds = make([]string, len(vals))
@@ -307,7 +310,7 @@ func (ts *IndexConnectionTests) loadData() {
 	assert.NoError(ts.T(), err)
 }
 
-func (ts *IndexConnectionTests) loadDataSourceTag() {
+func (ts *IndexConnectionTestsIntegration) loadDataSourceTag() {
 	vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
 	vectors := make([]*Vector, len(vals))
 	ts.vectorIds = make([]string, len(vals))
@@ -332,13 +335,13 @@ func (ts *IndexConnectionTests) loadDataSourceTag() {
 	assert.NoError(ts.T(), err)
 }
 
-func (ts *IndexConnectionTests) truncateData() {
+func (ts *IndexConnectionTestsIntegration) truncateData() {
 	ctx := context.Background()
 	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
 	assert.NoError(ts.T(), err)
 }
 
-func (ts *IndexConnectionTests) TestMetadataAppliedToRequests() {
+func (ts *IndexConnectionTestsIntegration) TestMetadataAppliedToRequests() {
 	apiKey := "test-api-key"
 	namespace := "test-namespace"
 	sourceTag := "test-source-tag"
@@ -370,7 +373,8 @@ func (ts *IndexConnectionTests) TestMetadataAppliedToRequests() {
 	require.NotNil(ts.T(), stats)
 }
 
-func TestMarshalFetchVectorsResponse(t *testing.T) {
+// Unit tests:
+func TestMarshalFetchVectorsResponseUnit(t *testing.T) {
 	tests := []struct {
 		name  string
 		input FetchVectorsResponse
@@ -416,7 +420,7 @@ func TestMarshalFetchVectorsResponse(t *testing.T) {
 	}
 }
 
-func TestMarshalListVectorsResponse(t *testing.T) {
+func TestMarshalListVectorsResponseUnit(t *testing.T) {
 	vectorId1 := "vec-1"
 	vectorId2 := "vec-2"
 	paginationToken := "next-token"
@@ -464,7 +468,7 @@ func TestMarshalListVectorsResponse(t *testing.T) {
 	}
 }
 
-func TestMarshalQueryVectorsResponse(t *testing.T) {
+func TestMarshalQueryVectorsResponseUnit(t *testing.T) {
 	tests := []struct {
 		name  string
 		input QueryVectorsResponse
@@ -507,7 +511,7 @@ func TestMarshalQueryVectorsResponse(t *testing.T) {
 	}
 }
 
-func TestMarshalDescribeIndexStatsResponse(t *testing.T) {
+func TestMarshalDescribeIndexStatsResponseUnit(t *testing.T) {
 	tests := []struct {
 		name  string
 		input DescribeIndexStatsResponse
@@ -552,6 +556,520 @@ func TestMarshalDescribeIndexStatsResponse(t *testing.T) {
 			if got := string(bytes); got != tt.want {
 				t.Errorf("Marshal DescribeIndexStatsResponse got = %s, want = %s", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestToVectorUnit(t *testing.T) {
+	tests := []struct {
+		name     string
+		vector   *data.Vector
+		expected *Vector
+	}{
+		{
+			name:     "Pass nil vector, expect nil to be returned",
+			vector:   nil,
+			expected: nil,
+		},
+		{
+			name: "Pass dense vector",
+			vector: &data.Vector{
+				Id:     "dense-1",
+				Values: []float32{0.01, 0.02, 0.03},
+			},
+			expected: &Vector{
+				Id:     "dense-1",
+				Values: []float32{0.01, 0.02, 0.03},
+			},
+		},
+		{
+			name: "Pass sparse vector",
+			vector: &data.Vector{
+				Id:     "sparse-1",
+				Values: nil,
+				SparseValues: &data.SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+			},
+			expected: &Vector{
+				Id:     "sparse-1",
+				Values: nil,
+				SparseValues: &SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+			},
+		},
+		{
+			name: "Pass hybrid vector",
+			vector: &data.Vector{
+				Id:     "hybrid-1",
+				Values: []float32{0.01, 0.02, 0.03},
+				SparseValues: &data.SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+			},
+
+			expected: &Vector{
+				Id:     "hybrid-1",
+				Values: []float32{0.01, 0.02, 0.03},
+				SparseValues: &SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+			},
+		},
+		{
+			name: "Pass hybrid vector with metadata",
+			vector: &data.Vector{
+				Id:     "hybrid-metadata-1",
+				Values: []float32{0.01, 0.02, 0.03},
+				SparseValues: &data.SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
+					}},
+			},
+			expected: &Vector{
+				Id:     "hybrid-metadata-1",
+				Values: []float32{0.01, 0.02, 0.03},
+				SparseValues: &SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
+					}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := toVector(tt.vector)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+}
+
+func TestToSparseValuesUnit(t *testing.T) {
+	tests := []struct {
+		name         string
+		sparseValues *data.SparseValues
+		expected     *SparseValues
+	}{
+		{
+			name:         "Pass nil sparse values, expect nil to be returned",
+			sparseValues: nil,
+			expected:     nil,
+		},
+		{
+			name: "Pass sparse values",
+			sparseValues: &data.SparseValues{
+				Indices: []uint32{0, 2},
+				Values:  []float32{0.01, 0.03},
+			},
+			expected: &SparseValues{
+				Indices: []uint32{0, 2},
+				Values:  []float32{0.01, 0.03},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := toSparseValues(tt.sparseValues)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+}
+
+func TestToScoredVectorUnit(t *testing.T) {
+	tests := []struct {
+		name         string
+		scoredVector *data.ScoredVector
+		expected     *ScoredVector
+	}{
+		{
+			name:         "Pass nil scored vector, expect nil to be returned",
+			scoredVector: nil,
+			expected:     nil,
+		},
+		{
+			name: "Pass scored dense vector",
+			scoredVector: &data.ScoredVector{
+				Id:     "dense-1",
+				Values: []float32{0.01, 0.01, 0.01},
+				Score:  0.1,
+			},
+			expected: &ScoredVector{
+				Vector: &Vector{
+					Id:     "dense-1",
+					Values: []float32{0.01, 0.01, 0.01},
+				},
+				Score: 0.1,
+			},
+		},
+		{
+			name: "Pass scored sparse vector",
+			scoredVector: &data.ScoredVector{
+				Id: "sparse-1",
+				SparseValues: &data.SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+				Score: 0.2,
+			},
+			expected: &ScoredVector{
+				Vector: &Vector{
+					Id: "sparse-1",
+					SparseValues: &SparseValues{
+						Indices: []uint32{0, 2},
+						Values:  []float32{0.01, 0.03},
+					},
+				},
+				Score: 0.2,
+			},
+		},
+		{
+			name: "Pass scored hybrid vector",
+			scoredVector: &data.ScoredVector{
+				Id:     "hybrid-1",
+				Values: []float32{0.01, 0.02, 0.03},
+				SparseValues: &data.SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+				Score: 0.3,
+			},
+			expected: &ScoredVector{
+				Vector: &Vector{
+					Id:     "hybrid-1",
+					Values: []float32{0.01, 0.02, 0.03},
+					SparseValues: &SparseValues{
+						Indices: []uint32{0, 2},
+						Values:  []float32{0.01, 0.03},
+					},
+				},
+				Score: 0.3,
+			},
+		},
+		{
+			name: "Pass scored hybrid vector with metadata",
+			scoredVector: &data.ScoredVector{
+				Id:     "hybrid-metadata-1",
+				Values: []float32{0.01, 0.02, 0.03},
+				SparseValues: &data.SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
+					},
+				},
+				Score: 0.4,
+			},
+			expected: &ScoredVector{
+				Vector: &Vector{
+					Id:     "hybrid-metadata-1",
+					Values: []float32{0.01, 0.02, 0.03},
+					SparseValues: &SparseValues{
+						Indices: []uint32{0, 2},
+						Values:  []float32{0.01, 0.03},
+					},
+					Metadata: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
+						},
+					},
+				},
+				Score: 0.4,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := toScoredVector(tt.scoredVector)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+}
+
+func TestVecToGrpcUnit(t *testing.T) {
+	tests := []struct {
+		name     string
+		vector   *Vector
+		expected *data.Vector
+	}{
+		{
+			name:     "Pass nil vector, expect nil to be returned",
+			vector:   nil,
+			expected: nil,
+		},
+		{
+			name: "Pass dense vector",
+			vector: &Vector{
+				Id:     "dense-1",
+				Values: []float32{0.01, 0.02, 0.03},
+			},
+			expected: &data.Vector{
+				Id:     "dense-1",
+				Values: []float32{0.01, 0.02, 0.03},
+			},
+		},
+		{
+			name: "Pass sparse vector",
+			vector: &Vector{
+				Id:     "sparse-1",
+				Values: nil,
+				SparseValues: &SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+			},
+			expected: &data.Vector{
+				Id: "sparse-1",
+				SparseValues: &data.SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+			},
+		},
+		{
+			name: "Pass hybrid vector",
+			vector: &Vector{
+				Id:     "hybrid-1",
+				Values: []float32{0.01, 0.02, 0.03},
+				SparseValues: &SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+			},
+			expected: &data.Vector{
+				Id:     "hybrid-1",
+				Values: []float32{0.01, 0.02, 0.03},
+				SparseValues: &data.SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+			},
+		},
+		{
+			name: "Pass hybrid vector with metadata",
+			vector: &Vector{
+				Id:     "hybrid-metadata-1",
+				Values: []float32{0.01, 0.02, 0.03},
+				SparseValues: &SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
+					},
+				},
+			},
+			expected: &data.Vector{
+				Id:     "hybrid-metadata-1",
+				Values: []float32{0.01, 0.02, 0.03},
+				SparseValues: &data.SparseValues{
+					Indices: []uint32{0, 2},
+					Values:  []float32{0.01, 0.03},
+				},
+				Metadata: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := vecToGrpc(tt.vector)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+}
+
+func TestSparseValToGrpcUnit(t *testing.T) {
+	tests := []struct {
+		name         string
+		sparseValues *SparseValues
+		metadata     *structpb.Struct
+		expected     *data.SparseValues
+	}{
+		{
+			name:         "Pass nil sparse values, expect nil to be returned",
+			sparseValues: nil,
+			expected:     nil,
+		},
+		{
+			name: "Pass sparse values",
+			sparseValues: &SparseValues{
+				Indices: []uint32{0, 2},
+				Values:  []float32{0.01, 0.03},
+			},
+			expected: &data.SparseValues{
+				Indices: []uint32{0, 2},
+				Values:  []float32{0.01, 0.03},
+			},
+		},
+		{
+			name: "Pass sparse values with metadata (metadata is ignored)",
+			sparseValues: &SparseValues{
+				Indices: []uint32{0, 2},
+				Values:  []float32{0.01, 0.03},
+			},
+			metadata: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
+				},
+			},
+			expected: &data.SparseValues{
+				Indices: []uint32{0, 2},
+				Values:  []float32{0.01, 0.03},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sparseValToGrpc(tt.sparseValues)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+}
+
+func TestAkCtxUnit(t *testing.T) {
+	tests := []struct {
+		name               string
+		additionalMetadata map[string]string
+		initialMetadata    map[string]string
+		expectedMetadata   map[string]string
+	}{
+		{
+			name:               "No additional metadata in IndexConnection obj",
+			additionalMetadata: nil,
+			initialMetadata:    map[string]string{"initial-key": "initial-value"},
+			expectedMetadata:   map[string]string{"initial-key": "initial-value"},
+		},
+		{
+			name:               "With additional metadata in IndexConnection obj",
+			additionalMetadata: map[string]string{"addtl-key1": "addtl-value1", "addtl-key2": "addtl-value2"},
+			initialMetadata:    map[string]string{"initial-key": "initial-value"},
+			expectedMetadata: map[string]string{
+				"initial-key": "initial-value",
+				"addtl-key1":  "addtl-value1",
+				"addtl-key2":  "addtl-value2",
+			},
+		},
+		{
+			name: "Only additional metadata",
+			additionalMetadata: map[string]string{
+				"addtl-key1": "addtl-value1",
+				"addtl-key2": "addtl-value2",
+			},
+			initialMetadata: nil,
+			expectedMetadata: map[string]string{
+				"addtl-key1": "addtl-value1",
+				"addtl-key2": "addtl-value2",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			idx := &IndexConnection{additionalMetadata: tt.additionalMetadata}
+			ctx := context.Background()
+
+			// Add initial metadata to the context if provided
+			if tt.initialMetadata != nil {
+				md := metadata.New(tt.initialMetadata)
+				ctx = metadata.NewOutgoingContext(ctx, md)
+			}
+
+			// Call the method
+			newCtx := idx.akCtx(ctx)
+
+			// Retrieve metadata from the new context
+			md, ok := metadata.FromOutgoingContext(newCtx)
+			assert.True(t, ok)
+
+			// Check that the metadata matches the expected metadata
+			for key, expectedValue := range tt.expectedMetadata {
+				values := md[key]
+				assert.Contains(t, values, expectedValue)
+			}
+		})
+	}
+}
+
+func TestToUsageUnit(t *testing.T) {
+	u5 := uint32(5)
+
+	tests := []struct {
+		name     string
+		usage    *data.Usage
+		expected *Usage
+	}{
+		{
+			name:     "Pass nil usage, expect nil to be returned",
+			usage:    nil,
+			expected: nil,
+		},
+		{
+			name: "Pass usage",
+			usage: &data.Usage{
+				ReadUnits: &u5,
+			},
+			expected: &Usage{
+				ReadUnits: 5,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := toUsage(tt.usage)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+}
+
+func TestToPaginationToken(t *testing.T) {
+	tokenForNilCase := ""
+	tokenForPositiveCase := "next-token"
+
+	tests := []struct {
+		name     string
+		token    *data.Pagination
+		expected *string
+	}{
+		{
+			name:     "Pass empty token, expect empty string to be returned",
+			token:    &data.Pagination{},
+			expected: &tokenForNilCase,
+		},
+		{
+			name: "Pass token",
+			token: &data.Pagination{
+				Next: "next-token",
+			},
+			expected: &tokenForPositiveCase,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := toPaginationToken(tt.token)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
 		})
 	}
 }
