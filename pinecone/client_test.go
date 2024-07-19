@@ -63,7 +63,7 @@ func (ts *ClientTestsIntegration) SetupSuite() {
 	//deleteUUIDNamedResources(context.Background(), &ts.client)
 }
 
-func (ts *ClientTestsIntegration) TestNewClientParamsSetIntegration() {
+func (ts *ClientTestsIntegration) TestNewClientParamsSet() {
 	apiKey := "test-api-key"
 	client, err := NewClient(NewClientParams{ApiKey: apiKey})
 
