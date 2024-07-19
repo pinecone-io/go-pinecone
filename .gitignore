@@ -120,7 +120,3 @@ modules.xml
 
 go.work*
 .env
-
-# Godoc artifacts
-docs/*
-
