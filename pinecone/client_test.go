@@ -586,6 +586,75 @@ func (ts *ClientTestsIntegration) deleteIndex(name string) error {
 	return ts.client.DeleteIndex(context.Background(), name)
 }
 
+func (ts *ClientTestsIntegration) TestExtractAuthHeader() {
+	globalApiKey := os.Getenv("PINECONE_API_KEY")
+	os.Unsetenv("PINECONE_API_KEY")
+
+	// Passing an API key should result in an 'Api-Key' header
+	apiKey := "test-api-key"
+	expectedHeader := map[string]string{"Api-Key": apiKey}
+	client, err := NewClient(NewClientParams{ApiKey: apiKey})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	assert.Equal(ts.T(),
+		expectedHeader,
+		client.extractAuthHeader(),
+		"Expected client.extractAuthHeader to return %v but got '%s'", expectedHeader, client.extractAuthHeader(),
+	)
+
+	// Passing a custom auth header with "authorization" should be returned as is
+	expectedHeader = map[string]string{"Authorization": "Bearer test-token-123456"}
+	client, err = NewClientBase(NewClientBaseParams{Headers: expectedHeader})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	assert.Equal(ts.T(),
+		expectedHeader,
+		client.extractAuthHeader(),
+		"Expected client.extractAuthHeader to return %v but got '%s'", expectedHeader, client.extractAuthHeader(),
+	)
+
+	// Passing a custom auth header with "access_token" should be returned as is
+	expectedHeader = map[string]string{"access_token": "test-token-123456"}
+	client, err = NewClientBase(NewClientBaseParams{Headers: expectedHeader})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+	assert.Equal(ts.T(),
+		expectedHeader,
+		client.extractAuthHeader(),
+		"Expected client.extractAuthHeader to return %v but got '%s'", expectedHeader, client.extractAuthHeader(),
+	)
+
+	os.Setenv("PINECONE_API_KEY", globalApiKey)
+}
+
+func (ts *ClientTestsIntegration) TestApiKeyPassedToIndexConnection() {
+	apiKey := "test-api-key"
+
+	client, err := NewClient(NewClientParams{ApiKey: apiKey})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+
+	indexConn, err := client.Index(NewIndexConnParams{Host: "my-index-host.io"})
+	if err != nil {
+		ts.FailNow(err.Error())
+	}
+
+	indexMetadata := indexConn.additionalMetadata
+	metadataHasApiKey := false
+	for key, value := range indexMetadata {
+		if key == "Api-Key" && value == apiKey {
+			metadataHasApiKey = true
+			break
+		}
+	}
+
+	assert.True(ts.T(), metadataHasApiKey, "Expected IndexConnection metadata to contain 'Api-Key' with value '%s'", apiKey)
+}
+
 // Unit tests:
 func TestHandleErrorResponseBodyUnit(t *testing.T) {
 	tests := []struct {
