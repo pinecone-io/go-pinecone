@@ -37,13 +37,20 @@ func TestIntegrationIndexConnection(t *testing.T) {
 	apiKey := os.Getenv("PINECONE_API_KEY")
 	assert.NotEmptyf(t, apiKey, "PINECONE_API_KEY env variable not set")
 
-	client, err := NewClient(NewClientParams{ApiKey: apiKey})
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: map[string]string{"content-type": "application/json"}})
 	if err != nil {
 		t.FailNow()
 	}
+	fmt.Printf("Headers: %+v\n", client.headers)
 
 	serverlessIdx := buildServerlessTestIndex(t, client)
 	podIdx := buildPodTestIndex(t, client)
+
+	// TODO: make it so that the test indexes are deleted before running the tests,
+	//  but for now this is a workaround
+	if serverlessIdx == nil || podIdx == nil {
+		log.Fatalf("Delete test indexes and rerun testing suite")
+	}
 
 	podTestSuite := &IndexConnectionTestsIntegration{
 		host:      podIdx.Host,
@@ -58,15 +65,20 @@ func TestIntegrationIndexConnection(t *testing.T) {
 		apiKey:    apiKey,
 		indexType: "serverless",
 	}
+	fmt.Printf("pods ts.host : %v\n", podTestSuite.host)
+	fmt.Printf("serverless ts.host : %v\n", serverlessTestSuite.host)
 
 	suite.Run(t, podTestSuite)
 	suite.Run(t, serverlessTestSuite)
 }
 
 func (ts *IndexConnectionTestsIntegration) SetupSuite() {
+	fmt.Printf("Host in setup suite: %v\n", ts.host)
+	ctx := context.Background()
+
 	assert.NotEmptyf(ts.T(), ts.host, "HOST env variable not set")
 	assert.NotEmptyf(ts.T(), ts.apiKey, "API_KEY env variable not set")
-	additionalMetadata := map[string]string{"api-key": ts.apiKey}
+	additionalMetadata := map[string]string{"api-key": ts.apiKey, "content-type": "application/json"}
 
 	namespace, err := uuid.NewV7()
 	assert.NoError(ts.T(), err)
@@ -80,10 +92,12 @@ func (ts *IndexConnectionTestsIntegration) SetupSuite() {
 	ts.idxConn = idxConn
 
 	vectors := setVectorsForUpsert()
-	for _, vector := range vectors {
-		fmt.Printf("%+v\n", vector)
-	}
-	upsertVectors, err := idxConn.UpsertVectors(context.Background(), vectors)
+	//for _, vector := range vectors {
+	//	fmt.Printf("%+v\n", vector)
+	//}
+	//fmt.Printf("Dimension of index: %v\n", ts.dimension)
+	fmt.Printf("host: %+v\n", ts.host)
+	upsertVectors, err := idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
 		log.Fatalf("Failed to upsert vectors: %v", err)
 		return
@@ -1120,11 +1134,11 @@ func setVectorsForUpsert() []*Vector {
 	vectors := make([]*Vector, 5)
 	for i := 0; i < 5; i++ {
 		vectors[i] = &Vector{
-			Id:     fmt.Sprintf("vector_%d", i+1),
-			Values: []float32{float32(i), float32(i) + 0.1, float32(i) + 0.2}, // Example values
+			Id:     fmt.Sprintf("vector-%d", i+1),
+			Values: []float32{float32(i), float32(i) + 0.1, float32(i) + 0.2, float32(i) + 0.3, float32(i) + 0.4},
 			SparseValues: &SparseValues{
-				Indices: []uint32{0, 1, 2},
-				Values:  []float32{float32(i) + 0.3, float32(i) + 0.4, float32(i) + 0.5},
+				Indices: []uint32{0, 1, 2, 3, 4},
+				Values:  []float32{float32(i), float32(i) + 0.1, float32(i) + 0.2, float32(i) + 0.3, float32(i) + 0.4},
 			},
 			Metadata: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
@@ -1169,7 +1183,6 @@ func buildServerlessTestIndex(t *testing.T, in *Client) *Index {
 	assert.NotEmptyf(t, serverlessIndexName, "TEST_SERVERLESS_INDEX_NAME env variable not set")
 
 	needToDeleteIndex := listAndDeleteIndexes(in, ctx, serverlessIndexName)
-
 	if !needToDeleteIndex {
 		serverlessIdx, err := in.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
 			Name:      serverlessIndexName,
@@ -1185,13 +1198,18 @@ func buildServerlessTestIndex(t *testing.T, in *Client) *Index {
 		}
 
 		return serverlessIdx
-	}
+	} // TODO: when index does NOT exist, get this error: "malformed header: missing HTTP content-type"
+	// TODO: but now when I add it in TestIntegrationIndexConnection under client, err (ln40), it says rpc error: code = Unavailable desc = connection error: desc = "transport: authentication handshake failed: read tcp 192.168.7.21:49936->52.6.114.50:443: read: connection reset by peer"
+	// TODO: worked for pods, but not for serverless
 
-	fmt.Printf("Using existing Serverless index: %s\n", serverlessIndexName)
-	return &Index{
-		Host:      "your-existing-serverless-host", // Replace with actual host if known
-		Dimension: int32(setDimensionsForTestIndexes()),
-	}
+	fmt.Printf("Index %s already exists. Delete!\n", serverlessIndexName)
+	return nil
+	//idxExists := &Index{
+	//	Name:      serverlessIndexName,
+	//	Dimension: int32(setDimensionsForTestIndexes()),
+	//}
+	//fmt.Printf("Index obj: %+v\n", idxExists)
+	//return idxExists // TODO: when index DOES exist, host is blank and that seems to be fucking stuff up
 }
 
 func buildPodTestIndex(t *testing.T, in *Client) *Index {
@@ -1219,11 +1237,21 @@ func buildPodTestIndex(t *testing.T, in *Client) *Index {
 		return podIdx
 	}
 
-	fmt.Printf("Using existing Pod index: %s\n", podIndexName)
-	return &Index{
-		Host:      "your-existing-pod-host", // Replace with actual host if known
-		Dimension: int32(setDimensionsForTestIndexes()),
-	}
+	fmt.Printf("Index %s already exists. Delete!\n", podIndexName)
+	//return
+	//idxExists, _ := in.restClient.ListIndexes(ctx)
+	//idxs, err := in.restClient.ListIndexes(ctx)
+	//var idxToReturn Index
+	//for _, idx := range idxs.Body. {
+	//	fmt.Printf("- \"%s\"\n", idx.Name)
+	//	if idx == podIndexName {
+	//		idxToReturn = idx
+	//	}
+	//}
+
+	//fmt.Printf("Index obj: %+v\n", idxExists)
+	//return idxExists
+	return nil
 }
 
 func (ts *IndexConnectionTestsIntegration) loadData(indexName string) {
