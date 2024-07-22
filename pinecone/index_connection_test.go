@@ -124,22 +124,30 @@ func (ts *IndexConnectionTestsIntegration) SetupSuite() {
 
 	ts.idxConn = idxConn
 
-	vectors := setVectorsForUpsert()
+	vectors := createVectorsForUpsert()
+
+	vectorIds := make([]string, len(vectors))
+	for i, v := range vectors {
+		vectorIds[i] = v.Id
+	}
+	ts.vectorIds = vectorIds
+
 	maxRetries := 12
 	delay := 12 * time.Second
+	fmt.Printf("Attempting to populate host \"%s\" with vectors...\n", ts.host)
 	for i := 0; i < maxRetries; i++ {
-		status, err := getStatus(ts, ctx)
+		ready, err := getStatus(ts, ctx)
 		if err != nil {
-			fmt.Printf("Error getting index status: %v\n", err)
+			fmt.Printf("Error getting index ready: %v\n", err)
 		}
-		if status {
-			upsertVectors, err := idxConn.UpsertVectors(ctx, vectors) // TODO: the issue is that the index isn't ready yet
+		if ready {
+			upsertVectors, err := idxConn.UpsertVectors(ctx, vectors)
 			require.NoError(ts.T(), err)
 			fmt.Printf("Upserted vectors: %v into host: %s\n", upsertVectors, ts.host)
 			break
 		} else {
 			time.Sleep(delay)
-			fmt.Printf("Host \"%s\" not ready yet, retrying... (%d/%d)\n", ts.host, i, maxRetries)
+			fmt.Printf("Host \"%s\" not ready for upserting yet, retrying... (%d/%d)\n", ts.host, i, maxRetries)
 		}
 	}
 
@@ -152,16 +160,17 @@ func (ts *IndexConnectionTestsIntegration) SetupSuite() {
 	require.NoError(ts.T(), err)
 	ts.idxConnSourceTag = idxConnSourceTag
 
-	fmt.Printf("\n %sSetupSuite completed successfully", ts.indexType)
+	fmt.Printf("\n %s Setup suite completed successfully\n", ts.indexType)
 }
 
 func (ts *IndexConnectionTestsIntegration) TearDownSuite() {
+	// TODO: move index deletion to here
 	err := ts.idxConn.Close()
 	require.NoError(ts.T(), err)
 
 	err = ts.idxConnSourceTag.Close()
 	require.NoError(ts.T(), err)
-	fmt.Printf("\n %s Setup suite torn down successfully", ts.indexType)
+	fmt.Printf("\n %s Setup suite torn down successfully\n", ts.indexType)
 }
 
 func (ts *IndexConnectionTestsIntegration) TestNewIndexConnection() {
@@ -282,6 +291,11 @@ func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsById() {
 	err := ts.idxConn.DeleteVectorsById(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
 
+	_, err = ts.idxConn.UpsertVectors(ctx, createVectorsForUpsert())
+	if err != nil {
+		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
+	}
+
 	//ts.loadData() //reload deleted data
 }
 
@@ -304,6 +318,11 @@ func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsByFilter() {
 		assert.NoError(ts.T(), err)
 	}
 
+	_, err = ts.idxConn.UpsertVectors(ctx, createVectorsForUpsert())
+	if err != nil {
+		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
+	}
+
 	//ts.loadData() //reload deleted data
 }
 
@@ -312,7 +331,11 @@ func (ts *IndexConnectionTestsIntegration) TestDeleteAllVectorsInNamespace() {
 	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
 	assert.NoError(ts.T(), err)
 
-	//ts.loadData() //reload deleted data
+	_, err = ts.idxConn.UpsertVectors(ctx, createVectorsForUpsert())
+	if err != nil {
+		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
+	}
+
 }
 
 func (ts *IndexConnectionTestsIntegration) TestDescribeIndexStats() {
@@ -397,11 +420,11 @@ func (ts *IndexConnectionTestsIntegration) TestUpdateVectorMetadata() {
 		"genre": "classical",
 	}
 
-	metadata, err := structpb.NewStruct(metadataMap)
+	metadataForUpdate, err := structpb.NewStruct(metadataMap)
 
 	err = ts.idxConn.UpdateVector(ctx, &UpdateVectorRequest{
 		Id:       ts.vectorIds[0],
-		Metadata: metadata,
+		Metadata: metadataForUpdate,
 	})
 	assert.NoError(ts.T(), err)
 }
@@ -425,7 +448,6 @@ func (ts *IndexConnectionTestsIntegration) TestUpdateVectorSparseValues() {
 
 	vector, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
 	fmt.Printf("Ignore me %v", &vector)
-	//fmt.Printf("Vector sparse valuse: %v\n", vector.Vectors[ts.vectorIds[0]].SparseValues.Values)
 	//fmt.Printf("Generated sparse values: %v\n", generatedSparseValues)
 	//assert.Equal(ts.T(), vector.Vectors[ts.vectorIds[0]].SparseValues.Values, generatedValues)
 }
@@ -1154,12 +1176,7 @@ func (ts *IndexConnectionTestsIntegration) truncateData() {
 	assert.NoError(ts.T(), err)
 }
 
-func setIdsForUpsert() []string {
-	return []string{"vec-1", "vec-2", "vec-3", "vec-4", "vec-5"}
-}
-
-func setVectorsForUpsert() []*Vector {
-	//values := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
+func createVectorsForUpsert() []*Vector {
 	vectors := make([]*Vector, 5)
 	for i := 0; i < 5; i++ {
 		vectors[i] = &Vector{
@@ -1177,7 +1194,6 @@ func setVectorsForUpsert() []*Vector {
 		}
 	}
 	return vectors
-
 }
 
 func setDimensionsForTestIndexes() uint32 {
@@ -1266,27 +1282,27 @@ func buildPodTestIndex(t *testing.T, in *Client) *Index {
 	return podIdx
 }
 
-func (ts *IndexConnectionTestsIntegration) loadDataSourceTag() {
-	vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
-	vectors := make([]*Vector, len(vals))
-	ts.vectorIds = make([]string, len(vals))
-
-	for i, val := range vals {
-		vec := make([]float32, ts.dimension)
-		for i := range vec {
-			vec[i] = val
-		}
-
-		id := fmt.Sprintf("vec-%d", i+1)
-		ts.vectorIds[i] = id
-
-		vectors[i] = &Vector{
-			Id:     id,
-			Values: vec,
-		}
-	}
-
-	ctx := context.Background()
-	_, err := ts.idxConnSourceTag.UpsertVectors(ctx, vectors)
-	assert.NoError(ts.T(), err)
-}
+//func (ts *IndexConnectionTestsIntegration) loadDataSourceTag() {
+//	vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
+//	vectors := make([]*Vector, len(vals))
+//	ts.vectorIds = make([]string, len(vals))
+//
+//	for i, val := range vals {
+//		vec := make([]float32, ts.dimension)
+//		for i := range vec {
+//			vec[i] = val
+//		}
+//
+//		id := fmt.Sprintf("vec-%d", i+1)
+//		ts.vectorIds[i] = id
+//
+//		vectors[i] = &Vector{
+//			Id:     id,
+//			Values: vec,
+//		}
+//	}
+//
+//	ctx := context.Background()
+//	_, err := ts.idxConnSourceTag.UpsertVectors(ctx, vectors)
+//	assert.NoError(ts.T(), err)
+//}
