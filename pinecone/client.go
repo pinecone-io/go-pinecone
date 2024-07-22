@@ -437,21 +437,18 @@ type CreatePodIndexRequest struct {
 // ReplicaCount ensures the replica count of a pods-based Index is >1.
 // It returns a pointer to the number of replicas on a CreatePodIndexRequest object.
 func (req CreatePodIndexRequest) ReplicaCount() int32 {
-	x := minOne(req.Replicas)
-	return x
+	return minOne(req.Replicas)
 }
 
 // ShardCount ensures the number of shards on a pods-based Index is >1. It returns a pointer to the number of shards on
 // a CreatePodIndexRequest object.
 func (req CreatePodIndexRequest) ShardCount() int32 {
-	x := minOne(req.Shards)
-	return x
+	return minOne(req.Shards)
 }
 
 // TotalCount calculates and returns the total number of pods (replicas*shards) on a CreatePodIndexRequest object.
 func (req CreatePodIndexRequest) TotalCount() int {
-	x := int(req.ReplicaCount() * req.ShardCount())
-	return x
+	return int(req.ReplicaCount() * req.ShardCount())
 }
 
 // CreatePodIndex creates and initializes a new pods-based Index via the specified Client.

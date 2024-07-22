@@ -19,7 +19,7 @@ test-unit:
 bootstrap:
     go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.32
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3
-    go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+    go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.3.0
     go install golang.org/x/tools/cmd/godoc@latest
 gen:
   ./codegen/build-clients.sh "2024-07"
