@@ -815,7 +815,7 @@ func TestTotalCountUnit(t *testing.T) {
 				Shards:   tt.shardCount,
 			}
 			result := req.TotalCount()
-			assert.Equal(t, tt.expectedResult, *result, "Expected result to be '%d', but got '%d'", tt.expectedResult, *result)
+			assert.Equal(t, tt.expectedResult, result, "Expected result to be '%d', but got '%d'", tt.expectedResult, result)
 		})
 	}
 }

@@ -799,15 +799,15 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, podType *strin
 	}
 
 	request := control.ConfigureIndexRequest{
-		Spec: struct {
+		Spec: &struct {
 			Pod struct {
-				PodType  *control.PodSpecPodType  `json:"pod_type,omitempty"`
-				Replicas *control.PodSpecReplicas `json:"replicas,omitempty"`
+				PodType  *string `json:"pod_type,omitempty"`
+				Replicas *int32  `json:"replicas,omitempty"`
 			} `json:"pod"`
 		}{
 			Pod: struct {
-				PodType  *control.PodSpecPodType  `json:"pod_type,omitempty"`
-				Replicas *control.PodSpecReplicas `json:"replicas,omitempty"`
+				PodType  *string `json:"pod_type,omitempty"`
+				Replicas *int32  `json:"replicas,omitempty"`
 			}{
 				PodType:  podType,
 				Replicas: replicas,
