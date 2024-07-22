@@ -9,6 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/grpc/status"
+
+	"google.golang.org/grpc/codes"
+
 	"github.com/pinecone-io/go-pinecone/internal/gen/data"
 	"google.golang.org/grpc/metadata"
 
@@ -40,46 +44,64 @@ func TestIntegrationIndexConnection(t *testing.T) {
 	assert.NotEmptyf(t, apiKey, "PINECONE_API_KEY env variable not set")
 
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: map[string]string{"content-type": "application/json"}})
-	if err != nil {
-		t.FailNow()
-	}
-	fmt.Printf("Headers: %+v\n", client.headers)
+	require.NotNil(t, client, "Client should not be nil after creation")
+	require.NoError(t, err)
 
 	serverlessIdx := buildServerlessTestIndex(t, client)
 	podIdx := buildPodTestIndex(t, client)
 
-	fmt.Printf("Pods Host: %s\n", podIdx.Host)
 	podTestSuite := &IndexConnectionTestsIntegration{
 		host:      podIdx.Host,
 		dimension: podIdx.Dimension,
 		apiKey:    apiKey,
-		indexType: "pod",
+		indexType: "pods",
+		client:    client,
 	}
 
-	fmt.Printf("Serverless Host: %s\n", serverlessIdx.Host)
 	serverlessTestSuite := &IndexConnectionTestsIntegration{
 		host:      serverlessIdx.Host,
 		dimension: serverlessIdx.Dimension,
 		apiKey:    apiKey,
 		indexType: "serverless",
+		client:    client,
 	}
 
 	suite.Run(t, podTestSuite)
 	suite.Run(t, serverlessTestSuite)
 }
 
-func getStatus(ts *IndexConnectionTestsIntegration, context context.Context) bool {
-	params := NewClientParams{}
-	ts.client, _ = NewClient(params)
+func getStatus(ts *IndexConnectionTestsIntegration, ctx context.Context) (bool, error) {
 	var indexName string
 	if ts.indexType == "serverless" {
 		indexName = retrieveServerlessIndexName(ts.T())
-	}
-	if ts.indexType == "pods" {
+	} else if ts.indexType == "pods" {
 		indexName = retrievePodIndexName(ts.T())
 	}
-	desc, _ := ts.client.DescribeIndex(context, indexName)
-	return desc.Status.Ready
+	if ts.client == nil {
+		return false, fmt.Errorf("client is nil")
+	}
+
+	var desc *Index
+	var err error
+	maxRetries := 12
+	delay := 12 * time.Second
+	for i := 0; i < maxRetries; i++ {
+		desc, err = ts.client.DescribeIndex(ctx, indexName)
+		if err == nil {
+			break
+		}
+		if status.Code(err) == codes.Unknown {
+			fmt.Printf("Index \"%s\" not found, retrying... (%d/%d)\n", indexName, i+1, maxRetries)
+			time.Sleep(delay)
+		} else {
+			fmt.Printf("Status code = %v\n", status.Code(err))
+			return false, err
+		}
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to describe index after retries: %v", err)
+	}
+	return desc.Status.Ready, nil
 }
 
 func (ts *IndexConnectionTestsIntegration) SetupSuite() {
@@ -89,15 +111,16 @@ func (ts *IndexConnectionTestsIntegration) SetupSuite() {
 	assert.NotEmptyf(ts.T(), ts.apiKey, "API_KEY env variable not set")
 	additionalMetadata := map[string]string{"api-key": ts.apiKey, "content-type": "application/json"}
 
-	namespace, err := uuid.NewV7()
-	assert.NoError(ts.T(), err)
+	namespace, err := uuid.NewUUID()
+	require.NoError(ts.T(), err)
 
 	idxConn, err := newIndexConnection(newIndexParameters{
 		additionalMetadata: additionalMetadata,
 		host:               ts.host,
 		namespace:          namespace.String(),
 		sourceTag:          ""})
-	assert.NoError(ts.T(), err)
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), idxConn, "Failed to create idxConn")
 
 	ts.idxConn = idxConn
 
@@ -105,17 +128,18 @@ func (ts *IndexConnectionTestsIntegration) SetupSuite() {
 	maxRetries := 12
 	delay := 12 * time.Second
 	for i := 0; i < maxRetries; i++ {
-		status := getStatus(ts, ctx)
+		status, err := getStatus(ts, ctx)
+		if err != nil {
+			fmt.Printf("Error getting index status: %v\n", err)
+		}
 		if status {
 			upsertVectors, err := idxConn.UpsertVectors(ctx, vectors) // TODO: the issue is that the index isn't ready yet
-			if err != nil {
-				log.Fatalf("Failed to upsert vectors: %v", err)
-			}
+			require.NoError(ts.T(), err)
 			fmt.Printf("Upserted vectors: %v into host: %s\n", upsertVectors, ts.host)
 			break
 		} else {
 			time.Sleep(delay)
-			fmt.Printf("Host \"%s\" not ready yet, retrying... %d\n", ts.host, i)
+			fmt.Printf("Host \"%s\" not ready yet, retrying... (%d/%d)\n", ts.host, i, maxRetries)
 		}
 	}
 
@@ -125,19 +149,19 @@ func (ts *IndexConnectionTestsIntegration) SetupSuite() {
 		host:               ts.host,
 		namespace:          namespace.String(),
 		sourceTag:          ts.sourceTag})
-	assert.NoError(ts.T(), err)
+	require.NoError(ts.T(), err)
 	ts.idxConnSourceTag = idxConnSourceTag
 
-	fmt.Println("\nSetupSuite completed successfully")
+	fmt.Printf("\n %sSetupSuite completed successfully", ts.indexType)
 }
 
 func (ts *IndexConnectionTestsIntegration) TearDownSuite() {
 	err := ts.idxConn.Close()
-	assert.NoError(ts.T(), err)
+	require.NoError(ts.T(), err)
 
 	err = ts.idxConnSourceTag.Close()
-	assert.NoError(ts.T(), err)
-	fmt.Printf("\n%s Setup suite torn down successfullly", ts.indexType)
+	require.NoError(ts.T(), err)
+	fmt.Printf("\n %s Setup suite torn down successfully", ts.indexType)
 }
 
 func (ts *IndexConnectionTestsIntegration) TestNewIndexConnection() {
@@ -356,13 +380,7 @@ func (ts *IndexConnectionTestsIntegration) TestUpdateVectorValues() {
 	fmt.Printf("\nidxConn... %+v", ts.idxConn)
 
 	idxStats, _ := ts.idxConn.DescribeIndexStats(ctx)
-	//serverlessConn := *ts.idxConn
 	fmt.Printf("\nIndex stats: %+v", idxStats)
-	//fmt.Printf("\nserverlessConn Namespaces... %+v", serverlessConn.Namespace)
-
-	//idx, _ := ts.idxConn.DescribeIndexStats(ctx)
-	//fmt.Printf("\nidxConn... global? %+v", idx.Namespaces)
-
 	fmt.Printf("\nHost: %s", ts.host)
 
 	err := podsConn.UpdateVector(ctx, &UpdateVectorRequest{
@@ -1166,27 +1184,6 @@ func setDimensionsForTestIndexes() uint32 {
 	return uint32(5)
 }
 
-func listAndDeleteIndexes(in *Client, context context.Context, indexNameToDelete string) bool {
-	var deletedIndex bool
-
-	indexes, err := in.ListIndexes(context)
-	if err != nil {
-		log.Fatalf("Failed to list indexes in Integration Tests: %v", err)
-	}
-
-	for _, v := range indexes {
-		if v.Name == indexNameToDelete {
-			err := in.DeleteIndex(context, v.Name)
-			if err != nil {
-				log.Fatalf("Failed to delete Pod index in Integration Tests: %v", err)
-			}
-			deletedIndex = true
-		}
-	}
-	return deletedIndex
-
-}
-
 func retrieveServerlessIndexName(t *testing.T) string {
 	serverlessIndexName := os.Getenv("TEST_SERVERLESS_INDEX_NAME")
 	assert.NotEmptyf(t, serverlessIndexName, "TEST_SERVERLESS_INDEX_NAME env variable not set")
@@ -1201,106 +1198,72 @@ func retrievePodIndexName(t *testing.T) string {
 
 func buildServerlessTestIndex(t *testing.T, in *Client) *Index {
 	ctx := context.Background()
-
 	serverlessIndexName := retrieveServerlessIndexName(t)
-
-	needToDeleteIndex := listAndDeleteIndexes(in, ctx, serverlessIndexName)
-	if !needToDeleteIndex {
-		serverlessIdx, err := in.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
-			Name:      serverlessIndexName,
-			Dimension: int32(setDimensionsForTestIndexes()),
-			Metric:    Cosine,
-			Region:    "us-east-1",
-			Cloud:     "aws",
-		})
-		if err != nil {
-			fmt.Printf("Serverless index name: %s\n", serverlessIndexName)
-			log.Fatalf("Failed to create Serverless index in Integration Tests: %v", err)
-		} else {
-			fmt.Printf("Successfully created a new Serverless index: %s!\n", serverlessIndexName)
+	indexes, err := in.ListIndexes(ctx)
+	if err != nil {
+		log.Fatalf("Could not list indexes in buildServerlessTestIndex: %v", err)
+	}
+	for _, v := range indexes {
+		if v.Name == serverlessIndexName {
+			fmt.Printf("Found existing Serverless index: %s, deleting.\n", serverlessIndexName)
+			err := in.DeleteIndex(ctx, v.Name)
+			time.Sleep(5 * time.Second)
+			if err != nil {
+				log.Fatalf("Failed to delete Serverless index in Integration Tests: %v", err)
+			}
 		}
+	}
 
-		return serverlessIdx
-	} // TODO: when index does NOT exist, get this error: "malformed header: missing HTTP content-type"
-	// TODO: but now when I add it in TestIntegrationIndexConnection under client, err (ln40), it says rpc error: code = Unavailable desc = connection error: desc = "transport: authentication handshake failed: read tcp 192.168.7.21:49936->52.6.114.50:443: read: connection reset by peer"
-	// TODO: worked once for pods, but not for serverless
-
-	//fmt.Printf("Index %s already exists. Delete!\n", serverlessIndexName)
-	return nil
-	//idxExists := &Index{
-	//	Name:      serverlessIndexName,
-	//	Dimension: int32(setDimensionsForTestIndexes()),
-	//}
-	//fmt.Printf("Index obj: %+v\n", idxExists)
-	//return idxExists // TODO: when index DOES exist, host is blank and that seems to be fucking stuff up
+	fmt.Printf("Creating Serverless index: %s\n", serverlessIndexName)
+	serverlessIdx, err := in.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
+		Name:      serverlessIndexName,
+		Dimension: int32(setDimensionsForTestIndexes()),
+		Metric:    Cosine,
+		Region:    "us-east-1",
+		Cloud:     "aws",
+	})
+	if err != nil {
+		fmt.Printf("Serverless index name: %s\n", serverlessIndexName)
+		log.Fatalf("Failed to create Serverless index in Integration Tests: %v", err)
+	} else {
+		fmt.Printf("Successfully created a new Serverless index: %s!\n", serverlessIndexName)
+	}
+	return serverlessIdx
 }
 
 func buildPodTestIndex(t *testing.T, in *Client) *Index {
 	ctx := context.Background()
-
 	podIndexName := retrievePodIndexName(t)
-
-	needToDeleteIndex := listAndDeleteIndexes(in, ctx, podIndexName)
-
-	if !needToDeleteIndex {
-		podIdx, err := in.CreatePodIndex(ctx, &CreatePodIndexRequest{
-			Name:        podIndexName,
-			Dimension:   int32(setDimensionsForTestIndexes()),
-			Metric:      Cosine,
-			Environment: "us-east-1-aws",
-			PodType:     "p1",
-		})
-		if err != nil {
-			fmt.Printf("Pod index name: %s\n", podIndexName)
-			log.Fatalf("Failed to create Pod index in Integration Tests: %v", err)
-		} else {
-			fmt.Printf("Successfully created a new Pod index: %s!\n", podIndexName)
+	indexes, err := in.ListIndexes(ctx)
+	if err != nil {
+		log.Fatalf("Could not list indexes in buildPodTestIndex: %v", err)
+	}
+	for _, v := range indexes {
+		if v.Name == podIndexName {
+			fmt.Printf("Found existing pod index: %s, deleting.\n", podIndexName)
+			err := in.DeleteIndex(ctx, podIndexName)
+			time.Sleep(5 * time.Second)
+			if err != nil {
+				log.Fatalf("Failed to delete pod index in Integration Tests: %v", err)
+			}
 		}
-
-		return podIdx
 	}
 
-	//fmt.Printf("Index %s already exists. Delete!\n", podIndexName)
-	//return
-	//idxExists, _ := in.restClient.ListIndexes(ctx)
-	//idxs, err := in.restClient.ListIndexes(ctx)
-	//var idxToReturn Index
-	//for _, idx := range idxs.Body. {
-	//	fmt.Printf("- \"%s\"\n", idx.Name)
-	//	if idx == podIndexName {
-	//		idxToReturn = idx
-	//	}
-	//}
-
-	//fmt.Printf("Index obj: %+v\n", idxExists)
-	//return idxExists
-	return nil
-}
-
-func (ts *IndexConnectionTestsIntegration) loadData(indexName string) {
-
-	//vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
-	//vectors := writeVectorsForUpsert()
-	//ts.vectorIds = writeIdsForUpsert()
-	//
-	//for i, v := range vectors {
-	//	vec := make([]float32, ts.dimension)
-	//	for i := range vec {
-	//		vec[i] = val
-	//	}
-	//
-	//	id := fmt.Sprintf("vec-%d", i+1)
-	//	ts.vectorIds[i] = id
-	//
-	//	vectors[i] = &Vector{
-	//		Id:     id,
-	//		Values: vec,
-	//	}
-	//}
-
-	//ctx := context.Background()
-	//_, err := ts.idxConn.UpsertVectors(ctx, vectors)
-	//assert.NoError(ts.T(), err)
+	fmt.Printf("Creating pod index: %s\n", podIndexName)
+	podIdx, err := in.CreatePodIndex(ctx, &CreatePodIndexRequest{
+		Name:        podIndexName,
+		Dimension:   int32(setDimensionsForTestIndexes()),
+		Metric:      Cosine,
+		Environment: "us-east-1-aws",
+		PodType:     "p1",
+	})
+	if err != nil {
+		fmt.Printf("Pod index name: %s\n", podIndexName)
+		log.Fatalf("Failed to create pod index in Integration Tests: %v", err)
+	} else {
+		fmt.Printf("Successfully created a new pod index: %s!\n", podIndexName)
+	}
+	return podIdx
 }
 
 func (ts *IndexConnectionTestsIntegration) loadDataSourceTag() {
