@@ -9,10 +9,6 @@ version=$1 # e.g. 2024-07
 data_destination="internal/gen/data"
 control_destination="internal/gen/control"
 
-script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-
-echo "Script dir: $script_dir"
-
 update_apis_repo() {
     echo "Updating apis repo"
     pushd codegen/apis
