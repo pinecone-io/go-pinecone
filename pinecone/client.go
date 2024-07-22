@@ -436,22 +436,22 @@ type CreatePodIndexRequest struct {
 
 // ReplicaCount ensures the replica count of a pods-based Index is >1.
 // It returns a pointer to the number of replicas on a CreatePodIndexRequest object.
-func (req CreatePodIndexRequest) ReplicaCount() *int32 {
+func (req CreatePodIndexRequest) ReplicaCount() int32 {
 	x := minOne(req.Replicas)
-	return &x
+	return x
 }
 
 // ShardCount ensures the number of shards on a pods-based Index is >1. It returns a pointer to the number of shards on
 // a CreatePodIndexRequest object.
-func (req CreatePodIndexRequest) ShardCount() *int32 {
+func (req CreatePodIndexRequest) ShardCount() int32 {
 	x := minOne(req.Shards)
-	return &x
+	return x
 }
 
 // TotalCount calculates and returns the total number of pods (replicas*shards) on a CreatePodIndexRequest object.
-func (req CreatePodIndexRequest) TotalCount() *int {
-	x := int(*req.ReplicaCount() * *req.ShardCount())
-	return &x
+func (req CreatePodIndexRequest) TotalCount() int {
+	x := int(req.ReplicaCount() * req.ShardCount())
+	return x
 }
 
 // CreatePodIndex creates and initializes a new pods-based Index via the specified Client.
@@ -498,27 +498,15 @@ func (req CreatePodIndexRequest) TotalCount() *int {
 //		       fmt.Printf("Successfully created pod index: %s", idx.Name)
 //	    }
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
-	metric := control.IndexMetric(in.Metric)
+	metric := control.CreateIndexRequestMetric(in.Metric)
 	req := control.CreateIndexRequest{
 		Name:      in.Name,
 		Dimension: in.Dimension,
 		Metric:    &metric,
 	}
 
-	//add the spec to req.
-	//because this is defined as an anon struct in the generated code, it must match exactly here.
-	req.Spec = control.CreateIndexRequest_Spec{
-		Pod: &struct {
-			Environment    string `json:"environment"`
-			MetadataConfig *struct {
-				Indexed *[]string `json:"indexed,omitempty"`
-			} `json:"metadata_config,omitempty"`
-			PodType          control.PodSpecPodType   `json:"pod_type"`
-			Pods             *int                     `json:"pods,omitempty"`
-			Replicas         *control.PodSpecReplicas `json:"replicas,omitempty"`
-			Shards           *control.PodSpecShards   `json:"shards,omitempty"`
-			SourceCollection *string                  `json:"source_collection,omitempty"`
-		}{
+	req.Spec = control.IndexSpec{
+		Pod: &control.PodSpec{
 			Environment:      in.Environment,
 			PodType:          in.PodType,
 			Pods:             in.TotalCount(),
@@ -527,6 +515,7 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 			SourceCollection: in.SourceCollection,
 		},
 	}
+
 	if in.MetadataConfig != nil {
 		req.Spec.Pod.MetadataConfig = &struct {
 			Indexed *[]string `json:"indexed,omitempty"`
@@ -644,12 +633,12 @@ type CreateServerlessIndexRequest struct {
 //	        fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //	    }
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
-	metric := control.IndexMetric(in.Metric)
+	metric := control.CreateIndexRequestMetric(in.Metric)
 	req := control.CreateIndexRequest{
 		Name:      in.Name,
 		Dimension: in.Dimension,
 		Metric:    &metric,
-		Spec: control.CreateIndexRequest_Spec{
+		Spec: control.IndexSpec{
 			Serverless: &control.ServerlessSpec{
 				Cloud:  control.ServerlessSpecCloud(in.Cloud),
 				Region: in.Region,

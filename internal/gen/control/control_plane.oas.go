@@ -27,33 +27,47 @@ const (
 	CollectionModelStatusTerminating  CollectionModelStatus = "Terminating"
 )
 
-// Defines values for ErrorResponseErrorCode.
+// Defines values for CreateIndexRequestMetric.
 const (
-	ABORTED            ErrorResponseErrorCode = "ABORTED"
-	ALREADYEXISTS      ErrorResponseErrorCode = "ALREADY_EXISTS"
-	DATALOSS           ErrorResponseErrorCode = "DATA_LOSS"
-	DEADLINEEXCEEDED   ErrorResponseErrorCode = "DEADLINE_EXCEEDED"
-	FAILEDPRECONDITION ErrorResponseErrorCode = "FAILED_PRECONDITION"
-	FORBIDDEN          ErrorResponseErrorCode = "FORBIDDEN"
-	INTERNAL           ErrorResponseErrorCode = "INTERNAL"
-	INVALIDARGUMENT    ErrorResponseErrorCode = "INVALID_ARGUMENT"
-	NOTFOUND           ErrorResponseErrorCode = "NOT_FOUND"
-	OK                 ErrorResponseErrorCode = "OK"
-	OUTOFRANGE         ErrorResponseErrorCode = "OUT_OF_RANGE"
-	PERMISSIONDENIED   ErrorResponseErrorCode = "PERMISSION_DENIED"
-	QUOTAEXCEEDED      ErrorResponseErrorCode = "QUOTA_EXCEEDED"
-	RESOURCEEXHAUSTED  ErrorResponseErrorCode = "RESOURCE_EXHAUSTED"
-	UNAUTHENTICATED    ErrorResponseErrorCode = "UNAUTHENTICATED"
-	UNAVAILABLE        ErrorResponseErrorCode = "UNAVAILABLE"
-	UNIMPLEMENTED      ErrorResponseErrorCode = "UNIMPLEMENTED"
-	UNKNOWN            ErrorResponseErrorCode = "UNKNOWN"
+	CreateIndexRequestMetricCosine     CreateIndexRequestMetric = "cosine"
+	CreateIndexRequestMetricDotproduct CreateIndexRequestMetric = "dotproduct"
+	CreateIndexRequestMetricEuclidean  CreateIndexRequestMetric = "euclidean"
 )
 
-// Defines values for IndexMetric.
+// Defines values for DeletionProtection.
 const (
-	Cosine     IndexMetric = "cosine"
-	Dotproduct IndexMetric = "dotproduct"
-	Euclidean  IndexMetric = "euclidean"
+	Disabled DeletionProtection = "disabled"
+	Enabled  DeletionProtection = "enabled"
+)
+
+// Defines values for ErrorResponseErrorCode.
+const (
+	ABORTED             ErrorResponseErrorCode = "ABORTED"
+	ALREADYEXISTS       ErrorResponseErrorCode = "ALREADY_EXISTS"
+	DATALOSS            ErrorResponseErrorCode = "DATA_LOSS"
+	DEADLINEEXCEEDED    ErrorResponseErrorCode = "DEADLINE_EXCEEDED"
+	FAILEDPRECONDITION  ErrorResponseErrorCode = "FAILED_PRECONDITION"
+	FORBIDDEN           ErrorResponseErrorCode = "FORBIDDEN"
+	INTERNAL            ErrorResponseErrorCode = "INTERNAL"
+	INVALIDARGUMENT     ErrorResponseErrorCode = "INVALID_ARGUMENT"
+	NOTFOUND            ErrorResponseErrorCode = "NOT_FOUND"
+	OK                  ErrorResponseErrorCode = "OK"
+	OUTOFRANGE          ErrorResponseErrorCode = "OUT_OF_RANGE"
+	PERMISSIONDENIED    ErrorResponseErrorCode = "PERMISSION_DENIED"
+	QUOTAEXCEEDED       ErrorResponseErrorCode = "QUOTA_EXCEEDED"
+	RESOURCEEXHAUSTED   ErrorResponseErrorCode = "RESOURCE_EXHAUSTED"
+	UNAUTHENTICATED     ErrorResponseErrorCode = "UNAUTHENTICATED"
+	UNAVAILABLE         ErrorResponseErrorCode = "UNAVAILABLE"
+	UNIMPLEMENTED       ErrorResponseErrorCode = "UNIMPLEMENTED"
+	UNKNOWN             ErrorResponseErrorCode = "UNKNOWN"
+	UNPROCESSABLEENTITY ErrorResponseErrorCode = "UNPROCESSABLE_ENTITY"
+)
+
+// Defines values for IndexModelMetric.
+const (
+	IndexModelMetricCosine     IndexModelMetric = "cosine"
+	IndexModelMetricDotproduct IndexModelMetric = "dotproduct"
+	IndexModelMetricEuclidean  IndexModelMetric = "euclidean"
 )
 
 // Defines values for IndexModelStatusState.
@@ -87,7 +101,9 @@ type CollectionModel struct {
 
 	// Environment The environment where the collection is hosted.
 	Environment string `json:"environment"`
-	Name        string `json:"name"`
+
+	// Name The name of the collection.
+	Name string `json:"name"`
 
 	// Size The size of the collection in bytes.
 	Size *int64 `json:"size,omitempty"`
@@ -104,15 +120,17 @@ type CollectionModelStatus string
 
 // ConfigureIndexRequest Configuration used to scale an index.
 type ConfigureIndexRequest struct {
-	Spec struct {
+	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/prevent-index-deletion) is enabled/disabled for the index.
+	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
+	Spec               *struct {
 		Pod struct {
 			// PodType The type of pod to use. One of `s1`, `p1`, or `p2` appended with `.` and one of `x1`, `x2`, `x4`, or `x8`.
-			PodType *PodSpecPodType `json:"pod_type,omitempty"`
+			PodType *string `json:"pod_type,omitempty"`
 
 			// Replicas The number of replicas. Replicas duplicate your index. They provide higher availability and throughput. Replicas can be scaled up or down as your needs change.
-			Replicas *PodSpecReplicas `json:"replicas,omitempty"`
+			Replicas *int32 `json:"replicas,omitempty"`
 		} `json:"pod"`
-	} `json:"spec"`
+	} `json:"spec,omitempty"`
 }
 
 // CreateCollectionRequest The configuration needed to create a Pinecone collection.
@@ -126,65 +144,62 @@ type CreateCollectionRequest struct {
 
 // CreateIndexRequest The configuration needed to create a Pinecone index.
 type CreateIndexRequest struct {
+	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/prevent-index-deletion) is enabled/disabled for the index.
+	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
+
 	// Dimension The dimensions of the vectors to be inserted in the index.
-	Dimension IndexDimension `json:"dimension"`
+	Dimension int32 `json:"dimension"`
 
 	// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
-	Metric *IndexMetric `json:"metric,omitempty"`
+	Metric *CreateIndexRequestMetric `json:"metric,omitempty"`
 
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
-	Name IndexName `json:"name"`
+	Name string `json:"name"`
 
 	// Spec The spec object defines how the index should be deployed.
 	//
-	// For serverless indexes, you define only the cloud and region where the index should be hosted. For pod-based indexes, you define the environment where the index should be hosted, the pod type and size to use, and other index characteristics.
-	//
-	// Serverless indexes are in public preview and are available only on AWS in the us-west-2 region. Test thoroughly before using serverless indexes in production.
-	Spec CreateIndexRequest_Spec `json:"spec"`
+	// For serverless indexes, you define only the [cloud and region](http://docs.pinecone.io/guides/indexes/understanding-indexes#cloud-regions) where the index should be hosted. For pod-based indexes, you define the [environment](http://docs.pinecone.io/guides/indexes/understanding-indexes#pod-environments) where the index should be hosted, the [pod type and size](http://docs.pinecone.io/guides/indexes/understanding-indexes#pod-types) to use, and other index characteristics.
+	Spec IndexSpec `json:"spec"`
 }
 
-// CreateIndexRequestSpec0 defines model for .
-type CreateIndexRequestSpec0 = interface{}
+// CreateIndexRequestMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
+type CreateIndexRequestMetric string
 
-// CreateIndexRequestSpec1 defines model for .
-type CreateIndexRequestSpec1 = interface{}
+// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/prevent-index-deletion) is enabled/disabled for the index.
+type DeletionProtection string
 
-// CreateIndexRequest_Spec The spec object defines how the index should be deployed.
-//
-// For serverless indexes, you define only the cloud and region where the index should be hosted. For pod-based indexes, you define the environment where the index should be hosted, the pod type and size to use, and other index characteristics.
-//
-// Serverless indexes are in public preview and are available only on AWS in the us-west-2 region. Test thoroughly before using serverless indexes in production.
-type CreateIndexRequest_Spec struct {
-	// Pod Configuration needed to deploy a pod-based index.
-	Pod *struct {
-		// Environment The environment where the index is hosted.
-		Environment string `json:"environment"`
+// EmbedRequest Generate embeddings for inputs
+type EmbedRequest struct {
+	Inputs []struct {
+		Text *string `json:"text,omitempty"`
+	} `json:"inputs"`
+	Model string `json:"model"`
 
-		// MetadataConfig Configuration for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `metadata_config` is present, only specified metadata fields are indexed. These configurations are only valid for use with pod-based indexes.
-		MetadataConfig *struct {
-			// Indexed By default, all metadata is indexed; to change this behavior, use this property to specify an array of metadata fields which should be indexed.
-			Indexed *[]string `json:"indexed,omitempty"`
-		} `json:"metadata_config,omitempty"`
+	// Parameters Model-specific parameters.
+	Parameters *struct {
+		// InputType Common property used to distinguish between types of data.
+		InputType *string `json:"input_type,omitempty"`
 
-		// PodType The type of pod to use. One of `s1`, `p1`, or `p2` appended with `.` and one of `x1`, `x2`, `x4`, or `x8`.
-		PodType PodSpecPodType `json:"pod_type"`
+		// Truncate How to handle inputs longer than those supported by the model. If NONE, when the input exceeds the maximum input token length an error will be returned.
+		Truncate *string `json:"truncate,omitempty"`
+	} `json:"parameters,omitempty"`
+}
 
-		// Pods The number of pods to be used in the index. This should be equal to `shards` x `replicas`.
-		Pods *int `json:"pods,omitempty"`
+// Embedding Embedding of a single input
+type Embedding struct {
+	// Values The embedding values.
+	Values *[]float32 `json:"values,omitempty"`
+}
 
-		// Replicas The number of replicas. Replicas duplicate your index. They provide higher availability and throughput. Replicas can be scaled up or down as your needs change.
-		Replicas *PodSpecReplicas `json:"replicas,omitempty"`
+// EmbeddingsList Embeddings generated for the input
+type EmbeddingsList struct {
+	Data  *[]Embedding `json:"data,omitempty"`
+	Model *string      `json:"model,omitempty"`
 
-		// Shards The number of shards. Shards split your data across multiple pods so you can fit more data into an index.
-		Shards *PodSpecShards `json:"shards,omitempty"`
-
-		// SourceCollection The name of the collection to be used as the source for the index.
-		SourceCollection *string `json:"source_collection,omitempty"`
-	} `json:"pod,omitempty"`
-
-	// Serverless Configuration needed to deploy a serverless index.
-	Serverless *ServerlessSpec `json:"serverless,omitempty"`
-	union      json.RawMessage
+	// Usage Usage statistics for model inference including any instruction prefixes
+	Usage *struct {
+		TotalTokens *int `json:"total_tokens,omitempty"`
+	} `json:"usage,omitempty"`
 }
 
 // ErrorResponse The response shape used for all error responses.
@@ -205,33 +220,27 @@ type ErrorResponse struct {
 // ErrorResponseErrorCode defines model for ErrorResponse.Error.Code.
 type ErrorResponseErrorCode string
 
-// IndexDimension The dimensions of the vectors to be inserted in the index.
-type IndexDimension = int32
-
-// IndexHost The URL address where the index is hosted.
-type IndexHost = string
-
 // IndexList The list of indexes that exist in the project.
 type IndexList struct {
 	Indexes *[]IndexModel `json:"indexes,omitempty"`
 }
 
-// IndexMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
-type IndexMetric string
-
 // IndexModel The IndexModel describes the configuration and status of a Pinecone index.
 type IndexModel struct {
+	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/prevent-index-deletion) is enabled/disabled for the index.
+	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
+
 	// Dimension The dimensions of the vectors to be inserted in the index.
-	Dimension IndexDimension `json:"dimension"`
+	Dimension int32 `json:"dimension"`
 
 	// Host The URL address where the index is hosted.
-	Host IndexHost `json:"host"`
+	Host string `json:"host"`
 
 	// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
-	Metric IndexMetric `json:"metric"`
+	Metric IndexModelMetric `json:"metric"`
 
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
-	Name IndexName `json:"name"`
+	Name string `json:"name"`
 	Spec struct {
 		// Pod Configuration needed to deploy a pod-based index.
 		Pod *PodSpec `json:"pod,omitempty"`
@@ -245,11 +254,29 @@ type IndexModel struct {
 	} `json:"status"`
 }
 
+// IndexModelMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
+type IndexModelMetric string
+
 // IndexModelStatusState defines model for IndexModel.Status.State.
 type IndexModelStatusState string
 
-// IndexName The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
-type IndexName = string
+// IndexSpec The spec object defines how the index should be deployed.
+//
+// For serverless indexes, you define only the [cloud and region](http://docs.pinecone.io/guides/indexes/understanding-indexes#cloud-regions) where the index should be hosted. For pod-based indexes, you define the [environment](http://docs.pinecone.io/guides/indexes/understanding-indexes#pod-environments) where the index should be hosted, the [pod type and size](http://docs.pinecone.io/guides/indexes/understanding-indexes#pod-types) to use, and other index characteristics.
+type IndexSpec struct {
+	// Pod Configuration needed to deploy a pod-based index.
+	Pod *PodSpec `json:"pod,omitempty"`
+
+	// Serverless Configuration needed to deploy a serverless index.
+	Serverless *ServerlessSpec `json:"serverless,omitempty"`
+	union      json.RawMessage
+}
+
+// IndexSpec0 defines model for .
+type IndexSpec0 = interface{}
+
+// IndexSpec1 defines model for .
+type IndexSpec1 = interface{}
 
 // PodSpec Configuration needed to deploy a pod-based index.
 type PodSpec struct {
@@ -263,74 +290,38 @@ type PodSpec struct {
 	} `json:"metadata_config,omitempty"`
 
 	// PodType The type of pod to use. One of `s1`, `p1`, or `p2` appended with `.` and one of `x1`, `x2`, `x4`, or `x8`.
-	PodType PodSpecPodType `json:"pod_type"`
+	PodType string `json:"pod_type"`
 
 	// Pods The number of pods to be used in the index. This should be equal to `shards` x `replicas`.'
 	Pods int `json:"pods"`
 
 	// Replicas The number of replicas. Replicas duplicate your index. They provide higher availability and throughput. Replicas can be scaled up or down as your needs change.
-	Replicas PodSpecReplicas `json:"replicas"`
+	Replicas int32 `json:"replicas"`
 
 	// Shards The number of shards. Shards split your data across multiple pods so you can fit more data into an index.
-	Shards PodSpecShards `json:"shards"`
+	Shards int32 `json:"shards"`
 
 	// SourceCollection The name of the collection to be used as the source for the index.
 	SourceCollection *string `json:"source_collection,omitempty"`
 }
 
-// PodSpecPodType The type of pod to use. One of `s1`, `p1`, or `p2` appended with `.` and one of `x1`, `x2`, `x4`, or `x8`.
-type PodSpecPodType = string
-
-// PodSpecReplicas The number of replicas. Replicas duplicate your index. They provide higher availability and throughput. Replicas can be scaled up or down as your needs change.
-type PodSpecReplicas = int32
-
-// PodSpecShards The number of shards. Shards split your data across multiple pods so you can fit more data into an index.
-type PodSpecShards = int32
-
 // ServerlessSpec Configuration needed to deploy a serverless index.
 type ServerlessSpec struct {
-	// Cloud The public cloud where you would like your index hosted. Serverless indexes can be hosted only in AWS at this time.
+	// Cloud The public cloud where you would like your index hosted.
 	Cloud ServerlessSpecCloud `json:"cloud"`
 
-	// Region The region where you would like your index to be created.  Serverless indexes can be created only in the us-west-2 region of AWS at this time.
+	// Region The region where you would like your index to be created.
 	Region string `json:"region"`
 }
 
-// ServerlessSpecCloud The public cloud where you would like your index hosted. Serverless indexes can be hosted only in AWS at this time.
+// ServerlessSpecCloud The public cloud where you would like your index hosted.
 type ServerlessSpecCloud string
-
-// N400BadRequest The response shape used for all error responses.
-type N400BadRequest = ErrorResponse
-
-// N401Unauthorized The response shape used for all error responses.
-type N401Unauthorized = ErrorResponse
-
-// N403CollectionsQuotaExceeded The response shape used for all error responses.
-type N403CollectionsQuotaExceeded = ErrorResponse
-
-// N403PodQuotaExceeded The response shape used for all error responses.
-type N403PodQuotaExceeded = ErrorResponse
-
-// N404CollectionNotFound The response shape used for all error responses.
-type N404CollectionNotFound = ErrorResponse
-
-// N404IndexNotFound The response shape used for all error responses.
-type N404IndexNotFound = ErrorResponse
-
-// N404ServerlessSpecNotFound The response shape used for all error responses.
-type N404ServerlessSpecNotFound = ErrorResponse
-
-// N412PendingCollection The response shape used for all error responses.
-type N412PendingCollection = ErrorResponse
-
-// N422UnprocessableEntity The response shape used for all error responses.
-type N422UnprocessableEntity = ErrorResponse
-
-// N500InternalServerError The response shape used for all error responses.
-type N500InternalServerError = ErrorResponse
 
 // CreateCollectionJSONRequestBody defines body for CreateCollection for application/json ContentType.
 type CreateCollectionJSONRequestBody = CreateCollectionRequest
+
+// EmbedJSONRequestBody defines body for Embed for application/json ContentType.
+type EmbedJSONRequestBody = EmbedRequest
 
 // CreateIndexJSONRequestBody defines body for CreateIndex for application/json ContentType.
 type CreateIndexJSONRequestBody = CreateIndexRequest
@@ -338,22 +329,22 @@ type CreateIndexJSONRequestBody = CreateIndexRequest
 // ConfigureIndexJSONRequestBody defines body for ConfigureIndex for application/json ContentType.
 type ConfigureIndexJSONRequestBody = ConfigureIndexRequest
 
-// AsCreateIndexRequestSpec0 returns the union data inside the CreateIndexRequest_Spec as a CreateIndexRequestSpec0
-func (t CreateIndexRequest_Spec) AsCreateIndexRequestSpec0() (CreateIndexRequestSpec0, error) {
-	var body CreateIndexRequestSpec0
+// AsIndexSpec0 returns the union data inside the IndexSpec as a IndexSpec0
+func (t IndexSpec) AsIndexSpec0() (IndexSpec0, error) {
+	var body IndexSpec0
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromCreateIndexRequestSpec0 overwrites any union data inside the CreateIndexRequest_Spec as the provided CreateIndexRequestSpec0
-func (t *CreateIndexRequest_Spec) FromCreateIndexRequestSpec0(v CreateIndexRequestSpec0) error {
+// FromIndexSpec0 overwrites any union data inside the IndexSpec as the provided IndexSpec0
+func (t *IndexSpec) FromIndexSpec0(v IndexSpec0) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeCreateIndexRequestSpec0 performs a merge with any union data inside the CreateIndexRequest_Spec, using the provided CreateIndexRequestSpec0
-func (t *CreateIndexRequest_Spec) MergeCreateIndexRequestSpec0(v CreateIndexRequestSpec0) error {
+// MergeIndexSpec0 performs a merge with any union data inside the IndexSpec, using the provided IndexSpec0
+func (t *IndexSpec) MergeIndexSpec0(v IndexSpec0) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -364,22 +355,22 @@ func (t *CreateIndexRequest_Spec) MergeCreateIndexRequestSpec0(v CreateIndexRequ
 	return err
 }
 
-// AsCreateIndexRequestSpec1 returns the union data inside the CreateIndexRequest_Spec as a CreateIndexRequestSpec1
-func (t CreateIndexRequest_Spec) AsCreateIndexRequestSpec1() (CreateIndexRequestSpec1, error) {
-	var body CreateIndexRequestSpec1
+// AsIndexSpec1 returns the union data inside the IndexSpec as a IndexSpec1
+func (t IndexSpec) AsIndexSpec1() (IndexSpec1, error) {
+	var body IndexSpec1
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromCreateIndexRequestSpec1 overwrites any union data inside the CreateIndexRequest_Spec as the provided CreateIndexRequestSpec1
-func (t *CreateIndexRequest_Spec) FromCreateIndexRequestSpec1(v CreateIndexRequestSpec1) error {
+// FromIndexSpec1 overwrites any union data inside the IndexSpec as the provided IndexSpec1
+func (t *IndexSpec) FromIndexSpec1(v IndexSpec1) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeCreateIndexRequestSpec1 performs a merge with any union data inside the CreateIndexRequest_Spec, using the provided CreateIndexRequestSpec1
-func (t *CreateIndexRequest_Spec) MergeCreateIndexRequestSpec1(v CreateIndexRequestSpec1) error {
+// MergeIndexSpec1 performs a merge with any union data inside the IndexSpec, using the provided IndexSpec1
+func (t *IndexSpec) MergeIndexSpec1(v IndexSpec1) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -390,7 +381,7 @@ func (t *CreateIndexRequest_Spec) MergeCreateIndexRequestSpec1(v CreateIndexRequ
 	return err
 }
 
-func (t CreateIndexRequest_Spec) MarshalJSON() ([]byte, error) {
+func (t IndexSpec) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
 	if err != nil {
 		return nil, err
@@ -420,7 +411,7 @@ func (t CreateIndexRequest_Spec) MarshalJSON() ([]byte, error) {
 	return b, err
 }
 
-func (t *CreateIndexRequest_Spec) UnmarshalJSON(b []byte) error {
+func (t *IndexSpec) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	if err != nil {
 		return err
@@ -535,6 +526,11 @@ type ClientInterface interface {
 	// DescribeCollection request
 	DescribeCollection(ctx context.Context, collectionName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// EmbedWithBody request with any body
+	EmbedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	Embed(ctx context.Context, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListIndexes request
 	ListIndexes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -605,6 +601,30 @@ func (c *Client) DeleteCollection(ctx context.Context, collectionName string, re
 
 func (c *Client) DescribeCollection(ctx context.Context, collectionName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDescribeCollectionRequest(c.Server, collectionName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) EmbedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEmbedRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) Embed(ctx context.Context, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEmbedRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -830,6 +850,46 @@ func NewDescribeCollectionRequest(server string, collectionName string) (*http.R
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewEmbedRequest calls the generic Embed builder with application/json body
+func NewEmbedRequest(server string, body EmbedJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewEmbedRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewEmbedRequestWithBody generates requests for Embed with any type of body
+func NewEmbedRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/embed")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -1073,6 +1133,11 @@ type ClientWithResponsesInterface interface {
 	// DescribeCollectionWithResponse request
 	DescribeCollectionWithResponse(ctx context.Context, collectionName string, reqEditors ...RequestEditorFn) (*DescribeCollectionResponse, error)
 
+	// EmbedWithBodyWithResponse request with any body
+	EmbedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EmbedResponse, error)
+
+	EmbedWithResponse(ctx context.Context, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*EmbedResponse, error)
+
 	// ListIndexesWithResponse request
 	ListIndexesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListIndexesResponse, error)
 
@@ -1097,8 +1162,8 @@ type ListCollectionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *CollectionList
-	JSON401      *N401Unauthorized
-	JSON500      *N500InternalServerError
+	JSON401      *ErrorResponse
+	JSON500      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1121,12 +1186,12 @@ type CreateCollectionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON201      *CollectionModel
-	JSON400      *N400BadRequest
-	JSON401      *N401Unauthorized
-	JSON403      *N403CollectionsQuotaExceeded
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
 	JSON409      *ErrorResponse
-	JSON422      *N422UnprocessableEntity
-	JSON500      *N500InternalServerError
+	JSON422      *ErrorResponse
+	JSON500      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1148,9 +1213,9 @@ func (r CreateCollectionResponse) StatusCode() int {
 type DeleteCollectionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON401      *N401Unauthorized
-	JSON404      *N404CollectionNotFound
-	JSON500      *N500InternalServerError
+	JSON401      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1173,9 +1238,9 @@ type DescribeCollectionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *CollectionModel
-	JSON401      *N401Unauthorized
-	JSON404      *N404CollectionNotFound
-	JSON500      *N500InternalServerError
+	JSON401      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1194,12 +1259,37 @@ func (r DescribeCollectionResponse) StatusCode() int {
 	return 0
 }
 
+type EmbedResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EmbeddingsList
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r EmbedResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EmbedResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListIndexesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *IndexList
-	JSON401      *N401Unauthorized
-	JSON500      *N500InternalServerError
+	JSON401      *ErrorResponse
+	JSON500      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1222,13 +1312,13 @@ type CreateIndexResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON201      *IndexModel
-	JSON400      *N400BadRequest
-	JSON401      *N401Unauthorized
-	JSON403      *N403PodQuotaExceeded
-	JSON404      *N404ServerlessSpecNotFound
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
-	JSON422      *N422UnprocessableEntity
-	JSON500      *N500InternalServerError
+	JSON422      *ErrorResponse
+	JSON500      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1250,10 +1340,10 @@ func (r CreateIndexResponse) StatusCode() int {
 type DeleteIndexResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON401      *N401Unauthorized
-	JSON404      *N404IndexNotFound
-	JSON412      *N412PendingCollection
-	JSON500      *N500InternalServerError
+	JSON401      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON412      *ErrorResponse
+	JSON500      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1276,9 +1366,9 @@ type DescribeIndexResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *IndexModel
-	JSON401      *N401Unauthorized
-	JSON404      *N404IndexNotFound
-	JSON500      *N500InternalServerError
+	JSON401      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1301,12 +1391,12 @@ type ConfigureIndexResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON202      *IndexModel
-	JSON400      *N400BadRequest
-	JSON401      *N401Unauthorized
-	JSON403      *N403PodQuotaExceeded
-	JSON404      *N404IndexNotFound
-	JSON422      *N422UnprocessableEntity
-	JSON500      *N500InternalServerError
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON422      *ErrorResponse
+	JSON500      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1367,6 +1457,23 @@ func (c *ClientWithResponses) DescribeCollectionWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseDescribeCollectionResponse(rsp)
+}
+
+// EmbedWithBodyWithResponse request with arbitrary body returning *EmbedResponse
+func (c *ClientWithResponses) EmbedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EmbedResponse, error) {
+	rsp, err := c.EmbedWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEmbedResponse(rsp)
+}
+
+func (c *ClientWithResponses) EmbedWithResponse(ctx context.Context, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*EmbedResponse, error) {
+	rsp, err := c.Embed(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEmbedResponse(rsp)
 }
 
 // ListIndexesWithResponse request returning *ListIndexesResponse
@@ -1452,14 +1559,14 @@ func ParseListCollectionsResponse(rsp *http.Response) (*ListCollectionsResponse,
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest N401Unauthorized
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest N500InternalServerError
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1492,21 +1599,21 @@ func ParseCreateCollectionResponse(rsp *http.Response) (*CreateCollectionRespons
 		response.JSON201 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest N400BadRequest
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest N401Unauthorized
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest N403CollectionsQuotaExceeded
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1520,14 +1627,14 @@ func ParseCreateCollectionResponse(rsp *http.Response) (*CreateCollectionRespons
 		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
-		var dest N422UnprocessableEntity
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest N500InternalServerError
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1553,21 +1660,21 @@ func ParseDeleteCollectionResponse(rsp *http.Response) (*DeleteCollectionRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest N401Unauthorized
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest N404CollectionNotFound
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest N500InternalServerError
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1600,21 +1707,68 @@ func ParseDescribeCollectionResponse(rsp *http.Response) (*DescribeCollectionRes
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest N401Unauthorized
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest N404CollectionNotFound
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest N500InternalServerError
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEmbedResponse parses an HTTP response from a EmbedWithResponse call
+func ParseEmbedResponse(rsp *http.Response) (*EmbedResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EmbedResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EmbeddingsList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1647,14 +1801,14 @@ func ParseListIndexesResponse(rsp *http.Response) (*ListIndexesResponse, error) 
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest N401Unauthorized
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest N500InternalServerError
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1687,28 +1841,28 @@ func ParseCreateIndexResponse(rsp *http.Response) (*CreateIndexResponse, error) 
 		response.JSON201 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest N400BadRequest
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest N401Unauthorized
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest N403PodQuotaExceeded
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest N404ServerlessSpecNotFound
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1722,14 +1876,14 @@ func ParseCreateIndexResponse(rsp *http.Response) (*CreateIndexResponse, error) 
 		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
-		var dest N422UnprocessableEntity
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest N500InternalServerError
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1755,28 +1909,28 @@ func ParseDeleteIndexResponse(rsp *http.Response) (*DeleteIndexResponse, error) 
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest N401Unauthorized
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest N404IndexNotFound
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
-		var dest N412PendingCollection
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON412 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest N500InternalServerError
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1809,21 +1963,21 @@ func ParseDescribeIndexResponse(rsp *http.Response) (*DescribeIndexResponse, err
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest N401Unauthorized
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest N404IndexNotFound
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest N500InternalServerError
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1856,42 +2010,42 @@ func ParseConfigureIndexResponse(rsp *http.Response) (*ConfigureIndexResponse, e
 		response.JSON202 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest N400BadRequest
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest N401Unauthorized
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest N403PodQuotaExceeded
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest N404IndexNotFound
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
-		var dest N422UnprocessableEntity
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest N500InternalServerError
+		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
