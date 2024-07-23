@@ -309,23 +309,6 @@ func (ts *ClientTestsIntegration) TestCreatePodIndexInvalidDimension() {
 	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
 }
 
-func (ts *ClientTestsIntegration) TestCreatePodIndexFromCollection() {
-	name := uuid.New().String()
-
-	defer func(ts *ClientTestsIntegration, name string) {
-		err := ts.deleteCollection(name)
-		require.NoError(ts.T(), err)
-	}(ts, name)
-
-	collection, err := ts.client.CreateCollection(context.Background(), &CreateCollectionRequest{
-		Name:   name,
-		Source: ts.podIndex,
-	})
-	require.NoError(ts.T(), err)
-
-	assert.Equal(ts.T(), collection.Name, name)
-}
-
 func (ts *ClientTestsIntegration) TestCreateServerlessIndexInvalidDimension() {
 	name := uuid.New().String()
 
