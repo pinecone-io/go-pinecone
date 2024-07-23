@@ -58,7 +58,6 @@ func TestIntegrationIndexConnection(t *testing.T) {
 	serverlessIdx := buildServerlessTestIndex(client, serverlessIndexName)
 	podIdx := buildPodTestIndex(client, podIndexName)
 
-	// TODO: make index *Index field on IndexConnectionTestsIntegration struct?
 	podTestSuite := &IndexConnectionTestsIntegration{
 		host:       podIdx.Host,
 		dimension:  podIdx.Dimension,
@@ -136,7 +135,7 @@ func (ts *IndexConnectionTestsIntegration) TearDownSuite() {
 	err := ts.client.DeleteIndex(ctx, ts.serverlessIdxName)
 	err = ts.client.DeleteIndex(ctx, ts.podIdxName)
 
-	// TODO Delete test collections..
+	// TODO Delete test collections?
 
 	err = ts.idxConn.Close()
 	require.NoError(ts.T(), err)
