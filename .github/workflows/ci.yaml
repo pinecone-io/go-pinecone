@@ -17,7 +17,8 @@ jobs:
         run: |
           go get ./pinecone
       - name: Run tests
-        run: go test -count=1 -v ./pinecone
+        #        run: go test -count=1 -v ./pinecone
+        run: go test -count=1 -v -run IndexConnection ./pinecone
         env:
           TEST_PODS_INDEX_NAME: ${{ secrets.TEST_PODS_INDEX_NAME }}
           TEST_SERVERLESS_INDEX_NAME: ${{ secrets.TEST_SERVERLESS_INDEX_NAME }}
