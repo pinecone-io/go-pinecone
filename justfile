@@ -1,3 +1,5 @@
+api_version := "2024-07"
+
 test:
   #!/usr/bin/env bash
   set -o allexport
@@ -22,7 +24,7 @@ bootstrap:
     go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.3.0
     go install golang.org/x/tools/cmd/godoc@latest
 gen:
-  ./codegen/build-clients.sh "2024-07"
+  ./codegen/build-clients.sh {{api_version}}
 docs:
   @echo "Serving docs at http://localhost:6060/pkg/github.com/pinecone-io/go-pinecone/pinecone/"
   @godoc -http=:6060 >/dev/null

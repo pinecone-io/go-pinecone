@@ -14,6 +14,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pinecone-io/go-pinecone/internal/gen"
 	"github.com/pinecone-io/go-pinecone/internal/gen/control"
 	"github.com/pinecone-io/go-pinecone/internal/provider"
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
@@ -275,15 +276,20 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 //		       log.Println("IndexConnection created successfully!")
 //	    }
 func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*IndexConnection, error) {
+	if in.AdditionalMetadata == nil {
+		in.AdditionalMetadata = make(map[string]string)
+	}
+
+	// add api version header if not provided
+	if _, ok := in.AdditionalMetadata["X-Pinecone-Api-Version"]; !ok {
+		in.AdditionalMetadata["X-Pinecone-Api-Version"] = gen.PineconeApiVersion
+	}
+
 	// extract authHeader from Client which is used to authenticate the IndexConnection
 	// merge authHeader with additionalMetadata provided in NewIndexConnParams
 	authHeader := c.extractAuthHeader()
-	if in.AdditionalMetadata != nil {
-		for key, value := range authHeader {
-			in.AdditionalMetadata[key] = value
-		}
-	} else {
-		in.AdditionalMetadata = authHeader
+	for key, value := range authHeader {
+		in.AdditionalMetadata[key] = value
 	}
 
 	idx, err := newIndexConnection(newIndexParameters{
@@ -1258,14 +1264,17 @@ func formatError(errMap errorResponseMap) error {
 func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
 	clientOptions := []control.ClientOption{}
 
-	// build and apply user agent
+	// build and apply user agent header
 	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
 	clientOptions = append(clientOptions, control.WithRequestEditorFn(userAgentProvider.Intercept))
 
+	// build and apply api version header
+	apiVersionProvider := provider.NewHeaderProvider("X-Pinecone-Api-Version", gen.PineconeApiVersion)
+	clientOptions = append(clientOptions, control.WithRequestEditorFn(apiVersionProvider.Intercept))
+
+	// get headers from environment
 	envAdditionalHeaders, hasEnvAdditionalHeaders := os.LookupEnv("PINECONE_ADDITIONAL_HEADERS")
 	additionalHeaders := make(map[string]string)
-
-	// add headers from environment
 	if hasEnvAdditionalHeaders {
 		err := json.Unmarshal([]byte(envAdditionalHeaders), &additionalHeaders)
 		if err != nil {
@@ -1273,7 +1282,7 @@ func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
 		}
 	}
 
-	// merge headers from parameters if passed
+	// merge headers from parameters if passed with additionalHeaders from environment
 	if in.Headers != nil {
 		for key, value := range in.Headers {
 			additionalHeaders[key] = value
