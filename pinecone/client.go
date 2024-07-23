@@ -14,6 +14,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pinecone-io/go-pinecone/internal/gen"
 	"github.com/pinecone-io/go-pinecone/internal/gen/control"
 	"github.com/pinecone-io/go-pinecone/internal/provider"
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
@@ -275,15 +276,20 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 //		       log.Println("IndexConnection created successfully!")
 //	    }
 func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*IndexConnection, error) {
+	if in.AdditionalMetadata == nil {
+		in.AdditionalMetadata = make(map[string]string)
+	}
+
+	// add api version header if not provided
+	if _, ok := in.AdditionalMetadata["X-Pinecone-Api-Version"]; !ok {
+		in.AdditionalMetadata["X-Pinecone-Api-Version"] = gen.PineconeApiVersion
+	}
+
 	// extract authHeader from Client which is used to authenticate the IndexConnection
 	// merge authHeader with additionalMetadata provided in NewIndexConnParams
 	authHeader := c.extractAuthHeader()
-	if in.AdditionalMetadata != nil {
-		for key, value := range authHeader {
-			in.AdditionalMetadata[key] = value
-		}
-	} else {
-		in.AdditionalMetadata = authHeader
+	for key, value := range authHeader {
+		in.AdditionalMetadata[key] = value
 	}
 
 	idx, err := newIndexConnection(newIndexParameters{
@@ -436,22 +442,19 @@ type CreatePodIndexRequest struct {
 
 // ReplicaCount ensures the replica count of a pods-based Index is >1.
 // It returns a pointer to the number of replicas on a CreatePodIndexRequest object.
-func (req CreatePodIndexRequest) ReplicaCount() *int32 {
-	x := minOne(req.Replicas)
-	return &x
+func (req CreatePodIndexRequest) ReplicaCount() int32 {
+	return minOne(req.Replicas)
 }
 
 // ShardCount ensures the number of shards on a pods-based Index is >1. It returns a pointer to the number of shards on
 // a CreatePodIndexRequest object.
-func (req CreatePodIndexRequest) ShardCount() *int32 {
-	x := minOne(req.Shards)
-	return &x
+func (req CreatePodIndexRequest) ShardCount() int32 {
+	return minOne(req.Shards)
 }
 
 // TotalCount calculates and returns the total number of pods (replicas*shards) on a CreatePodIndexRequest object.
-func (req CreatePodIndexRequest) TotalCount() *int {
-	x := int(*req.ReplicaCount() * *req.ShardCount())
-	return &x
+func (req CreatePodIndexRequest) TotalCount() int {
+	return int(req.ReplicaCount() * req.ShardCount())
 }
 
 // CreatePodIndex creates and initializes a new pods-based Index via the specified Client.
@@ -498,27 +501,15 @@ func (req CreatePodIndexRequest) TotalCount() *int {
 //		       fmt.Printf("Successfully created pod index: %s", idx.Name)
 //	    }
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
-	metric := control.IndexMetric(in.Metric)
+	metric := control.CreateIndexRequestMetric(in.Metric)
 	req := control.CreateIndexRequest{
 		Name:      in.Name,
 		Dimension: in.Dimension,
 		Metric:    &metric,
 	}
 
-	//add the spec to req.
-	//because this is defined as an anon struct in the generated code, it must match exactly here.
-	req.Spec = control.CreateIndexRequest_Spec{
-		Pod: &struct {
-			Environment    string `json:"environment"`
-			MetadataConfig *struct {
-				Indexed *[]string `json:"indexed,omitempty"`
-			} `json:"metadata_config,omitempty"`
-			PodType          control.PodSpecPodType   `json:"pod_type"`
-			Pods             *int                     `json:"pods,omitempty"`
-			Replicas         *control.PodSpecReplicas `json:"replicas,omitempty"`
-			Shards           *control.PodSpecShards   `json:"shards,omitempty"`
-			SourceCollection *string                  `json:"source_collection,omitempty"`
-		}{
+	req.Spec = control.IndexSpec{
+		Pod: &control.PodSpec{
 			Environment:      in.Environment,
 			PodType:          in.PodType,
 			Pods:             in.TotalCount(),
@@ -527,6 +518,7 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 			SourceCollection: in.SourceCollection,
 		},
 	}
+
 	if in.MetadataConfig != nil {
 		req.Spec.Pod.MetadataConfig = &struct {
 			Indexed *[]string `json:"indexed,omitempty"`
@@ -644,12 +636,12 @@ type CreateServerlessIndexRequest struct {
 //	        fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //	    }
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
-	metric := control.IndexMetric(in.Metric)
+	metric := control.CreateIndexRequestMetric(in.Metric)
 	req := control.CreateIndexRequest{
 		Name:      in.Name,
 		Dimension: in.Dimension,
 		Metric:    &metric,
-		Spec: control.CreateIndexRequest_Spec{
+		Spec: control.IndexSpec{
 			Serverless: &control.ServerlessSpec{
 				Cloud:  control.ServerlessSpecCloud(in.Cloud),
 				Region: in.Region,
@@ -810,15 +802,15 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, podType *strin
 	}
 
 	request := control.ConfigureIndexRequest{
-		Spec: struct {
+		Spec: &struct {
 			Pod struct {
-				PodType  *control.PodSpecPodType  `json:"pod_type,omitempty"`
-				Replicas *control.PodSpecReplicas `json:"replicas,omitempty"`
+				PodType  *string `json:"pod_type,omitempty"`
+				Replicas *int32  `json:"replicas,omitempty"`
 			} `json:"pod"`
 		}{
 			Pod: struct {
-				PodType  *control.PodSpecPodType  `json:"pod_type,omitempty"`
-				Replicas *control.PodSpecReplicas `json:"replicas,omitempty"`
+				PodType  *string `json:"pod_type,omitempty"`
+				Replicas *int32  `json:"replicas,omitempty"`
 			}{
 				PodType:  podType,
 				Replicas: replicas,
@@ -1272,14 +1264,17 @@ func formatError(errMap errorResponseMap) error {
 func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
 	clientOptions := []control.ClientOption{}
 
-	// build and apply user agent
+	// build and apply user agent header
 	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
 	clientOptions = append(clientOptions, control.WithRequestEditorFn(userAgentProvider.Intercept))
 
+	// build and apply api version header
+	apiVersionProvider := provider.NewHeaderProvider("X-Pinecone-Api-Version", gen.PineconeApiVersion)
+	clientOptions = append(clientOptions, control.WithRequestEditorFn(apiVersionProvider.Intercept))
+
+	// get headers from environment
 	envAdditionalHeaders, hasEnvAdditionalHeaders := os.LookupEnv("PINECONE_ADDITIONAL_HEADERS")
 	additionalHeaders := make(map[string]string)
-
-	// add headers from environment
 	if hasEnvAdditionalHeaders {
 		err := json.Unmarshal([]byte(envAdditionalHeaders), &additionalHeaders)
 		if err != nil {
@@ -1287,7 +1282,7 @@ func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
 		}
 	}
 
-	// merge headers from parameters if passed
+	// merge headers from parameters if passed with additionalHeaders from environment
 	if in.Headers != nil {
 		for key, value := range in.Headers {
 			additionalHeaders[key] = value
