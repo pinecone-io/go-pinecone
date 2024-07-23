@@ -28,15 +28,17 @@ import (
 // Integration tests:
 type IndexConnectionTestsIntegration struct {
 	suite.Suite
-	host             string
-	dimension        int32
-	apiKey           string
-	indexType        string
-	idxConn          *IndexConnection
-	sourceTag        string
-	idxConnSourceTag *IndexConnection
-	vectorIds        []string
-	client           *Client
+	host              string
+	dimension         int32
+	apiKey            string
+	indexType         string
+	idxConn           *IndexConnection
+	sourceTag         string
+	idxConnSourceTag  *IndexConnection
+	vectorIds         []string
+	client            *Client
+	podIdxName        string
+	serverlessIdxName string
 }
 
 func TestIntegrationIndexConnection(t *testing.T) {
@@ -51,57 +53,25 @@ func TestIntegrationIndexConnection(t *testing.T) {
 	podIdx := buildPodTestIndex(t, client)
 
 	podTestSuite := &IndexConnectionTestsIntegration{
-		host:      podIdx.Host,
-		dimension: podIdx.Dimension,
-		apiKey:    apiKey,
-		indexType: "pods",
-		client:    client,
+		host:       podIdx.Host,
+		dimension:  podIdx.Dimension,
+		apiKey:     apiKey,
+		indexType:  "pods",
+		client:     client,
+		podIdxName: podIdx.Name,
 	}
 
 	serverlessTestSuite := &IndexConnectionTestsIntegration{
-		host:      serverlessIdx.Host,
-		dimension: serverlessIdx.Dimension,
-		apiKey:    apiKey,
-		indexType: "serverless",
-		client:    client,
+		host:              serverlessIdx.Host,
+		dimension:         serverlessIdx.Dimension,
+		apiKey:            apiKey,
+		indexType:         "serverless",
+		client:            client,
+		serverlessIdxName: serverlessIdx.Name,
 	}
 
 	suite.Run(t, podTestSuite)
 	suite.Run(t, serverlessTestSuite)
-}
-
-func getStatus(ts *IndexConnectionTestsIntegration, ctx context.Context) (bool, error) {
-	var indexName string
-	if ts.indexType == "serverless" {
-		indexName = retrieveServerlessIndexName(ts.T())
-	} else if ts.indexType == "pods" {
-		indexName = retrievePodIndexName(ts.T())
-	}
-	if ts.client == nil {
-		return false, fmt.Errorf("client is nil")
-	}
-
-	var desc *Index
-	var err error
-	maxRetries := 12
-	delay := 12 * time.Second
-	for i := 0; i < maxRetries; i++ {
-		desc, err = ts.client.DescribeIndex(ctx, indexName)
-		if err == nil {
-			break
-		}
-		if status.Code(err) == codes.Unknown {
-			fmt.Printf("Index \"%s\" not found, retrying... (%d/%d)\n", indexName, i+1, maxRetries)
-			time.Sleep(delay)
-		} else {
-			fmt.Printf("Status code = %v\n", status.Code(err))
-			return false, err
-		}
-	}
-	if err != nil {
-		return false, fmt.Errorf("failed to describe index after retries: %v", err)
-	}
-	return desc.Status.Ready, nil
 }
 
 func (ts *IndexConnectionTestsIntegration) SetupSuite() {
@@ -164,8 +134,15 @@ func (ts *IndexConnectionTestsIntegration) SetupSuite() {
 }
 
 func (ts *IndexConnectionTestsIntegration) TearDownSuite() {
-	// TODO: move index deletion to here to avoid wasting resources
-	err := ts.idxConn.Close()
+	ctx := context.Background()
+
+	// Delete test indexes
+	err := ts.client.DeleteIndex(ctx, ts.serverlessIdxName)
+	err = ts.client.DeleteIndex(ctx, ts.podIdxName)
+
+	// TODO Delete test collections
+
+	err = ts.idxConn.Close()
 	require.NoError(ts.T(), err)
 
 	err = ts.idxConnSourceTag.Close()
@@ -174,7 +151,6 @@ func (ts *IndexConnectionTestsIntegration) TearDownSuite() {
 }
 
 func (ts *IndexConnectionTestsIntegration) TestNewIndexConnection() {
-	fmt.Printf("Host is %s\n", ts.host)
 	apiKey := "test-api-key"
 	namespace := ""
 	sourceTag := ""
@@ -295,8 +271,6 @@ func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsById() {
 	if err != nil {
 		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
 	}
-
-	//ts.loadData() //reload deleted data
 }
 
 func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsByFilter() {
@@ -322,8 +296,6 @@ func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsByFilter() {
 	if err != nil {
 		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
 	}
-
-	//ts.loadData() //reload deleted data
 }
 
 func (ts *IndexConnectionTestsIntegration) TestDeleteAllVectorsInNamespace() {
@@ -396,6 +368,7 @@ func (ts *IndexConnectionTestsIntegration) TestMetadataAppliedToRequests() {
 
 func (ts *IndexConnectionTestsIntegration) TestUpdateVectorValues() {
 	ctx := context.Background()
+
 	expectedVals := []float32{7.2, 7.2, 7.2, 7.2, 7.2}
 	err := ts.idxConn.UpdateVector(ctx, &UpdateVectorRequest{
 		Id:     ts.vectorIds[0],
@@ -467,24 +440,6 @@ func (ts *IndexConnectionTestsIntegration) TestUpdateVectorSparseValues() {
 	actualSparseValues := vector.Vectors[ts.vectorIds[0]].SparseValues.Values
 
 	assert.ElementsMatch(ts.T(), expectedSparseValues.Values, actualSparseValues, "Sparse values do not match")
-}
-
-// TODO: necessary?
-func generateFloat32Array(n int) []float32 {
-	array := make([]float32, n)
-	for i := 0; i < n; i++ {
-		array[i] = float32(i)
-	}
-	return array
-}
-
-// TODO: necessary?
-func generateUint32Array(n int) []uint32 {
-	array := make([]uint32, n)
-	for i := 0; i < n; i++ {
-		array[i] = uint32(i)
-	}
-	return array
 }
 
 // Unit tests:
@@ -1234,20 +1189,20 @@ func retrievePodIndexName(t *testing.T) string {
 func buildServerlessTestIndex(t *testing.T, in *Client) *Index {
 	ctx := context.Background()
 	serverlessIndexName := retrieveServerlessIndexName(t)
-	indexes, err := in.ListIndexes(ctx)
-	if err != nil {
-		log.Fatalf("Could not list indexes in buildServerlessTestIndex: %v", err)
-	}
-	for _, v := range indexes {
-		if v.Name == serverlessIndexName {
-			fmt.Printf("Found existing Serverless index: %s, deleting.\n", serverlessIndexName)
-			err := in.DeleteIndex(ctx, v.Name)
-			time.Sleep(5 * time.Second)
-			if err != nil {
-				log.Fatalf("Failed to delete Serverless index in Integration Tests: %v", err)
-			}
-		}
-	}
+	//indexes, err := in.ListIndexes(ctx)
+	//if err != nil {
+	//	log.Fatalf("Could not list indexes in buildServerlessTestIndex: %v", err)
+	//}
+	//for _, v := range indexes {
+	//	if v.Name == serverlessIndexName {
+	//		fmt.Printf("Found existing Serverless index: %s, deleting.\n", serverlessIndexName)
+	//		err := in.DeleteIndex(ctx, v.Name)
+	//		time.Sleep(5 * time.Second)
+	//		if err != nil {
+	//			log.Fatalf("Failed to delete Serverless index \"%s\" in buildServerlessTestIndex Tests: %v", err, serverlessIndexName)
+	//		}
+	//	}
+	//}
 
 	fmt.Printf("Creating Serverless index: %s\n", serverlessIndexName)
 	serverlessIdx, err := in.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
@@ -1258,8 +1213,7 @@ func buildServerlessTestIndex(t *testing.T, in *Client) *Index {
 		Cloud:     "aws",
 	})
 	if err != nil {
-		fmt.Printf("Serverless index name: %s\n", serverlessIndexName)
-		log.Fatalf("Failed to create Serverless index in Integration Tests: %v", err)
+		log.Fatalf("Failed to create Serverless index \"%s\" in integration test: %v", err, serverlessIndexName)
 	} else {
 		fmt.Printf("Successfully created a new Serverless index: %s!\n", serverlessIndexName)
 	}
@@ -1269,20 +1223,20 @@ func buildServerlessTestIndex(t *testing.T, in *Client) *Index {
 func buildPodTestIndex(t *testing.T, in *Client) *Index {
 	ctx := context.Background()
 	podIndexName := retrievePodIndexName(t)
-	indexes, err := in.ListIndexes(ctx)
-	if err != nil {
-		log.Fatalf("Could not list indexes in buildPodTestIndex: %v", err)
-	}
-	for _, v := range indexes {
-		if v.Name == podIndexName {
-			fmt.Printf("Found existing pod index: %s, deleting.\n", podIndexName)
-			err := in.DeleteIndex(ctx, podIndexName)
-			time.Sleep(5 * time.Second)
-			if err != nil {
-				log.Fatalf("Failed to delete pod index in Integration Tests: %v", err)
-			}
-		}
-	}
+	//indexes, err := in.ListIndexes(ctx)
+	//if err != nil {
+	//	log.Fatalf("Could not list indexes in buildPodTestIndex: %v", err)
+	//}
+	//for _, v := range indexes {
+	//	if v.Name == podIndexName {
+	//		fmt.Printf("Found existing pod index: %s, deleting.\n", podIndexName)
+	//		err := in.DeleteIndex(ctx, podIndexName)
+	//		time.Sleep(5 * time.Second)
+	//		if err != nil {
+	//			log.Fatalf("Failed to delete pod index in buildPodTestIndex test: %v", err)
+	//		}
+	//	}
+	//}
 
 	fmt.Printf("Creating pod index: %s\n", podIndexName)
 	podIdx, err := in.CreatePodIndex(ctx, &CreatePodIndexRequest{
@@ -1301,27 +1255,54 @@ func buildPodTestIndex(t *testing.T, in *Client) *Index {
 	return podIdx
 }
 
-//func (ts *IndexConnectionTestsIntegration) loadDataSourceTag() {
-//	vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
-//	vectors := make([]*Vector, len(vals))
-//	ts.vectorIds = make([]string, len(vals))
-//
-//	for i, val := range vals {
-//		vec := make([]float32, ts.dimension)
-//		for i := range vec {
-//			vec[i] = val
-//		}
-//
-//		id := fmt.Sprintf("vec-%d", i+1)
-//		ts.vectorIds[i] = id
-//
-//		vectors[i] = &Vector{
-//			Id:     id,
-//			Values: vec,
-//		}
-//	}
-//
-//	ctx := context.Background()
-//	_, err := ts.idxConnSourceTag.UpsertVectors(ctx, vectors)
-//	assert.NoError(ts.T(), err)
-//}
+// TODO: necessary?
+func generateFloat32Array(n int) []float32 {
+	array := make([]float32, n)
+	for i := 0; i < n; i++ {
+		array[i] = float32(i)
+	}
+	return array
+}
+
+// TODO: necessary?
+func generateUint32Array(n int) []uint32 {
+	array := make([]uint32, n)
+	for i := 0; i < n; i++ {
+		array[i] = uint32(i)
+	}
+	return array
+}
+
+func getStatus(ts *IndexConnectionTestsIntegration, ctx context.Context) (bool, error) {
+	var indexName string
+	if ts.indexType == "serverless" {
+		indexName = ts.serverlessIdxName
+	} else if ts.indexType == "pods" {
+		indexName = ts.podIdxName
+	}
+	if ts.client == nil {
+		return false, fmt.Errorf("client is nil")
+	}
+
+	var desc *Index
+	var err error
+	maxRetries := 12
+	delay := 12 * time.Second
+	for i := 0; i < maxRetries; i++ {
+		desc, err = ts.client.DescribeIndex(ctx, indexName)
+		if err == nil {
+			break
+		}
+		if status.Code(err) == codes.Unknown {
+			fmt.Printf("Index \"%s\" not found, retrying... (%d/%d)\n", indexName, i+1, maxRetries)
+			time.Sleep(delay)
+		} else {
+			fmt.Printf("Status code = %v\n", status.Code(err))
+			return false, err
+		}
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to describe index \"%s\" after retries: %v", err, indexName)
+	}
+	return desc.Status.Ready, nil
+}
