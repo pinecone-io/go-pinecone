@@ -135,8 +135,6 @@ func (ts *IndexConnectionTestsIntegration) TearDownSuite() {
 	err := ts.client.DeleteIndex(ctx, ts.serverlessIdxName)
 	err = ts.client.DeleteIndex(ctx, ts.podIdxName)
 
-	// TODO Delete test collections?
-
 	err = ts.idxConn.Close()
 	require.NoError(ts.T(), err)
 
@@ -1139,12 +1137,6 @@ func TestToPaginationToken(t *testing.T) {
 }
 
 // Helper functions:
-func (ts *IndexConnectionTestsIntegration) truncateData() {
-	ctx := context.Background()
-	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
-	assert.NoError(ts.T(), err)
-}
-
 func createVectorsForUpsert() []*Vector {
 	vectors := make([]*Vector, 5)
 	for i := 0; i < 5; i++ {
@@ -1171,21 +1163,6 @@ func setDimensionsForTestIndexes() uint32 {
 
 func buildServerlessTestIndex(in *Client, idxName string) *Index {
 	ctx := context.Background()
-	//serverlessIndexName := retrieveServerlessIndexName(t)
-	//indexes, err := in.ListIndexes(ctx)
-	//if err != nil {
-	//	log.Fatalf("Could not list indexes in buildServerlessTestIndex: %v", err)
-	//}
-	//for _, v := range indexes {
-	//	if v.Name == serverlessIndexName {
-	//		fmt.Printf("Found existing Serverless index: %s, deleting.\n", serverlessIndexName)
-	//		err := in.DeleteIndex(ctx, v.Name)
-	//		time.Sleep(5 * time.Second)
-	//		if err != nil {
-	//			log.Fatalf("Failed to delete Serverless index \"%s\" in buildServerlessTestIndex Tests: %v", err, serverlessIndexName)
-	//		}
-	//	}
-	//}
 
 	fmt.Printf("Creating Serverless index: %s\n", idxName)
 	serverlessIdx, err := in.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
@@ -1205,22 +1182,6 @@ func buildServerlessTestIndex(in *Client, idxName string) *Index {
 
 func buildPodTestIndex(in *Client, name string) *Index {
 	ctx := context.Background()
-	//podIndexName := retrievePodIndexName(t)
-
-	//indexes, err := in.ListIndexes(ctx)
-	//if err != nil {
-	//	log.Fatalf("Could not list indexes in buildPodTestIndex: %v", err)
-	//}
-	//for _, v := range indexes {
-	//	if v.Name == podIndexName {
-	//		fmt.Printf("Found existing pod index: %s, deleting.\n", podIndexName)
-	//		err := in.DeleteIndex(ctx, podIndexName)
-	//		time.Sleep(5 * time.Second)
-	//		if err != nil {
-	//			log.Fatalf("Failed to delete pod index in buildPodTestIndex test: %v", err)
-	//		}
-	//	}
-	//}
 
 	fmt.Printf("Creating pod index: %s\n", name)
 	podIdx, err := in.CreatePodIndex(ctx, &CreatePodIndexRequest{
@@ -1238,7 +1199,6 @@ func buildPodTestIndex(in *Client, name string) *Index {
 	return podIdx
 }
 
-// TODO: necessary?
 func generateFloat32Array(n int) []float32 {
 	array := make([]float32, n)
 	for i := 0; i < n; i++ {
@@ -1247,7 +1207,6 @@ func generateFloat32Array(n int) []float32 {
 	return array
 }
 
-// TODO: necessary?
 func generateUint32Array(n int) []uint32 {
 	array := make([]uint32, n)
 	for i := 0; i < n; i++ {
