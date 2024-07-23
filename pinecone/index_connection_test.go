@@ -49,9 +49,16 @@ func TestIntegrationIndexConnection(t *testing.T) {
 	require.NotNil(t, client, "Client should not be nil after creation")
 	require.NoError(t, err)
 
-	serverlessIdx := buildServerlessTestIndex(t, client)
-	podIdx := buildPodTestIndex(t, client)
+	podIndexName := os.Getenv("TEST_PODS_INDEX_NAME")
+	assert.NotEmptyf(t, podIndexName, "TEST_PODS_INDEX_NAME env variable not set")
 
+	serverlessIndexName := os.Getenv("TEST_SERVERLESS_INDEX_NAME")
+	assert.NotEmptyf(t, serverlessIndexName, "TEST_SERVERLESS_INDEX_NAME env variable not set")
+
+	serverlessIdx := buildServerlessTestIndex(client, serverlessIndexName)
+	podIdx := buildPodTestIndex(client, podIndexName)
+
+	// TODO: make index *Index field on IndexConnectionTestsIntegration struct?
 	podTestSuite := &IndexConnectionTestsIntegration{
 		host:       podIdx.Host,
 		dimension:  podIdx.Dimension,
@@ -94,31 +101,20 @@ func (ts *IndexConnectionTestsIntegration) SetupSuite() {
 
 	ts.idxConn = idxConn
 
+	// Deterministically create vectors
 	vectors := createVectorsForUpsert()
 
+	// Set vector IDs
 	vectorIds := make([]string, len(vectors))
 	for i, v := range vectors {
 		vectorIds[i] = v.Id
 	}
 	ts.vectorIds = vectorIds
 
-	maxRetries := 12
-	delay := 12 * time.Second
-	fmt.Printf("Attempting to upsert vectors into host \"%s\"...\n", ts.host)
-	for i := 0; i < maxRetries; i++ {
-		ready, err := getStatus(ts, ctx)
-		if err != nil {
-			fmt.Printf("Error getting index ready: %v\n", err)
-		}
-		if ready {
-			upsertVectors, err := idxConn.UpsertVectors(ctx, vectors)
-			require.NoError(ts.T(), err)
-			fmt.Printf("Upserted vectors: %v into host: %s\n", upsertVectors, ts.host)
-			break
-		} else {
-			time.Sleep(delay)
-			fmt.Printf("Host \"%s\" not ready for upserting yet, retrying... (%d/%d)\n", ts.host, i, maxRetries)
-		}
+	// Upsert vectors
+	err = upsert(ts, ctx, vectors)
+	if err != nil {
+		log.Fatalf("Failed to upsert vectors in SetupSuite: %v", err)
 	}
 
 	ts.sourceTag = "test_source_tag"
@@ -140,7 +136,7 @@ func (ts *IndexConnectionTestsIntegration) TearDownSuite() {
 	err := ts.client.DeleteIndex(ctx, ts.serverlessIdxName)
 	err = ts.client.DeleteIndex(ctx, ts.podIdxName)
 
-	// TODO Delete test collections
+	// TODO Delete test collections..
 
 	err = ts.idxConn.Close()
 	require.NoError(ts.T(), err)
@@ -1174,21 +1170,9 @@ func setDimensionsForTestIndexes() uint32 {
 	return uint32(5)
 }
 
-func retrieveServerlessIndexName(t *testing.T) string {
-	serverlessIndexName := os.Getenv("TEST_SERVERLESS_INDEX_NAME")
-	assert.NotEmptyf(t, serverlessIndexName, "TEST_SERVERLESS_INDEX_NAME env variable not set")
-	return serverlessIndexName
-}
-
-func retrievePodIndexName(t *testing.T) string {
-	podIndexName := os.Getenv("TEST_PODS_INDEX_NAME")
-	assert.NotEmptyf(t, podIndexName, "TEST_PODS_INDEX_NAME env variable not set")
-	return podIndexName
-}
-
-func buildServerlessTestIndex(t *testing.T, in *Client) *Index {
+func buildServerlessTestIndex(in *Client, idxName string) *Index {
 	ctx := context.Background()
-	serverlessIndexName := retrieveServerlessIndexName(t)
+	//serverlessIndexName := retrieveServerlessIndexName(t)
 	//indexes, err := in.ListIndexes(ctx)
 	//if err != nil {
 	//	log.Fatalf("Could not list indexes in buildServerlessTestIndex: %v", err)
@@ -1204,25 +1188,26 @@ func buildServerlessTestIndex(t *testing.T, in *Client) *Index {
 	//	}
 	//}
 
-	fmt.Printf("Creating Serverless index: %s\n", serverlessIndexName)
+	fmt.Printf("Creating Serverless index: %s\n", idxName)
 	serverlessIdx, err := in.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
-		Name:      serverlessIndexName,
+		Name:      idxName,
 		Dimension: int32(setDimensionsForTestIndexes()),
 		Metric:    Cosine,
 		Region:    "us-east-1",
 		Cloud:     "aws",
 	})
 	if err != nil {
-		log.Fatalf("Failed to create Serverless index \"%s\" in integration test: %v", err, serverlessIndexName)
+		log.Fatalf("Failed to create Serverless index \"%s\" in integration test: %v", err, idxName)
 	} else {
-		fmt.Printf("Successfully created a new Serverless index: %s!\n", serverlessIndexName)
+		fmt.Printf("Successfully created a new Serverless index: %s!\n", idxName)
 	}
 	return serverlessIdx
 }
 
-func buildPodTestIndex(t *testing.T, in *Client) *Index {
+func buildPodTestIndex(in *Client, name string) *Index {
 	ctx := context.Background()
-	podIndexName := retrievePodIndexName(t)
+	//podIndexName := retrievePodIndexName(t)
+
 	//indexes, err := in.ListIndexes(ctx)
 	//if err != nil {
 	//	log.Fatalf("Could not list indexes in buildPodTestIndex: %v", err)
@@ -1238,19 +1223,18 @@ func buildPodTestIndex(t *testing.T, in *Client) *Index {
 	//	}
 	//}
 
-	fmt.Printf("Creating pod index: %s\n", podIndexName)
+	fmt.Printf("Creating pod index: %s\n", name)
 	podIdx, err := in.CreatePodIndex(ctx, &CreatePodIndexRequest{
-		Name:        podIndexName,
+		Name:        name,
 		Dimension:   int32(setDimensionsForTestIndexes()),
 		Metric:      Cosine,
 		Environment: "us-east-1-aws",
 		PodType:     "p1",
 	})
 	if err != nil {
-		fmt.Printf("Pod index name: %s\n", podIndexName)
-		log.Fatalf("Failed to create pod index in Integration Tests: %v", err)
+		log.Fatalf("Failed to create pod index in buildPodTestIndex test: %v", err)
 	} else {
-		fmt.Printf("Successfully created a new pod index: %s!\n", podIndexName)
+		fmt.Printf("Successfully created a new pod index: %s!\n", name)
 	}
 	return podIdx
 }
@@ -1305,4 +1289,27 @@ func getStatus(ts *IndexConnectionTestsIntegration, ctx context.Context) (bool, 
 		return false, fmt.Errorf("failed to describe index \"%s\" after retries: %v", err, indexName)
 	}
 	return desc.Status.Ready, nil
+}
+
+func upsert(ts *IndexConnectionTestsIntegration, ctx context.Context, vectors []*Vector) error {
+	maxRetries := 12
+	delay := 12 * time.Second
+	fmt.Printf("Attempting to upsert vectors into host \"%s\"...\n", ts.host)
+	for i := 0; i < maxRetries; i++ {
+		ready, err := getStatus(ts, ctx)
+		if err != nil {
+			fmt.Printf("Error getting index ready: %v\n", err)
+			return err
+		}
+		if ready {
+			upsertVectors, err := ts.idxConn.UpsertVectors(ctx, vectors)
+			require.NoError(ts.T(), err)
+			fmt.Printf("Upserted vectors: %v into host: %s\n", upsertVectors, ts.host)
+			break
+		} else {
+			time.Sleep(delay)
+			fmt.Printf("Host \"%s\" not ready for upserting yet, retrying... (%d/%d)\n", ts.host, i, maxRetries)
+		}
+	}
+	return nil
 }
