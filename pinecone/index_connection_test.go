@@ -41,8 +41,8 @@ func TestIntegrationIndexConnection(t *testing.T) {
 		t.FailNow()
 	}
 
-	podIndexName := os.Getenv("TEST_POD_INDEX_NAME")
-	assert.NotEmptyf(t, podIndexName, "TEST_POD_INDEX_NAME env variable not set")
+	podIndexName := os.Getenv("TEST_PODS_INDEX_NAME")
+	assert.NotEmptyf(t, podIndexName, "TEST_PODS_INDEX_NAME env variable not set")
 
 	podIdx, err := client.DescribeIndex(context.Background(), podIndexName)
 	if err != nil {
