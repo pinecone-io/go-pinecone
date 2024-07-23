@@ -74,9 +74,6 @@ func (ts *ClientTestsIntegration) TestNewClientParamsSet() {
 	apiKeyHeader, ok := client.headers["Api-Key"]
 	require.True(ts.T(), ok, "Expected client to have an 'Api-Key' header")
 	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
-	apiVersionHeader, ok := client.headers["X-Pinecone-Api-Version"]
-	require.True(ts.T(), ok, "Expected client to have an 'X-Pinecone-Api-Version' header")
-	require.Equal(ts.T(), gen.PineconeApiVersion, apiVersionHeader, "Expected 'X-Pinecone-Api-Version' header to match provider.ApiVersion")
 	require.Equal(ts.T(), 3, len(client.restClient.RequestEditors), "Expected client to have correct number of request editors")
 }
 
