@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pinecone-io/go-pinecone/internal/gen"
 	"github.com/pinecone-io/go-pinecone/internal/provider"
 
 	"github.com/google/go-cmp/cmp"
@@ -73,7 +74,10 @@ func (ts *ClientTestsIntegration) TestNewClientParamsSet() {
 	apiKeyHeader, ok := client.headers["Api-Key"]
 	require.True(ts.T(), ok, "Expected client to have an 'Api-Key' header")
 	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
-	require.Equal(ts.T(), 2, len(client.restClient.RequestEditors), "Expected client to have correct number of require editors")
+	apiVersionHeader, ok := client.headers["X-Pinecone-Api-Version"]
+	require.True(ts.T(), ok, "Expected client to have an 'X-Pinecone-Api-Version' header")
+	require.Equal(ts.T(), gen.PineconeApiVersion, apiVersionHeader, "Expected 'X-Pinecone-Api-Version' header to match provider.ApiVersion")
+	require.Equal(ts.T(), 3, len(client.restClient.RequestEditors), "Expected client to have correct number of request editors")
 }
 
 func (ts *ClientTestsIntegration) TestNewClientParamsSetSourceTag() {
@@ -89,7 +93,7 @@ func (ts *ClientTestsIntegration) TestNewClientParamsSetSourceTag() {
 	require.True(ts.T(), ok, "Expected client to have an 'Api-Key' header")
 	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
 	require.Equal(ts.T(), sourceTag, client.sourceTag, "Expected client to have sourceTag '%s', but got '%s'", sourceTag, client.sourceTag)
-	require.Equal(ts.T(), 2, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 2, len(client.restClient.RequestEditors))
+	require.Equal(ts.T(), 3, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 2, len(client.restClient.RequestEditors))
 }
 
 func (ts *ClientTestsIntegration) TestNewClientParamsSetHeaders() {
@@ -102,7 +106,7 @@ func (ts *ClientTestsIntegration) TestNewClientParamsSetHeaders() {
 	require.True(ts.T(), ok, "Expected client to have an 'Api-Key' header")
 	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
 	require.Equal(ts.T(), client.headers, headers, "Expected client to have headers '%+v', but got '%+v'", headers, client.headers)
-	require.Equal(ts.T(), 3, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 3, len(client.restClient.RequestEditors))
+	require.Equal(ts.T(), 4, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 3, len(client.restClient.RequestEditors))
 }
 
 func (ts *ClientTestsIntegration) TestNewClientParamsNoApiKeyNoAuthorizationHeader() {
@@ -1199,6 +1203,7 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 			},
 			expect: []control.ClientOption{
 				control.WithRequestEditorFn(provider.NewHeaderProvider("User-Agent", "test-user-agent").Intercept),
+				control.WithRequestEditorFn(provider.NewHeaderProvider("X-Pinecone-Api-Version", gen.PineconeApiVersion).Intercept),
 				control.WithRequestEditorFn(provider.NewHeaderProvider("Param-Header", "param-value").Intercept),
 			},
 			expectEnvUnset: true,
@@ -1212,6 +1217,7 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 			envHeaders: `{"Env-Header": "env-value"}`,
 			expect: []control.ClientOption{
 				control.WithRequestEditorFn(provider.NewHeaderProvider("Env-Header", "env-value").Intercept),
+				control.WithRequestEditorFn(provider.NewHeaderProvider("X-Pinecone-Api-Version", gen.PineconeApiVersion).Intercept),
 				control.WithRequestEditorFn(provider.NewHeaderProvider("User-Agent", "test-user-agent").Intercept),
 				control.WithRequestEditorFn(provider.NewHeaderProvider("Param-Header", "param-value").Intercept),
 			},
