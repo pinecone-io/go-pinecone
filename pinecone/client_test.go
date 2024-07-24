@@ -1224,12 +1224,7 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 	}
 }
 
-// Helper functions
-
-func stringPtr(s string) *string {
-	return &s
-}
-
+// Helper functions:
 func isValidUUID(u string) bool {
 	_, err := uuid.Parse(u)
 	return err == nil
