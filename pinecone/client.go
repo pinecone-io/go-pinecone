@@ -429,15 +429,16 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //
 // [type of pods]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size
 type CreatePodIndexRequest struct {
-	Name             string
-	Dimension        int32
-	Metric           IndexMetric
-	Environment      string
-	PodType          string
-	Shards           int32
-	Replicas         int32
-	SourceCollection *string
-	MetadataConfig   *PodSpecMetadataConfig
+	Name               string
+	Dimension          int32
+	Metric             IndexMetric
+	DeletionProtection string
+	Environment        string
+	PodType            string
+	Shards             int32
+	Replicas           int32
+	SourceCollection   *string
+	MetadataConfig     *PodSpecMetadataConfig
 }
 
 // ReplicaCount ensures the replica count of a pods-based Index is >1.
@@ -501,11 +502,14 @@ func (req CreatePodIndexRequest) TotalCount() int {
 //		       fmt.Printf("Successfully created pod index: %s", idx.Name)
 //	    }
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
+	deletionProtection := toDeletionProtection(in.DeletionProtection)
 	metric := control.CreateIndexRequestMetric(in.Metric)
+
 	req := control.CreateIndexRequest{
-		Name:      in.Name,
-		Dimension: in.Dimension,
-		Metric:    &metric,
+		Name:               in.Name,
+		Dimension:          in.Dimension,
+		Metric:             &metric,
+		DeletionProtection: &deletionProtection,
 	}
 
 	req.Spec = control.IndexSpec{
@@ -590,11 +594,12 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 // [region]: https://docs.pinecone.io/troubleshooting/available-cloud-regions
 // [cloud provider]: https://docs.pinecone.io/troubleshooting/available-cloud-regions#regions-available-for-serverless-indexes
 type CreateServerlessIndexRequest struct {
-	Name      string
-	Dimension int32
-	Metric    IndexMetric
-	Cloud     Cloud
-	Region    string
+	Name               string
+	Dimension          int32
+	Metric             IndexMetric
+	DeletionProtection string
+	Cloud              Cloud
+	Region             string
 }
 
 // CreateServerlessIndex creates and initializes a new serverless Index via the specified Client.
@@ -636,11 +641,18 @@ type CreateServerlessIndexRequest struct {
 //	        fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //	    }
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
+	deletionProtection := toDeletionProtection(in.DeletionProtection)
+
+	fmt.Printf("in.Metric: %v\n", in.Metric)
+	fmt.Printf("control.CreateIndexRequestMetric(in.Metric): %v\n", control.CreateIndexRequestMetric(in.Metric))
+
 	metric := control.CreateIndexRequestMetric(in.Metric)
+
 	req := control.CreateIndexRequest{
-		Name:      in.Name,
-		Dimension: in.Dimension,
-		Metric:    &metric,
+		Name:               in.Name,
+		Dimension:          in.Dimension,
+		Metric:             &metric,
+		DeletionProtection: &deletionProtection,
 		Spec: control.IndexSpec{
 			Serverless: &control.ServerlessSpec{
 				Cloud:  control.ServerlessSpecCloud(in.Cloud),
@@ -754,6 +766,12 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	return nil
 }
 
+type ConfigureIndexParams struct {
+	PodType            string
+	Replicas           int32
+	DeletionProtection control.DeletionProtection
+}
+
 // ConfigureIndex is used to [scale a pods-based index] up or down by changing the size of the pods or the number of
 // replicas.
 //
@@ -794,12 +812,15 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
 // [app.pinecone.io]: https://app.pinecone.io
-func (c *Client) ConfigureIndex(ctx context.Context, name string, podType *string,
-	replicas *int32) (*Index, error) {
+func (c *Client) ConfigureIndex(ctx context.Context, name string, configParams ConfigureIndexParams) (*Index, error) {
 
-	if podType == nil && replicas == nil {
-		return nil, fmt.Errorf("must specify either podType or replicas")
-	}
+	// if configParams.PodType == "" && configParams.Replicas == 0 && configParams.DeletionProtection == "" {
+	// 	return nil, fmt.Errorf("must specify either PodType, Replicas, or DeletionProtection")
+	// }
+
+	podType := pointerOrNil(configParams.PodType)
+	replicas := pointerOrNil(configParams.Replicas)
+	deletionProtection := pointerOrNil(configParams.DeletionProtection)
 
 	request := control.ConfigureIndexRequest{
 		Spec: &struct {
@@ -816,6 +837,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, podType *strin
 				Replicas: replicas,
 			},
 		},
+		DeletionProtection: deletionProtection,
 	}
 
 	res, err := c.restClient.ConfigureIndex(ctx, name, request)
@@ -1153,13 +1175,16 @@ func toIndex(idx *control.IndexModel) *Index {
 		Ready: idx.Status.Ready,
 		State: IndexStatusState(idx.Status.State),
 	}
+	deletionProtecetion := toDeletionProtection(string(derefOrDefault(idx.DeletionProtection, control.Disabled)))
+
 	return &Index{
-		Name:      idx.Name,
-		Dimension: idx.Dimension,
-		Host:      idx.Host,
-		Metric:    IndexMetric(idx.Metric),
-		Spec:      spec,
-		Status:    status,
+		Name:               idx.Name,
+		Dimension:          idx.Dimension,
+		Host:               idx.Host,
+		Metric:             IndexMetric(idx.Metric),
+		DeletionProtection: deletionProtecetion,
+		Spec:               spec,
+		Status:             status,
 	}
 }
 
@@ -1303,6 +1328,15 @@ func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
 	return clientOptions
 }
 
+func toDeletionProtection(value string) control.DeletionProtection {
+	switch control.DeletionProtection(value) {
+	case control.Enabled, control.Disabled:
+		return control.DeletionProtection(value)
+	default:
+		return control.Disabled
+	}
+}
+
 func ensureURLScheme(inputURL string) (string, error) {
 	parsedURL, err := url.Parse(inputURL)
 	if err != nil {
@@ -1322,6 +1356,14 @@ func valueOrFallback[T comparable](value, fallback T) T {
 	} else {
 		return fallback
 	}
+}
+
+func pointerOrNil[T comparable](value T) *T {
+	var zero T // set to zero-value of generic type T
+	if value == zero {
+		return nil
+	}
+	return &value
 }
 
 func derefOrDefault[T any](ptr *T, defaultValue T) T {

@@ -466,9 +466,7 @@ func (ts *IntegrationTests) TestConfigureIndexIllegalScaleDown() {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
 
-	pods := "p1.x1"      // test index originally created with "p1.x2" pods
-	replicas := int32(1) // could be nil, but do not want to test nil case here
-	_, err = ts.client.ConfigureIndex(context.Background(), name, &pods, &replicas)
+	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x1", Replicas: 1})
 	require.ErrorContainsf(ts.T(), err, "Cannot scale down", err.Error())
 }
 
@@ -491,8 +489,7 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
 
-	replicas := int32(2)
-	_, err = ts.client.ConfigureIndex(context.Background(), name, nil, &replicas)
+	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 2})
 	require.NoError(ts.T(), err)
 }
 
@@ -515,12 +512,11 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
 
-	pods := "p1.x4"
-	_, err = ts.client.ConfigureIndex(context.Background(), name, &pods, nil)
+	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x4"})
 	require.NoError(ts.T(), err)
 }
 
-func (ts *IntegrationTests) TestConfigureIndexIllegalNoPodsOrReplicas() {
+func (ts *IntegrationTests) TestConfigureIndexIllegalNoPodsOrReplicasOrDeletionProtection() {
 	name := uuid.New().String()
 
 	defer func(ts *IntegrationTests, name string) {
@@ -539,8 +535,8 @@ func (ts *IntegrationTests) TestConfigureIndexIllegalNoPodsOrReplicas() {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
 
-	_, err = ts.client.ConfigureIndex(context.Background(), name, nil, nil)
-	require.ErrorContainsf(ts.T(), err, "must specify either podType or replicas", err.Error())
+	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{})
+	require.ErrorContainsf(ts.T(), err, "must specify either PodType, Replicas, or DeletionProtection", err.Error())
 }
 
 func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
@@ -562,8 +558,7 @@ func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
 
-	replicas := int32(30000)
-	_, err = ts.client.ConfigureIndex(context.Background(), name, nil, &replicas)
+	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 30000})
 	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
 }
 
@@ -837,6 +832,9 @@ func TestEnsureURLSchemeUnit(t *testing.T) {
 }
 
 func TestToIndexUnit(t *testing.T) {
+	deletionProtectionEnabled := control.Enabled
+	deletionProtectionDisabled := control.Disabled
+
 	tests := []struct {
 		name           string
 		originalInput  *control.IndexModel
@@ -850,10 +848,11 @@ func TestToIndexUnit(t *testing.T) {
 		{
 			name: "pod index input",
 			originalInput: &control.IndexModel{
-				Name:      "testIndex",
-				Dimension: 128,
-				Host:      "test-host",
-				Metric:    "cosine",
+				Name:               "testIndex",
+				Dimension:          128,
+				Host:               "test-host",
+				Metric:             "cosine",
+				DeletionProtection: &deletionProtectionDisabled,
 				Spec: struct {
 					Pod        *control.PodSpec        `json:"pod,omitempty"`
 					Serverless *control.ServerlessSpec `json:"serverless,omitempty"`
@@ -878,10 +877,11 @@ func TestToIndexUnit(t *testing.T) {
 				},
 			},
 			expectedOutput: &Index{
-				Name:      "testIndex",
-				Dimension: 128,
-				Host:      "test-host",
-				Metric:    "cosine",
+				Name:               "testIndex",
+				Dimension:          128,
+				Host:               "test-host",
+				Metric:             "cosine",
+				DeletionProtection: "disabled",
 				Spec: &IndexSpec{
 					Pod: &PodSpec{
 						Environment:      "test-environ",
@@ -901,10 +901,11 @@ func TestToIndexUnit(t *testing.T) {
 		{
 			name: "serverless index input",
 			originalInput: &control.IndexModel{
-				Name:      "testIndex",
-				Dimension: 128,
-				Host:      "test-host",
-				Metric:    "cosine",
+				Name:               "testIndex",
+				Dimension:          128,
+				Host:               "test-host",
+				Metric:             "cosine",
+				DeletionProtection: &deletionProtectionEnabled,
 				Spec: struct {
 					Pod        *control.PodSpec        `json:"pod,omitempty"`
 					Serverless *control.ServerlessSpec `json:"serverless,omitempty"`
@@ -924,10 +925,11 @@ func TestToIndexUnit(t *testing.T) {
 				},
 			},
 			expectedOutput: &Index{
-				Name:      "testIndex",
-				Dimension: 128,
-				Host:      "test-host",
-				Metric:    "cosine",
+				Name:               "testIndex",
+				Dimension:          128,
+				Host:               "test-host",
+				Metric:             "cosine",
+				DeletionProtection: "enabled",
 				Spec: &IndexSpec{
 					Serverless: &ServerlessSpec{
 						Cloud:  Cloud("test-environ"),
@@ -1222,7 +1224,12 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 	}
 }
 
-// Helper functions:
+// Helper functions
+
+func stringPtr(s string) *string {
+	return &s
+}
+
 func isValidUUID(u string) bool {
 	_, err := uuid.Parse(u)
 	return err == nil

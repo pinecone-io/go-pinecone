@@ -1,6 +1,9 @@
 package pinecone
 
-import "google.golang.org/protobuf/types/known/structpb"
+import (
+	"github.com/pinecone-io/go-pinecone/internal/gen/control"
+	"google.golang.org/protobuf/types/known/structpb"
+)
 
 // IndexMetric is the [distance metric] to be used by similarity search against a Pinecone Index.
 //
@@ -52,12 +55,13 @@ type IndexSpec struct {
 
 // Index is a Pinecone Index object. Can be either a pod-based or a serverless Index, depending on the IndexSpec.
 type Index struct {
-	Name      string       `json:"name"`
-	Dimension int32        `json:"dimension"`
-	Host      string       `json:"host"`
-	Metric    IndexMetric  `json:"metric"`
-	Spec      *IndexSpec   `json:"spec,omitempty"`
-	Status    *IndexStatus `json:"status,omitempty"`
+	Name               string                     `json:"name"`
+	Dimension          int32                      `json:"dimension"`
+	Host               string                     `json:"host"`
+	Metric             IndexMetric                `json:"metric"`
+	DeletionProtection control.DeletionProtection `json:"deletion_protection,omitempty"`
+	Spec               *IndexSpec                 `json:"spec,omitempty"`
+	Status             *IndexStatus               `json:"status,omitempty"`
 }
 
 // Collection is a Pinecone [Collection object]. Only available for pod-based Indexes.
