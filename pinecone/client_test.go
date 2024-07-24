@@ -428,6 +428,8 @@ func (ts *IntegrationTests) TestCreateCollection() {
 		Name:   name,
 		Source: sourceIndex,
 	})
+	fmt.Printf("TestCreateCollection err: %+v\n", err)
+
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), name, collection.Name, "Collection name does not match")
 }
@@ -441,6 +443,8 @@ func (ts *IntegrationTests) TestDeleteCollection() {
 		Name:   collectionName,
 		Source: ts.idxName,
 	})
+	fmt.Printf("TestDeleteCollection err: %+v\n", err)
+
 	require.NoError(ts.T(), err)
 
 	err = ts.client.DeleteCollection(context.Background(), collectionName)
