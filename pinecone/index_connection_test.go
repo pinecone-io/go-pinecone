@@ -49,14 +49,8 @@ func TestIntegrationIndexConnection(t *testing.T) {
 	require.NotNil(t, client, "Client should not be nil after creation")
 	require.NoError(t, err)
 
-	podIndexName := os.Getenv("TEST_PODS_INDEX_NAME")
-	assert.NotEmptyf(t, podIndexName, "TEST_PODS_INDEX_NAME env variable not set")
-
-	serverlessIndexName := os.Getenv("TEST_SERVERLESS_INDEX_NAME")
-	assert.NotEmptyf(t, serverlessIndexName, "TEST_SERVERLESS_INDEX_NAME env variable not set")
-
-	serverlessIdx := buildServerlessTestIndex(client, serverlessIndexName)
-	podIdx := buildPodTestIndex(client, podIndexName)
+	serverlessIdx := buildServerlessTestIndex(client, generateTestIndexName())
+	podIdx := buildPodTestIndex(client, generateTestIndexName())
 
 	podTestSuite := &IndexConnectionTestsIntegration{
 		host:       podIdx.Host,
@@ -1159,6 +1153,10 @@ func createVectorsForUpsert() []*Vector {
 
 func setDimensionsForTestIndexes() uint32 {
 	return uint32(5)
+}
+
+func generateTestIndexName() string {
+	return fmt.Sprintf("index-%d", time.Now().UnixMilli())
 }
 
 func buildServerlessTestIndex(in *Client, idxName string) *Index {
