@@ -45,7 +45,7 @@ func TestIntegrationIndexConnection(t *testing.T) {
 	apiKey := os.Getenv("PINECONE_API_KEY")
 	assert.NotEmptyf(t, apiKey, "PINECONE_API_KEY env variable not set")
 
-	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: map[string]string{"content-type": "application/json"}})
+	client, err := NewClient(NewClientParams{ApiKey: apiKey})
 	require.NotNil(t, client, "Client should not be nil after creation")
 	require.NoError(t, err)
 
@@ -85,7 +85,7 @@ func (ts *IndexConnectionTestsIntegration) SetupSuite() {
 
 	assert.NotEmptyf(ts.T(), ts.host, "HOST env variable not set")
 	assert.NotEmptyf(ts.T(), ts.apiKey, "API_KEY env variable not set")
-	additionalMetadata := map[string]string{"api-key": ts.apiKey, "content-type": "application/json"}
+	additionalMetadata := map[string]string{"api-key": ts.apiKey}
 
 	namespace, err := uuid.NewUUID()
 	require.NoError(ts.T(), err)
