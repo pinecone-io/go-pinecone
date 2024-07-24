@@ -642,10 +642,6 @@ type CreateServerlessIndexRequest struct {
 //	    }
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
 	deletionProtection := toDeletionProtection(in.DeletionProtection)
-
-	fmt.Printf("in.Metric: %v\n", in.Metric)
-	fmt.Printf("control.CreateIndexRequestMetric(in.Metric): %v\n", control.CreateIndexRequestMetric(in.Metric))
-
 	metric := control.CreateIndexRequestMetric(in.Metric)
 
 	req := control.CreateIndexRequest{
@@ -814,9 +810,9 @@ type ConfigureIndexParams struct {
 // [app.pinecone.io]: https://app.pinecone.io
 func (c *Client) ConfigureIndex(ctx context.Context, name string, configParams ConfigureIndexParams) (*Index, error) {
 
-	// if configParams.PodType == "" && configParams.Replicas == 0 && configParams.DeletionProtection == "" {
-	// 	return nil, fmt.Errorf("must specify either PodType, Replicas, or DeletionProtection")
-	// }
+	if configParams.PodType == "" && configParams.Replicas == 0 && configParams.DeletionProtection == "" {
+		return nil, fmt.Errorf("must specify either PodType, Replicas, or DeletionProtection")
+	}
 
 	podType := pointerOrNil(configParams.PodType)
 	replicas := pointerOrNil(configParams.Replicas)
