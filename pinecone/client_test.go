@@ -24,7 +24,50 @@ import (
 )
 
 // Integration tests:
+<<<<<<< HEAD
 func (ts *IntegrationTests) TestNewClientParamsSet() {
+=======
+type ClientTestsIntegration struct {
+	suite.Suite
+	client          Client
+	clientSourceTag Client
+	sourceTag       string
+	podIndex        string
+	serverlessIndex string
+}
+
+func TestIntegrationClient(t *testing.T) {
+	suite.Run(t, new(ClientTestsIntegration))
+}
+
+func (ts *ClientTestsIntegration) SetupSuite() {
+	apiKey := os.Getenv("PINECONE_API_KEY")
+	require.NotEmpty(ts.T(), apiKey, "PINECONE_API_KEY env variable not set")
+
+	ts.podIndex = os.Getenv("STATIC_TEST_PODS_INDEX_NAME")
+	require.NotEmpty(ts.T(), ts.podIndex, "STATIC_TEST_PODS_INDEX_NAME env variable not set")
+
+	ts.serverlessIndex = os.Getenv("STATIC_TEST_SERVERLESS_INDEX_NAME")
+	require.NotEmpty(ts.T(), ts.serverlessIndex, "TEST_SERVERLESS_INDEX_NAME env variable not set")
+
+	client, err := NewClient(NewClientParams{})
+	require.NoError(ts.T(), err)
+
+	ts.client = *client
+
+	ts.sourceTag = "test_source_tag"
+	clientSourceTag, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: ts.sourceTag})
+	require.NoError(ts.T(), err)
+	ts.clientSourceTag = *clientSourceTag
+
+	// this will clean up the project deleting all indexes and collections that are
+	// named a UUID. Generally not needed as all tests are cleaning up after themselves
+	// Left here as a convenience during active development.
+	//deleteUUIDNamedResources(context.Background(), &ts.client)
+}
+
+func (ts *ClientTestsIntegration) TestNewClientParamsSet() {
+>>>>>>> 2e391eb (update the other one this time)
 	apiKey := "test-api-key"
 	client, err := NewClient(NewClientParams{ApiKey: apiKey})
 
