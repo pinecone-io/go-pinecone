@@ -106,7 +106,7 @@ func (ts *IndexConnectionTestsIntegration) SetupSuite() {
 	ts.vectorIds = vectorIds
 
 	// Upsert vectors
-	err = upsert(ts, ctx, vectors)
+	err = upsertVectors(ts, ctx, vectors)
 	if err != nil {
 		log.Fatalf("Failed to upsert vectors in SetupSuite: %v", err)
 	}
@@ -1216,7 +1216,7 @@ func generateUint32Array(n int) []uint32 {
 	return array
 }
 
-func getStatus(ts *IndexConnectionTestsIntegration, ctx context.Context) (bool, error) {
+func getIndexStatus(ts *IndexConnectionTestsIntegration, ctx context.Context) (bool, error) {
 	var indexName string
 	if ts.indexType == "serverless" {
 		indexName = ts.serverlessIdxName
@@ -1250,12 +1250,12 @@ func getStatus(ts *IndexConnectionTestsIntegration, ctx context.Context) (bool, 
 	return desc.Status.Ready, nil
 }
 
-func upsert(ts *IndexConnectionTestsIntegration, ctx context.Context, vectors []*Vector) error {
+func upsertVectors(ts *IndexConnectionTestsIntegration, ctx context.Context, vectors []*Vector) error {
 	maxRetries := 12
 	delay := 12 * time.Second
 	fmt.Printf("Attempting to upsert vectors into host \"%s\"...\n", ts.host)
 	for i := 0; i < maxRetries; i++ {
-		ready, err := getStatus(ts, ctx)
+		ready, err := getIndexStatus(ts, ctx)
 		if err != nil {
 			fmt.Printf("Error getting index ready: %v\n", err)
 			return err
