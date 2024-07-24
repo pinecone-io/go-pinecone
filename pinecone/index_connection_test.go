@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"testing"
 	"time"
@@ -1199,7 +1200,8 @@ func buildPodTestIndex(in *Client, name string) *Index {
 
 func generateFloat32Array(n int) []float32 {
 	array := make([]float32, n)
-	for i := 0; i < n; i++ {
+	startNum := rand.Int()
+	for i := startNum; i < n; i++ {
 		array[i] = float32(i)
 	}
 	return array
@@ -1207,7 +1209,8 @@ func generateFloat32Array(n int) []float32 {
 
 func generateUint32Array(n int) []uint32 {
 	array := make([]uint32, n)
-	for i := 0; i < n; i++ {
+	startNum := rand.Int()
+	for i := startNum; i < n; i++ {
 		array[i] = uint32(i)
 	}
 	return array
