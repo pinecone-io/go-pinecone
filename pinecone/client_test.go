@@ -48,7 +48,7 @@ func (ts *ClientTestsIntegration) SetupSuite() {
 	require.NotEmpty(ts.T(), ts.podIndex, "STATIC_TEST_PODS_INDEX_NAME env variable not set")
 
 	ts.serverlessIndex = os.Getenv("STATIC_TEST_SERVERLESS_INDEX_NAME")
-	require.NotEmpty(ts.T(), ts.serverlessIndex, "TEST_SERVERLESS_INDEX_NAME env variable not set")
+	require.NotEmpty(ts.T(), ts.serverlessIndex, "STATIC_TEST_SERVERLESS_INDEX_NAME env variable not set")
 
 	client, err := NewClient(NewClientParams{})
 	require.NoError(ts.T(), err)
@@ -471,7 +471,6 @@ func (ts *IntegrationTests) TestCreateCollection() {
 		Name:   name,
 		Source: sourceIndex,
 	})
-	fmt.Printf("TestCreateCollection err: %+v\n", err)
 
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), name, collection.Name, "Collection name does not match")
@@ -486,7 +485,6 @@ func (ts *IntegrationTests) TestDeleteCollection() {
 		Name:   collectionName,
 		Source: ts.idxName,
 	})
-	fmt.Printf("TestDeleteCollection err: %+v\n", err)
 
 	require.NoError(ts.T(), err)
 
@@ -513,7 +511,7 @@ func (ts *IntegrationTests) TestConfigureIndexIllegalScaleDown() {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
 
-	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x1", Replicas: 1})
+	_, err = ts.client.ConfigureIndex(context.Background(), name, &ConfigureIndexParams{PodType: "p1.x1", Replicas: 1})
 	require.ErrorContainsf(ts.T(), err, "Cannot scale down", err.Error())
 }
 
@@ -536,7 +534,7 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
 
-	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 2})
+	_, err = ts.client.ConfigureIndex(context.Background(), name, &ConfigureIndexParams{Replicas: 2})
 	require.NoError(ts.T(), err)
 }
 
@@ -559,7 +557,7 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
 
-	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x4"})
+	_, err = ts.client.ConfigureIndex(context.Background(), name, &ConfigureIndexParams{PodType: "p1.x4"})
 	require.NoError(ts.T(), err)
 }
 
@@ -582,7 +580,7 @@ func (ts *IntegrationTests) TestConfigureIndexIllegalNoPodsOrReplicasOrDeletionP
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
 
-	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{})
+	_, err = ts.client.ConfigureIndex(context.Background(), name, &ConfigureIndexParams{})
 	require.ErrorContainsf(ts.T(), err, "must specify either PodType, Replicas, or DeletionProtection", err.Error())
 }
 
@@ -605,7 +603,7 @@ func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
 
-	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 30000})
+	_, err = ts.client.ConfigureIndex(context.Background(), name, &ConfigureIndexParams{Replicas: 30000})
 	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
 }
 

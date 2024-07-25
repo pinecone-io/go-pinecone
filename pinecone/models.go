@@ -30,6 +30,17 @@ const (
 	Terminating          IndexStatusState = "Terminating"
 )
 
+// DeletionProtection determines whether [deletion protection] is "enabled" or "disabled" for the index.
+// When "enabled", the index cannot be deleted. Defaults to "disabled".
+//
+// [deletion protection]: http://docs.pinecone.io/guides/indexes/prevent-index-deletion
+type DeletionProtection string
+
+const (
+	DeletionProtectionEnabled  DeletionProtection = "Enabled"
+	DeletionProtectionDisabled DeletionProtection = "Disabled"
+)
+
 // Cloud is the [cloud provider] to be used for a Pinecone serverless Index.
 //
 // [cloud provider]: https://docs.pinecone.io/troubleshooting/available-cloud-regions

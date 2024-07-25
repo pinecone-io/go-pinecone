@@ -432,7 +432,7 @@ type CreatePodIndexRequest struct {
 	Name               string
 	Dimension          int32
 	Metric             IndexMetric
-	DeletionProtection string
+	DeletionProtection DeletionProtection
 	Environment        string
 	PodType            string
 	Shards             int32
@@ -502,14 +502,14 @@ func (req CreatePodIndexRequest) TotalCount() int {
 //		       fmt.Printf("Successfully created pod index: %s", idx.Name)
 //	    }
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
-	deletionProtection := toDeletionProtection(in.DeletionProtection)
-	metric := control.CreateIndexRequestMetric(in.Metric)
+	deletionProtection := pointerOrNil(control.DeletionProtection(in.DeletionProtection))
+	metric := pointerOrNil(control.CreateIndexRequestMetric(in.Metric))
 
 	req := control.CreateIndexRequest{
 		Name:               in.Name,
 		Dimension:          in.Dimension,
-		Metric:             &metric,
-		DeletionProtection: &deletionProtection,
+		Metric:             metric,
+		DeletionProtection: deletionProtection,
 	}
 
 	req.Spec = control.IndexSpec{
@@ -552,6 +552,7 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //     and consist only of lower case alphanumeric characters or '-'.
 //   - Dimension: The [dimensionality] of the vectors to be inserted in the Index.
 //   - Metric: The metric used to measure the [similarity] between vectors ('euclidean', 'cosine', or 'dotproduct').
+//   - DeletionProtection:
 //   - Cloud: The public [cloud provider] where you would like your Index hosted.
 //     For serverless Indexes, you define only the cloud and region where the Index should be hosted.
 //   - Region: The [region] where you would like your Index to be created.
@@ -597,7 +598,7 @@ type CreateServerlessIndexRequest struct {
 	Name               string
 	Dimension          int32
 	Metric             IndexMetric
-	DeletionProtection string
+	DeletionProtection DeletionProtection
 	Cloud              Cloud
 	Region             string
 }
@@ -641,14 +642,14 @@ type CreateServerlessIndexRequest struct {
 //	        fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //	    }
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
-	deletionProtection := toDeletionProtection(in.DeletionProtection)
-	metric := control.CreateIndexRequestMetric(in.Metric)
+	deletionProtection := pointerOrNil(control.DeletionProtection(in.DeletionProtection))
+	metric := pointerOrNil(control.CreateIndexRequestMetric(in.Metric))
 
 	req := control.CreateIndexRequest{
 		Name:               in.Name,
 		Dimension:          in.Dimension,
-		Metric:             &metric,
-		DeletionProtection: &deletionProtection,
+		Metric:             metric,
+		DeletionProtection: deletionProtection,
 		Spec: control.IndexSpec{
 			Serverless: &control.ServerlessSpec{
 				Cloud:  control.ServerlessSpecCloud(in.Cloud),
@@ -762,6 +763,42 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	return nil
 }
 
+// ConfigureIndexParams contains parameters for configuring an index. For both pod-based
+// and serverless indexes you can configure the DeletionProtection status for an index.
+// For pod-based indexes you can also configure the number of Replicas and the PodType.
+// Each of the fields are optional, but at least one field must be set.
+// See [scale a pods-based index] for more information.
+//
+// Fields:
+//   - PodType: (Optional) The pod size to scale the index to. For a "p1" pod type,
+//     you could pass "p1.x2" to scale your index to the "x2" size, or you could pass "p1.x4"
+//     to scale your index to the "x4" size, and so forth. Only applies to pod-based indexes.
+//   - Replicas: (Optional) The number of replicas to scale the index to. This is capped by
+//     the maximum number of replicas allowed in your Pinecone project. To configure this number,
+//     go to [app.pinecone.io], select your project, and configure the maximum number of pods.
+//   - DeletionProtection: (Optional) // DeletionProtection determines whether [deletion protection]
+//     is "enabled" or "disabled" for the index. When "enabled", the index cannot be deleted. Defaults to "disabled".
+//
+// Example:
+//
+//	    ctx := context.Background()
+//
+//	    clientParams := pinecone.NewClientParams{
+//		       ApiKey:    "YOUR_API_KEY",
+//		       SourceTag: "your_source_identifier", // optional
+//	    }
+//
+//	    pc, err := pinecone.NewClient(clientParams)
+//	    if err != nil {
+//	        log.Fatalf("Failed to create Client: %v", err)
+//	    } else {
+//		       fmt.Println("Successfully created a new Client object!")
+//	    }
+//
+//	    idx, err := pc.ConfigureIndex(ctx, "my-index", &ConfigureIndexParams{ DeletionProtection: "enabled", Replicas: 4 })
+//
+// [app.pinecone.io]: https://app.pinecone.io
+// [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
 type ConfigureIndexParams struct {
 	PodType            string
 	Replicas           int32
@@ -769,54 +806,55 @@ type ConfigureIndexParams struct {
 }
 
 // ConfigureIndex is used to [scale a pods-based index] up or down by changing the size of the pods or the number of
-// replicas.
+// replicas, or to enable and disable deletion protection for an index.
 //
 // Parameters:
+//   - ctx: A context.Context object controls the request's lifetime, allowing for the request
+//     to be canceled or to timeout according to the context's deadline.
 //   - name: The name of the index to configure.
-//   - pods: (Optional) The pod size to scale the index to (e.g. for a "p1" pod type,
-//     you could pass "p1.x2" to scale your index to the "x2" size,
-//     or you could pass "p1.x4" to scale your index to the "x4" size, and
-//     so forth.
-//   - replicas: (Optional) The number of replicas to scale the index to.
-//     This is capped by the maximum number of replicas allowed in your Pinecone project. To configure this number,
-//     go to [app.pinecone.io], select your project, and configure the maximum number of pods.
+//   - in: A pointer to a ConfigureIndexParams object that contains the parameters for configuring the index.
 //
 // Note: You can only scale an index up, not down. If you want to scale an index down,
 // you must create a new index with the desired configuration.
 //
 // Returns a pointer to a configured Index object or an error.
 //
-// Example for a pods-based index originally configured with 1 "p1" pod of size "x2" and 1 replica:
+// Example:
 //
-//	// To scale the size of your pods from "x2" to "x4":
-//	 _, err := pc.ConfigureIndex(ctx, "my-index", "p1.x4", nil)
-//	 if err != nil {
-//	     fmt.Printf("Failed to configure index: %v\n", err)
-//	 }
+//		// To scale the size of your pods from "x2" to "x4":
+//		 _, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{PodType: "p1.x4"})
+//		 if err != nil {
+//		     fmt.Printf("Failed to configure index: %v\n", err)
+//		 }
 //
-//	// To scale the number of replicas:
-//	 _, err := pc.ConfigureIndex(ctx, "my-index", nil, 4)
-//	 if err != nil {
-//	     fmt.Printf("Failed to configure index: %v\n", err)
-//	 }
+//		// To scale the number of replicas:
+//		 _, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{Replicas: 4})
+//		 if err != nil {
+//		     fmt.Printf("Failed to configure index: %v\n", err)
+//		 }
 //
-//	// To scale both the size of your pods and the number of replicas:
-//	 _, err := pc.ConfigureIndex(ctx, "my-index", "p1.x4", 4)
-//	 if err != nil {
-//	     fmt.Printf("Failed to configure index: %v\n", err)
-//	 }
+//		// To scale both the size of your pods and the number of replicas:
+//		 _, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{PodType: "p1.x4", Replicas: 4})
+//		 if err != nil {
+//		     fmt.Printf("Failed to configure index: %v\n", err)
+//		 }
+//
+//	    // To enable deletion protection:
+//		 _, err := pc.ConfigureIndex(ctx, "my-index", nil, nil, &ConfigureIndexParams{DeletionProtection: "enabled"})
+//		 if err != nil {
+//		     fmt.Printf("Failed to configure index: %v\n", err)
+//		 }
 //
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
-// [app.pinecone.io]: https://app.pinecone.io
-func (c *Client) ConfigureIndex(ctx context.Context, name string, configParams ConfigureIndexParams) (*Index, error) {
+func (c *Client) ConfigureIndex(ctx context.Context, name string, in *ConfigureIndexParams) (*Index, error) {
 
-	if configParams.PodType == "" && configParams.Replicas == 0 && configParams.DeletionProtection == "" {
+	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" {
 		return nil, fmt.Errorf("must specify either PodType, Replicas, or DeletionProtection")
 	}
 
-	podType := pointerOrNil(configParams.PodType)
-	replicas := pointerOrNil(configParams.Replicas)
-	deletionProtection := pointerOrNil(configParams.DeletionProtection)
+	podType := pointerOrNil(in.PodType)
+	replicas := pointerOrNil(in.Replicas)
+	deletionProtection := pointerOrNil(in.DeletionProtection)
 
 	request := control.ConfigureIndexRequest{
 		Spec: &struct {
@@ -1171,7 +1209,7 @@ func toIndex(idx *control.IndexModel) *Index {
 		Ready: idx.Status.Ready,
 		State: IndexStatusState(idx.Status.State),
 	}
-	deletionProtecetion := toDeletionProtection(string(derefOrDefault(idx.DeletionProtection, control.Disabled)))
+	deletionProtecetion := derefOrDefault(idx.DeletionProtection, control.Disabled)
 
 	return &Index{
 		Name:               idx.Name,
@@ -1322,15 +1360,6 @@ func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
 	}
 
 	return clientOptions
-}
-
-func toDeletionProtection(value string) control.DeletionProtection {
-	switch control.DeletionProtection(value) {
-	case control.Enabled, control.Disabled:
-		return control.DeletionProtection(value)
-	default:
-		return control.Disabled
-	}
 }
 
 func ensureURLScheme(inputURL string) (string, error) {
