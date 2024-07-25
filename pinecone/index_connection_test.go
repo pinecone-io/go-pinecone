@@ -20,6 +20,8 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+// Initialize the test suite:
+// TODO: move this to test_suite.go?
 func TestIntegrationIndexConnection(t *testing.T) {
 	apiKey := os.Getenv("PINECONE_API_KEY")
 	assert.NotEmptyf(t, apiKey, "PINECONE_API_KEY env variable not set")
@@ -28,8 +30,8 @@ func TestIntegrationIndexConnection(t *testing.T) {
 	require.NotNil(t, client, "Client should not be nil after creation")
 	require.NoError(t, err)
 
-	serverlessIdx := buildServerlessTestIndex(client, "serverless-"+generateTestIndexName())
-	podIdx := buildPodTestIndex(client, "pods-"+generateTestIndexName())
+	serverlessIdx := buildServerlessTestIndex(client, "serverless-"+GenerateTestIndexName())
+	podIdx := buildPodTestIndex(client, "pods-"+GenerateTestIndexName())
 
 	podTestSuite := &IndexConnectionTestsIntegration{
 		host:       podIdx.Host,
@@ -40,6 +42,8 @@ func TestIntegrationIndexConnection(t *testing.T) {
 		podIdxName: podIdx.Name,
 	}
 
+	//podTestSuite := NewIndexConnectionTestsIntegration("pods", podIdx.Host, podIdx.Dimension, apiKey, client, podIdx.Name)
+	//serverlessTestSuite := NewIndexConnectionTestsIntegration("serverless", serverlessIdx.Host, serverlessIdx.Dimension, apiKey, client, serverlessIdx.Name)
 	serverlessTestSuite := &IndexConnectionTestsIntegration{
 		host:              serverlessIdx.Host,
 		dimension:         serverlessIdx.Dimension,
@@ -1093,10 +1097,6 @@ func buildPodTestIndex(in *Client, name string) *Index {
 
 func setDimensionsForTestIndexes() uint32 {
 	return uint32(5)
-}
-
-func generateTestIndexName() string {
-	return fmt.Sprintf("index-%d", time.Now().UnixMilli())
 }
 
 func generateFloat32Array(n int) []float32 {

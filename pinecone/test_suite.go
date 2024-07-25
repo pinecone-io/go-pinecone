@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -16,7 +17,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// TODO: rename so can work with client too?
+// Test suite structs:
 type IndexConnectionTestsIntegration struct {
 	suite.Suite
 	host              string
@@ -32,18 +33,16 @@ type IndexConnectionTestsIntegration struct {
 	serverlessIdxName string
 }
 
-func NewIndexConnectionTestsIntegration(indexType, host string, dimension int32, apiKey string, client *Client, indexName string) *IndexConnectionTestsIntegration {
-	return &IndexConnectionTestsIntegration{
-		host:              host,
-		dimension:         dimension,
-		apiKey:            apiKey,
-		indexType:         indexType,
-		client:            client,
-		podIdxName:        indexName,
-		serverlessIdxName: indexName,
-	}
+type ClientTestsIntegration struct {
+	suite.Suite
+	client            Client
+	clientSourceTag   Client
+	sourceTag         string
+	podIdxName        string
+	serverlessIdxName string
 }
 
+// Test suite setup and teardown functions:
 func (ts *IndexConnectionTestsIntegration) SetupSuite() {
 	ctx := context.Background()
 
@@ -107,7 +106,19 @@ func (ts *IndexConnectionTestsIntegration) TearDownSuite() {
 	fmt.Printf("\n %s setup suite torn down successfully\n", ts.indexType)
 }
 
+func (ts *ClientTestsIntegration) SetupSuite() {
+	apiKey := os.Getenv("PINECONE_API_KEY")
+	require.NotEmpty(ts.T(), apiKey, "PINECONE_API_KEY env variable not set")
+
+}
+
+// TODO: write teardown suite for client tests
+
 // Helper funcs
+func GenerateTestIndexName() string {
+	return fmt.Sprintf("index-%d", time.Now().UnixMilli())
+}
+
 func upsertVectors(ts *IndexConnectionTestsIntegration, ctx context.Context, vectors []*Vector) error {
 	maxRetries := 12
 	delay := 12 * time.Second
