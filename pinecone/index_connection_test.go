@@ -5,42 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"testing"
 	"time"
 
-	"google.golang.org/grpc/status"
-
-	"google.golang.org/grpc/codes"
-
 	"github.com/pinecone-io/go-pinecone/internal/gen/data"
-	"google.golang.org/grpc/metadata"
-
-	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/internal/utils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/structpb"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/structpb"
 )
-
-// Integration tests:
-type IndexConnectionTestsIntegration struct {
-	suite.Suite
-	host              string
-	dimension         int32
-	apiKey            string
-	indexType         string
-	idxConn           *IndexConnection
-	sourceTag         string
-	idxConnSourceTag  *IndexConnection
-	vectorIds         []string
-	client            *Client
-	podIdxName        string
-	serverlessIdxName string
-}
 
 func TestIntegrationIndexConnection(t *testing.T) {
 	apiKey := os.Getenv("PINECONE_API_KEY")
@@ -50,8 +28,8 @@ func TestIntegrationIndexConnection(t *testing.T) {
 	require.NotNil(t, client, "Client should not be nil after creation")
 	require.NoError(t, err)
 
-	serverlessIdx := buildServerlessTestIndex(client, generateTestIndexName())
-	podIdx := buildPodTestIndex(client, generateTestIndexName())
+	serverlessIdx := buildServerlessTestIndex(client, "serverless-"+generateTestIndexName())
+	podIdx := buildPodTestIndex(client, "pods-"+generateTestIndexName())
 
 	podTestSuite := &IndexConnectionTestsIntegration{
 		host:       podIdx.Host,
@@ -75,69 +53,7 @@ func TestIntegrationIndexConnection(t *testing.T) {
 	suite.Run(t, serverlessTestSuite)
 }
 
-func (ts *IndexConnectionTestsIntegration) SetupSuite() {
-	ctx := context.Background()
-
-	assert.NotEmptyf(ts.T(), ts.host, "HOST env variable not set")
-	assert.NotEmptyf(ts.T(), ts.apiKey, "API_KEY env variable not set")
-	additionalMetadata := map[string]string{"api-key": ts.apiKey}
-
-	namespace, err := uuid.NewUUID()
-	require.NoError(ts.T(), err)
-
-	idxConn, err := newIndexConnection(newIndexParameters{
-		additionalMetadata: additionalMetadata,
-		host:               ts.host,
-		namespace:          namespace.String(),
-		sourceTag:          ""})
-	require.NoError(ts.T(), err)
-	require.NotNil(ts.T(), idxConn, "Failed to create idxConn")
-
-	ts.idxConn = idxConn
-
-	// Deterministically create vectors
-	vectors := createVectorsForUpsert()
-
-	// Set vector IDs
-	vectorIds := make([]string, len(vectors))
-	for i, v := range vectors {
-		vectorIds[i] = v.Id
-	}
-	ts.vectorIds = vectorIds
-
-	// Upsert vectors
-	err = upsertVectors(ts, ctx, vectors)
-	if err != nil {
-		log.Fatalf("Failed to upsert vectors in SetupSuite: %v", err)
-	}
-
-	ts.sourceTag = "test_source_tag"
-	idxConnSourceTag, err := newIndexConnection(newIndexParameters{
-		additionalMetadata: additionalMetadata,
-		host:               ts.host,
-		namespace:          namespace.String(),
-		sourceTag:          ts.sourceTag})
-	require.NoError(ts.T(), err)
-	ts.idxConnSourceTag = idxConnSourceTag
-
-	fmt.Printf("\n %s set up suite completed successfully\n", ts.indexType)
-}
-
-func (ts *IndexConnectionTestsIntegration) TearDownSuite() {
-	ctx := context.Background()
-
-	// Delete test indexes
-	err := ts.client.DeleteIndex(ctx, ts.serverlessIdxName)
-	err = ts.client.DeleteIndex(ctx, ts.podIdxName)
-
-	err = ts.idxConn.Close()
-	require.NoError(ts.T(), err)
-
-	err = ts.idxConnSourceTag.Close()
-	require.NoError(ts.T(), err)
-	fmt.Printf("\n %s setup suite torn down successfully\n", ts.indexType)
-}
-
+// Integration tests
 func (ts *IndexConnectionTestsIntegration) TestNewIndexConnection() {
 	apiKey := "test-api-key"
 	namespace := ""
@@ -402,7 +318,7 @@ func (ts *IndexConnectionTestsIntegration) TestUpdateVectorMetadata() {
 	assert.Equal(ts.T(), expectedGenre, actualGenre, "Metadata does not match")
 }
 
-func (ts *IndexConnectionTestsIntegration) TestUpdateVectorSparseValues() {
+func (ts *IndexConnectionTestsIntegration) TestUpdateVectorSparseValues() error {
 	ctx := context.Background()
 
 	dims := int(ts.dimension)
@@ -413,14 +329,17 @@ func (ts *IndexConnectionTestsIntegration) TestUpdateVectorSparseValues() {
 		Values:  vals,
 	}
 
+	fmt.Printf("Updating sparse values in host \"%s\"...\n", ts.host)
 	err := ts.idxConn.UpdateVector(ctx, &UpdateVectorRequest{
 		Id:           ts.vectorIds[0],
 		SparseValues: &expectedSparseValues,
 	})
-	assert.NoError(ts.T(), err)
+	require.NoError(ts.T(), err)
 
+	// Wait for updates to propagate
 	time.Sleep(5 * time.Second)
 
+	// Fetch updated vector and verify sparse values
 	vector, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
 	if err != nil {
 		ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
@@ -428,9 +347,11 @@ func (ts *IndexConnectionTestsIntegration) TestUpdateVectorSparseValues() {
 	actualSparseValues := vector.Vectors[ts.vectorIds[0]].SparseValues.Values
 
 	assert.ElementsMatch(ts.T(), expectedSparseValues.Values, actualSparseValues, "Sparse values do not match")
+
+	return nil
 }
 
-// Unit tests:
+// Unit tests
 func TestMarshalFetchVectorsResponseUnit(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -1131,35 +1052,7 @@ func TestToPaginationToken(t *testing.T) {
 	}
 }
 
-// Helper functions:
-func createVectorsForUpsert() []*Vector {
-	vectors := make([]*Vector, 5)
-	for i := 0; i < 5; i++ {
-		vectors[i] = &Vector{
-			Id:     fmt.Sprintf("vector-%d", i+1),
-			Values: []float32{float32(i), float32(i) + 0.1, float32(i) + 0.2, float32(i) + 0.3, float32(i) + 0.4},
-			SparseValues: &SparseValues{
-				Indices: []uint32{0, 1, 2, 3, 4},
-				Values:  []float32{float32(i), float32(i) + 0.1, float32(i) + 0.2, float32(i) + 0.3, float32(i) + 0.4},
-			},
-			Metadata: &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
-				},
-			},
-		}
-	}
-	return vectors
-}
-
-func setDimensionsForTestIndexes() uint32 {
-	return uint32(5)
-}
-
-func generateTestIndexName() string {
-	return fmt.Sprintf("index-%d", time.Now().UnixMilli())
-}
-
+// Helper funcs
 func buildServerlessTestIndex(in *Client, idxName string) *Index {
 	ctx := context.Background()
 
@@ -1198,10 +1091,17 @@ func buildPodTestIndex(in *Client, name string) *Index {
 	return podIdx
 }
 
+func setDimensionsForTestIndexes() uint32 {
+	return uint32(5)
+}
+
+func generateTestIndexName() string {
+	return fmt.Sprintf("index-%d", time.Now().UnixMilli())
+}
+
 func generateFloat32Array(n int) []float32 {
 	array := make([]float32, n)
-	startNum := rand.Int()
-	for i := startNum; i < n; i++ {
+	for i := 0; i < n; i++ {
 		array[i] = float32(i)
 	}
 	return array
@@ -1209,66 +1109,8 @@ func generateFloat32Array(n int) []float32 {
 
 func generateUint32Array(n int) []uint32 {
 	array := make([]uint32, n)
-	startNum := rand.Int()
-	for i := startNum; i < n; i++ {
+	for i := 0; i < n; i++ {
 		array[i] = uint32(i)
 	}
 	return array
-}
-
-func getIndexStatus(ts *IndexConnectionTestsIntegration, ctx context.Context) (bool, error) {
-	var indexName string
-	if ts.indexType == "serverless" {
-		indexName = ts.serverlessIdxName
-	} else if ts.indexType == "pods" {
-		indexName = ts.podIdxName
-	}
-	if ts.client == nil {
-		return false, fmt.Errorf("client is nil")
-	}
-
-	var desc *Index
-	var err error
-	maxRetries := 12
-	delay := 12 * time.Second
-	for i := 0; i < maxRetries; i++ {
-		desc, err = ts.client.DescribeIndex(ctx, indexName)
-		if err == nil {
-			break
-		}
-		if status.Code(err) == codes.Unknown {
-			fmt.Printf("Index \"%s\" not found, retrying... (%d/%d)\n", indexName, i+1, maxRetries)
-			time.Sleep(delay)
-		} else {
-			fmt.Printf("Status code = %v\n", status.Code(err))
-			return false, err
-		}
-	}
-	if err != nil {
-		return false, fmt.Errorf("failed to describe index \"%s\" after retries: %v", err, indexName)
-	}
-	return desc.Status.Ready, nil
-}
-
-func upsertVectors(ts *IndexConnectionTestsIntegration, ctx context.Context, vectors []*Vector) error {
-	maxRetries := 12
-	delay := 12 * time.Second
-	fmt.Printf("Attempting to upsert vectors into host \"%s\"...\n", ts.host)
-	for i := 0; i < maxRetries; i++ {
-		ready, err := getIndexStatus(ts, ctx)
-		if err != nil {
-			fmt.Printf("Error getting index ready: %v\n", err)
-			return err
-		}
-		if ready {
-			upsertVectors, err := ts.idxConn.UpsertVectors(ctx, vectors)
-			require.NoError(ts.T(), err)
-			fmt.Printf("Upserted vectors: %v into host: %s\n", upsertVectors, ts.host)
-			break
-		} else {
-			time.Sleep(delay)
-			fmt.Printf("Host \"%s\" not ready for upserting yet, retrying... (%d/%d)\n", ts.host, i, maxRetries)
-		}
-	}
-	return nil
 }
