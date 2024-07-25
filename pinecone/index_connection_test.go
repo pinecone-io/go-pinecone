@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"testing"
 	"time"
 
@@ -17,48 +16,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
 )
 
-// Initialize the test suite:
-// TODO: move this to test_suite.go?
-func TestIntegrationIndexConnection(t *testing.T) {
-	apiKey := os.Getenv("PINECONE_API_KEY")
-	assert.NotEmptyf(t, apiKey, "PINECONE_API_KEY env variable not set")
-
-	client, err := NewClient(NewClientParams{ApiKey: apiKey})
-	require.NotNil(t, client, "Client should not be nil after creation")
-	require.NoError(t, err)
-
-	serverlessIdx := buildServerlessTestIndex(client, "serverless-"+GenerateTestIndexName())
-	podIdx := buildPodTestIndex(client, "pods-"+GenerateTestIndexName())
-
-	podTestSuite := &IndexConnectionTestsIntegration{
-		host:       podIdx.Host,
-		dimension:  podIdx.Dimension,
-		apiKey:     apiKey,
-		indexType:  "pods",
-		client:     client,
-		podIdxName: podIdx.Name,
-	}
-
-	//podTestSuite := NewIndexConnectionTestsIntegration("pods", podIdx.Host, podIdx.Dimension, apiKey, client, podIdx.Name)
-	//serverlessTestSuite := NewIndexConnectionTestsIntegration("serverless", serverlessIdx.Host, serverlessIdx.Dimension, apiKey, client, serverlessIdx.Name)
-	serverlessTestSuite := &IndexConnectionTestsIntegration{
-		host:              serverlessIdx.Host,
-		dimension:         serverlessIdx.Dimension,
-		apiKey:            apiKey,
-		indexType:         "serverless",
-		client:            client,
-		serverlessIdxName: serverlessIdx.Name,
-	}
-
-	suite.Run(t, podTestSuite)
-	suite.Run(t, serverlessTestSuite)
+func TestIndexConnectionIntegration(t *testing.T) {
+	RunSuites(t)
 }
 
 // Integration tests
-func (ts *IndexConnectionTestsIntegration) TestNewIndexConnection() {
+func (ts *IntegrationTests) TestNewIndexConnection() {
 	apiKey := "test-api-key"
 	namespace := ""
 	sourceTag := ""
@@ -78,7 +43,7 @@ func (ts *IndexConnectionTestsIntegration) TestNewIndexConnection() {
 	require.NotNil(ts.T(), idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
 }
 
-func (ts *IndexConnectionTestsIntegration) TestNewIndexConnectionNamespace() {
+func (ts *IntegrationTests) TestNewIndexConnectionNamespace() {
 	apiKey := "test-api-key"
 	namespace := "test-namespace"
 	sourceTag := "test-source-tag"
@@ -98,21 +63,21 @@ func (ts *IndexConnectionTestsIntegration) TestNewIndexConnectionNamespace() {
 	require.NotNil(ts.T(), idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
 }
 
-func (ts *IndexConnectionTestsIntegration) TestFetchVectors() {
+func (ts *IntegrationTests) TestFetchVectors() {
 	ctx := context.Background()
 	res, err := ts.idxConn.FetchVectors(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestFetchVectorsSourceTag() {
+func (ts *IntegrationTests) TestFetchVectorsSourceTag() {
 	ctx := context.Background()
 	res, err := ts.idxConnSourceTag.FetchVectors(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestQueryByVector() {
+func (ts *IntegrationTests) TestQueryByVector() {
 	vec := make([]float32, ts.dimension)
 	for i := range vec {
 		vec[i] = 0.01
@@ -129,7 +94,7 @@ func (ts *IndexConnectionTestsIntegration) TestQueryByVector() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestQueryByVectorSourceTag() {
+func (ts *IntegrationTests) TestQueryByVectorSourceTag() {
 	vec := make([]float32, ts.dimension)
 	for i := range vec {
 		vec[i] = 0.01
@@ -146,7 +111,7 @@ func (ts *IndexConnectionTestsIntegration) TestQueryByVectorSourceTag() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestQueryById() {
+func (ts *IntegrationTests) TestQueryById() {
 	req := &QueryByVectorIdRequest{
 		VectorId: ts.vectorIds[0],
 		TopK:     5,
@@ -158,7 +123,7 @@ func (ts *IndexConnectionTestsIntegration) TestQueryById() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestQueryByIdSourceTag() {
+func (ts *IntegrationTests) TestQueryByIdSourceTag() {
 	req := &QueryByVectorIdRequest{
 		VectorId: ts.vectorIds[0],
 		TopK:     5,
@@ -170,7 +135,7 @@ func (ts *IndexConnectionTestsIntegration) TestQueryByIdSourceTag() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsById() {
+func (ts *IntegrationTests) TestDeleteVectorsById() {
 	ctx := context.Background()
 	err := ts.idxConn.DeleteVectorsById(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
@@ -181,7 +146,7 @@ func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsById() {
 	}
 }
 
-func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsByFilter() {
+func (ts *IntegrationTests) TestDeleteVectorsByFilter() {
 	metadataFilter := map[string]interface{}{
 		"genre": "classical",
 	}
@@ -206,7 +171,7 @@ func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsByFilter() {
 	}
 }
 
-func (ts *IndexConnectionTestsIntegration) TestDeleteAllVectorsInNamespace() {
+func (ts *IntegrationTests) TestDeleteAllVectorsInNamespace() {
 	ctx := context.Background()
 	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
 	assert.NoError(ts.T(), err)
@@ -218,21 +183,21 @@ func (ts *IndexConnectionTestsIntegration) TestDeleteAllVectorsInNamespace() {
 
 }
 
-func (ts *IndexConnectionTestsIntegration) TestDescribeIndexStats() {
+func (ts *IntegrationTests) TestDescribeIndexStats() {
 	ctx := context.Background()
 	res, err := ts.idxConn.DescribeIndexStats(ctx)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestDescribeIndexStatsFiltered() {
+func (ts *IntegrationTests) TestDescribeIndexStatsFiltered() {
 	ctx := context.Background()
 	res, err := ts.idxConn.DescribeIndexStatsFiltered(ctx, &MetadataFilter{})
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestListVectors() {
+func (ts *IntegrationTests) TestListVectors() {
 	ts.T().Skip()
 	req := &ListVectorsRequest{}
 
@@ -242,7 +207,7 @@ func (ts *IndexConnectionTestsIntegration) TestListVectors() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestMetadataAppliedToRequests() {
+func (ts *IntegrationTests) TestMetadataAppliedToRequests() {
 	apiKey := "test-api-key"
 	namespace := "test-namespace"
 	sourceTag := "test-source-tag"
@@ -274,7 +239,7 @@ func (ts *IndexConnectionTestsIntegration) TestMetadataAppliedToRequests() {
 	require.NotNil(ts.T(), stats)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestUpdateVectorValues() {
+func (ts *IntegrationTests) TestUpdateVectorValues() {
 	ctx := context.Background()
 
 	expectedVals := []float32{7.2, 7.2, 7.2, 7.2, 7.2}
@@ -295,7 +260,7 @@ func (ts *IndexConnectionTestsIntegration) TestUpdateVectorValues() {
 	assert.ElementsMatch(ts.T(), expectedVals, actualVals, "Values do not match")
 }
 
-func (ts *IndexConnectionTestsIntegration) TestUpdateVectorMetadata() {
+func (ts *IntegrationTests) TestUpdateVectorMetadata() {
 	ctx := context.Background()
 
 	expectedMetadata := map[string]interface{}{
@@ -322,7 +287,7 @@ func (ts *IndexConnectionTestsIntegration) TestUpdateVectorMetadata() {
 	assert.Equal(ts.T(), expectedGenre, actualGenre, "Metadata does not match")
 }
 
-func (ts *IndexConnectionTestsIntegration) TestUpdateVectorSparseValues() error {
+func (ts *IntegrationTests) TestUpdateVectorSparseValues() error {
 	ctx := context.Background()
 
 	dims := int(ts.dimension)
@@ -355,7 +320,7 @@ func (ts *IndexConnectionTestsIntegration) TestUpdateVectorSparseValues() error 
 	return nil
 }
 
-// Unit tests
+// Unit tests:
 func TestMarshalFetchVectorsResponseUnit(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -1057,47 +1022,6 @@ func TestToPaginationToken(t *testing.T) {
 }
 
 // Helper funcs
-func buildServerlessTestIndex(in *Client, idxName string) *Index {
-	ctx := context.Background()
-
-	fmt.Printf("Creating Serverless index: %s\n", idxName)
-	serverlessIdx, err := in.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
-		Name:      idxName,
-		Dimension: int32(setDimensionsForTestIndexes()),
-		Metric:    Cosine,
-		Region:    "us-east-1",
-		Cloud:     "aws",
-	})
-	if err != nil {
-		log.Fatalf("Failed to create Serverless index \"%s\" in integration test: %v", err, idxName)
-	} else {
-		fmt.Printf("Successfully created a new Serverless index: %s!\n", idxName)
-	}
-	return serverlessIdx
-}
-
-func buildPodTestIndex(in *Client, name string) *Index {
-	ctx := context.Background()
-
-	fmt.Printf("Creating pod index: %s\n", name)
-	podIdx, err := in.CreatePodIndex(ctx, &CreatePodIndexRequest{
-		Name:        name,
-		Dimension:   int32(setDimensionsForTestIndexes()),
-		Metric:      Cosine,
-		Environment: "us-east-1-aws",
-		PodType:     "p1",
-	})
-	if err != nil {
-		log.Fatalf("Failed to create pod index in buildPodTestIndex test: %v", err)
-	} else {
-		fmt.Printf("Successfully created a new pod index: %s!\n", name)
-	}
-	return podIdx
-}
-
-func setDimensionsForTestIndexes() uint32 {
-	return uint32(5)
-}
 
 func generateFloat32Array(n int) []float32 {
 	array := make([]float32, n)

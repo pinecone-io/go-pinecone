@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -12,42 +11,29 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
-// Test suite structs:
-type IndexConnectionTestsIntegration struct {
+type IntegrationTests struct {
 	suite.Suite
+	apiKey            string
+	client            *Client
 	host              string
 	dimension         int32
-	apiKey            string
 	indexType         string
+	vectorIds         []string
+	podIdxName        string
+	serverlessIdxName string
 	idxConn           *IndexConnection
 	sourceTag         string
-	idxConnSourceTag  *IndexConnection
-	vectorIds         []string
-	client            *Client
-	podIdxName        string
-	serverlessIdxName string
-}
-
-type ClientTestsIntegration struct {
-	suite.Suite
-	client            Client
 	clientSourceTag   Client
-	sourceTag         string
-	podIdxName        string
-	serverlessIdxName string
+	idxConnSourceTag  *IndexConnection
 }
 
-// Test suite setup and teardown functions:
-func (ts *IndexConnectionTestsIntegration) SetupSuite() {
+func (ts *IntegrationTests) SetupSuite() {
 	ctx := context.Background()
 
-	assert.NotEmptyf(ts.T(), ts.host, "HOST env variable not set")
-	assert.NotEmptyf(ts.T(), ts.apiKey, "API_KEY env variable not set")
 	additionalMetadata := map[string]string{"api-key": ts.apiKey}
 
 	namespace, err := uuid.NewUUID()
@@ -91,7 +77,7 @@ func (ts *IndexConnectionTestsIntegration) SetupSuite() {
 	fmt.Printf("\n %s set up suite completed successfully\n", ts.indexType)
 }
 
-func (ts *IndexConnectionTestsIntegration) TearDownSuite() {
+func (ts *IntegrationTests) TearDownSuite() {
 	ctx := context.Background()
 
 	// Delete test indexes
@@ -106,20 +92,12 @@ func (ts *IndexConnectionTestsIntegration) TearDownSuite() {
 	fmt.Printf("\n %s setup suite torn down successfully\n", ts.indexType)
 }
 
-func (ts *ClientTestsIntegration) SetupSuite() {
-	apiKey := os.Getenv("PINECONE_API_KEY")
-	require.NotEmpty(ts.T(), apiKey, "PINECONE_API_KEY env variable not set")
-
-}
-
-// TODO: write teardown suite for client tests
-
 // Helper funcs
 func GenerateTestIndexName() string {
 	return fmt.Sprintf("index-%d", time.Now().UnixMilli())
 }
 
-func upsertVectors(ts *IndexConnectionTestsIntegration, ctx context.Context, vectors []*Vector) error {
+func upsertVectors(ts *IntegrationTests, ctx context.Context, vectors []*Vector) error {
 	maxRetries := 12
 	delay := 12 * time.Second
 	fmt.Printf("Attempting to upsert vectors into host \"%s\"...\n", ts.host)
@@ -142,7 +120,8 @@ func upsertVectors(ts *IndexConnectionTestsIntegration, ctx context.Context, vec
 	return nil
 }
 
-func GetIndexStatus(ts *IndexConnectionTestsIntegration, ctx context.Context) (bool, error) {
+// TODO: how to get this func to work for client tests too
+func GetIndexStatus(ts *IntegrationTests, ctx context.Context) (bool, error) {
 	var indexName string
 	if ts.indexType == "serverless" {
 		indexName = ts.serverlessIdxName
@@ -194,4 +173,46 @@ func createVectorsForUpsert() []*Vector {
 		}
 	}
 	return vectors
+}
+
+func BuildServerlessTestIndex(in *Client, idxName string) *Index {
+	ctx := context.Background()
+
+	fmt.Printf("Creating Serverless index: %s\n", idxName)
+	serverlessIdx, err := in.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
+		Name:      idxName,
+		Dimension: int32(setDimensionsForTestIndexes()),
+		Metric:    Cosine,
+		Region:    "us-east-1",
+		Cloud:     "aws",
+	})
+	if err != nil {
+		log.Fatalf("Failed to create Serverless index \"%s\" in integration test: %v", err, idxName)
+	} else {
+		fmt.Printf("Successfully created a new Serverless index: %s!\n", idxName)
+	}
+	return serverlessIdx
+}
+
+func BuildPodTestIndex(in *Client, name string) *Index {
+	ctx := context.Background()
+
+	fmt.Printf("Creating pod index: %s\n", name)
+	podIdx, err := in.CreatePodIndex(ctx, &CreatePodIndexRequest{
+		Name:        name,
+		Dimension:   int32(setDimensionsForTestIndexes()),
+		Metric:      Cosine,
+		Environment: "us-east-1-aws",
+		PodType:     "p1",
+	})
+	if err != nil {
+		log.Fatalf("Failed to create pod index in buildPodTestIndex test: %v", err)
+	} else {
+		fmt.Printf("Successfully created a new pod index: %s!\n", name)
+	}
+	return podIdx
+}
+
+func setDimensionsForTestIndexes() uint32 {
+	return uint32(5)
 }

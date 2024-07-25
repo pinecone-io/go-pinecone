@@ -11,60 +11,24 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pinecone-io/go-pinecone/internal/gen"
-	"github.com/pinecone-io/go-pinecone/internal/provider"
-
 	"github.com/google/go-cmp/cmp"
+	"github.com/pinecone-io/go-pinecone/internal/gen"
 	"github.com/pinecone-io/go-pinecone/internal/gen/control"
+	"github.com/pinecone-io/go-pinecone/internal/provider"
 
 	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/internal/utils"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
 )
 
+func TestClientIntegration(t *testing.T) {
+	RunSuites(t)
+}
+
 // Integration tests:
-type ClientTestsIntegration struct {
-	suite.Suite
-	client          Client
-	clientSourceTag Client
-	sourceTag       string
-	podIndex        string
-	serverlessIndex string
-}
-
-func TestIntegrationClient(t *testing.T) {
-	suite.Run(t, new(ClientTestsIntegration))
-}
-
-func (ts *ClientTestsIntegration) SetupSuite() {
-	apiKey := os.Getenv("PINECONE_API_KEY")
-	require.NotEmpty(ts.T(), apiKey, "PINECONE_API_KEY env variable not set")
-
-	ts.podIndex = os.Getenv("TEST_PODS_INDEX_NAME")
-	require.NotEmpty(ts.T(), ts.podIndex, "TEST_PODS_INDEX_NAME env variable not set")
-
-	ts.serverlessIndex = os.Getenv("TEST_SERVERLESS_INDEX_NAME")
-	require.NotEmpty(ts.T(), ts.serverlessIndex, "TEST_SERVERLESS_INDEX_NAME env variable not set")
-
-	client, err := NewClient(NewClientParams{})
-	require.NoError(ts.T(), err)
-
-	ts.client = *client
-
-	ts.sourceTag = "test_source_tag"
-	clientSourceTag, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: ts.sourceTag})
-	require.NoError(ts.T(), err)
-	ts.clientSourceTag = *clientSourceTag
-
-	// this will clean up the project deleting all indexes and collections that are
-	// named a UUID. Generally not needed as all tests are cleaning up after themselves
-	// Left here as a convenience during active development.
-	//deleteUUIDNamedResources(context.Background(), &ts.client)
-}
-
-func (ts *ClientTestsIntegration) TestNewClientParamsSet() {
+func (ts *IntegrationTests) TestNewClientParamsSet() {
 	apiKey := "test-api-key"
 	client, err := NewClient(NewClientParams{ApiKey: apiKey})
 
@@ -77,7 +41,7 @@ func (ts *ClientTestsIntegration) TestNewClientParamsSet() {
 	require.Equal(ts.T(), 3, len(client.restClient.RequestEditors), "Expected client to have correct number of request editors")
 }
 
-func (ts *ClientTestsIntegration) TestNewClientParamsSetSourceTag() {
+func (ts *IntegrationTests) TestNewClientParamsSetSourceTag() {
 	apiKey := "test-api-key"
 	sourceTag := "test-source-tag"
 	client, err := NewClient(NewClientParams{
@@ -93,7 +57,7 @@ func (ts *ClientTestsIntegration) TestNewClientParamsSetSourceTag() {
 	require.Equal(ts.T(), 3, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 2, len(client.restClient.RequestEditors))
 }
 
-func (ts *ClientTestsIntegration) TestNewClientParamsSetHeaders() {
+func (ts *IntegrationTests) TestNewClientParamsSetHeaders() {
 	apiKey := "test-api-key"
 	headers := map[string]string{"test-header": "test-ptr"}
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers})
@@ -106,7 +70,7 @@ func (ts *ClientTestsIntegration) TestNewClientParamsSetHeaders() {
 	require.Equal(ts.T(), 4, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 3, len(client.restClient.RequestEditors))
 }
 
-func (ts *ClientTestsIntegration) TestNewClientParamsNoApiKeyNoAuthorizationHeader() {
+func (ts *IntegrationTests) TestNewClientParamsNoApiKeyNoAuthorizationHeader() {
 	apiKey := os.Getenv("PINECONE_API_KEY")
 	os.Unsetenv("PINECONE_API_KEY")
 
@@ -121,7 +85,7 @@ func (ts *ClientTestsIntegration) TestNewClientParamsNoApiKeyNoAuthorizationHead
 	os.Setenv("PINECONE_API_KEY", apiKey)
 }
 
-func (ts *ClientTestsIntegration) TestHeadersAppliedToRequests() {
+func (ts *IntegrationTests) TestHeadersAppliedToRequests() {
 	apiKey := "test-api-key"
 	headers := map[string]string{"test-header": "123456"}
 
@@ -140,7 +104,7 @@ func (ts *ClientTestsIntegration) TestHeadersAppliedToRequests() {
 	assert.Equal(ts.T(), "123456", testHeaderValue, "Expected request to have header ptr '123456', but got '%s'", testHeaderValue)
 }
 
-func (ts *ClientTestsIntegration) TestAdditionalHeadersAppliedToRequest() {
+func (ts *IntegrationTests) TestAdditionalHeadersAppliedToRequest() {
 	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"test-header": "environment-header"}`)
 
 	apiKey := "test-api-key"
@@ -162,7 +126,7 @@ func (ts *ClientTestsIntegration) TestAdditionalHeadersAppliedToRequest() {
 	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
 }
 
-func (ts *ClientTestsIntegration) TestHeadersOverrideAdditionalHeaders() {
+func (ts *IntegrationTests) TestHeadersOverrideAdditionalHeaders() {
 	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"test-header": "environment-header"}`)
 
 	apiKey := "test-api-key"
@@ -185,7 +149,7 @@ func (ts *ClientTestsIntegration) TestHeadersOverrideAdditionalHeaders() {
 	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
 }
 
-func (ts *ClientTestsIntegration) TestControllerHostOverride() {
+func (ts *IntegrationTests) TestControllerHostOverride() {
 	apiKey := "test-api-key"
 	httpClient := utils.CreateMockClient(`{"indexes": []}`)
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Host: "https://test-controller-host.io", RestClient: httpClient})
@@ -200,7 +164,7 @@ func (ts *ClientTestsIntegration) TestControllerHostOverride() {
 	assert.Equal(ts.T(), "test-controller-host.io", mockTransport.Req.Host, "Expected request to be made to 'test-controller-host.io', but got '%s'", mockTransport.Req.URL.Host)
 }
 
-func (ts *ClientTestsIntegration) TestControllerHostOverrideFromEnv() {
+func (ts *IntegrationTests) TestControllerHostOverrideFromEnv() {
 	os.Setenv("PINECONE_CONTROLLER_HOST", "https://env-controller-host.io")
 
 	apiKey := "test-api-key"
@@ -219,7 +183,7 @@ func (ts *ClientTestsIntegration) TestControllerHostOverrideFromEnv() {
 	os.Unsetenv("PINECONE_CONTROLLER_HOST")
 }
 
-func (ts *ClientTestsIntegration) TestControllerHostNormalization() {
+func (ts *IntegrationTests) TestControllerHostNormalization() {
 	tests := []struct {
 		name       string
 		host       string
@@ -264,22 +228,22 @@ func (ts *ClientTestsIntegration) TestControllerHostNormalization() {
 	}
 }
 
-func (ts *ClientTestsIntegration) TestListIndexes() {
+func (ts *IntegrationTests) TestListIndexes() {
 	indexes, err := ts.client.ListIndexes(context.Background())
 	require.NoError(ts.T(), err)
 	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
 }
 
-func (ts *ClientTestsIntegration) TestListIndexesSourceTag() {
+func (ts *IntegrationTests) TestListIndexesSourceTag() {
 	indexes, err := ts.clientSourceTag.ListIndexes(context.Background())
 	require.NoError(ts.T(), err)
 	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
 }
 
-func (ts *ClientTestsIntegration) TestCreatePodIndex() {
+func (ts *IntegrationTests) TestCreatePodIndex() {
 	name := uuid.New().String()
 
-	defer func(ts *ClientTestsIntegration, name string) {
+	defer func(ts *IntegrationTests, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -295,7 +259,7 @@ func (ts *ClientTestsIntegration) TestCreatePodIndex() {
 	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
 }
 
-func (ts *ClientTestsIntegration) TestCreatePodIndexInvalidDimension() {
+func (ts *IntegrationTests) TestCreatePodIndexInvalidDimension() {
 	name := uuid.New().String()
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
@@ -309,7 +273,7 @@ func (ts *ClientTestsIntegration) TestCreatePodIndexInvalidDimension() {
 	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
 }
 
-func (ts *ClientTestsIntegration) TestCreateServerlessIndexInvalidDimension() {
+func (ts *IntegrationTests) TestCreateServerlessIndexInvalidDimension() {
 	name := uuid.New().String()
 
 	_, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
@@ -323,10 +287,10 @@ func (ts *ClientTestsIntegration) TestCreateServerlessIndexInvalidDimension() {
 	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
 }
 
-func (ts *ClientTestsIntegration) TestCreateServerlessIndex() {
+func (ts *IntegrationTests) TestCreateServerlessIndex() {
 	name := uuid.New().String()
 
-	defer func(ts *ClientTestsIntegration, name string) {
+	defer func(ts *IntegrationTests, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -342,37 +306,52 @@ func (ts *ClientTestsIntegration) TestCreateServerlessIndex() {
 	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
 }
 
-func (ts *ClientTestsIntegration) TestDescribeServerlessIndex() {
-	index, err := ts.client.DescribeIndex(context.Background(), ts.serverlessIndex)
+func (ts *IntegrationTests) TestDescribeServerlessIndex() {
+	if ts.serverlessIdxName == "" {
+		ts.T().Skip("No serverless index to test")
+	}
+	index, err := ts.client.DescribeIndex(context.Background(), ts.serverlessIdxName)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.serverlessIndex, index.Name, "Index name does not match")
+	require.Equal(ts.T(), ts.serverlessIdxName, index.Name, "Index name does not match")
 }
 
-func (ts *ClientTestsIntegration) TestDescribeNonExistentIndex() {
+func (ts *IntegrationTests) TestDescribeNonExistentIndex() {
 	_, err := ts.client.DescribeIndex(context.Background(), "non-existent-index")
 	require.Error(ts.T(), err)
 	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
 }
 
-func (ts *ClientTestsIntegration) TestDescribeServerlessIndexSourceTag() {
-	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.serverlessIndex)
+func (ts *IntegrationTests) TestDescribeServerlessIndexSourceTag() {
+	if ts.serverlessIdxName == "" {
+		ts.T().Skip("No serverless index to test")
+	}
+	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.serverlessIdxName)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.serverlessIndex, index.Name, "Index name does not match")
+	require.Equal(ts.T(), ts.serverlessIdxName, index.Name, "Index name does not match")
 }
 
-func (ts *ClientTestsIntegration) TestDescribePodIndex() {
-	index, err := ts.client.DescribeIndex(context.Background(), ts.podIndex)
+func (ts *IntegrationTests) TestDescribePodIndex() {
+	if ts.podIdxName == "" {
+		ts.T().Skip("No pod index to test")
+	}
+	index, err := ts.client.DescribeIndex(context.Background(), ts.podIdxName)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.podIndex, index.Name, "Index name does not match")
+	require.Equal(ts.T(), ts.podIdxName, index.Name, "Index name does not match")
 }
 
-func (ts *ClientTestsIntegration) TestDescribePodIndexSourceTag() {
-	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.podIndex)
+func (ts *IntegrationTests) TestDescribePodIndexSourceTag() {
+	if ts.podIdxName == "" {
+		ts.T().Skip("No pod index to test")
+	}
+	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.podIdxName)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.podIndex, index.Name, "Index name does not match")
+	require.Equal(ts.T(), ts.podIdxName, index.Name, "Index name does not match")
 }
 
-func (ts *ClientTestsIntegration) TestListCollections() {
+func (ts *IntegrationTests) TestListCollections() {
+	if ts.podIdxName == "" {
+		ts.T().Skip("No pod index to test")
+	}
 	ctx := context.Background()
 
 	var collectionNames []string
@@ -381,7 +360,7 @@ func (ts *ClientTestsIntegration) TestListCollections() {
 		collectionNames = append(collectionNames, collectionName)
 	}
 
-	defer func(ts *ClientTestsIntegration, collectionNames []string) {
+	defer func(ts *IntegrationTests, collectionNames []string) {
 		for _, name := range collectionNames {
 			err := ts.client.DeleteCollection(ctx, name)
 			require.NoError(ts.T(), err, "Error deleting collection")
@@ -391,7 +370,7 @@ func (ts *ClientTestsIntegration) TestListCollections() {
 	for _, name := range collectionNames {
 		_, err := ts.client.CreateCollection(ctx, &CreateCollectionRequest{
 			Name:   name,
-			Source: ts.podIndex,
+			Source: ts.podIdxName,
 		})
 		require.NoError(ts.T(), err, "Error creating collection")
 	}
@@ -414,18 +393,21 @@ func (ts *ClientTestsIntegration) TestListCollections() {
 	require.Equal(ts.T(), len(collectionNames), found, "Not all created collections were listed")
 }
 
-func (ts *ClientTestsIntegration) TestDescribeCollection() {
+func (ts *IntegrationTests) TestDescribeCollection() {
+	if ts.podIdxName == "" {
+		ts.T().Skip("No pod index to test")
+	}
 	ctx := context.Background()
 	collectionName := uuid.New().String()
 
 	defer func(client *Client, ctx context.Context, collectionName string) {
 		err := client.DeleteCollection(ctx, collectionName)
 		require.NoError(ts.T(), err)
-	}(&ts.client, ctx, collectionName)
+	}(ts.client, ctx, collectionName)
 
 	_, err := ts.client.CreateCollection(ctx, &CreateCollectionRequest{
 		Name:   collectionName,
-		Source: ts.podIndex,
+		Source: ts.podIdxName,
 	})
 	require.NoError(ts.T(), err)
 
@@ -434,9 +416,12 @@ func (ts *ClientTestsIntegration) TestDescribeCollection() {
 	require.Equal(ts.T(), collectionName, collection.Name, "Collection name does not match")
 }
 
-func (ts *ClientTestsIntegration) TestCreateCollection() {
+func (ts *IntegrationTests) TestCreateCollection() {
+	if ts.podIdxName == "" {
+		ts.T().Skip("No pod index to test")
+	}
 	name := uuid.New().String()
-	sourceIndex := ts.podIndex
+	sourceIndex := ts.podIdxName
 
 	defer func() {
 		err := ts.client.DeleteCollection(context.Background(), name)
@@ -451,11 +436,14 @@ func (ts *ClientTestsIntegration) TestCreateCollection() {
 	require.Equal(ts.T(), name, collection.Name, "Collection name does not match")
 }
 
-func (ts *ClientTestsIntegration) TestDeleteCollection() {
+func (ts *IntegrationTests) TestDeleteCollection() {
+	if ts.podIdxName == "" {
+		ts.T().Skip("No pod index to test")
+	}
 	collectionName := uuid.New().String()
 	_, err := ts.client.CreateCollection(context.Background(), &CreateCollectionRequest{
 		Name:   collectionName,
-		Source: ts.podIndex,
+		Source: ts.podIdxName,
 	})
 	require.NoError(ts.T(), err)
 
@@ -463,10 +451,10 @@ func (ts *ClientTestsIntegration) TestDeleteCollection() {
 	require.NoError(ts.T(), err)
 }
 
-func (ts *ClientTestsIntegration) TestConfigureIndexIllegalScaleDown() {
+func (ts *IntegrationTests) TestConfigureIndexIllegalScaleDown() {
 	name := uuid.New().String()
 
-	defer func(ts *ClientTestsIntegration, name string) {
+	defer func(ts *IntegrationTests, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -488,10 +476,10 @@ func (ts *ClientTestsIntegration) TestConfigureIndexIllegalScaleDown() {
 	require.ErrorContainsf(ts.T(), err, "Cannot scale down", err.Error())
 }
 
-func (ts *ClientTestsIntegration) TestConfigureIndexScaleUpNoPods() {
+func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 	name := uuid.New().String()
 
-	defer func(ts *ClientTestsIntegration, name string) {
+	defer func(ts *IntegrationTests, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -512,10 +500,10 @@ func (ts *ClientTestsIntegration) TestConfigureIndexScaleUpNoPods() {
 	require.NoError(ts.T(), err)
 }
 
-func (ts *ClientTestsIntegration) TestConfigureIndexScaleUpNoReplicas() {
+func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 	name := uuid.New().String()
 
-	defer func(ts *ClientTestsIntegration, name string) {
+	defer func(ts *IntegrationTests, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -536,10 +524,10 @@ func (ts *ClientTestsIntegration) TestConfigureIndexScaleUpNoReplicas() {
 	require.NoError(ts.T(), err)
 }
 
-func (ts *ClientTestsIntegration) TestConfigureIndexIllegalNoPodsOrReplicas() {
+func (ts *IntegrationTests) TestConfigureIndexIllegalNoPodsOrReplicas() {
 	name := uuid.New().String()
 
-	defer func(ts *ClientTestsIntegration, name string) {
+	defer func(ts *IntegrationTests, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -559,10 +547,10 @@ func (ts *ClientTestsIntegration) TestConfigureIndexIllegalNoPodsOrReplicas() {
 	require.ErrorContainsf(ts.T(), err, "must specify either podType or replicas", err.Error())
 }
 
-func (ts *ClientTestsIntegration) TestConfigureIndexHitPodLimit() {
+func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 	name := uuid.New().String()
 
-	defer func(ts *ClientTestsIntegration, name string) {
+	defer func(ts *IntegrationTests, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -583,11 +571,11 @@ func (ts *ClientTestsIntegration) TestConfigureIndexHitPodLimit() {
 	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
 }
 
-func (ts *ClientTestsIntegration) deleteIndex(name string) error {
+func (ts *IntegrationTests) deleteIndex(name string) error {
 	return ts.client.DeleteIndex(context.Background(), name)
 }
 
-func (ts *ClientTestsIntegration) TestExtractAuthHeader() {
+func (ts *IntegrationTests) TestExtractAuthHeader() {
 	globalApiKey := os.Getenv("PINECONE_API_KEY")
 	os.Unsetenv("PINECONE_API_KEY")
 
@@ -631,7 +619,7 @@ func (ts *ClientTestsIntegration) TestExtractAuthHeader() {
 	os.Setenv("PINECONE_API_KEY", globalApiKey)
 }
 
-func (ts *ClientTestsIntegration) TestApiKeyPassedToIndexConnection() {
+func (ts *IntegrationTests) TestApiKeyPassedToIndexConnection() {
 	apiKey := "test-api-key"
 
 	client, err := NewClient(NewClientParams{ApiKey: apiKey})
