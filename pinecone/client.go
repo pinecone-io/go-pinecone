@@ -821,7 +821,7 @@ type ConfigureIndexParams struct {
 //
 // Example:
 //
-//		// To scale the size of your pods from "x2" to "x4":
+//		// To scale the size of your pods-based index from "x2" to "x4":
 //		 _, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{PodType: "p1.x4"})
 //		 if err != nil {
 //		     fmt.Printf("Failed to configure index: %v\n", err)
@@ -1209,14 +1209,14 @@ func toIndex(idx *control.IndexModel) *Index {
 		Ready: idx.Status.Ready,
 		State: IndexStatusState(idx.Status.State),
 	}
-	deletionProtecetion := derefOrDefault(idx.DeletionProtection, control.Disabled)
+	deletionProtection := derefOrDefault(idx.DeletionProtection, "")
 
 	return &Index{
 		Name:               idx.Name,
 		Dimension:          idx.Dimension,
 		Host:               idx.Host,
 		Metric:             IndexMetric(idx.Metric),
-		DeletionProtection: deletionProtecetion,
+		DeletionProtection: DeletionProtection(deletionProtection),
 		Spec:               spec,
 		Status:             status,
 	}
