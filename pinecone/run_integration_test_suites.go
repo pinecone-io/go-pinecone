@@ -32,18 +32,18 @@ func RunSuites(t *testing.T) {
 		client:          client,
 		clientSourceTag: *clientSourceTag,
 		sourceTag:       sourceTag,
-		podIdxName:      podIdx.Name,
+		IdxName:         podIdx.Name,
 	}
 
 	serverlessTestSuite := &IntegrationTests{
-		host:              serverlessIdx.Host,
-		dimension:         serverlessIdx.Dimension,
-		apiKey:            apiKey,
-		indexType:         "serverless",
-		client:            client,
-		clientSourceTag:   *clientSourceTag,
-		sourceTag:         sourceTag,
-		serverlessIdxName: serverlessIdx.Name,
+		host:            serverlessIdx.Host,
+		dimension:       serverlessIdx.Dimension,
+		apiKey:          apiKey,
+		indexType:       "serverless",
+		client:          client,
+		clientSourceTag: *clientSourceTag,
+		sourceTag:       sourceTag,
+		IdxName:         serverlessIdx.Name,
 	}
 
 	suite.Run(t, podTestSuite)
