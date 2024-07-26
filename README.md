@@ -1,8 +1,3 @@
-> **Warning**
->
-> **Under active development** This SDK is pre-1.0 and should be considered unstable. Before a 1.0 release, there are
-> no guarantees of backward compatibility between minor versions.
-
 # go-pinecone
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/pinecone-io/go-pinecone.svg)](https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone)
@@ -11,7 +6,7 @@ Official Pinecone Go Client
 
 ## Documentation
 
-To see the latest documentation on `main`, visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone.
+To see the latest documentation for `main`, visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone.
 
 To see the latest versioned-release's documentation,
 visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/pinecone.
@@ -20,22 +15,156 @@ visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/pinecone.
 
 go-pinecone contains
 
-- gRPC bindings for Data Plane operations on Vectors
-- REST bindings for Control Plane operations on Indexes and Collections
+- gRPC bindings for [Data Plane](https://docs.pinecone.io/reference/api/2024-07/data-plane) operations
+- REST bindings for [Control Plane](https://docs.pinecone.io/reference/api/2024-07/control-plane)
+  operations
 
-See [Pinecone API Docs](https://docs.pinecone.io/reference/) for more info.
+See the [Pinecone API Docs](https://docs.pinecone.io/reference/) for more information.
+
+## Upgrading your client
+
+tktk
+
+## Prerequisites
+
+`go-pinecone` requires a Go version with [modules](https://go.dev/wiki/Modules) support.
 
 ## Installation
 
-go-pinecone requires a Go version with [modules](https://go.dev/wiki/Modules) support.
-
-To add a dependency on go-pinecone:
+To install the package, run the following in your terminal:
 
 ```shell
 go get github.com/pinecone-io/go-pinecone/pinecone
 ```
 
+For more information on setting up Go project, see the [Go documentation](https://golang.org/doc/).
+
 ## Usage
+
+### Initializing the client
+
+**Authenticating via an API key**
+
+When initializing the client with a Pinecone API key, you must construct a `NewClientParams` and pass it to the
+`NewClient` function.
+
+It's recommended that you set your Pinecone API key as an environment variable (`"PINECONE_API_KEY"`) and access it that
+way. Alternatively, you can pass it in your code directly.
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
+
+	pc, err := pinecone.NewClient(clientParams)
+
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
+}
+```
+
+**Authenticating via custom headers**
+
+If you choose to authenticate via custom headers (e.g. for OAuth), you must construct a `NewClientBaseParams` object
+and pass it to `NewClientBase`.
+
+Note: you must include the `"X-Project-Id"` header with your Pinecone project ID
+when authenticating via custom headers.
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+)
+
+func main() {
+	clientParams := pinecone.NewClientBaseParams{
+		Headers: map[string]string{
+			"Authorization": "Bearer " + "<your OAuth token>"
+			"X-Project-Id":  "<Your Pinecone project ID>"
+		},
+	}
+
+	pc, err := pinecone.NewClientBase(clientParams)
+
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
+}
+
+
+```
+
+### Indexes
+
+#### Create indexes
+
+**Create a serverless index**
+
+The following example creates a serverless index in the `us-west-2`
+region of AWS. For more information on serverless and regional availability,
+see [Understanding indexes](https://docs.pinecone.io/guides/indexes/understanding-indexes#serverless-indexes).
+
+```go
+tk
+```
+
+**Create a pod-based index**
+The following example creates an index without a metadata
+configuration. By default, Pinecone indexes all metadata.
+
+#### List indexes
+
+#### Describe an index
+
+#### Delete an index
+
+#### Configure an index
+
+- pods, replicas, deletion protection
+-
+
+#### Describe index statistics
+
+#### Upsert vectors
+
+#### Query an index
+
+#### Delete vectors
+
+#### Fetch vectors
+
+#### Update vectors
+
+#### List vectors
+
+### Collections
+
+#### Create a collection
+
+#### List collections
+
+#### Describe a collection
+
+#### Delete a collection
 
 ```go
 package main
@@ -90,7 +219,7 @@ func main() {
 
 To get help using go-pinecone, reach out to support@pinecone.io.
 
-## Development
+## Contributing and development
 
 ### Prereqs
 

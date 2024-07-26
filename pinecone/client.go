@@ -194,7 +194,7 @@ func NewClient(in NewClientParams) (*Client, error) {
 //
 //	    clientParams := pinecone.NewClientBaseParams{
 //	        Headers: map[string]string{
-//	            "Authorization": "Bearer " + "<your JWT token>"
+//	            "Authorization": "Bearer " + "<your OAuth token>"
 //	            "X-Project-Id": "<Your Pinecone project ID>"
 //	        },
 //	        SourceTag: "your_source_identifier", // optional
