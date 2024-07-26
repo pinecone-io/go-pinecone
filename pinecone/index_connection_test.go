@@ -18,10 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIndexConnectionIntegration(t *testing.T) {
-	RunSuites(t)
-}
-
 // Integration tests
 func (ts *IntegrationTests) TestNewIndexConnection() {
 	apiKey := "test-api-key"

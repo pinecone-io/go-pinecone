@@ -1,3 +1,4 @@
+// This file is used to run all the test suites in the package pinecone
 package pinecone
 
 import (
@@ -49,4 +50,8 @@ func RunSuites(t *testing.T) {
 	suite.Run(t, podTestSuite)
 	suite.Run(t, serverlessTestSuite)
 
+}
+
+func TestRunSuites(t *testing.T) {
+	RunSuites(t)
 }

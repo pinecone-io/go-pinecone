@@ -23,10 +23,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestClientIntegration(t *testing.T) {
-	RunSuites(t)
-}
-
 // Integration tests:
 func (ts *IntegrationTests) TestNewClientParamsSet() {
 	apiKey := "test-api-key"
@@ -307,7 +303,7 @@ func (ts *IntegrationTests) TestCreateServerlessIndex() {
 }
 
 func (ts *IntegrationTests) TestDescribeServerlessIndex() {
-	if ts.idxName == "" {
+	if ts.indexType == "pods" {
 		ts.T().Skip("No serverless index to test")
 	}
 	index, err := ts.client.DescribeIndex(context.Background(), ts.idxName)
@@ -322,7 +318,7 @@ func (ts *IntegrationTests) TestDescribeNonExistentIndex() {
 }
 
 func (ts *IntegrationTests) TestDescribeServerlessIndexSourceTag() {
-	if ts.idxName == "" {
+	if ts.indexType == "pods" {
 		ts.T().Skip("No serverless index to test")
 	}
 	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.idxName)
@@ -331,7 +327,7 @@ func (ts *IntegrationTests) TestDescribeServerlessIndexSourceTag() {
 }
 
 func (ts *IntegrationTests) TestDescribePodIndex() {
-	if ts.idxName == "" {
+	if ts.indexType == "serverless" {
 		ts.T().Skip("No pod index to test")
 	}
 	index, err := ts.client.DescribeIndex(context.Background(), ts.idxName)
@@ -340,7 +336,7 @@ func (ts *IntegrationTests) TestDescribePodIndex() {
 }
 
 func (ts *IntegrationTests) TestDescribePodIndexSourceTag() {
-	if ts.idxName == "" {
+	if ts.indexType == "serverless" {
 		ts.T().Skip("No pod index to test")
 	}
 	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.idxName)
@@ -349,7 +345,7 @@ func (ts *IntegrationTests) TestDescribePodIndexSourceTag() {
 }
 
 func (ts *IntegrationTests) TestListCollections() {
-	if ts.idxName == "" {
+	if ts.indexType == "serverless" {
 		ts.T().Skip("No pod index to test")
 	}
 	ctx := context.Background()
@@ -394,7 +390,7 @@ func (ts *IntegrationTests) TestListCollections() {
 }
 
 func (ts *IntegrationTests) TestDescribeCollection() {
-	if ts.idxName == "" {
+	if ts.indexType == "serverless" {
 		ts.T().Skip("No pod index to test")
 	}
 	ctx := context.Background()
@@ -417,7 +413,7 @@ func (ts *IntegrationTests) TestDescribeCollection() {
 }
 
 func (ts *IntegrationTests) TestCreateCollection() {
-	if ts.idxName == "" {
+	if ts.indexType == "serverless" {
 		ts.T().Skip("No pod index to test")
 	}
 	name := uuid.New().String()
@@ -437,7 +433,7 @@ func (ts *IntegrationTests) TestCreateCollection() {
 }
 
 func (ts *IntegrationTests) TestDeleteCollection() {
-	if ts.idxName == "" {
+	if ts.indexType == "serverless" {
 		ts.T().Skip("No pod index to test")
 	}
 	collectionName := uuid.New().String()
