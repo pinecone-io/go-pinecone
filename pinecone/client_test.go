@@ -307,12 +307,12 @@ func (ts *IntegrationTests) TestCreateServerlessIndex() {
 }
 
 func (ts *IntegrationTests) TestDescribeServerlessIndex() {
-	if ts.IdxName == "" {
+	if ts.idxName == "" {
 		ts.T().Skip("No serverless index to test")
 	}
-	index, err := ts.client.DescribeIndex(context.Background(), ts.IdxName)
+	index, err := ts.client.DescribeIndex(context.Background(), ts.idxName)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.IdxName, index.Name, "Index name does not match")
+	require.Equal(ts.T(), ts.idxName, index.Name, "Index name does not match")
 }
 
 func (ts *IntegrationTests) TestDescribeNonExistentIndex() {
@@ -322,34 +322,34 @@ func (ts *IntegrationTests) TestDescribeNonExistentIndex() {
 }
 
 func (ts *IntegrationTests) TestDescribeServerlessIndexSourceTag() {
-	if ts.IdxName == "" {
+	if ts.idxName == "" {
 		ts.T().Skip("No serverless index to test")
 	}
-	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.IdxName)
+	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.idxName)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.IdxName, index.Name, "Index name does not match")
+	require.Equal(ts.T(), ts.idxName, index.Name, "Index name does not match")
 }
 
 func (ts *IntegrationTests) TestDescribePodIndex() {
-	if ts.IdxName == "" {
+	if ts.idxName == "" {
 		ts.T().Skip("No pod index to test")
 	}
-	index, err := ts.client.DescribeIndex(context.Background(), ts.IdxName)
+	index, err := ts.client.DescribeIndex(context.Background(), ts.idxName)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.IdxName, index.Name, "Index name does not match")
+	require.Equal(ts.T(), ts.idxName, index.Name, "Index name does not match")
 }
 
 func (ts *IntegrationTests) TestDescribePodIndexSourceTag() {
-	if ts.IdxName == "" {
+	if ts.idxName == "" {
 		ts.T().Skip("No pod index to test")
 	}
-	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.IdxName)
+	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.idxName)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.IdxName, index.Name, "Index name does not match")
+	require.Equal(ts.T(), ts.idxName, index.Name, "Index name does not match")
 }
 
 func (ts *IntegrationTests) TestListCollections() {
-	if ts.IdxName == "" {
+	if ts.idxName == "" {
 		ts.T().Skip("No pod index to test")
 	}
 	ctx := context.Background()
@@ -370,7 +370,7 @@ func (ts *IntegrationTests) TestListCollections() {
 	for _, name := range collectionNames {
 		_, err := ts.client.CreateCollection(ctx, &CreateCollectionRequest{
 			Name:   name,
-			Source: ts.IdxName,
+			Source: ts.idxName,
 		})
 		require.NoError(ts.T(), err, "Error creating collection")
 	}
@@ -394,7 +394,7 @@ func (ts *IntegrationTests) TestListCollections() {
 }
 
 func (ts *IntegrationTests) TestDescribeCollection() {
-	if ts.IdxName == "" {
+	if ts.idxName == "" {
 		ts.T().Skip("No pod index to test")
 	}
 	ctx := context.Background()
@@ -407,7 +407,7 @@ func (ts *IntegrationTests) TestDescribeCollection() {
 
 	_, err := ts.client.CreateCollection(ctx, &CreateCollectionRequest{
 		Name:   collectionName,
-		Source: ts.IdxName,
+		Source: ts.idxName,
 	})
 	require.NoError(ts.T(), err)
 
@@ -417,11 +417,11 @@ func (ts *IntegrationTests) TestDescribeCollection() {
 }
 
 func (ts *IntegrationTests) TestCreateCollection() {
-	if ts.IdxName == "" {
+	if ts.idxName == "" {
 		ts.T().Skip("No pod index to test")
 	}
 	name := uuid.New().String()
-	sourceIndex := ts.IdxName
+	sourceIndex := ts.idxName
 
 	defer func() {
 		err := ts.client.DeleteCollection(context.Background(), name)
@@ -437,13 +437,13 @@ func (ts *IntegrationTests) TestCreateCollection() {
 }
 
 func (ts *IntegrationTests) TestDeleteCollection() {
-	if ts.IdxName == "" {
+	if ts.idxName == "" {
 		ts.T().Skip("No pod index to test")
 	}
 	collectionName := uuid.New().String()
 	_, err := ts.client.CreateCollection(context.Background(), &CreateCollectionRequest{
 		Name:   collectionName,
-		Source: ts.IdxName,
+		Source: ts.idxName,
 	})
 	require.NoError(ts.T(), err)
 
@@ -1230,40 +1230,6 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 func isValidUUID(u string) bool {
 	_, err := uuid.Parse(u)
 	return err == nil
-}
-
-func deleteUUIDNamedResources(ctx context.Context, c *Client) error {
-	// Delete UUID-named indexes
-	indexes, err := c.ListIndexes(ctx)
-	if err != nil {
-		return err
-	}
-
-	for _, index := range indexes {
-		if isValidUUID(index.Name) {
-			err := c.DeleteIndex(ctx, index.Name)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	// Delete UUID-named collections
-	collections, err := c.ListCollections(ctx)
-	if err != nil {
-		return err
-	}
-
-	for _, collection := range collections {
-		if isValidUUID(collection.Name) {
-			err := c.DeleteCollection(ctx, collection.Name)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
 }
 
 func mockResponse(body string, statusCode int) *http.Response {

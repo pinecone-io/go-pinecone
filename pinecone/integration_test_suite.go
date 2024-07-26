@@ -23,7 +23,7 @@ type IntegrationTests struct {
 	dimension        int32
 	indexType        string
 	vectorIds        []string
-	IdxName          string
+	idxName          string
 	idxConn          *IndexConnection
 	sourceTag        string
 	clientSourceTag  Client
@@ -80,8 +80,7 @@ func (ts *IntegrationTests) TearDownSuite() {
 	ctx := context.Background()
 
 	// Delete test indexes
-	err := ts.client.DeleteIndex(ctx, ts.IdxName)
-	//err = ts.client.DeleteIndex(ctx, ts.podIdxName)
+	err := ts.client.DeleteIndex(ctx, ts.idxName)
 
 	err = ts.idxConn.Close()
 	require.NoError(ts.T(), err)
@@ -120,27 +119,17 @@ func upsertVectors(ts *IntegrationTests, ctx context.Context, vectors []*Vector)
 }
 
 func GetIndexStatus(ts *IntegrationTests, ctx context.Context) (bool, error) {
-	//var indexName string
-	//if ts.IdxName == "serverless" {
-	//	indexName = ts.serverlessIdxName
-	//} else if ts.indexType == "pods" {
-	//	indexName = ts.podIdxName
-	//}
-	//if ts.client == nil {
-	//	return false, fmt.Errorf("client is nil")
-	//}
-
 	var desc *Index
 	var err error
 	maxRetries := 12
 	delay := 12 * time.Second
 	for i := 0; i < maxRetries; i++ {
-		desc, err = ts.client.DescribeIndex(ctx, ts.IdxName)
+		desc, err = ts.client.DescribeIndex(ctx, ts.idxName)
 		if err == nil {
 			break
 		}
 		if status.Code(err) == codes.Unknown {
-			fmt.Printf("Index \"%s\" not found, retrying... (%d/%d)\n", ts.IdxName, i+1, maxRetries)
+			fmt.Printf("Index \"%s\" not found, retrying... (%d/%d)\n", ts.idxName, i+1, maxRetries)
 			time.Sleep(delay)
 		} else {
 			fmt.Printf("Status code = %v\n", status.Code(err))
@@ -148,7 +137,7 @@ func GetIndexStatus(ts *IntegrationTests, ctx context.Context) (bool, error) {
 		}
 	}
 	if err != nil {
-		return false, fmt.Errorf("failed to describe index \"%s\" after retries: %v", err, ts.IdxName)
+		return false, fmt.Errorf("failed to describe index \"%s\" after retries: %v", err, ts.idxName)
 	}
 	return desc.Status.Ready, nil
 }

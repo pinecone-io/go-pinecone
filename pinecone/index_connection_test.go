@@ -1022,7 +1022,6 @@ func TestToPaginationToken(t *testing.T) {
 }
 
 // Helper funcs
-
 func generateFloat32Array(n int) []float32 {
 	array := make([]float32, n)
 	for i := 0; i < n; i++ {
