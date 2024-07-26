@@ -307,12 +307,12 @@ func (ts *IntegrationTests) TestCreateServerlessIndex() {
 }
 
 func (ts *IntegrationTests) TestDescribeServerlessIndex() {
-	if ts.serverlessIdxName == "" {
+	if ts.IdxName == "" {
 		ts.T().Skip("No serverless index to test")
 	}
-	index, err := ts.client.DescribeIndex(context.Background(), ts.serverlessIdxName)
+	index, err := ts.client.DescribeIndex(context.Background(), ts.IdxName)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.serverlessIdxName, index.Name, "Index name does not match")
+	require.Equal(ts.T(), ts.IdxName, index.Name, "Index name does not match")
 }
 
 func (ts *IntegrationTests) TestDescribeNonExistentIndex() {
@@ -322,34 +322,34 @@ func (ts *IntegrationTests) TestDescribeNonExistentIndex() {
 }
 
 func (ts *IntegrationTests) TestDescribeServerlessIndexSourceTag() {
-	if ts.serverlessIdxName == "" {
+	if ts.IdxName == "" {
 		ts.T().Skip("No serverless index to test")
 	}
-	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.serverlessIdxName)
+	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.IdxName)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.serverlessIdxName, index.Name, "Index name does not match")
+	require.Equal(ts.T(), ts.IdxName, index.Name, "Index name does not match")
 }
 
 func (ts *IntegrationTests) TestDescribePodIndex() {
-	if ts.podIdxName == "" {
+	if ts.IdxName == "" {
 		ts.T().Skip("No pod index to test")
 	}
-	index, err := ts.client.DescribeIndex(context.Background(), ts.podIdxName)
+	index, err := ts.client.DescribeIndex(context.Background(), ts.IdxName)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.podIdxName, index.Name, "Index name does not match")
+	require.Equal(ts.T(), ts.IdxName, index.Name, "Index name does not match")
 }
 
 func (ts *IntegrationTests) TestDescribePodIndexSourceTag() {
-	if ts.podIdxName == "" {
+	if ts.IdxName == "" {
 		ts.T().Skip("No pod index to test")
 	}
-	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.podIdxName)
+	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.IdxName)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.podIdxName, index.Name, "Index name does not match")
+	require.Equal(ts.T(), ts.IdxName, index.Name, "Index name does not match")
 }
 
 func (ts *IntegrationTests) TestListCollections() {
-	if ts.podIdxName == "" {
+	if ts.IdxName == "" {
 		ts.T().Skip("No pod index to test")
 	}
 	ctx := context.Background()
@@ -370,7 +370,7 @@ func (ts *IntegrationTests) TestListCollections() {
 	for _, name := range collectionNames {
 		_, err := ts.client.CreateCollection(ctx, &CreateCollectionRequest{
 			Name:   name,
-			Source: ts.podIdxName,
+			Source: ts.IdxName,
 		})
 		require.NoError(ts.T(), err, "Error creating collection")
 	}
@@ -394,7 +394,7 @@ func (ts *IntegrationTests) TestListCollections() {
 }
 
 func (ts *IntegrationTests) TestDescribeCollection() {
-	if ts.podIdxName == "" {
+	if ts.IdxName == "" {
 		ts.T().Skip("No pod index to test")
 	}
 	ctx := context.Background()
@@ -407,7 +407,7 @@ func (ts *IntegrationTests) TestDescribeCollection() {
 
 	_, err := ts.client.CreateCollection(ctx, &CreateCollectionRequest{
 		Name:   collectionName,
-		Source: ts.podIdxName,
+		Source: ts.IdxName,
 	})
 	require.NoError(ts.T(), err)
 
@@ -417,11 +417,11 @@ func (ts *IntegrationTests) TestDescribeCollection() {
 }
 
 func (ts *IntegrationTests) TestCreateCollection() {
-	if ts.podIdxName == "" {
+	if ts.IdxName == "" {
 		ts.T().Skip("No pod index to test")
 	}
 	name := uuid.New().String()
-	sourceIndex := ts.podIdxName
+	sourceIndex := ts.IdxName
 
 	defer func() {
 		err := ts.client.DeleteCollection(context.Background(), name)
@@ -437,13 +437,13 @@ func (ts *IntegrationTests) TestCreateCollection() {
 }
 
 func (ts *IntegrationTests) TestDeleteCollection() {
-	if ts.podIdxName == "" {
+	if ts.IdxName == "" {
 		ts.T().Skip("No pod index to test")
 	}
 	collectionName := uuid.New().String()
 	_, err := ts.client.CreateCollection(context.Background(), &CreateCollectionRequest{
 		Name:   collectionName,
-		Source: ts.podIdxName,
+		Source: ts.IdxName,
 	})
 	require.NoError(ts.T(), err)
 

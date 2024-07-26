@@ -17,18 +17,17 @@ import (
 
 type IntegrationTests struct {
 	suite.Suite
-	apiKey            string
-	client            *Client
-	host              string
-	dimension         int32
-	indexType         string
-	vectorIds         []string
-	podIdxName        string
-	serverlessIdxName string
-	idxConn           *IndexConnection
-	sourceTag         string
-	clientSourceTag   Client
-	idxConnSourceTag  *IndexConnection
+	apiKey           string
+	client           *Client
+	host             string
+	dimension        int32
+	indexType        string
+	vectorIds        []string
+	IdxName          string
+	idxConn          *IndexConnection
+	sourceTag        string
+	clientSourceTag  Client
+	idxConnSourceTag *IndexConnection
 }
 
 func (ts *IntegrationTests) SetupSuite() {
@@ -81,8 +80,8 @@ func (ts *IntegrationTests) TearDownSuite() {
 	ctx := context.Background()
 
 	// Delete test indexes
-	err := ts.client.DeleteIndex(ctx, ts.serverlessIdxName)
-	err = ts.client.DeleteIndex(ctx, ts.podIdxName)
+	err := ts.client.DeleteIndex(ctx, ts.IdxName)
+	//err = ts.client.DeleteIndex(ctx, ts.podIdxName)
 
 	err = ts.idxConn.Close()
 	require.NoError(ts.T(), err)
@@ -120,29 +119,28 @@ func upsertVectors(ts *IntegrationTests, ctx context.Context, vectors []*Vector)
 	return nil
 }
 
-// TODO: how to get this func to work for client tests too
 func GetIndexStatus(ts *IntegrationTests, ctx context.Context) (bool, error) {
-	var indexName string
-	if ts.indexType == "serverless" {
-		indexName = ts.serverlessIdxName
-	} else if ts.indexType == "pods" {
-		indexName = ts.podIdxName
-	}
-	if ts.client == nil {
-		return false, fmt.Errorf("client is nil")
-	}
+	//var indexName string
+	//if ts.IdxName == "serverless" {
+	//	indexName = ts.serverlessIdxName
+	//} else if ts.indexType == "pods" {
+	//	indexName = ts.podIdxName
+	//}
+	//if ts.client == nil {
+	//	return false, fmt.Errorf("client is nil")
+	//}
 
 	var desc *Index
 	var err error
 	maxRetries := 12
 	delay := 12 * time.Second
 	for i := 0; i < maxRetries; i++ {
-		desc, err = ts.client.DescribeIndex(ctx, indexName)
+		desc, err = ts.client.DescribeIndex(ctx, ts.IdxName)
 		if err == nil {
 			break
 		}
 		if status.Code(err) == codes.Unknown {
-			fmt.Printf("Index \"%s\" not found, retrying... (%d/%d)\n", indexName, i+1, maxRetries)
+			fmt.Printf("Index \"%s\" not found, retrying... (%d/%d)\n", ts.IdxName, i+1, maxRetries)
 			time.Sleep(delay)
 		} else {
 			fmt.Printf("Status code = %v\n", status.Code(err))
@@ -150,7 +148,7 @@ func GetIndexStatus(ts *IntegrationTests, ctx context.Context) (bool, error) {
 		}
 	}
 	if err != nil {
-		return false, fmt.Errorf("failed to describe index \"%s\" after retries: %v", err, indexName)
+		return false, fmt.Errorf("failed to describe index \"%s\" after retries: %v", err, ts.IdxName)
 	}
 	return desc.Status.Ready, nil
 }
