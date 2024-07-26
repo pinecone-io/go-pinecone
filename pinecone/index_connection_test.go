@@ -4,114 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
+	"log"
 	"testing"
+	"time"
 
 	"github.com/pinecone-io/go-pinecone/internal/gen/data"
-	"google.golang.org/grpc/metadata"
-
-	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/internal/utils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/structpb"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// Integration tests:
-type IndexConnectionTestsIntegration struct {
-	suite.Suite
-	host             string
-	dimension        int32
-	apiKey           string
-	indexType        string
-	idxConn          *IndexConnection
-	sourceTag        string
-	idxConnSourceTag *IndexConnection
-	vectorIds        []string
-}
-
-func TestIntegrationIndexConnection(t *testing.T) {
-	apiKey := os.Getenv("PINECONE_API_KEY")
-	assert.NotEmptyf(t, apiKey, "PINECONE_API_KEY env variable not set")
-
-	client, err := NewClient(NewClientParams{ApiKey: apiKey})
-	if err != nil {
-		t.FailNow()
-	}
-
-	podIndexName := os.Getenv("TEST_PODS_INDEX_NAME")
-	assert.NotEmptyf(t, podIndexName, "TEST_PODS_INDEX_NAME env variable not set")
-
-	podIdx, err := client.DescribeIndex(context.Background(), podIndexName)
-	if err != nil {
-		t.FailNow()
-	}
-
-	podTestSuite := new(IndexConnectionTestsIntegration)
-	podTestSuite.indexType = "pod"
-	podTestSuite.host = podIdx.Host
-	podTestSuite.dimension = podIdx.Dimension
-	podTestSuite.apiKey = apiKey
-
-	serverlessIndexName := os.Getenv("TEST_SERVERLESS_INDEX_NAME")
-	assert.NotEmptyf(t, serverlessIndexName, "TEST_SERVERLESS_INDEX_NAME env variable not set")
-
-	serverlessIdx, err := client.DescribeIndex(context.Background(), serverlessIndexName)
-	if err != nil {
-		t.FailNow()
-	}
-
-	serverlessTestSuite := new(IndexConnectionTestsIntegration)
-	serverlessTestSuite.indexType = "serverless"
-	serverlessTestSuite.host = serverlessIdx.Host
-	serverlessTestSuite.dimension = serverlessIdx.Dimension
-	serverlessTestSuite.apiKey = apiKey
-
-	suite.Run(t, podTestSuite)
-	suite.Run(t, serverlessTestSuite)
-}
-
-func (ts *IndexConnectionTestsIntegration) SetupSuite() {
-	assert.NotEmptyf(ts.T(), ts.host, "HOST env variable not set")
-	assert.NotEmptyf(ts.T(), ts.apiKey, "API_KEY env variable not set")
-	additionalMetadata := map[string]string{"api-key": ts.apiKey}
-
-	namespace, err := uuid.NewV7()
-	assert.NoError(ts.T(), err)
-
-	idxConn, err := newIndexConnection(newIndexParameters{
-		additionalMetadata: additionalMetadata,
-		host:               ts.host,
-		namespace:          namespace.String(),
-		sourceTag:          ""})
-	assert.NoError(ts.T(), err)
-	ts.idxConn = idxConn
-
-	ts.sourceTag = "test_source_tag"
-	idxConnSourceTag, err := newIndexConnection(newIndexParameters{
-		additionalMetadata: additionalMetadata,
-		host:               ts.host,
-		namespace:          namespace.String(),
-		sourceTag:          ts.sourceTag})
-	assert.NoError(ts.T(), err)
-	ts.idxConnSourceTag = idxConnSourceTag
-
-	ts.loadData()
-}
-
-func (ts *IndexConnectionTestsIntegration) TearDownSuite() {
-	ts.truncateData()
-
-	err := ts.idxConn.Close()
-	assert.NoError(ts.T(), err)
-
-	err = ts.idxConnSourceTag.Close()
-	assert.NoError(ts.T(), err)
-}
-
-func (ts *IndexConnectionTestsIntegration) TestNewIndexConnection() {
+// Integration tests
+func (ts *IntegrationTests) TestNewIndexConnection() {
 	apiKey := "test-api-key"
 	namespace := ""
 	sourceTag := ""
@@ -131,7 +39,7 @@ func (ts *IndexConnectionTestsIntegration) TestNewIndexConnection() {
 	require.NotNil(ts.T(), idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
 }
 
-func (ts *IndexConnectionTestsIntegration) TestNewIndexConnectionNamespace() {
+func (ts *IntegrationTests) TestNewIndexConnectionNamespace() {
 	apiKey := "test-api-key"
 	namespace := "test-namespace"
 	sourceTag := "test-source-tag"
@@ -151,21 +59,21 @@ func (ts *IndexConnectionTestsIntegration) TestNewIndexConnectionNamespace() {
 	require.NotNil(ts.T(), idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
 }
 
-func (ts *IndexConnectionTestsIntegration) TestFetchVectors() {
+func (ts *IntegrationTests) TestFetchVectors() {
 	ctx := context.Background()
 	res, err := ts.idxConn.FetchVectors(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestFetchVectorsSourceTag() {
+func (ts *IntegrationTests) TestFetchVectorsSourceTag() {
 	ctx := context.Background()
 	res, err := ts.idxConnSourceTag.FetchVectors(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestQueryByVector() {
+func (ts *IntegrationTests) TestQueryByVector() {
 	vec := make([]float32, ts.dimension)
 	for i := range vec {
 		vec[i] = 0.01
@@ -182,7 +90,7 @@ func (ts *IndexConnectionTestsIntegration) TestQueryByVector() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestQueryByVectorSourceTag() {
+func (ts *IntegrationTests) TestQueryByVectorSourceTag() {
 	vec := make([]float32, ts.dimension)
 	for i := range vec {
 		vec[i] = 0.01
@@ -199,7 +107,7 @@ func (ts *IndexConnectionTestsIntegration) TestQueryByVectorSourceTag() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestQueryById() {
+func (ts *IntegrationTests) TestQueryById() {
 	req := &QueryByVectorIdRequest{
 		VectorId: ts.vectorIds[0],
 		TopK:     5,
@@ -211,7 +119,7 @@ func (ts *IndexConnectionTestsIntegration) TestQueryById() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestQueryByIdSourceTag() {
+func (ts *IntegrationTests) TestQueryByIdSourceTag() {
 	req := &QueryByVectorIdRequest{
 		VectorId: ts.vectorIds[0],
 		TopK:     5,
@@ -223,15 +131,18 @@ func (ts *IndexConnectionTestsIntegration) TestQueryByIdSourceTag() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsById() {
+func (ts *IntegrationTests) TestDeleteVectorsById() {
 	ctx := context.Background()
 	err := ts.idxConn.DeleteVectorsById(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
 
-	ts.loadData() //reload deleted data
+	_, err = ts.idxConn.UpsertVectors(ctx, createVectorsForUpsert())
+	if err != nil {
+		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
+	}
 }
 
-func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsByFilter() {
+func (ts *IntegrationTests) TestDeleteVectorsByFilter() {
 	metadataFilter := map[string]interface{}{
 		"genre": "classical",
 	}
@@ -250,32 +161,39 @@ func (ts *IndexConnectionTestsIntegration) TestDeleteVectorsByFilter() {
 		assert.NoError(ts.T(), err)
 	}
 
-	ts.loadData() //reload deleted data
+	_, err = ts.idxConn.UpsertVectors(ctx, createVectorsForUpsert())
+	if err != nil {
+		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
+	}
 }
 
-func (ts *IndexConnectionTestsIntegration) TestDeleteAllVectorsInNamespace() {
+func (ts *IntegrationTests) TestDeleteAllVectorsInNamespace() {
 	ctx := context.Background()
 	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
 	assert.NoError(ts.T(), err)
 
-	ts.loadData() //reload deleted data
+	_, err = ts.idxConn.UpsertVectors(ctx, createVectorsForUpsert())
+	if err != nil {
+		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
+	}
+
 }
 
-func (ts *IndexConnectionTestsIntegration) TestDescribeIndexStats() {
+func (ts *IntegrationTests) TestDescribeIndexStats() {
 	ctx := context.Background()
 	res, err := ts.idxConn.DescribeIndexStats(ctx)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestDescribeIndexStatsFiltered() {
+func (ts *IntegrationTests) TestDescribeIndexStatsFiltered() {
 	ctx := context.Background()
 	res, err := ts.idxConn.DescribeIndexStatsFiltered(ctx, &MetadataFilter{})
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) TestListVectors() {
+func (ts *IntegrationTests) TestListVectors() {
 	ts.T().Skip()
 	req := &ListVectorsRequest{}
 
@@ -285,63 +203,7 @@ func (ts *IndexConnectionTestsIntegration) TestListVectors() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IndexConnectionTestsIntegration) loadData() {
-	vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
-	vectors := make([]*Vector, len(vals))
-	ts.vectorIds = make([]string, len(vals))
-
-	for i, val := range vals {
-		vec := make([]float32, ts.dimension)
-		for i := range vec {
-			vec[i] = val
-		}
-
-		id := fmt.Sprintf("vec-%d", i+1)
-		ts.vectorIds[i] = id
-
-		vectors[i] = &Vector{
-			Id:     id,
-			Values: vec,
-		}
-	}
-
-	ctx := context.Background()
-	_, err := ts.idxConn.UpsertVectors(ctx, vectors)
-	assert.NoError(ts.T(), err)
-}
-
-func (ts *IndexConnectionTestsIntegration) loadDataSourceTag() {
-	vals := []float32{0.01, 0.02, 0.03, 0.04, 0.05}
-	vectors := make([]*Vector, len(vals))
-	ts.vectorIds = make([]string, len(vals))
-
-	for i, val := range vals {
-		vec := make([]float32, ts.dimension)
-		for i := range vec {
-			vec[i] = val
-		}
-
-		id := fmt.Sprintf("vec-%d", i+1)
-		ts.vectorIds[i] = id
-
-		vectors[i] = &Vector{
-			Id:     id,
-			Values: vec,
-		}
-	}
-
-	ctx := context.Background()
-	_, err := ts.idxConnSourceTag.UpsertVectors(ctx, vectors)
-	assert.NoError(ts.T(), err)
-}
-
-func (ts *IndexConnectionTestsIntegration) truncateData() {
-	ctx := context.Background()
-	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
-	assert.NoError(ts.T(), err)
-}
-
-func (ts *IndexConnectionTestsIntegration) TestMetadataAppliedToRequests() {
+func (ts *IntegrationTests) TestMetadataAppliedToRequests() {
 	apiKey := "test-api-key"
 	namespace := "test-namespace"
 	sourceTag := "test-source-tag"
@@ -371,6 +233,87 @@ func (ts *IndexConnectionTestsIntegration) TestMetadataAppliedToRequests() {
 	}
 
 	require.NotNil(ts.T(), stats)
+}
+
+func (ts *IntegrationTests) TestUpdateVectorValues() {
+	ctx := context.Background()
+
+	expectedVals := []float32{7.2, 7.2, 7.2, 7.2, 7.2}
+	err := ts.idxConn.UpdateVector(ctx, &UpdateVectorRequest{
+		Id:     ts.vectorIds[0],
+		Values: expectedVals,
+	})
+	assert.NoError(ts.T(), err)
+
+	time.Sleep(5 * time.Second)
+
+	vector, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
+	if err != nil {
+		ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
+	}
+	actualVals := vector.Vectors[ts.vectorIds[0]].Values
+
+	assert.ElementsMatch(ts.T(), expectedVals, actualVals, "Values do not match")
+}
+
+func (ts *IntegrationTests) TestUpdateVectorMetadata() {
+	ctx := context.Background()
+
+	expectedMetadata := map[string]interface{}{
+		"genre": "death-metal",
+	}
+	expectedMetadataMap, err := structpb.NewStruct(expectedMetadata)
+
+	err = ts.idxConn.UpdateVector(ctx, &UpdateVectorRequest{
+		Id:       ts.vectorIds[0],
+		Metadata: expectedMetadataMap,
+	})
+	assert.NoError(ts.T(), err)
+
+	time.Sleep(5 * time.Second)
+
+	vector, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
+	if err != nil {
+		ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
+	}
+
+	expectedGenre := expectedMetadataMap.Fields["genre"].GetStringValue()
+	actualGenre := vector.Vectors[ts.vectorIds[0]].Metadata.Fields["genre"].GetStringValue()
+
+	assert.Equal(ts.T(), expectedGenre, actualGenre, "Metadata does not match")
+}
+
+func (ts *IntegrationTests) TestUpdateVectorSparseValues() error {
+	ctx := context.Background()
+
+	dims := int(ts.dimension)
+	indices := generateUint32Array(dims)
+	vals := generateFloat32Array(dims)
+	expectedSparseValues := SparseValues{
+		Indices: indices,
+		Values:  vals,
+	}
+
+	fmt.Printf("Updating sparse values in host \"%s\"...\n", ts.host)
+	err := ts.idxConn.UpdateVector(ctx, &UpdateVectorRequest{
+		Id:           ts.vectorIds[0],
+		SparseValues: &expectedSparseValues,
+	})
+	require.NoError(ts.T(), err)
+
+	// Wait for updates to propagate
+	time.Sleep(5 * time.Second)
+
+	// Fetch updated vector and verify sparse values
+	vector, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
+	if err != nil {
+		ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
+	}
+	actualSparseValues := vector.Vectors[ts.vectorIds[0]].SparseValues.Values
+
+	assert.ElementsMatch(ts.T(), expectedSparseValues.Values, actualSparseValues, "Sparse values do not match")
+
+	return nil
 }
 
 // Unit tests:
@@ -1072,4 +1015,21 @@ func TestToPaginationToken(t *testing.T) {
 			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
 		})
 	}
+}
+
+// Helper funcs
+func generateFloat32Array(n int) []float32 {
+	array := make([]float32, n)
+	for i := 0; i < n; i++ {
+		array[i] = float32(i)
+	}
+	return array
+}
+
+func generateUint32Array(n int) []uint32 {
+	array := make([]uint32, n)
+	for i := 0; i < n; i++ {
+		array[i] = uint32(i)
+	}
+	return array
 }

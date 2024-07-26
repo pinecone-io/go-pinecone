@@ -10,9 +10,11 @@
 Official Pinecone Go Client
 
 ## Documentation
+
 To see the latest documentation on `main`, visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone.
 
-To see the latest versioned-release's documentation, visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/pinecone.
+To see the latest versioned-release's documentation,
+visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/pinecone.
 
 ## Features
 
@@ -100,9 +102,11 @@ Then, execute `just bootstrap` to install the necessary Go packages
 
 ### .env Setup
 
-To avoid race conditions or having to wait for index creation, the tests require a project with at least one pod index
-and one serverless index. Copy the api key and index names to a `.env` file. See `.env.example` for a template.
+An easy way to keep track of necessary environment variables is to create a `.env` file in the root of the project.
+This project comes with a sample `.env` file (`.env.sample`) that you can copy and modify. At the very least, you
+will need to include the `PINECONE_API_KEY` variable in your `.env` file for the tests to run locally.
 
+```shell
 ### API Definitions submodule
 
 The API Definitions are in a private submodule. To checkout or update the submodules execute in the root of the project:
@@ -111,7 +115,8 @@ The API Definitions are in a private submodule. To checkout or update the submod
 git submodule update --init --recursive
 ```
 
-For working with submodules, see the [Git Submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules) documentation.
+For working with submodules, see the [Git Submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules)
+documentation.
 
 ### Just commands
 

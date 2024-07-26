@@ -6,12 +6,6 @@ test:
   source .env
   set +o allexport
   go test -count=1 -v ./pinecone
-test-integration:
-    #!/usr/bin/env bash
-    set -o allexport
-    source .env
-    set +o allexport
-    go test -v -run Integration ./pinecone
 test-unit:
     #!/usr/bin/env bash
     set -o allexport
