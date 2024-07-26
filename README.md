@@ -102,9 +102,11 @@ Then, execute `just bootstrap` to install the necessary Go packages
 
 ### .env Setup
 
-To avoid race conditions or having to wait for index creation, the tests require a project with at least one pod index
-and one serverless index. Copy the api key to a `.env` file. See `.env.example` for a template.
+An easy way to keep track of necessary environment variables is to create a `.env` file in the root of the project.
+This project comes with a sample `.env` file (`.env.sample`) that you can copy and modify. At the very least, you
+will need to include the `PINECONE_API_KEY` variable in your `.env` file for the tests to run locally.
 
+```shell
 ### API Definitions submodule
 
 The API Definitions are in a private submodule. To checkout or update the submodules execute in the root of the project:
