@@ -36,8 +36,8 @@ const (
 type DeletionProtection string
 
 const (
-	DeletionProtectionEnabled  DeletionProtection = "Enabled"
-	DeletionProtectionDisabled DeletionProtection = "Disabled"
+	DeletionProtectionEnabled  DeletionProtection = "enabled"
+	DeletionProtectionDisabled DeletionProtection = "disabled"
 )
 
 // Cloud is the [cloud provider] to be used for a Pinecone serverless Index.

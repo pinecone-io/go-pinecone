@@ -383,6 +383,8 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //     default, all metadata is indexed; when `metadata_config` is present,
 //     only specified metadata fields are indexed. These configurations are
 //     only valid for use with pod-based Indexes.
+//   - DeletionProtection: (Optional) determines whether [deletion protection] is "enabled" or "disabled" for the index.
+//     When "enabled", the index cannot be deleted. Defaults to "disabled".
 //
 // To create a new pods-based Index, use the CreatePodIndex method on the Client object.
 //
@@ -426,8 +428,8 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 // [metadata configuration]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes#selective-metadata-indexing
 // [cloud environment]: https://docs.pinecone.io/guides/indexes/understanding-indexes#pod-environments
 // [replicas]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes#add-replicas
-//
-// [type of pods]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size
+// [type of pod]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size
+// [deletion protection]: https://docs.pinecone.io/guides/indexes/prevent-index-deletion#enable-deletion-protection
 type CreatePodIndexRequest struct {
 	Name               string
 	Dimension          int32
@@ -552,10 +554,11 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //     and consist only of lower case alphanumeric characters or '-'.
 //   - Dimension: The [dimensionality] of the vectors to be inserted in the Index.
 //   - Metric: The metric used to measure the [similarity] between vectors ('euclidean', 'cosine', or 'dotproduct').
-//   - DeletionProtection:
 //   - Cloud: The public [cloud provider] where you would like your Index hosted.
 //     For serverless Indexes, you define only the cloud and region where the Index should be hosted.
 //   - Region: The [region] where you would like your Index to be created.
+//   - DeletionProtection: (Optional) determines whether [deletion protection] is "enabled" or "disabled" for the index.
+//     When "enabled", the index cannot be deleted. Defaults to "disabled".
 //
 // To create a new Serverless Index, use the CreateServerlessIndex method on the Client object.
 //
@@ -594,6 +597,7 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 // [similarity]: https://docs.pinecone.io/guides/indexes/understanding-indexes#distance-metrics
 // [region]: https://docs.pinecone.io/troubleshooting/available-cloud-regions
 // [cloud provider]: https://docs.pinecone.io/troubleshooting/available-cloud-regions#regions-available-for-serverless-indexes
+// [deletion protection]: https://docs.pinecone.io/guides/indexes/prevent-index-deletion#enable-deletion-protection
 type CreateServerlessIndexRequest struct {
 	Name               string
 	Dimension          int32
@@ -776,7 +780,7 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //   - Replicas: (Optional) The number of replicas to scale the index to. This is capped by
 //     the maximum number of replicas allowed in your Pinecone project. To configure this number,
 //     go to [app.pinecone.io], select your project, and configure the maximum number of pods.
-//   - DeletionProtection: (Optional) // DeletionProtection determines whether [deletion protection]
+//   - DeletionProtection: (Optional) DeletionProtection determines whether [deletion protection]
 //     is "enabled" or "disabled" for the index. When "enabled", the index cannot be deleted. Defaults to "disabled".
 //
 // Example:
@@ -799,10 +803,11 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //
 // [app.pinecone.io]: https://app.pinecone.io
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
+// [deletion protection]: https://docs.pinecone.io/guides/indexes/prevent-index-deletion#enable-deletion-protection
 type ConfigureIndexParams struct {
 	PodType            string
 	Replicas           int32
-	DeletionProtection control.DeletionProtection
+	DeletionProtection DeletionProtection
 }
 
 // ConfigureIndex is used to [scale a pods-based index] up or down by changing the size of the pods or the number of
@@ -846,33 +851,34 @@ type ConfigureIndexParams struct {
 //		 }
 //
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
-func (c *Client) ConfigureIndex(ctx context.Context, name string, in *ConfigureIndexParams) (*Index, error) {
-
+func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIndexParams) (*Index, error) {
 	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" {
-		return nil, fmt.Errorf("must specify either PodType, Replicas, or DeletionProtection")
+		return nil, fmt.Errorf("must specify PodType, Replicas, or DeletionProtection when configuring an index")
 	}
 
 	podType := pointerOrNil(in.PodType)
 	replicas := pointerOrNil(in.Replicas)
 	deletionProtection := pointerOrNil(in.DeletionProtection)
 
-	request := control.ConfigureIndexRequest{
-		Spec: &struct {
-			Pod struct {
-				PodType  *string `json:"pod_type,omitempty"`
-				Replicas *int32  `json:"replicas,omitempty"`
-			} `json:"pod"`
-		}{
-			Pod: struct {
-				PodType  *string `json:"pod_type,omitempty"`
-				Replicas *int32  `json:"replicas,omitempty"`
+	var request control.ConfigureIndexRequest
+	if podType != nil || replicas != nil {
+		request.Spec =
+			&struct {
+				Pod struct {
+					PodType  *string `json:"pod_type,omitempty"`
+					Replicas *int32  `json:"replicas,omitempty"`
+				} `json:"pod"`
 			}{
-				PodType:  podType,
-				Replicas: replicas,
-			},
-		},
-		DeletionProtection: deletionProtection,
+				Pod: struct {
+					PodType  *string `json:"pod_type,omitempty"`
+					Replicas *int32  `json:"replicas,omitempty"`
+				}{
+					PodType:  podType,
+					Replicas: replicas,
+				},
+			}
 	}
+	request.DeletionProtection = (*control.DeletionProtection)(deletionProtection)
 
 	res, err := c.restClient.ConfigureIndex(ctx, name, request)
 	if err != nil {
@@ -886,6 +892,11 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in *ConfigureI
 	}
 
 	return decodeIndex(res.Body)
+}
+
+func PrettifyStruct(obj interface{}) string {
+	bytes, _ := json.MarshalIndent(obj, "", "  ")
+	return string(bytes)
 }
 
 // ListCollections retrieves a list of all Collections in a Pinecone [project]. See Collection for more information.
@@ -1209,7 +1220,7 @@ func toIndex(idx *control.IndexModel) *Index {
 		Ready: idx.Status.Ready,
 		State: IndexStatusState(idx.Status.State),
 	}
-	deletionProtection := derefOrDefault(idx.DeletionProtection, "")
+	deletionProtection := derefOrDefault(idx.DeletionProtection, "disabled")
 
 	return &Index{
 		Name:               idx.Name,
