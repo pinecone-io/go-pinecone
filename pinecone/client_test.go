@@ -428,6 +428,7 @@ func (ts *IntegrationTests) TestCreateCollection() {
 		Name:   name,
 		Source: sourceIndex,
 	})
+
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), name, collection.Name, "Collection name does not match")
 }
@@ -441,9 +442,75 @@ func (ts *IntegrationTests) TestDeleteCollection() {
 		Name:   collectionName,
 		Source: ts.idxName,
 	})
+
 	require.NoError(ts.T(), err)
 
 	err = ts.client.DeleteCollection(context.Background(), collectionName)
+	require.NoError(ts.T(), err)
+}
+
+func (ts *IntegrationTests) TestDeletionProtectionPodIntegration() {
+	name := uuid.New().String()
+
+	defer func(ts *IntegrationTests, name string) {
+		err := ts.deleteIndex(name)
+		require.NoError(ts.T(), err)
+	}(ts, name)
+
+	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
+		Name:               name,
+		Dimension:          10,
+		Metric:             Cosine,
+		Environment:        "us-east1-gcp",
+		PodType:            "p1.x1",
+		DeletionProtection: "enabled",
+		Shards:             1,
+		Replicas:           1,
+	})
+	require.NoError(ts.T(), err)
+
+	// validate we cannot delete the index
+	err = ts.client.DeleteIndex(context.Background(), name)
+	require.ErrorContainsf(ts.T(), err, "failed to delete index: Deletion protection is enabled for this index", err.Error())
+
+	// make sure configuring the index without specifying DeletionProtection maintains "enabled" state
+	index, err := ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x2"})
+	require.NoError(ts.T(), err)
+	require.Equal(ts.T(), DeletionProtectionEnabled, index.DeletionProtection, "Expected deletion protection to be 'enabled'")
+
+	// validate we cannot delete the index
+	err = ts.client.DeleteIndex(context.Background(), name)
+	require.ErrorContainsf(ts.T(), err, "failed to delete index: Deletion protection is enabled for this index", err.Error())
+
+	// disable deletion protection so we can clean up
+	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{DeletionProtection: "disabled"})
+	require.NoError(ts.T(), err)
+}
+
+func (ts *IntegrationTests) TestDeletionProtectionServerlessIntegration() {
+	name := uuid.New().String()
+
+	defer func(ts *IntegrationTests, name string) {
+		err := ts.deleteIndex(name)
+		require.NoError(ts.T(), err)
+	}(ts, name)
+
+	_, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
+		Name:               name,
+		Dimension:          10,
+		Metric:             Cosine,
+		Cloud:              "aws",
+		Region:             "us-west-2",
+		DeletionProtection: "enabled",
+	})
+	require.NoError(ts.T(), err)
+
+	// validate we cannot delete the index
+	err = ts.client.DeleteIndex(context.Background(), name)
+	require.ErrorContainsf(ts.T(), err, "failed to delete index: Deletion protection is enabled for this index", err.Error())
+
+	// disable deletion protection so we can clean up
+	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{DeletionProtection: "disabled"})
 	require.NoError(ts.T(), err)
 }
 
@@ -466,9 +533,7 @@ func (ts *IntegrationTests) TestConfigureIndexIllegalScaleDown() {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
 
-	pods := "p1.x1"      // test index originally created with "p1.x2" pods
-	replicas := int32(1) // could be nil, but do not want to test nil case here
-	_, err = ts.client.ConfigureIndex(context.Background(), name, &pods, &replicas)
+	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x1"})
 	require.ErrorContainsf(ts.T(), err, "Cannot scale down", err.Error())
 }
 
@@ -491,8 +556,7 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
 
-	replicas := int32(2)
-	_, err = ts.client.ConfigureIndex(context.Background(), name, nil, &replicas)
+	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 2})
 	require.NoError(ts.T(), err)
 }
 
@@ -515,12 +579,11 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
 
-	pods := "p1.x4"
-	_, err = ts.client.ConfigureIndex(context.Background(), name, &pods, nil)
+	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x4"})
 	require.NoError(ts.T(), err)
 }
 
-func (ts *IntegrationTests) TestConfigureIndexIllegalNoPodsOrReplicas() {
+func (ts *IntegrationTests) TestConfigureIndexIllegalNoPodsOrReplicasOrDeletionProtection() {
 	name := uuid.New().String()
 
 	defer func(ts *IntegrationTests, name string) {
@@ -539,8 +602,8 @@ func (ts *IntegrationTests) TestConfigureIndexIllegalNoPodsOrReplicas() {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
 
-	_, err = ts.client.ConfigureIndex(context.Background(), name, nil, nil)
-	require.ErrorContainsf(ts.T(), err, "must specify either podType or replicas", err.Error())
+	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{})
+	require.ErrorContainsf(ts.T(), err, "must specify PodType, Replicas, or DeletionProtection", err.Error())
 }
 
 func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
@@ -562,8 +625,7 @@ func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 		log.Fatalf("Error creating index %s: %v", name, err)
 	}
 
-	replicas := int32(30000)
-	_, err = ts.client.ConfigureIndex(context.Background(), name, nil, &replicas)
+	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 30000})
 	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
 }
 
@@ -837,6 +899,9 @@ func TestEnsureURLSchemeUnit(t *testing.T) {
 }
 
 func TestToIndexUnit(t *testing.T) {
+	deletionProtectionEnabled := control.Enabled
+	deletionProtectionDisabled := control.Disabled
+
 	tests := []struct {
 		name           string
 		originalInput  *control.IndexModel
@@ -850,10 +915,11 @@ func TestToIndexUnit(t *testing.T) {
 		{
 			name: "pod index input",
 			originalInput: &control.IndexModel{
-				Name:      "testIndex",
-				Dimension: 128,
-				Host:      "test-host",
-				Metric:    "cosine",
+				Name:               "testIndex",
+				Dimension:          128,
+				Host:               "test-host",
+				Metric:             "cosine",
+				DeletionProtection: &deletionProtectionDisabled,
 				Spec: struct {
 					Pod        *control.PodSpec        `json:"pod,omitempty"`
 					Serverless *control.ServerlessSpec `json:"serverless,omitempty"`
@@ -878,10 +944,11 @@ func TestToIndexUnit(t *testing.T) {
 				},
 			},
 			expectedOutput: &Index{
-				Name:      "testIndex",
-				Dimension: 128,
-				Host:      "test-host",
-				Metric:    "cosine",
+				Name:               "testIndex",
+				Dimension:          128,
+				Host:               "test-host",
+				Metric:             "cosine",
+				DeletionProtection: "disabled",
 				Spec: &IndexSpec{
 					Pod: &PodSpec{
 						Environment:      "test-environ",
@@ -901,10 +968,11 @@ func TestToIndexUnit(t *testing.T) {
 		{
 			name: "serverless index input",
 			originalInput: &control.IndexModel{
-				Name:      "testIndex",
-				Dimension: 128,
-				Host:      "test-host",
-				Metric:    "cosine",
+				Name:               "testIndex",
+				Dimension:          128,
+				Host:               "test-host",
+				Metric:             "cosine",
+				DeletionProtection: &deletionProtectionEnabled,
 				Spec: struct {
 					Pod        *control.PodSpec        `json:"pod,omitempty"`
 					Serverless *control.ServerlessSpec `json:"serverless,omitempty"`
@@ -924,10 +992,11 @@ func TestToIndexUnit(t *testing.T) {
 				},
 			},
 			expectedOutput: &Index{
-				Name:      "testIndex",
-				Dimension: 128,
-				Host:      "test-host",
-				Metric:    "cosine",
+				Name:               "testIndex",
+				Dimension:          128,
+				Host:               "test-host",
+				Metric:             "cosine",
+				DeletionProtection: "enabled",
 				Spec: &IndexSpec{
 					Serverless: &ServerlessSpec{
 						Cloud:  Cloud("test-environ"),
