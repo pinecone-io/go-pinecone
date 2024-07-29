@@ -119,30 +119,302 @@ func main() {
 
 **Create a serverless index**
 
-The following example creates a serverless index in the `us-west-2`
+The following example creates a serverless index in the `us-east-1`
 region of AWS. For more information on serverless and regional availability,
 see [Understanding indexes](https://docs.pinecone.io/guides/indexes/understanding-indexes#serverless-indexes).
 
 ```go
-tk
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
+	ctx := context.Background()
+
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
+
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
+
+	idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+		Name:      "my-serverless-index",
+		Dimension: 3,
+		Metric:    pinecone.Cosine,
+		Cloud:     pinecone.Aws,
+		Region:    "us-east-1",
+	})
+
+	if err != nil {
+		log.Fatalf("Failed to create serverless index: %s", idx.Name)
+	} else {
+		fmt.Printf("Successfully created serverless index: %s", idx.Name)
+	}
+}
 ```
 
 **Create a pod-based index**
 The following example creates an index without a metadata
 configuration. By default, Pinecone indexes all metadata.
 
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
+	ctx := context.Background()
+
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
+
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
+
+	podIndexMetadata := &pinecone.PodSpecMetadataConfig{
+		Indexed: &[]string{"title", "description"},
+	}
+
+	idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
+		Name:           "my-pod-index",
+		Dimension:      3,
+		Metric:         pinecone.Cosine,
+		Environment:    "us-west1-gcp",
+		PodType:        "s1",
+		MetadataConfig: podIndexMetadata,
+	})
+
+	if err != nil {
+		log.Fatalf("Failed to create pod index: %v", err)
+	} else {
+		fmt.Printf("Successfully created pod index: %s", idx.Name)
+	}
+
+}
+```
+
 #### List indexes
+
+```Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
+	ctx := context.Background()
+
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
+
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
+
+	idxs, err := pc.ListIndexes(ctx)
+	if err != nil {
+		log.Fatalf("Failed to list indexes: %v", err)
+	} else {
+		fmt.Println("Your project has the following indexes:")
+		for _, idx := range idxs {
+			fmt.Printf("- \"%s\"\n", idx.Name)
+		}
+	}
+}
+```
 
 #### Describe an index
 
+```Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
+	ctx := context.Background()
+
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
+
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
+
+	idx, err := pc.DescribeIndex(ctx, "the-name-of-my-index")
+	if err != nil {
+		log.Fatalf("Failed to describe index: %s", err)
+	} else {
+		fmt.Printf("%+v", *idx)
+	}
+}
+  ```
+
 #### Delete an index
 
+```Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
+	ctx := context.Background()
+
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
+
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
+
+	indexName := "the-name-of-my-index"
+
+	err = pc.DeleteIndex(ctx, indexName)
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	} else {
+		fmt.Printf("Index \"%s\" deleted successfully", indexName)
+	}
+}
+```
+
 #### Configure an index
+
+```Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
+	ctx := context.Background()
+
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
+
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
+
+	// To scale the size of your pods from "x2" to "x4":
+	_, err := pc.ConfigureIndex(ctx, "my-index", "p1.x4", nil)
+	if err != nil {
+		fmt.Printf("Failed to configure index: %v\n", err)
+	}
+
+	// To scale the number of replicas:
+	_, err := pc.ConfigureIndex(ctx, "my-index", nil, 4)
+	if err != nil {
+		fmt.Printf("Failed to configure index: %v\n", err)
+	}
+
+	// To scale both the size of your pods and the number of replicas:
+	_, err := pc.ConfigureIndex(ctx, "my-index", "p1.x4", 4)
+	if err != nil {
+		fmt.Printf("Failed to configure index: %v\n", err)
+	}
+
+	// TODO: add deletion protection here
+}
+```
 
 - pods, replicas, deletion protection
 -
 
 #### Describe index statistics
+
+```Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
+	ctx := context.Background()
+
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
+
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
+
+	idx, err := pc.DescribeIndex(ctx, "your-index-name")
+	if err != nil {
+		log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+	} else {
+		fmt.Printf("Successfully found the \"%s\" index!\n", idx.Name)
+	}
+}
+```
 
 #### Upsert vectors
 
