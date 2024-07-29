@@ -444,60 +444,170 @@ func main() {
 
 ### Collections
 
+[A collection is a static copy of an index](https://docs.pinecone.io/guides/indexes/understanding-collections).
+Collections are only available for pod-based indexes.
+
 #### Create a collection
 
-#### List collections
+The following example creates a collection from a source index.
 
-#### Describe a collection
-
-#### Delete a collection
-
-```go
+```Go
 package main
 
 import (
 	"context"
 	"fmt"
 	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
 )
 
 func main() {
 	ctx := context.Background()
 
-	pc, err := pinecone.NewClient(pinecone.NewClientParams{
-		ApiKey: "api-key",
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
+
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
+
+	collection, err := pc.CreateCollection(ctx, &pinecone.CreateCollectionRequest{
+		Name:   "my-collection",
+		Source: "my-source-index",
 	})
-
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		log.Fatalf("Failed to create collection: %v", err)
+	} else {
+		fmt.Printf("Successfully created collection \"%s\".", collection.Name)
+	}
+}
+```
+
+#### List collections
+
+The following example lists all collections in your Pinecone project.
+
+```Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
+	ctx := context.Background()
+
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
 	}
 
-	idxs, err := pc.ListIndexes(ctx)
+	pc, err := pinecone.NewClient(clientParams)
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
 	}
 
-	for _, index := range idxs {
-		fmt.Println(index)
-	}
-
-	idx, err := pc.Index(idxs[0].Host)
-	defer idx.Close()
-
+	collections, err := pc.ListCollections(ctx)
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		log.Fatalf("Failed to list collections: %v", err)
+	} else {
+		if len(collections) == 0 {
+			fmt.Printf("No collections found in project")
+		} else {
+			fmt.Println("Collections in project:")
+			for _, collection := range collections {
+				fmt.Printf("- %s\n", collection.Name)
+			}
+		}
+	}
+}
+```
+
+#### Describe a collection
+
+The following example describes a collection by name.
+
+```Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
+	ctx := context.Background()
+
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
 	}
 
-	res, err := idx.DescribeIndexStats(ctx)
+	pc, err := pinecone.NewClient(clientParams)
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
 	}
 
-	fmt.Println(res)
+	collection, err := pc.DescribeCollection(ctx, "my-collection")
+	if err != nil {
+		log.Fatalf("Error describing collection: %v", err)
+	} else {
+		fmt.Printf("Collection: %+v\n", *collection)
+	}
+}
+```
+
+#### Delete a collection
+
+The following example deletes a collection by name.
+
+```Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
+	ctx := context.Background()
+
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
+
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
+
+	collectionName := "my-collection"
+
+	err = pc.DeleteCollection(ctx, collectionName)
+	if err != nil {
+		log.Fatalf("Failed to create collection: %s\n", err)
+	} else {
+		log.Printf("Successfully deleted collection \"%s\"\n", collectionName)
+	}
 }
 ```
 
@@ -536,6 +646,8 @@ documentation.
 ### Just commands
 
 `just test` : Executes all tests for the pinecone package
+
+`just test-unit`: Executes only unit tests for the pinecone package
 
 `just gen` : Generates Go client code from the API definitions
 
