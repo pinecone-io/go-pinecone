@@ -109,8 +109,6 @@ func main() {
 		fmt.Println("Successfully created a new Client object!")
 	}
 }
-
-
 ```
 
 ### Indexes
@@ -165,8 +163,8 @@ func main() {
 ```
 
 **Create a pod-based index**
-The following example creates an index without a metadata
-configuration. By default, Pinecone indexes all metadata.
+The following example creates a pod-based index with a metadata configuration. If no metadata configuration is
+provided, all metadata fields are automatically indexed.
 
 ```go
 package main
@@ -217,6 +215,8 @@ func main() {
 
 #### List indexes
 
+The following example lists all indexes in your Pinecone project.
+
 ```Go
 package main
 
@@ -256,6 +256,8 @@ func main() {
 
 #### Describe an index
 
+The following example describes an index by name.
+
 ```Go
 package main
 
@@ -281,7 +283,9 @@ func main() {
 		fmt.Println("Successfully created a new Client object!")
 	}
 
-	idx, err := pc.DescribeIndex(ctx, "the-name-of-my-index")
+	indexName := "the-name-of-my-index"
+
+	idx, err := pc.DescribeIndex(ctx, indexName)
 	if err != nil {
 		log.Fatalf("Failed to describe index: %s", err)
 	} else {
@@ -291,6 +295,9 @@ func main() {
   ```
 
 #### Delete an index
+
+The following example deletes an index by name. Note: only indexes not protected by deletion protection
+may be deleted.
 
 ```Go
 package main
@@ -330,6 +337,10 @@ func main() {
 
 #### Configure an index
 
+There are multiple ways to configure Pinecone indexes. You are able to configure Deletion Protection for both
+pod-based and Serverless indexes. Additionally, you can configure the size of your pods and the number of replicas
+for pod-based indexes. Examples for each of these configurations are provided below.
+
 ```Go
 package main
 
@@ -355,32 +366,29 @@ func main() {
 		fmt.Println("Successfully created a new Client object!")
 	}
 
-	// To scale the size of your pods from "x2" to "x4":
+	// To scale the size of your pods from "x2" to "x4" (only applicable to pod-based indexes):
 	_, err := pc.ConfigureIndex(ctx, "my-index", "p1.x4", nil)
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
 
-	// To scale the number of replicas:
+	// To scale the number of replicas from 2 to 4 (only applicable to pod-based indexes):
 	_, err := pc.ConfigureIndex(ctx, "my-index", nil, 4)
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
 
-	// To scale both the size of your pods and the number of replicas:
-	_, err := pc.ConfigureIndex(ctx, "my-index", "p1.x4", 4)
+	// To configure deletion protection (applicable to both pod-based and serverless indexes):
+	_, err := pc.ConfigureIndex(ctx, "my-index", nil, nil, true)
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
-
-	// TODO: add deletion protection here
 }
 ```
 
-- pods, replicas, deletion protection
--
-
 #### Describe index statistics
+
+The following examlpe describes the statistics of an index by name.
 
 ```Go
 package main
@@ -407,7 +415,9 @@ func main() {
 		fmt.Println("Successfully created a new Client object!")
 	}
 
-	idx, err := pc.DescribeIndex(ctx, "your-index-name")
+	indexName := "the-name-of-my-index"
+
+	idx, err := pc.DescribeIndex(ctx, indexName)
 	if err != nil {
 		log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 	} else {
