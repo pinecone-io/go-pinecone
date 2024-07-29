@@ -741,7 +741,7 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *M
 //		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //	    }
 //
-//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
+//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "your-namespace"})
 //
 //	    if err != nil {
 //		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
