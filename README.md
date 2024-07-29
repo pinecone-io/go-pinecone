@@ -23,7 +23,11 @@ See the [Pinecone API Docs](https://docs.pinecone.io/reference/) for more inform
 
 ## Upgrading your client
 
-tktk
+To upgrade your client to the latest version, run:
+
+```shell
+go get -u github.com/pinecone-io/go-pinecone/pinecone@latest
+```
 
 ## Prerequisites
 
