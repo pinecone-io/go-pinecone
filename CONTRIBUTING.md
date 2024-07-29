@@ -1,6 +1,6 @@
-## Contributing and development
+# Contributing
 
-### Prereqs
+## Prereqs
 
 1. A [current version of Go](https://go.dev/doc/install) (recommended 1.21+)
 2. The [just](https://github.com/casey/just?tab=readme-ov-file#installation) command runner
@@ -8,7 +8,7 @@
 
 Then, execute `just bootstrap` to install the necessary Go packages
 
-### .env Setup
+## .env Setup
 
 An easy way to keep track of necessary environment variables is to create a `.env` file in the root of the project.
 This project comes with a sample `.env` file (`.env.sample`) that you can copy and modify. At the very least, you
@@ -26,9 +26,11 @@ git submodule update --init --recursive
 For working with submodules, see the [Git Submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules)
 documentation.
 
-### Just commands
+## Just commands
 
-`just test` : Executes all tests for the pinecone package
+`just test` : Executes all tests (unit & integration) for the pinecone package
+
+`jest test-unit` : Executes unit tests only for the pinecone package
 
 `just gen` : Generates Go client code from the API definitions
 

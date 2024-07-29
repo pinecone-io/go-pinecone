@@ -1,8 +1,6 @@
-# go-pinecone
+# Pinecone Go Client &middot; ![License](https://img.shields.io/github/license/pinecone-io/go-pinecone?color=orange) [![Go Reference](https://pkg.go.dev/badge/github.com/pinecone-io/go-pinecone.svg)](https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone) [![Go Report Card](https://goreportcard.com/badge/github.com/pinecone-io/go-pinecone)](https://goreportcard.com/report/github.com/pinecone-io/go-pinecone)
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/pinecone-io/go-pinecone.svg)](https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone)
-
-Official Pinecone Go Client
+This is the official Go client for [Pinecone](https://www.pinecone.io).
 
 ## Documentation
 
