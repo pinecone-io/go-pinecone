@@ -194,7 +194,7 @@ func NewClient(in NewClientParams) (*Client, error) {
 //
 //	    clientParams := pinecone.NewClientBaseParams{
 //	        Headers: map[string]string{
-//	            "Authorization": "Bearer " + "<your JWT token>"
+//	            "Authorization": "Bearer " + "<your OAuth token>"
 //	            "X-Project-Id": "<Your Pinecone project ID>"
 //	        },
 //	        SourceTag: "your_source_identifier", // optional
@@ -838,14 +838,14 @@ type ConfigureIndexParams struct {
 //		     fmt.Printf("Failed to configure index: %v\n", err)
 //		 }
 //
-//		// To scale both the size of your pods and the number of replicas:
+//		// To scale both the size of your pods and the number of replicas to 4:
 //		 _, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{PodType: "p1.x4", Replicas: 4})
 //		 if err != nil {
 //		     fmt.Printf("Failed to configure index: %v\n", err)
 //		 }
 //
 //	    // To enable deletion protection:
-//		 _, err := pc.ConfigureIndex(ctx, "my-index", nil, nil, &ConfigureIndexParams{DeletionProtection: "enabled"})
+//		 _, err := pc.ConfigureIndex(ctx, "my-index", &ConfigureIndexParams{DeletionProtection: "enabled"})
 //		 if err != nil {
 //		     fmt.Printf("Failed to configure index: %v\n", err)
 //		 }
