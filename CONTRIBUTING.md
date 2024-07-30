@@ -17,7 +17,7 @@ will need to include the `PINECONE_API_KEY` variable in your `.env` file for the
 ````shell
 ### API Definitions submodule
 
-The API Definitions are in a private submodule. To checkout or update the submodules execute in the root of the project:
+The API Definitions are in a private submodule. To checkout or update the submodules, execute the following command in the root of the project:
 
 ```shell
 git submodule update --init --recursive

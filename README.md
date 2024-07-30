@@ -33,13 +33,13 @@ go get -u github.com/pinecone-io/go-pinecone/pinecone@latest
 
 ## Installation
 
-To install the package, run the following in your terminal:
+To install the Pinecone Go client, run the following in your terminal:
 
 ```shell
 go get github.com/pinecone-io/go-pinecone/pinecone
 ```
 
-For more information on setting up Go project, see the [Go documentation](https://golang.org/doc/).
+For more information on setting up a Go project, see the [Go documentation](https://golang.org/doc/).
 
 ## Usage
 
@@ -47,7 +47,7 @@ For more information on setting up Go project, see the [Go documentation](https:
 
 **Authenticating via an API key**
 
-When initializing the client with a Pinecone API key, you must construct a `NewClientParams` and pass it to the
+When initializing the client with a Pinecone API key, you must construct a `NewClientParams` object and pass it to the
 `NewClient` function.
 
 It's recommended that you set your Pinecone API key as an environment variable (`"PINECONE_API_KEY"`) and access it that
@@ -368,20 +368,26 @@ func main() {
 		fmt.Println("Successfully created a new Client object!")
 	}
 
-	// To scale the size of your pods from "x2" to "x4" (only applicable to pod-based indexes):
-	_, err := pc.ConfigureIndex(ctx, "my-index", "p1.x4", nil)
+	// To scale the size of your pods-based index from "x2" to "x4":
+	_, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{PodType: "p1.x4"})
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
 
-	// To scale the number of replicas from 2 to 4 (only applicable to pod-based indexes):
-	_, err := pc.ConfigureIndex(ctx, "my-index", nil, 4)
+	// To scale the number of replicas to 4:
+	_, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{Replicas: 4})
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
 
-	// To configure deletion protection (applicable to both pod-based and serverless indexes):
-	_, err := pc.ConfigureIndex(ctx, "my-index", nil, nil, true)
+	// To scale both the size of your pods and the number of replicas:
+	_, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{PodType: "p1.x4", Replicas: 4})
+	if err != nil {
+		fmt.Printf("Failed to configure index: %v\n", err)
+	}
+
+	// To enable deletion protection:
+	_, err := pc.ConfigureIndex(ctx, "my-index", &ConfigureIndexParams{DeletionProtection: "enabled"})
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
@@ -441,28 +447,35 @@ need your index's `Host` value, which you can retrieve via `DescribeIndex` or `L
 package main
 
 import (
+	"context"
+	"fmt"
 	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
 	"os"
 )
 
 func main() {
-    ctx := context.Background()
+	ctx := context.Background()
 
-    pc, err := pinecone.NewClient(pinecone.NewClientParams{
-        ApiKey: "YOUR_API_KEY",
-    })
-    if err != nil {
-        log.Fatalf("Failed to create Client: %v", err)
-    }
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
 
-    idx, err := pc.DescribeIndex(ctx, "pinecone-index")
-    if err != nil {
-        log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
-    }
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
 
-    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-    if err != nil {
-        log.Fatalf("Failed to create IndexConnection for Host: %v: %v", idx.Host, err)
+	idx, err := pc.DescribeIndex(ctx, "pinecone-index")
+	if err != nil {
+		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+	}
+
+	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
+	if err != nil {
+		log.Fatalf("Failed to create IndexConnection for Host: %v: %v", idx.Host, err)
 	}
 }
 ```
@@ -475,57 +488,62 @@ The following example upserts vectors to `example-index`.
 package main
 
 import (
-    "context"
-    "log"
-
-    "github.com/pinecone-io/go-pinecone/pinecone"
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
 )
 
 func main() {
-    ctx := context.Background()
+	ctx := context.Background()
 
-    pc, err := pinecone.NewClient(pinecone.NewClientParams{
-        ApiKey: "YOUR_API_KEY",
-    })
-    if err != nil {
-        log.Fatalf("Failed to create Client: %v", err)
-    }
-
-    idx, err := pc.DescribeIndex(ctx, "example-index")
-    if err != nil {
-        log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
-    }
-
-    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-    if err != nil {
-        log.Fatalf("Failed to create IndexConnection for Host: %v: %v", idx.Host, err)
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
 	}
 
-    vectors := []*pinecone.Vector{
-        {
-            Id:     "A",
-            Values: []float32{0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
-        },
-        {
-            Id:     "B",
-            Values: []float32{0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2},
-        },
-        {
-            Id:     "C",
-            Values: []float32{0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3},
-        },
-        {
-            Id:     "D",
-            Values: []float32{0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4},
-        },
-    }
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
 
-    count, err := idxConnection.UpsertVectors(ctx, vectors)
-    if err != nil {
-        log.Fatalf("Failed to upsert vectors: %v", err)
-    } else {
-        log.Fatalf("Successfully upserted %d vector(s)", count)
-    }
+	idx, err := pc.DescribeIndex(ctx, "example-index")
+	if err != nil {
+		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+	}
+
+	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
+	if err != nil {
+		log.Fatalf("Failed to create IndexConnection for Host: %v: %v", idx.Host, err)
+	}
+
+	vectors := []*pinecone.Vector{
+		{
+			Id:     "A",
+			Values: []float32{0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
+		},
+		{
+			Id:     "B",
+			Values: []float32{0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2},
+		},
+		{
+			Id:     "C",
+			Values: []float32{0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3},
+		},
+		{
+			Id:     "D",
+			Values: []float32{0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4},
+		},
+	}
+
+	count, err := idxConnection.UpsertVectors(ctx, vectors)
+	if err != nil {
+		log.Fatalf("Failed to upsert vectors: %v", err)
+	} else {
+		fmt.Printf("Successfully upserted %d vector(s)", count)
+	}
 }
 ```
 
@@ -539,12 +557,12 @@ The following example queries the index `example-index` with vector values and m
 package main
 
 import (
-    "context"
-    "encoding/json"
-    "fmt"
-    "log"
-
-    "github.com/pinecone-io/go-pinecone/pinecone"
+	"context"
+	"encoding/json"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
 )
 
 func prettifyStruct(obj interface{}) string {
@@ -553,46 +571,50 @@ func prettifyStruct(obj interface{}) string {
 }
 
 func main() {
-    ctx := context.Background()
+	ctx := context.Background()
 
-    pc, err := pinecone.NewClient(pinecone.NewClientParams{
-        ApiKey: "YOUR_API_KEY",
-    })
-    if err != nil {
-        log.Fatalf("Failed to create Client: %v", err)
-    }
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
 
-    idx, err := pc.DescribeIndex(ctx, "example-index")
-    if err != nil {
-        log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
-    }
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
 
-    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
-    if err != nil {
-        log.Fatalf("Failed to create IndexConnection for Host %v: %v", idx.Host, err)
-    }
+	idx, err := pc.DescribeIndex(ctx, "example-index")
+	if err != nil {
+		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+	}
 
-    queryVector := []float32{0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3}
+	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
+	if err != nil {
+		log.Fatalf("Failed to create IndexConnection for Host %v: %v", idx.Host, err)
+	}
 
-    metadataFilter, err := structpb.NewStruct(map[string]interface{}{
-        "genre": {"$eq": "documentary"},
-        "year": 2019,
-    })
-    if err != nil {
-        log.Fatalf("Failed to create metadataFilter: %v", err)
-    }
+	queryVector := []float32{0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3}
 
-    res, err := idxConnection.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
-        Vector:        queryVector,
-        TopK:          3,
-		Filter: 	   metadataFilter,
-        IncludeValues: true,
-    })
-    if err != nil {
-        log.Fatalf("Error encountered when querying by vector: %v", err)
-    } else {
-        fmt.Printf(prettifyStruct(res))
-    }
+	metadataFilter, err := structpb.NewStruct(map[string]interface{}{
+		"genre": {"$eq": "documentary"},
+		"year":  2019,
+	})
+	if err != nil {
+		log.Fatalf("Failed to create metadataFilter: %v", err)
+	}
+
+	res, err := idxConnection.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
+		Vector:        queryVector,
+		TopK:          3,
+		Filter:        metadataFilter,
+		IncludeValues: true,
+	})
+	if err != nil {
+		log.Fatalf("Error encountered when querying by vector: %v", err)
+	} else {
+		fmt.Printf(prettifyStruct(res))
+	}
 }
 
 // Returns:
@@ -661,12 +683,12 @@ The following example queries the index `example-index` with a vector id value.
 package main
 
 import (
-    "context"
-    "encoding/json"
-    "fmt"
-    "log"
-
-    "github.com/pinecone-io/go-pinecone/pinecone"
+	"context"
+	"encoding/json"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
 )
 
 func prettifyStruct(obj interface{}) string {
@@ -675,36 +697,40 @@ func prettifyStruct(obj interface{}) string {
 }
 
 func main() {
-    ctx := context.Background()
+	ctx := context.Background()
 
-    pc, err := pinecone.NewClient(pinecone.NewClientParams{
-        ApiKey: "YOUR_API_KEY",
-    })
-    if err != nil {
-        log.Fatalf("Failed to create Client: %v", err)
-    }
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
 
-    idx, err := pc.DescribeIndex(ctx, "example-index")
-    if err != nil {
-        log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
-    }
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
 
-    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
-    if err != nil {
-        log.Fatalf("Failed to create IndexConnection for Host %v: %v", idx.Host, err)
-    }
+	idx, err := pc.DescribeIndex(ctx, "example-index")
+	if err != nil {
+		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+	}
+
+	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
+	if err != nil {
+		log.Fatalf("Failed to create IndexConnection for Host %v: %v", idx.Host, err)
+	}
 
 	vectorId := "vector-id"
-    res, err := idxConnection.QueryByVectorId(ctx, &pinecone.&pinecone.QueryByVectorIdRequest{
-        VectorId:      vectorId,
-        TopK:          3,
-        IncludeValues: true,
-    })
-    if err != nil {
-        log.Fatalf("Error encountered when querying by vector ID `%v`: %v", vectorId, err)
-    } else {
-        fmt.Printf(prettifyStruct(res))
-    }
+	res, err := idxConnection.QueryByVectorId(ctx, &pinecone. & pinecone.QueryByVectorIdRequest{
+		VectorId:      vectorId,
+		TopK:          3,
+		IncludeValues: true,
+	})
+	if err != nil {
+		log.Fatalf("Error encountered when querying by vector ID `%v`: %v", vectorId, err)
+	} else {
+		fmt.Printf(prettifyStruct(res))
+	}
 }
 ```
 
@@ -712,18 +738,32 @@ func main() {
 
 #### Delete vectors by ID
 
-The following example deletes a vector by its ID value from `example-index` and `example-namespace`. You can pass a slice of vector IDs to `DeleteVectorsById`.
+The following example deletes a vector by its ID value from `example-index` and `example-namespace`. You can pass a
+slice of vector IDs to `DeleteVectorsById`.
 
-```go
+```Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
 	ctx := context.Background()
 
 	clientParams := pinecone.NewClientParams{
-		ApiKey:    "YOUR_API_KEY",
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
 	}
 
 	pc, err := pinecone.NewClient(clientParams)
 	if err != nil {
 		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
 	}
 
 	idx, err := pc.DescribeIndex(ctx, "example-index")
@@ -742,22 +782,36 @@ The following example deletes a vector by its ID value from `example-index` and 
 	if err != nil {
 		log.Fatalf("Failed to delete vector with ID: %s. Error: %s\n", vectorId, err)
 	}
+}
 ```
 
 #### Delete vectors by filter
 
 The following example deletes vectors from `example-index` using a metadata filter.
 
-```go
+```Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
 	ctx := context.Background()
 
 	clientParams := pinecone.NewClientParams{
-		ApiKey:    "YOUR_API_KEY",
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
 	}
 
 	pc, err := pinecone.NewClient(clientParams)
 	if err != nil {
 		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
 	}
 
 	idx, err := pc.DescribeIndex(ctx, "example-index")
@@ -782,22 +836,36 @@ The following example deletes vectors from `example-index` using a metadata filt
 	if err != nil {
 		log.Fatalf("Failed to delete vector(s) with filter: %+v. Error: %s\n", filter, err)
 	}
+}
 ```
 
 #### Delete all vectors in a namespace
 
 The following example deletes all vectors from `example-index` and `example-namespace`.
 
-```go
+```Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
 	ctx := context.Background()
 
 	clientParams := pinecone.NewClientParams{
-		ApiKey:    "YOUR_API_KEY",
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
 	}
 
 	pc, err := pinecone.NewClient(clientParams)
 	if err != nil {
 		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
 	}
 
 	idx, err := pc.DescribeIndex(ctx, "example-index")
@@ -805,8 +873,7 @@ The following example deletes all vectors from `example-index` and `example-name
 		log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 	}
 
-	// passing Namespace to Index will target all index operations against that namespace
-	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace" })
+	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
 	if err != nil {
 		log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 	}
@@ -816,6 +883,7 @@ The following example deletes all vectors from `example-index` and `example-name
 	if err != nil {
 		log.Fatalf("Failed to delete vectors in namespace: \"%s\". Error: %s", idxConnection.Namespace, err)
 	}
+}
 ```
 
 ### Fetch vectors
@@ -826,12 +894,12 @@ The following example fetches vectors by ID from `example-index` and `example-na
 package main
 
 import (
-    "context"
-    "encoding/json"
-    "fmt"
-    "log"
-
-    "github.com/pinecone-io/go-pinecone/pinecone"
+	"context"
+	"encoding/json"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
 )
 
 func prettifyStruct(obj interface{}) string {
@@ -840,31 +908,35 @@ func prettifyStruct(obj interface{}) string {
 }
 
 func main() {
-    ctx := context.Background()
+	ctx := context.Background()
 
-    pc, err := pinecone.NewClient(pinecone.NewClientParams{
-        ApiKey: "YOUR_API_KEY",
-    })
-    if err != nil {
-        log.Fatalf("Failed to create Client: %v", err)
-    }
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
 
-    idx, err := pc.DescribeIndex(ctx, "example-index")
-    if err != nil {
-        log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
-    }
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
 
-    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
-    if err != nil {
-        log.Fatalf("Failed to create IndexConnection for Host %v: %v", idx.Host, err)
-    }
+	idx, err := pc.DescribeIndex(ctx, "example-index")
+	if err != nil {
+		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+	}
 
-    res, err := idxConnection.FetchVectors(ctx, []string{"id-1", "id-2"})
-    if err != nil {
-        log.Fatalf("Failed to fetch vectors: %v", err)
-    } else {
-        fmt.Printf(prettifyStruct(res))
-    }
+	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
+	if err != nil {
+		log.Fatalf("Failed to create IndexConnection for Host %v: %v", idx.Host, err)
+	}
+
+	res, err := idxConnection.FetchVectors(ctx, []string{"id-1", "id-2"})
+	if err != nil {
+		log.Fatalf("Failed to fetch vectors: %v", err)
+	} else {
+		fmt.Printf(prettifyStruct(res))
+	}
 }
 
 // Response:
@@ -899,54 +971,58 @@ func main() {
 
 The following example updates vectors by ID in `example-index` and `example-namespace`.
 
-```go
+```Go
 package main
 
 import (
-    "context"
-    "log"
-
-    "github.com/pinecone-io/go-pinecone/pinecone"
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
 )
 
 func main() {
-    ctx := context.Background()
+	ctx := context.Background()
 
-    pc, err := pinecone.NewClient(pinecone.NewClientParams{
-        ApiKey: "YOUR_API_KEY",
-    })
-    if err != nil {
-        log.Fatalf("Failed to create Client: %v", err)
-    }
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
 
-    idx, err := pc.DescribeIndex(ctx, "pinecone-index")
-    if err != nil {
-        log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
-    }
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
 
-    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "ns1"})
-    if err != nil {
-        log.Fatalf("Failed to create IndexConnection for Host %v: %v", idx.Host, err)
-    }
+	idx, err := pc.DescribeIndex(ctx, "pinecone-index")
+	if err != nil {
+		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+	}
 
-    id := "id-3"
+	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "ns1"})
+	if err != nil {
+		log.Fatalf("Failed to create IndexConnection for Host %v: %v", idx.Host, err)
+	}
 
-    err = idxConnection.UpdateVector(ctx, &pinecone.UpdateVectorRequest{
-        Id:     id,
-        Values: []float32{4.0, 2.0},
-    })
-    if err != nil {
-        log.Fatalf("Failed to update vector with ID %v: %v", id, err)
-    }
+	id := "id-3"
+
+	err = idxConnection.UpdateVector(ctx, &pinecone.UpdateVectorRequest{
+		Id:     id,
+		Values: []float32{4.0, 2.0},
+	})
+	if err != nil {
+		log.Fatalf("Failed to update vector with ID %v: %v", id, err)
+	}
 }
 ```
 
 ### List vectors
 
 The `ListVectors` method can be used to list vector ids matching a particular id prefix.
-With clever assignment of vector ids, this can be used to help model hierarchical relationships between
-different vectors such as when there are embeddings for multiple chunks or fragments related to the
-same document.
+With clever assignment of vector ids, you can model hierarchical relationships across embeddings within the same
+document.
 
 The following example lists all vector ids in `example-index` and `example-namespace`, with the prefix `doc1`.
 
@@ -957,9 +1033,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
-
 	"github.com/pinecone-io/go-pinecone/pinecone"
+	"log"
+	"os"
 )
 
 func prettifyStruct(obj interface{}) string {
@@ -968,37 +1044,41 @@ func prettifyStruct(obj interface{}) string {
 }
 
 func main() {
-    ctx := context.Background()
+	ctx := context.Background()
 
-    pc, err := pinecone.NewClient(pinecone.NewClientParams{
-        ApiKey: "YOUR_API_KEY",
-    })
-    if err != nil {
-        log.Fatalf("Failed to create Client: %v", err)
-    }
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
 
-    idx, err := pc.DescribeIndex(ctx, "example-index")
-    if err != nil {
-        log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
-    }
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
 
-    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
-    if err != nil {
-        log.Fatalf("Failed to create IndexConnection for Host %v: %v", idx.Host, err)
-    }
+	idx, err := pc.DescribeIndex(ctx, "example-index")
+	if err != nil {
+		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+	}
 
-    limit := uint32(3)
+	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
+	if err != nil {
+		log.Fatalf("Failed to create IndexConnection for Host %v: %v", idx.Host, err)
+	}
+
+	limit := uint32(3)
 	prefix := "doc1"
 
-    res, err := idxConnection.ListVectors(ctx, &pinecone.ListVectorsRequest{
-        Limit:  &limit,
+	res, err := idxConnection.ListVectors(ctx, &pinecone.ListVectorsRequest{
+		Limit:  &limit,
 		Prefix: &prefix,
-    })
-    if len(res.VectorIds) == 0 {
-        fmt.Println("No vectors found")
-    } else {
-        fmt.Printf(prettifyStruct(res))
-    }
+	})
+	if len(res.VectorIds) == 0 {
+		fmt.Println("No vectors found")
+	} else {
+		fmt.Printf(prettifyStruct(res))
+	}
 }
 
 // Response:
