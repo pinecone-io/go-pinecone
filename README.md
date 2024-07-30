@@ -165,6 +165,7 @@ func main() {
 ```
 
 **Create a pod-based index**
+
 The following example creates a pod-based index with a metadata configuration. If no metadata configuration is
 provided, all metadata fields are automatically indexed.
 
