@@ -702,6 +702,11 @@ func (ts *IntegrationTests) TestApiKeyPassedToIndexConnection() {
 	assert.True(ts.T(), metadataHasApiKey, "Expected IndexConnection metadata to contain 'Api-Key' with value '%s'", apiKey)
 }
 
+func (ts *IntegrationTests) TestNoHostPassedToIndexConnection() {
+	_, err := ts.client.Index(NewIndexConnParams{})
+	require.ErrorContainsf(ts.T(), err, "host is required", err.Error())
+}
+
 // Unit tests:
 func TestHandleErrorResponseBodyUnit(t *testing.T) {
 	tests := []struct {
