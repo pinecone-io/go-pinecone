@@ -200,9 +200,11 @@ func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (ui
 // Fields:
 //   - Vectors: The vectors fetched.
 //   - Usage: The usage information for the request.
+//   - Namespace: The namespace from which the vectors were fetched.
 type FetchVectorsResponse struct {
-	Vectors map[string]*Vector `json:"vectors,omitempty"`
-	Usage   *Usage             `json:"usage,omitempty"`
+	Vectors   map[string]*Vector `json:"vectors,omitempty"`
+	Usage     *Usage             `json:"usage,omitempty"`
+	Namespace string             `json:"namespace"`
 }
 
 // FetchVectors fetches vectors by ID from a Pinecone index.
@@ -269,8 +271,9 @@ func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*Fe
 	}
 
 	return &FetchVectorsResponse{
-		Vectors: vectors,
-		Usage:   toUsage(res.Usage),
+		Vectors:   vectors,
+		Usage:     toUsage(res.Usage),
+		Namespace: idx.Namespace,
 	}, nil
 }
 
@@ -295,10 +298,12 @@ type ListVectorsRequest struct {
 //   - VectorIds: The unique IDs of the returned vectors.
 //   - Usage: The usage information for the request.
 //   - NextPaginationToken: The token for paginating through results.
+//   - Namespace: The namespace vector ids are listed from.
 type ListVectorsResponse struct {
 	VectorIds           []*string `json:"vector_ids,omitempty"`
 	Usage               *Usage    `json:"usage,omitempty"`
 	NextPaginationToken *string   `json:"next_pagination_token,omitempty"`
+	Namespace           string    `json:"namespace"`
 }
 
 // ListVectors lists vectors in a Pinecone index. You can filter vectors by prefix,
@@ -378,6 +383,7 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 		VectorIds:           vectorIds,
 		Usage:               &Usage{ReadUnits: derefOrDefault(res.Usage.ReadUnits, 0)},
 		NextPaginationToken: toPaginationToken(res.Pagination),
+		Namespace:           idx.Namespace,
 	}, nil
 }
 
@@ -406,9 +412,11 @@ type QueryByVectorValuesRequest struct {
 // Fields:
 //   - Matches: The vectors that are most similar to the query vector.
 //   - Usage: The usage information for the request.
+//   - Namespace: The namespace from which the vectors were queried.
 type QueryVectorsResponse struct {
-	Matches []*ScoredVector `json:"matches,omitempty"`
-	Usage   *Usage          `json:"usage,omitempty"`
+	Matches   []*ScoredVector `json:"matches,omitempty"`
+	Usage     *Usage          `json:"usage,omitempty"`
+	Namespace string          `json:"namespace"`
 }
 
 // QueryByVectorValues queries a Pinecone index for vectors that are most similar to a provided query vector.
@@ -989,8 +997,9 @@ func (idx *IndexConnection) query(ctx context.Context, req *data.QueryRequest) (
 	}
 
 	return &QueryVectorsResponse{
-		Matches: matches,
-		Usage:   toUsage(res.Usage),
+		Matches:   matches,
+		Usage:     toUsage(res.Usage),
+		Namespace: idx.Namespace,
 	}, nil
 }
 

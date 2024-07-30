@@ -330,22 +330,24 @@ func TestMarshalFetchVectorsResponseUnit(t *testing.T) {
 					"vec-1": {Id: "vec-1", Values: []float32{0.01, 0.01, 0.01}},
 					"vec-2": {Id: "vec-2", Values: []float32{0.02, 0.02, 0.02}},
 				},
-				Usage: &Usage{ReadUnits: 5},
+				Usage:     &Usage{ReadUnits: 5},
+				Namespace: "test-namespace",
 			},
-			want: `{"vectors":{"vec-1":{"id":"vec-1","values":[0.01,0.01,0.01]},"vec-2":{"id":"vec-2","values":[0.02,0.02,0.02]}},"usage":{"read_units":5}}`,
+			want: `{"vectors":{"vec-1":{"id":"vec-1","values":[0.01,0.01,0.01]},"vec-2":{"id":"vec-2","values":[0.02,0.02,0.02]}},"usage":{"read_units":5},"namespace":"test-namespace"}`,
 		},
 		{
 			name:  "Fields omitted",
 			input: FetchVectorsResponse{},
-			want:  `{}`,
+			want:  `{"namespace":""}`,
 		},
 		{
 			name: "Fields empty",
 			input: FetchVectorsResponse{
-				Vectors: nil,
-				Usage:   nil,
+				Vectors:   nil,
+				Usage:     nil,
+				Namespace: "",
 			},
-			want: `{}`,
+			want: `{"namespace":""}`,
 		},
 	}
 
@@ -378,13 +380,14 @@ func TestMarshalListVectorsResponseUnit(t *testing.T) {
 				VectorIds:           []*string{&vectorId1, &vectorId2},
 				Usage:               &Usage{ReadUnits: 5},
 				NextPaginationToken: &paginationToken,
+				Namespace:           "test-namespace",
 			},
-			want: `{"vector_ids":["vec-1","vec-2"],"usage":{"read_units":5},"next_pagination_token":"next-token"}`,
+			want: `{"vector_ids":["vec-1","vec-2"],"usage":{"read_units":5},"next_pagination_token":"next-token","namespace":"test-namespace"}`,
 		},
 		{
 			name:  "Fields omitted",
 			input: ListVectorsResponse{},
-			want:  `{}`,
+			want:  `{"namespace":""}`,
 		},
 		{
 			name: "Fields empty",
@@ -392,8 +395,9 @@ func TestMarshalListVectorsResponseUnit(t *testing.T) {
 				VectorIds:           nil,
 				Usage:               nil,
 				NextPaginationToken: nil,
+				Namespace:           "",
 			},
-			want: `{}`,
+			want: `{"namespace":""}`,
 		},
 	}
 
@@ -424,19 +428,20 @@ func TestMarshalQueryVectorsResponseUnit(t *testing.T) {
 					{Vector: &Vector{Id: "vec-1", Values: []float32{0.01, 0.01, 0.01}}, Score: 0.1},
 					{Vector: &Vector{Id: "vec-2", Values: []float32{0.02, 0.02, 0.02}}, Score: 0.2},
 				},
-				Usage: &Usage{ReadUnits: 5},
+				Usage:     &Usage{ReadUnits: 5},
+				Namespace: "test-namespace",
 			},
-			want: `{"matches":[{"vector":{"id":"vec-1","values":[0.01,0.01,0.01]},"score":0.1},{"vector":{"id":"vec-2","values":[0.02,0.02,0.02]},"score":0.2}],"usage":{"read_units":5}}`,
+			want: `{"matches":[{"vector":{"id":"vec-1","values":[0.01,0.01,0.01]},"score":0.1},{"vector":{"id":"vec-2","values":[0.02,0.02,0.02]},"score":0.2}],"usage":{"read_units":5},"namespace":"test-namespace"}`,
 		},
 		{
 			name:  "Fields omitted",
 			input: QueryVectorsResponse{},
-			want:  `{}`,
+			want:  `{"namespace":""}`,
 		},
 		{
 			name:  "Fields empty",
 			input: QueryVectorsResponse{Matches: nil, Usage: nil},
-			want:  `{}`,
+			want:  `{"namespace":""}`,
 		},
 	}
 
