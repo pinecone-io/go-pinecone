@@ -471,7 +471,7 @@ type QueryVectorsResponse struct {
 //	    res, err := idxConnection.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
 //		       Vector:          queryVector,
 //		       TopK:            topK, // number of vectors to be returned
-//		       MetadataFilter:          metadataFilter,
+//		       Filter:          metadataFilter,
 //		       SparseValues:    &sparseValues,
 //		       IncludeValues:   true,
 //		       IncludeMetadata: true,
