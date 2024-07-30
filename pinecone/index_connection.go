@@ -394,7 +394,7 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 type QueryByVectorValuesRequest struct {
 	Vector          []float32
 	TopK            uint32
-	Filter          *MetadataFilter
+	metadataFilter  *MetadataFilter
 	IncludeValues   bool
 	IncludeMetadata bool
 	SparseValues    *SparseValues
@@ -471,7 +471,7 @@ type QueryVectorsResponse struct {
 //	    res, err := idxConnection.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
 //		       Vector:          queryVector,
 //		       TopK:            topK, // number of vectors to be returned
-//		       Filter:          metadataFilter,
+//		       metadataFilter:          metadataFilter,
 //		       SparseValues:    &sparseValues,
 //		       IncludeValues:   true,
 //		       IncludeMetadata: true,
@@ -488,7 +488,7 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 	req := &data.QueryRequest{
 		Namespace:       idx.Namespace,
 		TopK:            in.TopK,
-		Filter:          in.Filter,
+		Filter:          in.metadataFilter,
 		IncludeValues:   in.IncludeValues,
 		IncludeMetadata: in.IncludeMetadata,
 		Vector:          in.Vector,
@@ -511,7 +511,7 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 type QueryByVectorIdRequest struct {
 	VectorId        string
 	TopK            uint32
-	Filter          *MetadataFilter
+	metadataFilter  *MetadataFilter
 	IncludeValues   bool
 	IncludeMetadata bool
 	SparseValues    *SparseValues
@@ -580,7 +580,7 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 		Id:              in.VectorId,
 		Namespace:       idx.Namespace,
 		TopK:            in.TopK,
-		Filter:          in.Filter,
+		Filter:          in.metadataFilter,
 		IncludeValues:   in.IncludeValues,
 		IncludeMetadata: in.IncludeMetadata,
 		SparseVector:    sparseValToGrpc(in.SparseValues),
@@ -656,7 +656,7 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - filter: The filter to apply to the deletion.
+//   - metadataFilter: The filter to apply to the deletion.
 //
 // Example:
 //
@@ -700,9 +700,9 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 //	    if err != nil {
 //		       log.Fatalf("Failed to delete vector(s) with filter: %+v. Error: %s\n", filter, err)
 //	    }
-func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, filter *MetadataFilter) error {
+func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, metadataFilter *MetadataFilter) error {
 	req := data.DeleteRequest{
-		Filter:    filter,
+		Filter:    metadataFilter,
 		Namespace: idx.Namespace,
 	}
 
@@ -905,7 +905,7 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - filter: The filter to apply to the request.
+//   - metadataFilter: The filter to apply to the request.
 //
 // Example:
 //
@@ -953,9 +953,9 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 //			       fmt.Printf("Namespace: \"%s\", has %d vector(s) that match the given filter\n", name, summary.VectorCount)
 //		       }
 //	    }
-func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, filter *MetadataFilter) (*DescribeIndexStatsResponse, error) {
+func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, metadataFilter *MetadataFilter) (*DescribeIndexStatsResponse, error) {
 	req := &data.DescribeIndexStatsRequest{
-		Filter: filter,
+		Filter: metadataFilter,
 	}
 	res, err := (*idx.dataClient).DescribeIndexStats(idx.akCtx(ctx), req)
 	if err != nil {
