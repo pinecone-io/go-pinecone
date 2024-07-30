@@ -894,11 +894,6 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	return decodeIndex(res.Body)
 }
 
-func PrettifyStruct(obj interface{}) string {
-	bytes, _ := json.MarshalIndent(obj, "", "  ")
-	return string(bytes)
-}
-
 // ListCollections retrieves a list of all Collections in a Pinecone [project]. See Collection for more information.
 //
 // Parameters:
