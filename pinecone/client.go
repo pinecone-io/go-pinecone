@@ -79,7 +79,7 @@ type Client struct {
 //   - ApiKey: (Required) The API key used to authenticate with the Pinecone control plane API.
 //     This value must be passed by the user unless it is set as an environment variable ("PINECONE_API_KEY").
 //   - Headers: An optional map of additional HTTP headers to include in each API request to the control plane.
-//   - Host: The host URL of the Pinecone control plane API. If not provided,
+//   - Host: (Optional) The host URL of the Pinecone control plane API. If not provided,
 //     the default value is "https://api.pinecone.io".
 //   - RestClient: An optional HTTP client to use for communication with the control plane API.
 //   - SourceTag: An optional string used to help Pinecone attribute API activity.
@@ -99,7 +99,7 @@ type NewClientParams struct {
 // Fields:
 //   - Headers: An optional map of additional HTTP headers to include in each API request to the control plane.
 //     "Authorization" and "X-Project-Id" headers are required if authenticating using a JWT.
-//   - Host: The host URL of the Pinecone control plane API. If not provided,
+//   - Host: (Optional) The host URL of the Pinecone control plane API. If not provided,
 //     the default value is "https://api.pinecone.io".
 //   - RestClient: An optional *http.Client object to use for communication with the control plane API.
 //   - SourceTag: An optional string used to help Pinecone attribute API activity.
@@ -115,10 +115,10 @@ type NewClientBaseParams struct {
 // NewIndexConnParams holds the parameters for creating an IndexConnection to a Pinecone index.
 //
 // Fields:
-//   - Host: The host URL of the Pinecone index. This is required. To find your host url use the DescribeIndex or ListIndexes methods.
+//   - Host: (Required) The host URL of the Pinecone index. To find your host url use the DescribeIndex or ListIndexes methods.
 //     Alternatively, the host is displayed in the Pinecone web console.
 //   - Namespace: Optional index namespace to use for operations. If not provided, the default namespace of "" will be used.
-//   - AdditionalMetdata: Optional additional metdata to be sent with each RPC request.
+//   - AdditionalMetadata: Optional additional metadata to be sent with each RPC request.
 //
 // See Client.Index for code example.
 type NewIndexConnParams struct {
@@ -278,6 +278,10 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*IndexConnection, error) {
 	if in.AdditionalMetadata == nil {
 		in.AdditionalMetadata = make(map[string]string)
+	}
+
+	if in.Host == "" {
+		return nil, fmt.Errorf("host is required to create an IndexConnection. Find your host from calling DescribeIndex or via the Pinecone console")
 	}
 
 	// add api version header if not provided
