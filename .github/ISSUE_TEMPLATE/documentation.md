@@ -2,7 +2,7 @@
 name: Documentation
 about: Report an issue in our docs
 title: "[Docs] "
-labels: ''
+labels: 'documentation'
 assignees: ''
 
 ---
