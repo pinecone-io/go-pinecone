@@ -19,46 +19,6 @@ import (
 )
 
 // Integration tests
-func (ts *IntegrationTests) TestNewIndexConnection() {
-	apiKey := "test-api-key"
-	namespace := ""
-	sourceTag := ""
-	additionalMetadata := map[string]string{"api-key": apiKey}
-	idxConn, err := newIndexConnection(newIndexParameters{
-		additionalMetadata: additionalMetadata,
-		host:               ts.host,
-		namespace:          namespace,
-		sourceTag:          sourceTag})
-
-	require.NoError(ts.T(), err)
-	apiKeyHeader, ok := idxConn.additionalMetadata["api-key"]
-	require.True(ts.T(), ok, "Expected client to have an 'api-key' header")
-	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'api-key' header to equal %s", apiKey)
-	require.Empty(ts.T(), idxConn.Namespace, "Expected idxConn to have empty namespace, but got '%s'", idxConn.Namespace)
-	require.NotNil(ts.T(), idxConn.dataClient, "Expected idxConn to have non-nil dataClient")
-	require.NotNil(ts.T(), idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
-}
-
-func (ts *IntegrationTests) TestNewIndexConnectionNamespace() {
-	apiKey := "test-api-key"
-	namespace := "test-namespace"
-	sourceTag := "test-source-tag"
-	additionalMetadata := map[string]string{"api-key": apiKey}
-	idxConn, err := newIndexConnection(newIndexParameters{
-		additionalMetadata: additionalMetadata,
-		host:               ts.host,
-		namespace:          namespace,
-		sourceTag:          sourceTag})
-
-	require.NoError(ts.T(), err)
-	apiKeyHeader, ok := idxConn.additionalMetadata["api-key"]
-	require.True(ts.T(), ok, "Expected client to have an 'api-key' header")
-	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'api-key' header to equal %s", apiKey)
-	require.Equal(ts.T(), namespace, idxConn.Namespace, "Expected idxConn to have namespace '%s', but got '%s'", namespace, idxConn.Namespace)
-	require.NotNil(ts.T(), idxConn.dataClient, "Expected idxConn to have non-nil dataClient")
-	require.NotNil(ts.T(), idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
-}
-
 func (ts *IntegrationTests) TestFetchVectors() {
 	ctx := context.Background()
 	res, err := ts.idxConn.FetchVectors(ctx, ts.vectorIds)
@@ -263,6 +223,9 @@ func (ts *IntegrationTests) TestUpdateVectorMetadata() {
 		"genre": "death-metal",
 	}
 	expectedMetadataMap, err := structpb.NewStruct(expectedMetadata)
+	if err != nil {
+		ts.FailNow(fmt.Sprintf("Failed to create metadata map: %v", err))
+	}
 
 	err = ts.idxConn.UpdateVector(ctx, &UpdateVectorRequest{
 		Id:       ts.vectorIds[0],
@@ -323,6 +286,48 @@ func TestUpdateVectorMissingReqdFieldsUnit(t *testing.T) {
 	err := idxConn.UpdateVector(ctx, &UpdateVectorRequest{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "a vector ID plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
+}
+
+func TestNewIndexConnection(t *testing.T) {
+	apiKey := "test-api-key"
+	host := "test-host.io"
+	namespace := ""
+	sourceTag := ""
+	additionalMetadata := map[string]string{"api-key": apiKey}
+	idxConn, err := newIndexConnection(newIndexParameters{
+		additionalMetadata: additionalMetadata,
+		host:               host,
+		namespace:          namespace,
+		sourceTag:          sourceTag})
+
+	require.NoError(t, err)
+	apiKeyHeader, ok := idxConn.additionalMetadata["api-key"]
+	require.True(t, ok, "Expected client to have an 'api-key' header")
+	require.Equal(t, apiKey, apiKeyHeader, "Expected 'api-key' header to equal %s", apiKey)
+	require.Empty(t, idxConn.Namespace, "Expected idxConn to have empty namespace, but got '%s'", idxConn.Namespace)
+	require.NotNil(t, idxConn.dataClient, "Expected idxConn to have non-nil dataClient")
+	require.NotNil(t, idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
+}
+
+func TestNewIndexConnectionNamespace(t *testing.T) {
+	apiKey := "test-api-key"
+	host := "test-host.io"
+	namespace := "test-namespace"
+	sourceTag := "test-source-tag"
+	additionalMetadata := map[string]string{"api-key": apiKey}
+	idxConn, err := newIndexConnection(newIndexParameters{
+		additionalMetadata: additionalMetadata,
+		host:               host,
+		namespace:          namespace,
+		sourceTag:          sourceTag})
+
+	require.NoError(t, err)
+	apiKeyHeader, ok := idxConn.additionalMetadata["api-key"]
+	require.True(t, ok, "Expected client to have an 'api-key' header")
+	require.Equal(t, apiKey, apiKeyHeader, "Expected 'api-key' header to equal %s", apiKey)
+	require.Equal(t, namespace, idxConn.Namespace, "Expected idxConn to have namespace '%s', but got '%s'", namespace, idxConn.Namespace)
+	require.NotNil(t, idxConn.dataClient, "Expected idxConn to have non-nil dataClient")
+	require.NotNil(t, idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
 }
 
 func TestMarshalFetchVectorsResponseUnit(t *testing.T) {
