@@ -258,11 +258,6 @@ func (ts *IntegrationTests) TestCreatePodIndex() {
 func (ts *IntegrationTests) TestCreatePodIndexMissingReqdFields() {
 	name := uuid.New().String()
 
-	defer func(ts *IntegrationTests, name string) {
-		err := ts.deleteIndex(name)
-		require.NoError(ts.T(), err)
-	}(ts, name)
-
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:    name,
 		PodType: "p1.x1",
@@ -319,11 +314,6 @@ func (ts *IntegrationTests) TestCreateServerlessIndex() {
 
 func (ts *IntegrationTests) TestCreateServerlessIndexMissingReqdFields() {
 	name := uuid.New().String()
-
-	defer func(ts *IntegrationTests, name string) {
-		err := ts.deleteIndex(name)
-		require.NoError(ts.T(), err)
-	}(ts, name)
 
 	_, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
 		Name: name,
