@@ -530,9 +530,8 @@ type QueryByVectorIdRequest struct {
 //
 // Returns a pointer to a QueryVectorsResponse object or an error if the request fails.
 //
-// Note: QueryByVectorId executes a nearest neighbors search,
-// meaning that unless TopK=1 in the QueryByVectorIdRequest object,
-// it will return 2+ vectors. The vector with a score of 1.0 is the vector with the same ID as the query vector.
+// Note: QueryByVectorId executes a nearest neighbors search, meaning that unless TopK=1 in the QueryByVectorIdRequest
+// object, it will return 2+ vectors. The vector with a score of 1.0 is the vector with the same ID as the query vector.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -603,8 +602,8 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 // otherwise returns nil. This method will also return nil if the passed vector ID does not exist in the index or
 // namespace.
 //
-// Note: You must instantiate an IndexWithNamespace connection in order to delete vectors by ID in namespaces other
-// than the default.
+// Note: You must instantiate an Index connection with a Namespace in NewIndexConnParams in order to delete vectors
+// in a namespace other than the default: "".
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -658,8 +657,8 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 // Returns an error if the request fails, otherwise returns nil.
 //
 // Note: DeleteVectorsByFilter is only available on pods-based indexes.
-// Additionally, you must instantiate an IndexWithNamespace connection in order to delete vectors in namespaces
-// other than the default.
+// Additionally, you must instantiate an IndexConnection using the Index method with a Namespace in NewIndexConnParams
+// in order to delete vectors in a namespace other than the default.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -721,8 +720,8 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, metadataF
 //
 // Returns an error if the request fails, otherwise returns nil.
 //
-// Note: You must instantiate an IndexWithNamespace connection in order to delete vectors by ID in namespaces other
-// than the default.
+// Note: You must instantiate an IndexConnection using the Index method with a Namespace in NewIndexConnParams
+// in order to delete vectors in a namespace other than the default.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
