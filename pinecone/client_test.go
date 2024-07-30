@@ -255,6 +255,21 @@ func (ts *IntegrationTests) TestCreatePodIndex() {
 	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
 }
 
+func (ts *IntegrationTests) TestCreatePodIndexMissingReqdFields() {
+	name := uuid.New().String()
+
+	defer func(ts *IntegrationTests, name string) {
+		err := ts.deleteIndex(name)
+		require.NoError(ts.T(), err)
+	}(ts, name)
+
+	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
+		Name:    name,
+		PodType: "p1.x1",
+	})
+	require.ErrorContainsf(ts.T(), err, "missing required fields", err.Error())
+}
+
 func (ts *IntegrationTests) TestCreatePodIndexInvalidDimension() {
 	name := uuid.New().String()
 
@@ -300,6 +315,20 @@ func (ts *IntegrationTests) TestCreateServerlessIndex() {
 	})
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
+}
+
+func (ts *IntegrationTests) TestCreateServerlessIndexMissingReqdFields() {
+	name := uuid.New().String()
+
+	defer func(ts *IntegrationTests, name string) {
+		err := ts.deleteIndex(name)
+		require.NoError(ts.T(), err)
+	}(ts, name)
+
+	_, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
+		Name: name,
+	})
+	require.ErrorContainsf(ts.T(), err, "missing required fields", err.Error())
 }
 
 func (ts *IntegrationTests) TestDescribeServerlessIndex() {
@@ -431,6 +460,18 @@ func (ts *IntegrationTests) TestCreateCollection() {
 
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), name, collection.Name, "Collection name does not match")
+}
+
+func (ts *IntegrationTests) TestCreateCollectionMissingReqdFields() {
+	if ts.indexType == "serverless" {
+		ts.T().Skip("No pod index to test")
+	}
+	name := uuid.New().String()
+
+	_, err := ts.client.CreateCollection(context.Background(), &CreateCollectionRequest{
+		Name: name,
+	})
+	require.ErrorContains(ts.T(), err, "missing required fields")
 }
 
 func (ts *IntegrationTests) TestDeleteCollection() {
