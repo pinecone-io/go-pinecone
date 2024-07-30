@@ -400,7 +400,7 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 type QueryByVectorValuesRequest struct {
 	Vector          []float32
 	TopK            uint32
-	metadataFilter  *MetadataFilter
+	MetadataFilter  *MetadataFilter
 	IncludeValues   bool
 	IncludeMetadata bool
 	SparseValues    *SparseValues
@@ -465,7 +465,7 @@ type QueryVectorsResponse struct {
 //		       "genre": "classical",
 //	    }
 //
-//	    metadataFilter, err := structpb.NewStruct(metadataMap)
+//	    MetadataFilter, err := structpb.NewStruct(metadataMap)
 //
 //	    if err != nil {
 //		       log.Fatalf("Failed to create metadata map. Error: %v", err)
@@ -479,7 +479,7 @@ type QueryVectorsResponse struct {
 //	    res, err := idxConnection.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
 //		       Vector:          queryVector,
 //		       TopK:            topK, // number of vectors to be returned
-//		       metadataFilter:          metadataFilter,
+//		       MetadataFilter:          MetadataFilter,
 //		       SparseValues:    &sparseValues,
 //		       IncludeValues:   true,
 //		       IncludeMetadata: true,
@@ -496,7 +496,7 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 	req := &data.QueryRequest{
 		Namespace:       idx.Namespace,
 		TopK:            in.TopK,
-		Filter:          in.metadataFilter,
+		Filter:          in.MetadataFilter,
 		IncludeValues:   in.IncludeValues,
 		IncludeMetadata: in.IncludeMetadata,
 		Vector:          in.Vector,
@@ -663,7 +663,7 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - metadataFilter: The filter to apply to the deletion.
+//   - MetadataFilter: The filter to apply to the deletion.
 //
 // Example:
 //
@@ -692,11 +692,11 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 //		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	    }
 //
-//	    metadataFilter := map[string]interface{}{
+//	    MetadataFilter := map[string]interface{}{
 //		       "genre": "classical",
 //	    }
 //
-//	    filter, err := structpb.NewStruct(metadataFilter)
+//	    filter, err := structpb.NewStruct(MetadataFilter)
 //
 //	    if err != nil {
 //		       log.Fatalf("Failed to create metadata filter. Error: %v", err)
@@ -912,7 +912,7 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - metadataFilter: The filter to apply to the request.
+//   - MetadataFilter: The filter to apply to the request.
 //
 // Example:
 //
@@ -941,14 +941,14 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 //		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	    }
 //
-//	    metadataFilter := map[string]interface{}{
+//	    MetadataFilter := map[string]interface{}{
 //		       "genre": "classical",
 //	    }
 //
-//	    filter, err := structpb.NewStruct(metadataFilter)
+//	    filter, err := structpb.NewStruct(MetadataFilter)
 //
 //	    if err != nil {
-//		       log.Fatalf("Failed to create filter %+v. Error: %s", metadataFilter, err)
+//		       log.Fatalf("Failed to create filter %+v. Error: %s", MetadataFilter, err)
 //	    }
 //
 //	    res, err := idxConnection.DescribeIndexStatsFiltered(ctx, filter)
