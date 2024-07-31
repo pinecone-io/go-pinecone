@@ -14,6 +14,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pinecone-io/go-pinecone/internal/utils"
+
 	"github.com/pinecone-io/go-pinecone/internal/gen"
 	"github.com/pinecone-io/go-pinecone/internal/gen/control"
 	"github.com/pinecone-io/go-pinecone/internal/provider"
@@ -508,8 +510,9 @@ func (req CreatePodIndexRequest) TotalCount() int {
 //		       fmt.Printf("Successfully created pod index: %s", idx.Name)
 //	    }
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
-	if in.Name == "" || in.Dimension == 0 || in.Metric == "" || in.Environment == "" || in.PodType == "" {
-		return nil, fmt.Errorf("name, dimension, metric, environment, and podtype must be included in CreatePodIndexRequest")
+	requiredFields := []string{"Name", "Dimension", "Metric", "Environment", "PodType"}
+	if err := utils.CheckMissingFields(in, requiredFields); err != nil {
+		log.Fatalln("name, dimension, metric, environment, and podtype must be included in CreatePodIndexRequest")
 	}
 
 	deletionProtection := pointerOrNil(control.DeletionProtection(in.DeletionProtection))
@@ -654,8 +657,9 @@ type CreateServerlessIndexRequest struct {
 //	        fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //	    }
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
-	if in.Name == "" || in.Dimension == 0 || in.Metric == "" || in.Cloud == "" || in.Region == "" {
-		return nil, fmt.Errorf("name, dimension, metric, cloud, and region must be included in CreateServerlessIndexRequest")
+	requiredFields := []string{"Name", "Dimension", "Metric", "Cloud", "Region"}
+	if err := utils.CheckMissingFields(in, requiredFields); err != nil {
+		log.Fatalln("name, dimension, metric, cloud, and region must be included in CreateServerlessIndexRequest")
 	}
 
 	deletionProtection := pointerOrNil(control.DeletionProtection(in.DeletionProtection))
@@ -1111,8 +1115,9 @@ type CreateCollectionRequest struct {
 //
 // [Collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionRequest) (*Collection, error) {
-	if in.Name == "" || in.Source == "" {
-		return nil, fmt.Errorf("name and source must be included in CreateCollectionRequest")
+	requiredFields := []string{"Name", "Source"}
+	if err := utils.CheckMissingFields(in, requiredFields); err != nil {
+		log.Fatalln("name and source must be included in CreateCollectionRequest")
 	}
 
 	req := control.CreateCollectionRequest{

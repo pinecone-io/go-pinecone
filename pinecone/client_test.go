@@ -256,13 +256,11 @@ func (ts *IntegrationTests) TestCreatePodIndex() {
 }
 
 func (ts *IntegrationTests) TestCreatePodIndexMissingReqdFields() {
-	name := uuid.New().String()
-
-	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
-		Name:    name,
-		PodType: "p1.x1",
-	})
-	require.ErrorContainsf(ts.T(), err, "missing required fields", err.Error())
+	if ts.indexType == "serverless" {
+		ts.T().Skip("No pod index to test")
+	}
+	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{})
+	require.ErrorContainsf(ts.T(), err, "name, dimension, metric, environment, and podtype must be included in CreatePodIndexRequest", err.Error())
 }
 
 func (ts *IntegrationTests) TestCreatePodIndexInvalidDimension() {
@@ -313,12 +311,11 @@ func (ts *IntegrationTests) TestCreateServerlessIndex() {
 }
 
 func (ts *IntegrationTests) TestCreateServerlessIndexMissingReqdFields() {
-	name := uuid.New().String()
-
-	_, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
-		Name: name,
-	})
-	require.ErrorContainsf(ts.T(), err, "missing required fields", err.Error())
+	if ts.indexType == "pods" {
+		ts.T().Skip("No serverless index to test")
+	}
+	_, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{})
+	require.ErrorContainsf(ts.T(), err, "name, dimension, metric, cloud, and region must be included in CreateServerlessIndexRequest", err.Error())
 }
 
 func (ts *IntegrationTests) TestDescribeServerlessIndex() {
@@ -456,12 +453,8 @@ func (ts *IntegrationTests) TestCreateCollectionMissingReqdFields() {
 	if ts.indexType == "serverless" {
 		ts.T().Skip("No pod index to test")
 	}
-	name := uuid.New().String()
-
-	_, err := ts.client.CreateCollection(context.Background(), &CreateCollectionRequest{
-		Name: name,
-	})
-	require.ErrorContains(ts.T(), err, "missing required fields")
+	_, err := ts.client.CreateCollection(context.Background(), &CreateCollectionRequest{})
+	require.ErrorContains(ts.T(), err, "name and source must be included in CreateCollectionRequest")
 }
 
 func (ts *IntegrationTests) TestDeleteCollection() {
