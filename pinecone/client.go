@@ -512,7 +512,7 @@ func (req CreatePodIndexRequest) TotalCount() int {
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
 	requiredFields := []string{"Name", "Dimension", "Metric", "Environment", "PodType"}
 	if err := utils.CheckMissingFields(in, requiredFields); err != nil {
-		log.Fatalln("name, dimension, metric, environment, and podtype must be included in CreatePodIndexRequest")
+		return nil, fmt.Errorf("name, dimension, metric, environment, and podtype must be included in CreatePodIndexRequest: %w", err)
 	}
 
 	deletionProtection := pointerOrNil(control.DeletionProtection(in.DeletionProtection))
@@ -659,7 +659,7 @@ type CreateServerlessIndexRequest struct {
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
 	requiredFields := []string{"Name", "Dimension", "Metric", "Cloud", "Region"}
 	if err := utils.CheckMissingFields(in, requiredFields); err != nil {
-		log.Fatalln("name, dimension, metric, cloud, and region must be included in CreateServerlessIndexRequest")
+		return nil, fmt.Errorf("name, dimension, metric, cloud, and region must be included in CreateServerlessIndexRequest: %w", err)
 	}
 
 	deletionProtection := pointerOrNil(control.DeletionProtection(in.DeletionProtection))
@@ -1117,7 +1117,7 @@ type CreateCollectionRequest struct {
 func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionRequest) (*Collection, error) {
 	requiredFields := []string{"Name", "Source"}
 	if err := utils.CheckMissingFields(in, requiredFields); err != nil {
-		log.Fatalln("name and source must be included in CreateCollectionRequest")
+		return nil, fmt.Errorf("name and source must be included in CreateCollectionRequest: %w", err)
 	}
 
 	req := control.CreateCollectionRequest{

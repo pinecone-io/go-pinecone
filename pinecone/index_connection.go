@@ -180,9 +180,13 @@ func (idx *IndexConnection) Close() error {
 //	    }
 func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (uint32, error) {
 	requiredFields := []string{"Id", "Values"}
-	if err := utils.CheckMissingFields(in, requiredFields); err != nil {
-		log.Fatalln("vectors must have at least ID and Values fields in order to be upserted")
+	for _, vector := range in {
+		if err := utils.CheckMissingFields(vector, requiredFields); err != nil {
+			return 0, fmt.Errorf("vectors must have at least ID and Values fields in order to be upserted: %w", err)
+		}
+		// TODO: Is it okay to return 0 here?
 	}
+	// TODO: might not want to do this for each vector in the slice b/c it's inefficient...
 
 	vectors := make([]*data.Vector, len(in))
 	for i, v := range in {
@@ -839,7 +843,7 @@ type UpdateVectorRequest struct {
 func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRequest) error {
 	requiredFields := []string{"Id"}
 	if err := utils.CheckMissingFields(in, requiredFields); err != nil {
-		log.Fatalln("a vector ID plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
+		return fmt.Errorf("a vector ID plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
 	}
 
 	req := &data.UpdateRequest{
