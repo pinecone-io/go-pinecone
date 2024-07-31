@@ -193,6 +193,16 @@ func (ts *IntegrationTests) TestDescribeIndexStatsFiltered() {
 	assert.NotNil(ts.T(), res)
 }
 
+func (ts *IntegrationTests) TestUpsertVectorsMissingReqdFields() {
+	ctx := context.Background()
+	vectors := []*Vector{
+		{},
+	}
+	_, err := ts.idxConn.UpsertVectors(ctx, vectors)
+	assert.Error(ts.T(), err)
+	assert.Contains(ts.T(), err.Error(), "vectors must have at least ID and Values fields in order to be upserted")
+}
+
 func (ts *IntegrationTests) TestListVectors() {
 	ts.T().Skip()
 	req := &ListVectorsRequest{}
@@ -254,6 +264,13 @@ func (ts *IntegrationTests) TestUpdateVectorValues() {
 	actualVals := vector.Vectors[ts.vectorIds[0]].Values
 
 	assert.ElementsMatch(ts.T(), expectedVals, actualVals, "Values do not match")
+}
+
+func (ts *IntegrationTests) TestUpdateVectorMissingReqdFields() {
+	ctx := context.Background()
+	err := ts.idxConn.UpdateVector(ctx, &UpdateVectorRequest{})
+	assert.Error(ts.T(), err)
+	assert.Contains(ts.T(), err.Error(), "a vector ID plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
 }
 
 func (ts *IntegrationTests) TestUpdateVectorMetadata() {
