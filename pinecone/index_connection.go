@@ -45,7 +45,8 @@ func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*In
 	}
 
 	// if the target includes an http:// address, don't include TLS
-	if strings.HasPrefix(target, "http://") {
+	// otherwise we need to add transport credentials
+	if !strings.HasPrefix(target, "http://") {
 		config := &tls.Config{}
 		grpcOptions = append(grpcOptions, grpc.WithTransportCredentials(credentials.NewTLS(config)))
 	}
