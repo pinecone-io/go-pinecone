@@ -1321,11 +1321,6 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 }
 
 // Helper functions:
-func isValidUUID(u string) bool {
-	_, err := uuid.Parse(u)
-	return err == nil
-}
-
 func mockResponse(body string, statusCode int) *http.Response {
 	return &http.Response{
 		Status:     http.StatusText(statusCode),

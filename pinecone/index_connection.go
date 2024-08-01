@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/pinecone-io/go-pinecone/internal/utils"
-
 	"github.com/pinecone-io/go-pinecone/internal/gen/data"
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
 	"google.golang.org/grpc"
@@ -843,8 +841,7 @@ type UpdateVectorRequest struct {
 //		       log.Fatalf("Failed to update vector with ID %s. Error: %s", id, err)
 //	    }
 func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRequest) error {
-	requiredFields := []string{"Id"}
-	if err := utils.CheckMissingFields(in, requiredFields); err != nil {
+	if in.Id == "" {
 		return fmt.Errorf("a vector ID plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
 	}
 
@@ -1102,7 +1099,7 @@ func sparseValToGrpc(sv *SparseValues) *data.SparseValues {
 }
 
 func (idx *IndexConnection) akCtx(ctx context.Context) context.Context {
-	newMetadata := []string{}
+	var newMetadata []string
 
 	for key, value := range idx.additionalMetadata {
 		newMetadata = append(newMetadata, key, value)

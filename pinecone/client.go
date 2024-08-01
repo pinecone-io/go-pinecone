@@ -14,8 +14,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pinecone-io/go-pinecone/internal/utils"
-
 	"github.com/pinecone-io/go-pinecone/internal/gen"
 	"github.com/pinecone-io/go-pinecone/internal/gen/control"
 	"github.com/pinecone-io/go-pinecone/internal/provider"
@@ -186,7 +184,7 @@ func NewClient(in NewClientParams) (*Client, error) {
 // Notes:
 //   - It is important to handle the error returned by this function to ensure that the
 //     control plane client has been created successfully before attempting to make API calls.
-//   - A Pinecone API key is not requried when using NewClientBase.
+//   - A Pinecone API key is not required when using NewClientBase.
 //
 // Returns a pointer to an initialized Client instance or an error.
 //
@@ -510,9 +508,8 @@ func (req CreatePodIndexRequest) TotalCount() int {
 //		       fmt.Printf("Successfully created pod index: %s", idx.Name)
 //	    }
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
-	requiredFields := []string{"Name", "Dimension", "Metric", "Environment", "PodType"}
-	if err := utils.CheckMissingFields(in, requiredFields); err != nil {
-		return nil, fmt.Errorf("name, dimension, metric, environment, and podtype must be included in CreatePodIndexRequest: %w", err)
+	if in.Name == "" || in.Dimension == 0 || in.Metric == "" || in.Environment == "" || in.PodType == "" {
+		return nil, fmt.Errorf("name, dimension, metric, environment, and podtype must be included in CreatePodIndexRequest")
 	}
 
 	deletionProtection := pointerOrNil(control.DeletionProtection(in.DeletionProtection))
@@ -657,9 +654,8 @@ type CreateServerlessIndexRequest struct {
 //	        fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //	    }
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
-	requiredFields := []string{"Name", "Dimension", "Metric", "Cloud", "Region"}
-	if err := utils.CheckMissingFields(in, requiredFields); err != nil {
-		return nil, fmt.Errorf("name, dimension, metric, cloud, and region must be included in CreateServerlessIndexRequest: %w", err)
+	if in.Name == "" || in.Dimension == 0 || in.Metric == "" || in.Cloud == "" || in.Region == "" {
+		return nil, fmt.Errorf("name, dimension, metric, cloud, and region must be included in CreateServerlessIndexRequest")
 	}
 
 	deletionProtection := pointerOrNil(control.DeletionProtection(in.DeletionProtection))
@@ -786,7 +782,7 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 // ConfigureIndexParams contains parameters for configuring an index. For both pod-based
 // and serverless indexes you can configure the DeletionProtection status for an index.
 // For pod-based indexes you can also configure the number of Replicas and the PodType.
-// Each of the fields are optional, but at least one field must be set.
+// Each of the fields is optional, but at least one field must be set.
 // See [scale a pods-based index] for more information.
 //
 // Fields:
@@ -1115,9 +1111,8 @@ type CreateCollectionRequest struct {
 //
 // [Collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionRequest) (*Collection, error) {
-	requiredFields := []string{"Name", "Source"}
-	if err := utils.CheckMissingFields(in, requiredFields); err != nil {
-		return nil, fmt.Errorf("name and source must be included in CreateCollectionRequest: %w", err)
+	if in.Source == "" || in.Name == "" {
+		return nil, fmt.Errorf("name and source must be included in CreateCollectionRequest")
 	}
 
 	req := control.CreateCollectionRequest{
@@ -1348,7 +1343,7 @@ func formatError(errMap errorResponseMap) error {
 }
 
 func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
-	clientOptions := []control.ClientOption{}
+	var clientOptions []control.ClientOption
 
 	// build and apply user agent header
 	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
