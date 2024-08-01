@@ -3,8 +3,8 @@ package pinecone
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"log"
+	"strings"
 
 	"github.com/pinecone-io/go-pinecone/internal/gen/data"
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
@@ -36,7 +36,7 @@ type newIndexParameters struct {
 
 func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*IndexConnection, error) {
 	config := &tls.Config{}
-	target := fmt.Sprintf("%s:443", in.host)
+	target := normalizeHost(in.host)
 
 	// configure default gRPC DialOptions
 	grpcOptions := []grpc.DialOption{
@@ -1011,6 +1011,16 @@ func (idx *IndexConnection) delete(ctx context.Context, req *data.DeleteRequest)
 	return err
 }
 
+func (idx *IndexConnection) akCtx(ctx context.Context) context.Context {
+	newMetadata := []string{}
+
+	for key, value := range idx.additionalMetadata {
+		newMetadata = append(newMetadata, key, value)
+	}
+
+	return metadata.AppendToOutgoingContext(ctx, newMetadata...)
+}
+
 func toVector(vector *data.Vector) *Vector {
 	if vector == nil {
 		return nil
@@ -1087,12 +1097,15 @@ func sparseValToGrpc(sv *SparseValues) *data.SparseValues {
 	}
 }
 
-func (idx *IndexConnection) akCtx(ctx context.Context) context.Context {
-	newMetadata := []string{}
+func normalizeHost(host string) string {
+	// remove http:// or https:// from the host
+	host = strings.TrimPrefix(host, "http://")
+	host = strings.TrimPrefix(host, "https://")
 
-	for key, value := range idx.additionalMetadata {
-		newMetadata = append(newMetadata, key, value)
+	// if a port was provided leave it, otherwise we append :443
+	if !strings.Contains(host, ":") {
+		host = host + ":443"
 	}
 
-	return metadata.AppendToOutgoingContext(ctx, newMetadata...)
+	return host
 }
