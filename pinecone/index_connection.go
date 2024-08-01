@@ -177,15 +177,6 @@ func (idx *IndexConnection) Close() error {
 //		       log.Fatalf("Successfully upserted %d vector(s)!\n", count)
 //	    }
 func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (uint32, error) {
-	//requiredFields := []string{"Id", "Values"}
-	//for _, vector := range in {
-	//	if err := utils.CheckMissingFields(vector, requiredFields); err != nil {
-	//		return 0, fmt.Errorf("vectors must have at least ID and Values fields in order to be upserted: %w", err)
-	//	}
-	//	// TODO: Is it okay to return 0 here?
-	//}
-	//// TODO: might not want to do this for each vector in the slice b/c it's inefficient...
-
 	vectors := make([]*data.Vector, len(in))
 	for i, v := range in {
 		vectors[i] = vecToGrpc(v)
@@ -263,8 +254,6 @@ type FetchVectorsResponse struct {
 //	    } else {
 //		       fmt.Println("No vectors found")
 //	    }
-//
-// TODO: Add IDs check here
 func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*FetchVectorsResponse, error) {
 	req := &data.FetchRequest{
 		Ids:       ids,
