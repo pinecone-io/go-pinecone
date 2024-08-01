@@ -1098,12 +1098,18 @@ func sparseValToGrpc(sv *SparseValues) *data.SparseValues {
 }
 
 func normalizeHost(host string) string {
-	// remove http:// or https:// from the host
-	host = strings.TrimPrefix(host, "http://")
+	hasPort := strings.Contains(host, ":")
+
+	// remove https:// from the host
 	host = strings.TrimPrefix(host, "https://")
 
+	// if plaintext without a port, strip http:// as well
+	if !hasPort {
+		host = strings.TrimPrefix(host, "http://")
+	}
+
 	// if a port was provided leave it, otherwise we append :443
-	if !strings.Contains(host, ":") {
+	if !hasPort {
 		host = host + ":443"
 	}
 
