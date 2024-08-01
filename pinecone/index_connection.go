@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"log"
+	"net/url"
 	"strings"
 
 	"github.com/pinecone-io/go-pinecone/internal/gen/data"
@@ -35,14 +36,18 @@ type newIndexParameters struct {
 }
 
 func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*IndexConnection, error) {
-	config := &tls.Config{}
 	target := normalizeHost(in.host)
 
 	// configure default gRPC DialOptions
 	grpcOptions := []grpc.DialOption{
-		grpc.WithTransportCredentials(credentials.NewTLS(config)),
 		grpc.WithAuthority(target),
 		grpc.WithUserAgent(useragent.BuildUserAgentGRPC(in.sourceTag)),
+	}
+
+	// if the target includes an http:// address, don't include TLS
+	if strings.HasPrefix(target, "http://") {
+		config := &tls.Config{}
+		grpcOptions = append(grpcOptions, grpc.WithTransportCredentials(credentials.NewTLS(config)))
 	}
 
 	// if we have user-provided dialOpts, append them to the defaults here
@@ -1098,18 +1103,21 @@ func sparseValToGrpc(sv *SparseValues) *data.SparseValues {
 }
 
 func normalizeHost(host string) string {
-	hasPort := strings.Contains(host, ":")
+	parsedHost, err := url.Parse(host)
+	if err != nil {
+		log.Default().Printf("Failed to parse host %s: %v", host, err)
+		return host
+	}
 
-	// remove https:// from the host
-	host = strings.TrimPrefix(host, "https://")
-
-	// if plaintext without a port, strip http:// as well
-	if !hasPort {
+	// if https:// or http:// without a port, strip the scheme
+	if parsedHost.Scheme == "https" {
+		host = strings.TrimPrefix(host, "https://")
+	} else if parsedHost.Scheme == "http" && parsedHost.Port() == "" {
 		host = strings.TrimPrefix(host, "http://")
 	}
 
 	// if a port was provided leave it, otherwise we append :443
-	if !hasPort {
+	if parsedHost.Port() == "" {
 		host = host + ":443"
 	}
 

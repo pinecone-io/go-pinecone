@@ -999,7 +999,7 @@ func TestToUsageUnit(t *testing.T) {
 	}
 }
 
-func TestNormalizeHost(t *testing.T) {
+func TestNormalizeHostUnit(t *testing.T) {
 	tests := []struct {
 		name         string
 		host         string
