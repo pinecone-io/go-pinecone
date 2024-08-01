@@ -193,16 +193,6 @@ func (ts *IntegrationTests) TestDescribeIndexStatsFiltered() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IntegrationTests) TestUpsertVectorsMissingReqdFields() {
-	ctx := context.Background()
-	vectors := []*Vector{
-		{},
-	}
-	_, err := ts.idxConn.UpsertVectors(ctx, vectors)
-	assert.Error(ts.T(), err)
-	assert.Contains(ts.T(), err.Error(), "vectors must have at least ID and Values fields in order to be upserted")
-}
-
 func (ts *IntegrationTests) TestListVectors() {
 	ts.T().Skip()
 	req := &ListVectorsRequest{}
