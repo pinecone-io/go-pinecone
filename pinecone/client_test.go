@@ -702,12 +702,13 @@ func (ts *IntegrationTests) TestApiKeyPassedToIndexConnection() {
 	assert.True(ts.T(), metadataHasApiKey, "Expected IndexConnection metadata to contain 'Api-Key' with value '%s'", apiKey)
 }
 
-func (ts *IntegrationTests) TestNoHostPassedToIndexConnection() {
-	_, err := ts.client.Index(NewIndexConnParams{})
-	require.ErrorContainsf(ts.T(), err, "host is required", err.Error())
+// Unit tests:
+func TestIndexConnectionMissingReqdFieldsUnit(t *testing.T) {
+	client := &Client{}
+	_, err := client.Index(NewIndexConnParams{})
+	require.ErrorContainsf(t, err, "field Host is required", err.Error())
 }
 
-// Unit tests:
 func TestCreatePodIndexMissingReqdFieldsUnit(t *testing.T) {
 	client := &Client{}
 	_, err := client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{})
