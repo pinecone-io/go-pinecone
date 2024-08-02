@@ -606,10 +606,10 @@ func main() {
 	}
 
 	res, err := idxConnection.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
-		Vector:        queryVector,
-		TopK:          3,
-		Filter:        metadataFilter,
-		IncludeValues: true,
+		Vector:         queryVector,
+		TopK:           3,
+		MetadataFilter: metadataFilter,
+		IncludeValues:  true,
 	})
 	if err != nil {
 		log.Fatalf("Error encountered when querying by vector: %v", err)
