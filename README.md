@@ -483,7 +483,9 @@ func main() {
 
 ### Upsert vectors
 
-The following example upserts vectors to `example-index`.
+The following example upserts
+vectors ([both dense and sparse](https://docs.pinecone.io/guides/data/upsert-sparse-dense-vectors)) and metadata
+to `example-index`.
 
 ```go
 package main
@@ -492,6 +494,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pinecone-io/go-pinecone/pinecone"
+	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
 )
@@ -520,22 +523,41 @@ func main() {
 		log.Fatalf("Failed to create IndexConnection for Host: %v: %v", idx.Host, err)
 	}
 
+	metadataMap := map[string]interface{}{
+		"genre": "classical",
+	}
+
+	metadata, err := structpb.NewStruct(metadataMap)
+
+	sparseValues := pinecone.SparseValues{
+		Indices: []uint32{0, 1, 2, 3, 4, 5, 6, 7},
+		Values:  []float32{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0},
+	}
+
 	vectors := []*pinecone.Vector{
 		{
-			Id:     "A",
-			Values: []float32{0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
+			Id:           "A",
+			Values:       []float32{0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
+			Metadata:     metadata,
+			SparseValues: &sparseValues,
 		},
 		{
-			Id:     "B",
-			Values: []float32{0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2},
+			Id:           "B",
+			Values:       []float32{0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2},
+			Metadata:     metadata,
+			SparseValues: &sparseValues,
 		},
 		{
-			Id:     "C",
-			Values: []float32{0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3},
+			Id:           "C",
+			Values:       []float32{0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3},
+			Metadata:     metadata,
+			SparseValues: &sparseValues,
 		},
 		{
-			Id:     "D",
-			Values: []float32{0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4},
+			Id:           "D",
+			Values:       []float32{0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4},
+			Metadata:     metadata,
+			SparseValues: &sparseValues,
 		},
 	}
 
@@ -552,7 +574,10 @@ func main() {
 
 #### Query by vector values
 
-The following example queries the index `example-index` with vector values and metadata filtering.
+The following example queries the index `example-index` with vector values and metadata filtering. Note: you can
+also query by sparse values;
+see [sparse-dense documentation](https://docs.pinecone.io/guides/data/query-sparse-dense-vectors)
+for examples.
 
 ```go
 package main
@@ -562,6 +587,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pinecone-io/go-pinecone/pinecone"
+	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
 )
@@ -797,6 +823,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pinecone-io/go-pinecone/pinecone"
+	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
 )
