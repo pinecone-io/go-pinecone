@@ -281,7 +281,7 @@ func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*Ind
 	}
 
 	if in.Host == "" {
-		return nil, fmt.Errorf("host is required to create an IndexConnection. Find your host from calling DescribeIndex or via the Pinecone console")
+		return nil, fmt.Errorf("field Host is required to create an IndexConnection. Find your Host from calling DescribeIndex or via the Pinecone console")
 	}
 
 	// add api version header if not provided
@@ -509,7 +509,7 @@ func (req CreatePodIndexRequest) TotalCount() int {
 //	    }
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
 	if in.Name == "" || in.Dimension == 0 || in.Metric == "" || in.Environment == "" || in.PodType == "" {
-		return nil, fmt.Errorf("name, dimension, metric, environment, and podtype must be included in CreatePodIndexRequest")
+		return nil, fmt.Errorf("fields Name, Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest")
 	}
 
 	deletionProtection := pointerOrNil(control.DeletionProtection(in.DeletionProtection))
@@ -655,7 +655,7 @@ type CreateServerlessIndexRequest struct {
 //	    }
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
 	if in.Name == "" || in.Dimension == 0 || in.Metric == "" || in.Cloud == "" || in.Region == "" {
-		return nil, fmt.Errorf("name, dimension, metric, cloud, and region must be included in CreateServerlessIndexRequest")
+		return nil, fmt.Errorf("fields Name, Dimension, Metric, Cloud, and Region must be included in CreateServerlessIndexRequest")
 	}
 
 	deletionProtection := pointerOrNil(control.DeletionProtection(in.DeletionProtection))
@@ -1112,7 +1112,7 @@ type CreateCollectionRequest struct {
 // [Collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionRequest) (*Collection, error) {
 	if in.Source == "" || in.Name == "" {
-		return nil, fmt.Errorf("name and source must be included in CreateCollectionRequest")
+		return nil, fmt.Errorf("fields Name and Source must be included in CreateCollectionRequest")
 	}
 
 	req := control.CreateCollectionRequest{
@@ -1343,7 +1343,7 @@ func formatError(errMap errorResponseMap) error {
 }
 
 func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
-	var clientOptions []control.ClientOption
+	clientOptions := []control.ClientOption{}
 
 	// build and apply user agent header
 	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))

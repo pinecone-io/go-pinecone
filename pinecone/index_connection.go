@@ -1088,7 +1088,7 @@ func sparseValToGrpc(sv *SparseValues) *data.SparseValues {
 }
 
 func (idx *IndexConnection) akCtx(ctx context.Context) context.Context {
-	var newMetadata []string
+	newMetadata := []string{}
 
 	for key, value := range idx.additionalMetadata {
 		newMetadata = append(newMetadata, key, value)

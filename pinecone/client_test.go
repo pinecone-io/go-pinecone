@@ -255,14 +255,6 @@ func (ts *IntegrationTests) TestCreatePodIndex() {
 	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
 }
 
-func (ts *IntegrationTests) TestCreatePodIndexMissingReqdFields() {
-	if ts.indexType == "serverless" {
-		ts.T().Skip("No pod index to test")
-	}
-	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{})
-	require.ErrorContainsf(ts.T(), err, "name, dimension, metric, environment, and podtype must be included in CreatePodIndexRequest", err.Error())
-}
-
 func (ts *IntegrationTests) TestCreatePodIndexInvalidDimension() {
 	name := uuid.New().String()
 
@@ -308,14 +300,6 @@ func (ts *IntegrationTests) TestCreateServerlessIndex() {
 	})
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
-}
-
-func (ts *IntegrationTests) TestCreateServerlessIndexMissingReqdFields() {
-	if ts.indexType == "pods" {
-		ts.T().Skip("No serverless index to test")
-	}
-	_, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{})
-	require.ErrorContainsf(ts.T(), err, "name, dimension, metric, cloud, and region must be included in CreateServerlessIndexRequest", err.Error())
 }
 
 func (ts *IntegrationTests) TestDescribeServerlessIndex() {
@@ -447,14 +431,6 @@ func (ts *IntegrationTests) TestCreateCollection() {
 
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), name, collection.Name, "Collection name does not match")
-}
-
-func (ts *IntegrationTests) TestCreateCollectionMissingReqdFields() {
-	if ts.indexType == "serverless" {
-		ts.T().Skip("No pod index to test")
-	}
-	_, err := ts.client.CreateCollection(context.Background(), &CreateCollectionRequest{})
-	require.ErrorContains(ts.T(), err, "name and source must be included in CreateCollectionRequest")
 }
 
 func (ts *IntegrationTests) TestDeleteCollection() {
@@ -732,6 +708,27 @@ func (ts *IntegrationTests) TestNoHostPassedToIndexConnection() {
 }
 
 // Unit tests:
+func TestCreatePodIndexMissingReqdFieldsUnit(t *testing.T) {
+	client := &Client{}
+	_, err := client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{})
+	require.Error(t, err)
+	require.ErrorContainsf(t, err, "fields Name, Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest", err.Error()) //_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{})
+}
+
+func TestCreateServerlessIndexMissingReqdFieldsUnit(t *testing.T) {
+	client := &Client{}
+	_, err := client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{})
+	require.Error(t, err)
+	require.ErrorContainsf(t, err, "fields Name, Dimension, Metric, Cloud, and Region must be included in CreateServerlessIndexRequest", err.Error())
+}
+
+func TestCreateCollectionMissingReqdFieldsUnit(t *testing.T) {
+	client := &Client{}
+	_, err := client.CreateCollection(context.Background(), &CreateCollectionRequest{})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "fields Name and Source must be included in CreateCollectionRequest")
+}
+
 func TestHandleErrorResponseBodyUnit(t *testing.T) {
 	tests := []struct {
 		name         string
