@@ -704,7 +704,14 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 //	    if err != nil {
 //	        log.Fatalf("Failed to describe index: %s", err)
 //	    } else {
-//	        fmt.Printf("%+v", *idx)
+//	        desc := fmt.Sprintf("Description: \n  Name: %s\n  Dimension: %d\n  Host: %s\n  Metric: %s\n"+
+//			"  DeletionProtection"+
+//			": %s\n"+
+//			"  Spec: %+v"+
+//			"\n  Status: %+v\n",
+//			idx.Name, idx.Dimension, idx.Host, idx.Metric, idx.DeletionProtection, idx.Spec, idx.Status)
+//
+//		    fmt.Println(desc)
 //	    }
 func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, error) {
 	res, err := c.restClient.DescribeIndex(ctx, idxName)

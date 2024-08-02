@@ -430,7 +430,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 	} else {
-		fmt.Printf("Successfully found the \"%s\" index!\n", idx.Name)
+		desc := fmt.Sprintf("Description: \n  Name: %s\n  Dimension: %d\n  Host: %s\n  Metric: %s\n"+
+			"  DeletionProtection"+
+			": %s\n"+
+			"  Spec: %+v"+
+			"\n  Status: %+v\n",
+			idx.Name, idx.Dimension, idx.Host, idx.Metric, idx.DeletionProtection, idx.Spec, idx.Status)
+		fmt.Println(desc)
 	}
 }
 ```
