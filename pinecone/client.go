@@ -412,8 +412,10 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //		       Indexed: &[]string{"title", "description"},
 //	    }
 //
+//	    indexName := "my-pod-index"
+//
 //	    idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
-//	        Name:        "my-pod-index",
+//	        Name:        indexName,
 //	        Dimension:   3,
 //	        Metric:      pinecone.Cosine,
 //	        Environment: "us-west1-gcp",
@@ -493,20 +495,22 @@ func (req CreatePodIndexRequest) TotalCount() int {
 //		       Indexed: &[]string{"title", "description"},
 //	    }
 //
-//	    idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
-//	        Name:        "my-pod-index",
-//	        Dimension:   3,
-//	        Metric:      pinecone.Cosine,
-//	        Environment: "us-west1-gcp",
-//	        PodType:     "s1",
-//	        MetadataConfig: podIndexMetadata,
-//	    })
+//	    indexName := "my-pod-index"
 //
-//	    if err != nil {
-//		       log.Fatalf("Failed to create pod index:", err)
-//	    } else {
-//		       fmt.Printf("Successfully created pod index: %s", idx.Name)
-//	    }
+//		idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
+//		    Name:        indexName,
+//		    Dimension:   3,
+//		    Metric:      pinecone.Cosine,
+//		    Environment: "us-west1-gcp",
+//		    PodType:     "s1",
+//		    MetadataConfig: podIndexMetadata,
+//		})
+//
+//		if err != nil {
+//	    	log.Fatalf("Failed to create pod index:", err)
+//		} else {
+//			   fmt.Printf("Successfully created pod index: %s", idx.Name)
+//		}
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
 	if in.Name == "" || in.Dimension == 0 || in.Metric == "" || in.Environment == "" || in.PodType == "" {
 		return nil, fmt.Errorf("fields Name, Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest")
@@ -574,31 +578,33 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //
 //	    ctx := context.Background()
 //
-//	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
+//		clientParams := pinecone.NewClientParams{
+//		    ApiKey:    "YOUR_API_KEY",
+//			SourceTag: "your_source_identifier", // optional
 //	    }
 //
-//	    pc, err := pinecone.NewClient(clientParams)
-//	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
-//	    }
+//		pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//		    log.Fatalf("Failed to create Client: %v", err)
+//		} else {
+//		    fmt.Println("Successfully created a new Client object!")
+//		}
 //
-//	    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
-//	        Name:    "my-serverless-index",
-//	        Dimension: 3,
-//	        Metric:  pinecone.Cosine,
-//	        Cloud:   pinecone.Aws,
-//	        Region:  "us-east-1",
+//		indexName := "my-serverless-index"
+//
+//		idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+//		    Name:      indexName,
+//			Dimension: 3,
+//			Metric:  pinecone.Cosine,
+//			Cloud:   pinecone.Aws,
+//			Region:  "us-east-1",
 //	    })
 //
-//	    if err != nil {
-//	        log.Fatalf("Failed to create serverless index: %s", idx.Name)
-//	    } else {
-//	        fmt.Printf("Successfully created serverless index: %s", idx.Name)
-//	    }
+//		if err != nil {
+//		    log.Fatalf("Failed to create serverless index: %s", indexName)
+//		} else {
+//		    fmt.Printf("Successfully created serverless index: %s", idx.Name)
+//		}
 //
 // [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
 // [Serverless]: https://docs.pinecone.io/guides/indexes/understanding-indexes#serverless-indexes
@@ -640,19 +646,21 @@ type CreateServerlessIndexRequest struct {
 //		       fmt.Println("Successfully created a new Client object!")
 //	    }
 //
-//	    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
-//	        Name:    "my-serverless-index",
-//	        Dimension: 3,
-//	        Metric:  pinecone.Cosine,
-//	        Cloud:   pinecone.Aws,
-//	        Region:  "us-east-1",
-//	    })
+//	    indexName := "my-serverless-index"
 //
-//	    if err != nil {
-//	        log.Fatalf("Failed to create serverless index: %s", idx.Name)
-//	    } else {
-//	        fmt.Printf("Successfully created serverless index: %s", idx.Name)
-//	    }
+//	    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+//		    Name:    indexName,
+//		    Dimension: 3,
+//		    Metric:  pinecone.Cosine,
+//		    Cloud:   pinecone.Aws,
+//		    Region:  "us-east-1",
+//		})
+//
+//		if err != nil {
+//		    log.Fatalf("Failed to create serverless index: %s", indexName)
+//		} else {
+//		    fmt.Printf("Successfully created serverless index: %s", idx.Name)
+//		}
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
 	if in.Name == "" || in.Dimension == 0 || in.Metric == "" || in.Cloud == "" || in.Region == "" {
 		return nil, fmt.Errorf("fields Name, Dimension, Metric, Cloud, and Region must be included in CreateServerlessIndexRequest")
@@ -716,7 +724,14 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 //	    if err != nil {
 //	        log.Fatalf("Failed to describe index: %s", err)
 //	    } else {
-//	        fmt.Printf("%+v", *idx)
+//	        desc := fmt.Sprintf("Description: \n  Name: %s\n  Dimension: %d\n  Host: %s\n  Metric: %s\n"+
+//			"  DeletionProtection"+
+//			": %s\n"+
+//			"  Spec: %+v"+
+//			"\n  Status: %+v\n",
+//			idx.Name, idx.Dimension, idx.Host, idx.Metric, idx.DeletionProtection, idx.Spec, idx.Status)
+//
+//		    fmt.Println(desc)
 //	    }
 func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, error) {
 	res, err := c.restClient.DescribeIndex(ctx, idxName)
@@ -811,7 +826,7 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //		       fmt.Println("Successfully created a new Client object!")
 //	    }
 //
-//	    idx, err := pc.ConfigureIndex(ctx, "my-index", &ConfigureIndexParams{ DeletionProtection: "enabled", Replicas: 4 })
+//	    idx, err := pc.ConfigureIndex(ctx, "my-index", ConfigureIndexParams{ DeletionProtection: "enabled", Replicas: 4 })
 //
 // [app.pinecone.io]: https://app.pinecone.io
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
@@ -839,25 +854,25 @@ type ConfigureIndexParams struct {
 // Example:
 //
 //		// To scale the size of your pods-based index from "x2" to "x4":
-//		 _, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{PodType: "p1.x4"})
+//		 _, err := pc.ConfigureIndex(ctx, "my-pod-index", ConfigureIndexParams{PodType: "p1.x4"})
 //		 if err != nil {
 //		     fmt.Printf("Failed to configure index: %v\n", err)
 //		 }
 //
 //		// To scale the number of replicas:
-//		 _, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{Replicas: 4})
+//		 _, err := pc.ConfigureIndex(ctx, "my-pod-index", ConfigureIndexParams{Replicas: 4})
 //		 if err != nil {
 //		     fmt.Printf("Failed to configure index: %v\n", err)
 //		 }
 //
 //		// To scale both the size of your pods and the number of replicas to 4:
-//		 _, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{PodType: "p1.x4", Replicas: 4})
+//		 _, err := pc.ConfigureIndex(ctx, "my-pod-index", ConfigureIndexParams{PodType: "p1.x4", Replicas: 4})
 //		 if err != nil {
 //		     fmt.Printf("Failed to configure index: %v\n", err)
 //		 }
 //
 //	    // To enable deletion protection:
-//		 _, err := pc.ConfigureIndex(ctx, "my-index", &ConfigureIndexParams{DeletionProtection: "enabled"})
+//		 _, err := pc.ConfigureIndex(ctx, "my-index", ConfigureIndexParams{DeletionProtection: "enabled"})
 //		 if err != nil {
 //		     fmt.Printf("Failed to configure index: %v\n", err)
 //		 }

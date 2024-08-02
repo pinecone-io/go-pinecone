@@ -148,8 +148,10 @@ func main() {
 		fmt.Println("Successfully created a new Client object!")
 	}
 
+	indexName := "my-serverless-index"
+
 	idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
-		Name:      "my-serverless-index",
+		Name:      indexName,
 		Dimension: 3,
 		Metric:    pinecone.Cosine,
 		Cloud:     pinecone.Aws,
@@ -157,7 +159,7 @@ func main() {
 	})
 
 	if err != nil {
-		log.Fatalf("Failed to create serverless index: %s", idx.Name)
+		log.Fatalf("Failed to create serverless index: %s", indexName)
 	} else {
 		fmt.Printf("Successfully created serverless index: %s", idx.Name)
 	}
@@ -194,12 +196,14 @@ func main() {
 		fmt.Println("Successfully created a new Client object!")
 	}
 
+	indexName := "my-pod-index"
+
 	podIndexMetadata := &pinecone.PodSpecMetadataConfig{
 		Indexed: &[]string{"title", "description"},
 	}
 
 	idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
-		Name:           "my-pod-index",
+		Name:           indexName,
 		Dimension:      3,
 		Metric:         pinecone.Cosine,
 		Environment:    "us-west1-gcp",
@@ -370,25 +374,25 @@ func main() {
 	}
 
 	// To scale the size of your pods-based index from "x2" to "x4":
-	_, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{PodType: "p1.x4"})
+	_, err := pc.ConfigureIndex(ctx, "my-pod-index", pinecone.ConfigureIndexParams{PodType: "p1.x4"})
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
 
 	// To scale the number of replicas to 4:
-	_, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{Replicas: 4})
+	_, err := pc.ConfigureIndex(ctx, "my-pod-index", pinecone.ConfigureIndexParams{Replicas: 4})
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
 
 	// To scale both the size of your pods and the number of replicas:
-	_, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{PodType: "p1.x4", Replicas: 4})
+	_, err := pc.ConfigureIndex(ctx, "my-pod-index", pinecone.ConfigureIndexParams{PodType: "p1.x4", Replicas: 4})
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
 
 	// To enable deletion protection:
-	_, err := pc.ConfigureIndex(ctx, "my-index", &ConfigureIndexParams{DeletionProtection: "enabled"})
+	_, err := pc.ConfigureIndex(ctx, "my-index", pinecone.ConfigureIndexParams{DeletionProtection: "enabled"})
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
@@ -430,7 +434,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 	} else {
-		fmt.Printf("Successfully found the \"%s\" index!\n", idx.Name)
+		desc := fmt.Sprintf("Description: \n  Name: %s\n  Dimension: %d\n  Host: %s\n  Metric: %s\n"+
+			"  DeletionProtection"+
+			": %s\n"+
+			"  Spec: %+v"+
+			"\n  Status: %+v\n",
+			idx.Name, idx.Dimension, idx.Host, idx.Metric, idx.DeletionProtection, idx.Spec, idx.Status)
+		fmt.Println(desc)
 	}
 }
 ```
@@ -483,7 +493,9 @@ func main() {
 
 ### Upsert vectors
 
-The following example upserts vectors to `example-index`.
+The following example upserts
+vectors ([both dense and sparse](https://docs.pinecone.io/guides/data/upsert-sparse-dense-vectors)) and metadata
+to `example-index`.
 
 ```go
 package main
@@ -492,6 +504,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pinecone-io/go-pinecone/pinecone"
+	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
 )
@@ -520,22 +533,41 @@ func main() {
 		log.Fatalf("Failed to create IndexConnection for Host: %v: %v", idx.Host, err)
 	}
 
+	metadataMap := map[string]interface{}{
+		"genre": "classical",
+	}
+
+	metadata, err := structpb.NewStruct(metadataMap)
+
+	sparseValues := pinecone.SparseValues{
+		Indices: []uint32{0, 1, 2, 3, 4, 5, 6, 7},
+		Values:  []float32{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0},
+	}
+
 	vectors := []*pinecone.Vector{
 		{
-			Id:     "A",
-			Values: []float32{0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
+			Id:           "A",
+			Values:       []float32{0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
+			Metadata:     metadata,
+			SparseValues: &sparseValues,
 		},
 		{
-			Id:     "B",
-			Values: []float32{0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2},
+			Id:           "B",
+			Values:       []float32{0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2},
+			Metadata:     metadata,
+			SparseValues: &sparseValues,
 		},
 		{
-			Id:     "C",
-			Values: []float32{0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3},
+			Id:           "C",
+			Values:       []float32{0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3},
+			Metadata:     metadata,
+			SparseValues: &sparseValues,
 		},
 		{
-			Id:     "D",
-			Values: []float32{0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4},
+			Id:           "D",
+			Values:       []float32{0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4},
+			Metadata:     metadata,
+			SparseValues: &sparseValues,
 		},
 	}
 
@@ -552,7 +584,10 @@ func main() {
 
 #### Query by vector values
 
-The following example queries the index `example-index` with vector values and metadata filtering.
+The following example queries the index `example-index` with vector values and metadata filtering. Note: you can
+also query by sparse values;
+see [sparse-dense documentation](https://docs.pinecone.io/guides/data/query-sparse-dense-vectors)
+for examples.
 
 ```go
 package main
@@ -562,6 +597,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pinecone-io/go-pinecone/pinecone"
+	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
 )
@@ -606,10 +642,10 @@ func main() {
 	}
 
 	res, err := idxConnection.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
-		Vector:        queryVector,
-		TopK:          3,
-		Filter:        metadataFilter,
-		IncludeValues: true,
+		Vector:         queryVector,
+		TopK:           3,
+		MetadataFilter: metadataFilter,
+		IncludeValues:  true,
 	})
 	if err != nil {
 		log.Fatalf("Error encountered when querying by vector: %v", err)
@@ -722,7 +758,7 @@ func main() {
 	}
 
 	vectorId := "vector-id"
-	res, err := idxConnection.QueryByVectorId(ctx, &pinecone. & pinecone.QueryByVectorIdRequest{
+	res, err := idxConnection.QueryByVectorId(ctx, &pinecone.QueryByVectorIdRequest{
 		VectorId:      vectorId,
 		TopK:          3,
 		IncludeValues: true,
@@ -730,7 +766,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error encountered when querying by vector ID `%v`: %v", vectorId, err)
 	} else {
-		fmt.Printf(prettifyStruct(res))
+		fmt.Printf(prettifyStruct(res.Matches))
 	}
 }
 ```
@@ -797,6 +833,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pinecone-io/go-pinecone/pinecone"
+	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
 )
