@@ -576,36 +576,35 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //
 // Example:
 //
-//			ctx := context.Background()
+//	    ctx := context.Background()
 //
+//	    clientParams := pinecone.NewClientParams{
+//		       ApiKey:    "YOUR_API_KEY",
+//			   SourceTag: "your_source_identifier", // optional
+//	    }
 //
-//			clientParams := pinecone.NewClientParams{
-//				   ApiKey:    "YOUR_API_KEY",
-//				   SourceTag: "your_source_identifier", // optional
-//			}
+//		   pc, err := pinecone.NewClient(clientParams)
+//		   if err != nil {
+//		       log.Fatalf("Failed to create Client: %v", err)
+//		   } else {
+//		       fmt.Println("Successfully created a new Client object!")
+//		   }
 //
-//		    pc, err := pinecone.NewClient(clientParams)
-//			if err != nil {
-//			    log.Fatalf("Failed to create Client: %v", err)
-//			} else {
-//				   fmt.Println("Successfully created a new Client object!")
-//			}
+//		   indexName := "my-serverless-index"
 //
-//	    indexName := "my-serverless-index"
-//
-//	    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+//		   idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
 //		       Name:      indexName,
 //			   Dimension: 3,
 //			   Metric:  pinecone.Cosine,
 //			   Cloud:   pinecone.Aws,
 //			   Region:  "us-east-1",
-//			})
+//		   })
 //
-//			if err != nil {
-//			    log.Fatalf("Failed to create serverless index: %s", indexName)
-//			} else {
-//			    fmt.Printf("Successfully created serverless index: %s", idx.Name)
-//			}
+//		   if err != nil {
+//		       log.Fatalf("Failed to create serverless index: %s", indexName)
+//		   } else {
+//		       fmt.Printf("Successfully created serverless index: %s", idx.Name)
+//		   }
 //
 // [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
 // [Serverless]: https://docs.pinecone.io/guides/indexes/understanding-indexes#serverless-indexes
