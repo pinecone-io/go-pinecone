@@ -999,6 +999,39 @@ func TestToUsageUnit(t *testing.T) {
 	}
 }
 
+func TestNormalizeHostUnit(t *testing.T) {
+	tests := []struct {
+		name         string
+		host         string
+		expectedHost string
+	}{
+		{
+			name:         "https:// scheme should be removed",
+			host:         "https://this-is-my-host.io",
+			expectedHost: "this-is-my-host.io:443",
+		}, {
+			name:         "https:// scheme with a port should be removed",
+			host:         "https://this-is-my-host.io:33445",
+			expectedHost: "this-is-my-host.io:33445",
+		}, {
+			name:         "http:// scheme without a port should be removed",
+			host:         "http://this-is-my-host.io",
+			expectedHost: "this-is-my-host.io:443",
+		}, {
+			name:         "http:// scheme and port should be maintained",
+			host:         "http://this-is-my-host.io:8080",
+			expectedHost: "http://this-is-my-host.io:8080",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeHost(tt.host)
+			assert.Equal(t, tt.expectedHost, result, "Expected result to be '%s', but got '%s'", tt.expectedHost, result)
+		})
+	}
+}
+
 func TestToPaginationToken(t *testing.T) {
 	tokenForNilCase := ""
 	tokenForPositiveCase := "next-token"
