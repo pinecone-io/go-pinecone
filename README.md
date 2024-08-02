@@ -150,20 +150,8 @@ func main() {
 
 	indexName := "my-serverless-index"
 
-	indexes, err := pc.ListIndexes(ctx)
-	if err != nil {
-		log.Fatalf("Failed to list indexes: %v", err)
-	}
-
-	for _, idx := range indexes {
-		if idx.Name == indexName {
-			fmt.Printf("Index \"%s\" already exists\n", indexName)
-			return
-		}
-	}
-
 	idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
-		Name:      &indexName,
+		Name:      indexName,
 		Dimension: 3,
 		Metric:    pinecone.Cosine,
 		Cloud:     pinecone.Aws,
@@ -171,7 +159,7 @@ func main() {
 	})
 
 	if err != nil {
-		log.Fatalf("Failed to create serverless index: %s", idx.Name)
+		log.Fatalf("Failed to create serverless index: %s", indexName)
 	} else {
 		fmt.Printf("Successfully created serverless index: %s", idx.Name)
 	}
@@ -214,20 +202,8 @@ func main() {
 		Indexed: &[]string{"title", "description"},
 	}
 
-	indexes, err := pc.ListIndexes(ctx)
-	if err != nil {
-		log.Fatalf("Failed to list indexes: %v", err)
-	}
-
-	for _, idx := range indexes {
-		if idx.Name == indexName {
-			fmt.Printf("Index \"%s\" already exists\n", indexName)
-			return
-		}
-	}
-
 	idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
-		Name:           &indexName,
+		Name:           indexName,
 		Dimension:      3,
 		Metric:         pinecone.Cosine,
 		Environment:    "us-west1-gcp",
