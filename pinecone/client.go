@@ -408,8 +408,22 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //		       Indexed: &[]string{"title", "description"},
 //	    }
 //
+//	    indexName := "my-pod-index"
+//
+//		indexes, err := pc.ListIndexes(ctx)
+//			if err != nil {
+//				log.Fatalf("Failed to list indexes: %v", err)
+//		}
+//
+//		for _, idx := range indexes {
+//			if idx.Name == indexName {
+//				fmt.Printf("Index \"%s\" already exists\n", indexName)
+//				return
+//			}
+//		}
+//
 //	    idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
-//	        Name:        "my-pod-index",
+//	        Name:        &indexName,
 //	        Dimension:   3,
 //	        Metric:      pinecone.Cosine,
 //	        Environment: "us-west1-gcp",
@@ -489,20 +503,34 @@ func (req CreatePodIndexRequest) TotalCount() int {
 //		       Indexed: &[]string{"title", "description"},
 //	    }
 //
-//	    idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
-//	        Name:        "my-pod-index",
-//	        Dimension:   3,
-//	        Metric:      pinecone.Cosine,
-//	        Environment: "us-west1-gcp",
-//	        PodType:     "s1",
-//	        MetadataConfig: podIndexMetadata,
-//	    })
+//	    indexName := "my-pod-index"
 //
-//	    if err != nil {
-//		       log.Fatalf("Failed to create pod index:", err)
-//	    } else {
-//		       fmt.Printf("Successfully created pod index: %s", idx.Name)
-//	    }
+//		indexes, err := pc.ListIndexes(ctx)
+//			if err != nil {
+//				log.Fatalf("Failed to list indexes: %v", err)
+//		}
+//
+//		for _, idx := range indexes {
+//			if idx.Name == indexName {
+//				fmt.Printf("Index \"%s\" already exists\n", indexName)
+//				return
+//			}
+//		}
+//
+//		idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
+//		    Name:        &indexName,
+//		    Dimension:   3,
+//		    Metric:      pinecone.Cosine,
+//		    Environment: "us-west1-gcp",
+//		    PodType:     "s1",
+//		    MetadataConfig: podIndexMetadata,
+//		})
+//
+//		if err != nil {
+//	    	log.Fatalf("Failed to create pod index:", err)
+//		} else {
+//			   fmt.Printf("Successfully created pod index: %s", idx.Name)
+//		}
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
 	deletionProtection := pointerOrNil(control.DeletionProtection(in.DeletionProtection))
 	metric := pointerOrNil(control.CreateIndexRequestMetric(in.Metric))
@@ -564,33 +592,47 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //
 // Example:
 //
-//	    ctx := context.Background()
+//		    ctx := context.Background()
 //
-//	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
-//	    }
+//		    clientParams := pinecone.NewClientParams{
+//			       ApiKey:    "YOUR_API_KEY",
+//			       SourceTag: "your_source_identifier", // optional
+//		    }
 //
-//	    pc, err := pinecone.NewClient(clientParams)
-//	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
-//	    }
+//		    pc, err := pinecone.NewClient(clientParams)
+//		    if err != nil {
+//		        log.Fatalf("Failed to create Client: %v", err)
+//		    } else {
+//			       fmt.Println("Successfully created a new Client object!")
+//		    }
 //
-//	    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
-//	        Name:    "my-serverless-index",
-//	        Dimension: 3,
-//	        Metric:  pinecone.Cosine,
-//	        Cloud:   pinecone.Aws,
-//	        Region:  "us-east-1",
-//	    })
+//	     indexName := "my-serverless-index"
 //
-//	    if err != nil {
-//	        log.Fatalf("Failed to create serverless index: %s", idx.Name)
-//	    } else {
-//	        fmt.Printf("Successfully created serverless index: %s", idx.Name)
-//	    }
+//			indexes, err := pc.ListIndexes(ctx)
+//			if err != nil {
+//				log.Fatalf("Failed to list indexes: %v", err)
+//			}
+//
+//			for _, idx := range indexes {
+//				if idx.Name == indexName {
+//					fmt.Printf("Index \"%s\" already exists\n", indexName)
+//					return
+//				}
+//			}
+//
+//		    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+//		        Name:      &indexName,
+//		        Dimension: 3,
+//		        Metric:  pinecone.Cosine,
+//		        Cloud:   pinecone.Aws,
+//		        Region:  "us-east-1",
+//		    })
+//
+//		    if err != nil {
+//		        log.Fatalf("Failed to create serverless index: %s", idx.Name)
+//		    } else {
+//		        fmt.Printf("Successfully created serverless index: %s", idx.Name)
+//		    }
 //
 // [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
 // [Serverless]: https://docs.pinecone.io/guides/indexes/understanding-indexes#serverless-indexes
@@ -632,19 +674,33 @@ type CreateServerlessIndexRequest struct {
 //		       fmt.Println("Successfully created a new Client object!")
 //	    }
 //
-//	    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
-//	        Name:    "my-serverless-index",
-//	        Dimension: 3,
-//	        Metric:  pinecone.Cosine,
-//	        Cloud:   pinecone.Aws,
-//	        Region:  "us-east-1",
-//	    })
+//	    indexName := "my-serverless-index"
 //
-//	    if err != nil {
-//	        log.Fatalf("Failed to create serverless index: %s", idx.Name)
-//	    } else {
-//	        fmt.Printf("Successfully created serverless index: %s", idx.Name)
-//	    }
+//		indexes, err := pc.ListIndexes(ctx)
+//		if err != nil {
+//			log.Fatalf("Failed to list indexes: %v", err)
+//		}
+//
+//		for _, idx := range indexes {
+//			if idx.Name == indexName {
+//				fmt.Printf("Index \"%s\" already exists\n", indexName)
+//				return
+//			}
+//		}
+//
+//	    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+//		    Name:    &indexName,
+//		    Dimension: 3,
+//		    Metric:  pinecone.Cosine,
+//		    Cloud:   pinecone.Aws,
+//		    Region:  "us-east-1",
+//		})
+//
+//		if err != nil {
+//		    log.Fatalf("Failed to create serverless index: %s", idx.Name)
+//		} else {
+//		    fmt.Printf("Successfully created serverless index: %s", idx.Name)
+//		}
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
 	deletionProtection := pointerOrNil(control.DeletionProtection(in.DeletionProtection))
 	metric := pointerOrNil(control.CreateIndexRequestMetric(in.Metric))
