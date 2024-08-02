@@ -5,6 +5,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"net/url"
+	"strings"
 
 	"github.com/pinecone-io/go-pinecone/internal/gen/data"
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
@@ -35,14 +37,19 @@ type newIndexParameters struct {
 }
 
 func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*IndexConnection, error) {
-	config := &tls.Config{}
-	target := fmt.Sprintf("%s:443", in.host)
+	target := normalizeHost(in.host)
 
 	// configure default gRPC DialOptions
 	grpcOptions := []grpc.DialOption{
-		grpc.WithTransportCredentials(credentials.NewTLS(config)),
 		grpc.WithAuthority(target),
 		grpc.WithUserAgent(useragent.BuildUserAgentGRPC(in.sourceTag)),
+	}
+
+	// if the target includes an http:// address, don't include TLS
+	// otherwise we need to add transport credentials
+	if !strings.HasPrefix(target, "http://") {
+		config := &tls.Config{}
+		grpcOptions = append(grpcOptions, grpc.WithTransportCredentials(credentials.NewTLS(config)))
 	}
 
 	// if we have user-provided dialOpts, append them to the defaults here
@@ -1011,6 +1018,16 @@ func (idx *IndexConnection) delete(ctx context.Context, req *data.DeleteRequest)
 	return err
 }
 
+func (idx *IndexConnection) akCtx(ctx context.Context) context.Context {
+	newMetadata := []string{}
+
+	for key, value := range idx.additionalMetadata {
+		newMetadata = append(newMetadata, key, value)
+	}
+
+	return metadata.AppendToOutgoingContext(ctx, newMetadata...)
+}
+
 func toVector(vector *data.Vector) *Vector {
 	if vector == nil {
 		return nil
@@ -1087,12 +1104,24 @@ func sparseValToGrpc(sv *SparseValues) *data.SparseValues {
 	}
 }
 
-func (idx *IndexConnection) akCtx(ctx context.Context) context.Context {
-	newMetadata := []string{}
-
-	for key, value := range idx.additionalMetadata {
-		newMetadata = append(newMetadata, key, value)
+func normalizeHost(host string) string {
+	parsedHost, err := url.Parse(host)
+	if err != nil {
+		log.Default().Printf("Failed to parse host %s: %v", host, err)
+		return host
 	}
 
-	return metadata.AppendToOutgoingContext(ctx, newMetadata...)
+	// if https:// or http:// without a port, strip the scheme
+	if parsedHost.Scheme == "https" {
+		host = strings.TrimPrefix(host, "https://")
+	} else if parsedHost.Scheme == "http" && parsedHost.Port() == "" {
+		host = strings.TrimPrefix(host, "http://")
+	}
+
+	// if a port was provided leave it, otherwise we append :443
+	if parsedHost.Port() == "" {
+		host = host + ":443"
+	}
+
+	return host
 }
