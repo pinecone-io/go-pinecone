@@ -722,7 +722,7 @@ func main() {
 	}
 
 	vectorId := "vector-id"
-	res, err := idxConnection.QueryByVectorId(ctx, &pinecone. & pinecone.QueryByVectorIdRequest{
+	res, err := idxConnection.QueryByVectorId(ctx, &pinecone.QueryByVectorIdRequest{
 		VectorId:      vectorId,
 		TopK:          3,
 		IncludeValues: true,
@@ -730,7 +730,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error encountered when querying by vector ID `%v`: %v", vectorId, err)
 	} else {
-		fmt.Printf(prettifyStruct(res))
+		fmt.Printf(prettifyStruct(res.Matches))
 	}
 }
 ```
