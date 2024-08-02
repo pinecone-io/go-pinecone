@@ -370,25 +370,25 @@ func main() {
 	}
 
 	// To scale the size of your pods-based index from "x2" to "x4":
-	_, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{PodType: "p1.x4"})
+	_, err := pc.ConfigureIndex(ctx, "my-pod-index", pinecone.ConfigureIndexParams{PodType: "p1.x4"})
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
 
 	// To scale the number of replicas to 4:
-	_, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{Replicas: 4})
+	_, err := pc.ConfigureIndex(ctx, "my-pod-index", pinecone.ConfigureIndexParams{Replicas: 4})
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
 
 	// To scale both the size of your pods and the number of replicas:
-	_, err := pc.ConfigureIndex(ctx, "my-pod-index", &ConfigureIndexParams{PodType: "p1.x4", Replicas: 4})
+	_, err := pc.ConfigureIndex(ctx, "my-pod-index", pinecone.ConfigureIndexParams{PodType: "p1.x4", Replicas: 4})
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
 
 	// To enable deletion protection:
-	_, err := pc.ConfigureIndex(ctx, "my-index", &ConfigureIndexParams{DeletionProtection: "enabled"})
+	_, err := pc.ConfigureIndex(ctx, "my-index", pinecone.ConfigureIndexParams{DeletionProtection: "enabled"})
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
