@@ -79,7 +79,7 @@ type Client struct {
 //   - ApiKey: (Required) The API key used to authenticate with the Pinecone control plane API.
 //     This value must be passed by the user unless it is set as an environment variable ("PINECONE_API_KEY").
 //   - Headers: An optional map of additional HTTP headers to include in each API request to the control plane.
-//   - Host: The host URL of the Pinecone control plane API. If not provided,
+//   - Host: (Optional) The host URL of the Pinecone control plane API. If not provided,
 //     the default value is "https://api.pinecone.io".
 //   - RestClient: An optional HTTP client to use for communication with the control plane API.
 //   - SourceTag: An optional string used to help Pinecone attribute API activity.
@@ -99,7 +99,7 @@ type NewClientParams struct {
 // Fields:
 //   - Headers: An optional map of additional HTTP headers to include in each API request to the control plane.
 //     "Authorization" and "X-Project-Id" headers are required if authenticating using a JWT.
-//   - Host: The host URL of the Pinecone control plane API. If not provided,
+//   - Host: (Optional) The host URL of the Pinecone control plane API. If not provided,
 //     the default value is "https://api.pinecone.io".
 //   - RestClient: An optional *http.Client object to use for communication with the control plane API.
 //   - SourceTag: An optional string used to help Pinecone attribute API activity.
@@ -115,10 +115,10 @@ type NewClientBaseParams struct {
 // NewIndexConnParams holds the parameters for creating an IndexConnection to a Pinecone index.
 //
 // Fields:
-//   - Host: The host URL of the Pinecone index. This is required. To find your host url use the DescribeIndex or ListIndexes methods.
+//   - Host: (Required) The host URL of the Pinecone index. To find your host url use the DescribeIndex or ListIndexes methods.
 //     Alternatively, the host is displayed in the Pinecone web console.
 //   - Namespace: Optional index namespace to use for operations. If not provided, the default namespace of "" will be used.
-//   - AdditionalMetdata: Optional additional metdata to be sent with each RPC request.
+//   - AdditionalMetadata: Optional additional metadata to be sent with each RPC request.
 //
 // See Client.Index for code example.
 type NewIndexConnParams struct {
@@ -155,7 +155,7 @@ type NewIndexConnParams struct {
 //	    }
 func NewClient(in NewClientParams) (*Client, error) {
 	osApiKey := os.Getenv("PINECONE_API_KEY")
-	hasApiKey := (valueOrFallback(in.ApiKey, osApiKey) != "")
+	hasApiKey := valueOrFallback(in.ApiKey, osApiKey) != ""
 
 	if !hasApiKey {
 		return nil, fmt.Errorf("no API key provided, please pass an API key for authorization through NewClientParams or set the PINECONE_API_KEY environment variable")
@@ -184,7 +184,7 @@ func NewClient(in NewClientParams) (*Client, error) {
 // Notes:
 //   - It is important to handle the error returned by this function to ensure that the
 //     control plane client has been created successfully before attempting to make API calls.
-//   - A Pinecone API key is not requried when using NewClientBase.
+//   - A Pinecone API key is not required when using NewClientBase.
 //
 // Returns a pointer to an initialized Client instance or an error.
 //
@@ -280,6 +280,10 @@ func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*Ind
 		in.AdditionalMetadata = make(map[string]string)
 	}
 
+	if in.Host == "" {
+		return nil, fmt.Errorf("field Host is required to create an IndexConnection. Find your Host from calling DescribeIndex or via the Pinecone console")
+	}
+
 	// add api version header if not provided
 	if _, ok := in.AdditionalMetadata["X-Pinecone-Api-Version"]; !ok {
 		in.AdditionalMetadata["X-Pinecone-Api-Version"] = gen.PineconeApiVersion
@@ -365,21 +369,21 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 // CreatePodIndexRequest holds the parameters for creating a new pods-based Index.
 //
 // Fields:
-//   - Name: The name of the Index. Resource name must be 1-45 characters long,
+//   - Name: (Required) The name of the Index. Resource name must be 1-45 characters long,
 //     start and end with an alphanumeric character,
 //     and consist only of lower case alphanumeric characters or '-'.
-//   - Dimension: The [dimensionality] of the vectors to be inserted in the Index.
-//   - Metric: The distance metric to be used for [similarity] search. You can use
+//   - Dimension: (Required) The [dimensionality] of the vectors to be inserted in the Index.
+//   - Metric: (Required) The distance metric to be used for [similarity] search. You can use
 //     'euclidean', 'cosine', or 'dotproduct'.
-//   - Environment: The [cloud environment] where the Index will be hosted.
-//   - PodType: The [type of pod] to use for the Index. One of `s1`, `p1`, or `p2` appended with `.` and
+//   - Environment: (Required) The [cloud environment] where the Index will be hosted.
+//   - PodType: (Required) The [type of pod] to use for the Index. One of `s1`, `p1`, or `p2` appended with `.` and
 //     one of `x1`, `x2`, `x4`, or `x8`.
-//   - Shards: The number of shards to use for the Index (defaults to 1).
+//   - Shards: (Optional) The number of shards to use for the Index (defaults to 1).
 //     Shards split your data across multiple pods, so you can fit more data into an Index.
-//   - Replicas: The number of [replicas] to use for the Index (defaults to 1). Replicas duplicate your Index.
+//   - Replicas: (Optional) The number of [replicas] to use for the Index (defaults to 1). Replicas duplicate your Index.
 //     They provide higher availability and throughput. Replicas can be scaled up or down as your needs change.
-//   - SourceCollection: The name of the Collection to be used as the source for the Index.
-//   - MetadataConfig: The [metadata configuration] for the behavior of Pinecone's internal metadata Index. By
+//   - SourceCollection: (Optional) The name of the Collection to be used as the source for the Index.
+//   - MetadataConfig: (Optional) The [metadata configuration] for the behavior of Pinecone's internal metadata Index. By
 //     default, all metadata is indexed; when `metadata_config` is present,
 //     only specified metadata fields are indexed. These configurations are
 //     only valid for use with pod-based Indexes.
@@ -504,6 +508,10 @@ func (req CreatePodIndexRequest) TotalCount() int {
 //		       fmt.Printf("Successfully created pod index: %s", idx.Name)
 //	    }
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
+	if in.Name == "" || in.Dimension == 0 || in.Metric == "" || in.Environment == "" || in.PodType == "" {
+		return nil, fmt.Errorf("fields Name, Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest")
+	}
+
 	deletionProtection := pointerOrNil(control.DeletionProtection(in.DeletionProtection))
 	metric := pointerOrNil(control.CreateIndexRequestMetric(in.Metric))
 
@@ -549,14 +557,14 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 // CreateServerlessIndexRequest holds the parameters for creating a new [Serverless] Index.
 //
 // Fields:
-//   - Name: The name of the Index. Resource name must be 1-45 characters long,
+//   - Name: (Required) The name of the Index. Resource name must be 1-45 characters long,
 //     start and end with an alphanumeric character,
 //     and consist only of lower case alphanumeric characters or '-'.
-//   - Dimension: The [dimensionality] of the vectors to be inserted in the Index.
-//   - Metric: The metric used to measure the [similarity] between vectors ('euclidean', 'cosine', or 'dotproduct').
-//   - Cloud: The public [cloud provider] where you would like your Index hosted.
+//   - Dimension: (Required) The [dimensionality] of the vectors to be inserted in the Index.
+//   - Metric: (Required) The metric used to measure the [similarity] between vectors ('euclidean', 'cosine', or 'dotproduct').
+//   - Cloud: (Required) The public [cloud provider] where you would like your Index hosted.
 //     For serverless Indexes, you define only the cloud and region where the Index should be hosted.
-//   - Region: The [region] where you would like your Index to be created.
+//   - Region: (Required) The [region] where you would like your Index to be created.
 //   - DeletionProtection: (Optional) determines whether [deletion protection] is "enabled" or "disabled" for the index.
 //     When "enabled", the index cannot be deleted. Defaults to "disabled".
 //
@@ -646,6 +654,10 @@ type CreateServerlessIndexRequest struct {
 //	        fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //	    }
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
+	if in.Name == "" || in.Dimension == 0 || in.Metric == "" || in.Cloud == "" || in.Region == "" {
+		return nil, fmt.Errorf("fields Name, Dimension, Metric, Cloud, and Region must be included in CreateServerlessIndexRequest")
+	}
+
 	deletionProtection := pointerOrNil(control.DeletionProtection(in.DeletionProtection))
 	metric := pointerOrNil(control.CreateIndexRequestMetric(in.Metric))
 
@@ -770,7 +782,7 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 // ConfigureIndexParams contains parameters for configuring an index. For both pod-based
 // and serverless indexes you can configure the DeletionProtection status for an index.
 // For pod-based indexes you can also configure the number of Replicas and the PodType.
-// Each of the fields are optional, but at least one field must be set.
+// Each of the fields is optional, but at least one field must be set.
 // See [scale a pods-based index] for more information.
 //
 // Fields:
@@ -892,11 +904,6 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	}
 
 	return decodeIndex(res.Body)
-}
-
-func PrettifyStruct(obj interface{}) string {
-	bytes, _ := json.MarshalIndent(obj, "", "  ")
-	return string(bytes)
 }
 
 // ListCollections retrieves a list of all Collections in a Pinecone [project]. See Collection for more information.
@@ -1026,8 +1033,8 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string) 
 // CreateCollectionRequest holds the parameters for creating a new [Collection].
 //
 // Fields:
-//   - Name: The name of the Collection.
-//   - Source: The name of the Index to be used as the source for the Collection.
+//   - Name: (Required) The name of the Collection.
+//   - Source: (Required) The name of the Index to be used as the source for the Collection.
 //
 // To create a new Collection, use the CreateCollection method on the Client object.
 //
@@ -1104,6 +1111,10 @@ type CreateCollectionRequest struct {
 //
 // [Collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionRequest) (*Collection, error) {
+	if in.Source == "" || in.Name == "" {
+		return nil, fmt.Errorf("fields Name and Source must be included in CreateCollectionRequest")
+	}
+
 	req := control.CreateCollectionRequest{
 		Name:   in.Name,
 		Source: in.Source,

@@ -281,10 +281,10 @@ func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*Fe
 // which is passed into the ListVectors method.
 //
 // Fields:
-//   - Prefix: The prefix by which to filter. If unspecified,
+//   - Prefix: (Optional) The prefix by which to filter. If unspecified,
 //     an empty string will be used which will list all vector ids in the namespace
-//   - Limit: The maximum number of vectors to return. If unspecified, the server will use a default value.
-//   - PaginationToken: The token for paginating through results.
+//   - Limit: (Optional) The maximum number of vectors to return. If unspecified, the server will use a default value.
+//   - PaginationToken: (Optional) The token for paginating through results.
 type ListVectorsRequest struct {
 	Prefix          *string
 	Limit           *uint32
@@ -391,12 +391,12 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 // which is passed into the QueryByVectorValues method.
 //
 // Fields:
-//   - Vector: The query vector used to find similar vectors.
-//   - TopK: The number of vectors to return.
-//   - MetadataFilter: The filter to apply to your query.
-//   - IncludeValues: Whether to include the values of the vectors in the response.
-//   - IncludeMetadata: Whether to include the metadata associated with the vectors in the response.
-//   - SparseValues: The sparse values of the query vector, if applicable.
+//   - Vector: (Required) The query vector used to find similar vectors.
+//   - TopK: (Required) The number of vectors to return.
+//   - MetadataFilter: (Optional) The filter to apply to your query.
+//   - IncludeValues: (Optional) Whether to include the values of the vectors in the response.
+//   - IncludeMetadata: (Optional) Whether to include the metadata associated with the vectors in the response.
+//   - SparseValues: (Optional) The sparse values of the query vector, if applicable.
 type QueryByVectorValuesRequest struct {
 	Vector          []float32
 	TopK            uint32
@@ -510,12 +510,12 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 // which is passed into the QueryByVectorId method.
 //
 // Fields:
-//   - VectorId: The unique ID of the vector used to find similar vectors.
-//   - TopK: The number of vectors to return.
-//   - MetadataFilter: The filter to apply to your query.
-//   - IncludeValues: Whether to include the values of the vectors in the response.
-//   - IncludeMetadata: Whether to include the metadata associated with the vectors in the response.
-//   - SparseValues: The sparse values of the query vector, if applicable.
+//   - VectorId: (Required) The unique ID of the vector used to find similar vectors.
+//   - TopK: (Required) The number of vectors to return.
+//   - MetadataFilter: (Optional) The filter to apply to your query.
+//   - IncludeValues: (Optional) Whether to include the values of the vectors in the response.
+//   - IncludeMetadata: (Optional) Whether to include the metadata associated with the vectors in the response.
+//   - SparseValues: (Optional) The sparse values of the query vector, if applicable.
 type QueryByVectorIdRequest struct {
 	VectorId        string
 	TopK            uint32
@@ -772,7 +772,7 @@ func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx context.Context) err
 // which is passed into the UpdateVector method.
 //
 // Fields:
-//   - Id: The unique ID of the vector to update.
+//   - Id: (Required) The unique ID of the vector to update.
 //   - Values: The values with which you want to update the vector.
 //   - SparseValues: The sparse values with which you want to update the vector.
 //   - Metadata: The metadata with which you want to update the vector.
@@ -830,6 +830,10 @@ type UpdateVectorRequest struct {
 //		       log.Fatalf("Failed to update vector with ID %s. Error: %s", id, err)
 //	    }
 func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRequest) error {
+	if in.Id == "" {
+		return fmt.Errorf("a vector ID plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
+	}
+
 	req := &data.UpdateRequest{
 		Id:           in.Id,
 		Values:       in.Values,
