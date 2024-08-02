@@ -3,6 +3,7 @@ package pinecone
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net/url"
 	"strings"

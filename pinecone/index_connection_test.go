@@ -1006,13 +1006,13 @@ func TestNormalizeHostUnit(t *testing.T) {
 		expectedHost string
 	}{
 		{
-			name:         "http:// scheme should be removed",
-			host:         "http://this-is-my-host.io",
-			expectedHost: "this-is-my-host.io:443",
-		}, {
 			name:         "https:// scheme should be removed",
 			host:         "https://this-is-my-host.io",
 			expectedHost: "this-is-my-host.io:443",
+		}, {
+			name:         "https:// scheme with a port should be removed",
+			host:         "https://this-is-my-host.io:33445",
+			expectedHost: "this-is-my-host.io:33445",
 		}, {
 			name:         "http:// scheme without a port should be removed",
 			host:         "http://this-is-my-host.io",
