@@ -703,6 +703,33 @@ func (ts *IntegrationTests) TestApiKeyPassedToIndexConnection() {
 }
 
 // Unit tests:
+func TestIndexConnectionMissingReqdFieldsUnit(t *testing.T) {
+	client := &Client{}
+	_, err := client.Index(NewIndexConnParams{})
+	require.ErrorContainsf(t, err, "field Host is required", err.Error())
+}
+
+func TestCreatePodIndexMissingReqdFieldsUnit(t *testing.T) {
+	client := &Client{}
+	_, err := client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{})
+	require.Error(t, err)
+	require.ErrorContainsf(t, err, "fields Name, Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest", err.Error()) //_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{})
+}
+
+func TestCreateServerlessIndexMissingReqdFieldsUnit(t *testing.T) {
+	client := &Client{}
+	_, err := client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{})
+	require.Error(t, err)
+	require.ErrorContainsf(t, err, "fields Name, Dimension, Metric, Cloud, and Region must be included in CreateServerlessIndexRequest", err.Error())
+}
+
+func TestCreateCollectionMissingReqdFieldsUnit(t *testing.T) {
+	client := &Client{}
+	_, err := client.CreateCollection(context.Background(), &CreateCollectionRequest{})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "fields Name and Source must be included in CreateCollectionRequest")
+}
+
 func TestHandleErrorResponseBodyUnit(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -1292,11 +1319,6 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 }
 
 // Helper functions:
-func isValidUUID(u string) bool {
-	_, err := uuid.Parse(u)
-	return err == nil
-}
-
 func mockResponse(body string, statusCode int) *http.Response {
 	return &http.Response{
 		Status:     http.StatusText(statusCode),
