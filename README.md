@@ -646,7 +646,7 @@ func main() {
 		"year": 2019,
 	})
 	if err != nil {
-		log.Fatalf("Failed to create metadata filter: %v", err)
+		log.Fatalf("Failed to create metadataFilter: %v", err)
 	}
 
 	res, err := idxConnection.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
