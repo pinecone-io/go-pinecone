@@ -536,7 +536,6 @@ func main() {
 	metadataMap := map[string]interface{}{
 		"genre": "classical",
 	}
-
 	metadata, err := structpb.NewStruct(metadataMap)
 
 	sparseValues := pinecone.SparseValues{
@@ -633,9 +632,18 @@ func main() {
 
 	queryVector := []float32{0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3}
 
+	metadataMap := map[string]interface{}{
+		"genre": map[string]interface{}{
+			"$eq": "documentary",
+		},
+		"year": 2019,
+	}
+
 	metadataFilter, err := structpb.NewStruct(map[string]interface{}{
-		"genre": {"$eq": "documentary"},
-		"year":  2019,
+		"genre": map[string]interface{}{
+			"$eq": "documentary",
+		},
+		"year": 2019,
 	})
 	if err != nil {
 		log.Fatalf("Failed to create metadataFilter: %v", err)
@@ -1304,4 +1312,5 @@ func main() {
 
 ## Support
 
-To get help using go-pinecone, reach out to support@pinecone.io.
+To get help using go-pinecone you can file an issue on [GitHub](https://github.com/pinecone-io/go-pinecone/issues), visit the [community forum](https://community.pinecone.io/),
+or reach out to support@pinecone.io.
