@@ -8,11 +8,9 @@
 
 Then, execute `just bootstrap` to install the necessary Go packages
 
-## .env Setup
+## Environment Setup
 
-An easy way to keep track of necessary environment variables is to create a `.env` file in the root of the project.
-This project comes with a sample `.env` file (`.env.sample`) that you can copy and modify. At the very least, you
-will need to include the `PINECONE_API_KEY` variable in your `.env` file for the tests to run locally.
+At a minimum, you will need to declare a `PINECONE_API_KEY` variable in your environment in order to interact with Pinecone services, and run integration tests locally. If `PINECONE_API_KEY` is available in your environment, the `Client` struct can be created with `NewClient` without any additional configuration parameters. Alternatively, you can pass `ApiKey` as a configuration directly through `NewClientParams`.
 
 ````shell
 ### API Definitions submodule
