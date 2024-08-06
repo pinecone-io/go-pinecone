@@ -639,12 +639,7 @@ func main() {
 		"year": 2019,
 	}
 
-	metadataFilter, err := structpb.NewStruct(map[string]interface{}{
-		"genre": map[string]interface{}{
-			"$eq": "documentary",
-		},
-		"year": 2019,
-	})
+	metadataFilter, err := structpb.NewStruct(metadataMap)
 	if err != nil {
 		log.Fatalf("Failed to create metadataFilter: %v", err)
 	}
