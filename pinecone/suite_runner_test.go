@@ -2,6 +2,7 @@
 package pinecone
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -9,6 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
+
+// This is the entry point for all integration tests
+// This test function is picked up by go test and triggers the suite runs
+func TestRunSuites(t *testing.T) {
+	RunSuites(t)
+}
 
 func RunSuites(t *testing.T) {
 	apiKey, present := os.LookupEnv("PINECONE_API_KEY")
@@ -31,7 +38,7 @@ func RunSuites(t *testing.T) {
 		host:            podIdx.Host,
 		dimension:       podIdx.Dimension,
 		client:          client,
-		clientSourceTag: *clientSourceTag,
+		clientSourceTag: clientSourceTag,
 		sourceTag:       sourceTag,
 		idxName:         podIdx.Name,
 	}
@@ -42,16 +49,38 @@ func RunSuites(t *testing.T) {
 		apiKey:          apiKey,
 		indexType:       "serverless",
 		client:          client,
-		clientSourceTag: *clientSourceTag,
+		clientSourceTag: clientSourceTag,
 		sourceTag:       sourceTag,
 		idxName:         serverlessIdx.Name,
 	}
 
+	ctx := context.Background()
+	done := make(chan indexReadyResponse, 2)
+
+	// spawn goroutines to wait until indexes are ready
+	go waitUntilIndexReadyWithChannel(podTestSuite, ctx, done)
+	go waitUntilIndexReadyWithChannel(serverlessTestSuite, ctx, done)
+
+	// wait until indexes are ready before proceeding
+	for i := 0; i < 2; i++ {
+		result := <-done
+		require.True(t, result.ready, "Index %s is not ready", result.indexName)
+	}
+
 	suite.Run(t, podTestSuite)
 	suite.Run(t, serverlessTestSuite)
-
 }
 
-func TestRunSuites(t *testing.T) {
-	RunSuites(t)
+func waitUntilIndexReadyWithChannel(ts *IntegrationTests, ctx context.Context, done chan<- indexReadyResponse) {
+	ready, err := WaitUntilIndexReady(ts, ctx)
+	if err != nil {
+		require.NoError(ts.T(), err)
+	}
+
+	done <- indexReadyResponse{indexName: ts.idxName, ready: ready}
+}
+
+type indexReadyResponse struct {
+	indexName string
+	ready     bool
 }
