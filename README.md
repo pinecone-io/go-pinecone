@@ -1,6 +1,6 @@
-# Pinecone Go Client &middot; ![License](https://img.shields.io/github/license/pinecone-io/go-pinecone?color=orange) [![Go Reference](https://pkg.go.dev/badge/github.com/pinecone-io/go-pinecone.svg)](https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone) [![Go Report Card](https://goreportcard.com/badge/github.com/pinecone-io/go-pinecone)](https://goreportcard.com/report/github.com/pinecone-io/go-pinecone)
+# Pinecone Go SDK &middot; ![License](https://img.shields.io/github/license/pinecone-io/go-pinecone?color=orange) [![Go Reference](https://pkg.go.dev/badge/github.com/pinecone-io/go-pinecone.svg)](https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone) [![Go Report Card](https://goreportcard.com/badge/github.com/pinecone-io/go-pinecone)](https://goreportcard.com/report/github.com/pinecone-io/go-pinecone)
 
-This is the official Go client for [Pinecone](https://www.pinecone.io).
+This is the official Go SDK for [Pinecone](https://www.pinecone.io).
 
 ## Documentation
 
@@ -19,9 +19,9 @@ go-pinecone contains
 
 See the [Pinecone API Docs](https://docs.pinecone.io/reference/) for more information.
 
-## Upgrading your client
+## Upgrading the SDK
 
-To upgrade your client to the latest version, run:
+To upgrade the SDK to the latest version, run:
 
 ```shell
 go get -u github.com/pinecone-io/go-pinecone/pinecone@latest
@@ -33,7 +33,7 @@ go get -u github.com/pinecone-io/go-pinecone/pinecone@latest
 
 ## Installation
 
-To install the Pinecone Go client, run the following in your terminal:
+To install the Pinecone Go SDK, run the following in your terminal:
 
 ```shell
 go get github.com/pinecone-io/go-pinecone/pinecone
