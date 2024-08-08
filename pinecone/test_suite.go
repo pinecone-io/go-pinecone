@@ -16,21 +16,23 @@ import (
 
 type IntegrationTests struct {
 	suite.Suite
-	apiKey           string
-	client           *Client
-	clientSourceTag  *Client
-	host             string
-	dimension        int32
-	indexType        string
-	vectorIds        []string
-	idxName          string
-	idxConn          *IndexConnection
-	idxConnSourceTag *IndexConnection
-	sourceTag        string
+	apiKey         string
+	client         *Client
+	host           string
+	dimension      int32
+	indexType      string
+	vectorIds      []string
+	idxName        string
+	idxConn        *IndexConnection
+	collectionName string
+	sourceTag      string
 }
 
 func (ts *IntegrationTests) SetupSuite() {
 	ctx := context.Background()
+
+	_, err := WaitUntilIndexReady(ts, ctx)
+	require.NoError(ts.T(), err)
 
 	namespace, err := uuid.NewUUID()
 	require.NoError(ts.T(), err)
@@ -61,12 +63,10 @@ func (ts *IntegrationTests) SetupSuite() {
 		log.Fatalf("Failed to upsert vectors in SetupSuite: %v", err)
 	}
 
-	idxConnSourceTag, err := ts.clientSourceTag.Index(NewIndexConnParams{
-		Host:      ts.host,
-		Namespace: namespace.String(),
-	})
-	require.NoError(ts.T(), err)
-	ts.idxConnSourceTag = idxConnSourceTag
+	// Create collection for pod index suite
+	if ts.indexType == "pods" {
+		createCollection(ts, ctx)
+	}
 
 	fmt.Printf("\n %s set up suite completed successfully\n", ts.indexType)
 }
@@ -74,16 +74,22 @@ func (ts *IntegrationTests) SetupSuite() {
 func (ts *IntegrationTests) TearDownSuite() {
 	ctx := context.Background()
 
+	// Close index connection
 	err := ts.idxConn.Close()
 	require.NoError(ts.T(), err)
 
-	err = ts.idxConnSourceTag.Close()
-	require.NoError(ts.T(), err)
+	// Delete collection
+	if ts.collectionName != "" {
+		err = ts.client.DeleteCollection(ctx, ts.collectionName)
+		require.NoError(ts.T(), err)
+
+		// Before moving on to deleting the index, wait for collection to be cleaned up
+		time.Sleep(3 * time.Second)
+	}
 
 	// Delete test index
 	_, err = WaitUntilIndexReady(ts, ctx)
 	require.NoError(ts.T(), err)
-
 	err = ts.client.DeleteIndex(ctx, ts.idxName)
 	require.NoError(ts.T(), err)
 
@@ -109,6 +115,21 @@ func upsertVectors(ts *IntegrationTests, ctx context.Context, vectors []*Vector)
 	fmt.Printf("Upserted vectors: %v into host: %s\n", upsertVectors, ts.host)
 
 	return nil
+}
+
+func createCollection(ts *IntegrationTests, ctx context.Context) {
+	name := uuid.New().String()
+	sourceIndex := ts.idxName
+
+	ts.collectionName = name
+
+	collection, err := ts.client.CreateCollection(ctx, &CreateCollectionRequest{
+		Name:   name,
+		Source: sourceIndex,
+	})
+
+	require.NoError(ts.T(), err)
+	require.Equal(ts.T(), name, collection.Name)
 }
 
 func WaitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error) {

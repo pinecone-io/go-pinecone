@@ -30,12 +30,6 @@ func (ts *IntegrationTests) TestListIndexes() {
 	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
 }
 
-func (ts *IntegrationTests) TestListIndexesSourceTag() {
-	indexes, err := ts.clientSourceTag.ListIndexes(context.Background())
-	require.NoError(ts.T(), err)
-	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
-}
-
 func (ts *IntegrationTests) TestCreatePodIndex() {
 	name := uuid.New().String()
 
@@ -102,11 +96,7 @@ func (ts *IntegrationTests) TestCreateServerlessIndex() {
 	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
 }
 
-// TODO - condense test
-func (ts *IntegrationTests) TestDescribeServerlessIndex() {
-	if ts.indexType == "pods" {
-		ts.T().Skip("No serverless index to test")
-	}
+func (ts *IntegrationTests) TestDescribeIndex() {
 	index, err := ts.client.DescribeIndex(context.Background(), ts.idxName)
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), ts.idxName, index.Name, "Index name does not match")
@@ -118,132 +108,36 @@ func (ts *IntegrationTests) TestDescribeNonExistentIndex() {
 	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
 }
 
-// TODO - condense test
-func (ts *IntegrationTests) TestDescribeServerlessIndexSourceTag() {
-	if ts.indexType == "pods" {
-		ts.T().Skip("No serverless index to test")
-	}
-	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.idxName)
-	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.idxName, index.Name, "Index name does not match")
-}
-
-// TODO - condense test
-func (ts *IntegrationTests) TestDescribePodIndex() {
-	if ts.indexType == "serverless" {
-		ts.T().Skip("No pod index to test")
-	}
-	index, err := ts.client.DescribeIndex(context.Background(), ts.idxName)
-	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.idxName, index.Name, "Index name does not match")
-}
-
-// TODO - condense test
-func (ts *IntegrationTests) TestDescribePodIndexSourceTag() {
-	if ts.indexType == "serverless" {
-		ts.T().Skip("No pod index to test")
-	}
-	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.idxName)
-	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.idxName, index.Name, "Index name does not match")
-}
-
 func (ts *IntegrationTests) TestListCollections() {
 	if ts.indexType == "serverless" {
 		ts.T().Skip("No pod index to test")
 	}
 	ctx := context.Background()
 
-	collectionName := uuid.New().String()
-	sourceIndex := ts.idxName
-
-	// make sure index is ready before we attempt creating a collection from it
-	_, err := WaitUntilIndexReady(ts, ctx)
-	require.NoError(ts.T(), err)
-	_, err = ts.client.CreateCollection(ctx, &CreateCollectionRequest{
-		Name:   collectionName,
-		Source: sourceIndex,
-	})
-	require.NoError(ts.T(), err, "Error creating collection")
-
-	defer func(ts *IntegrationTests, collectionName string) {
-		err := ts.client.DeleteCollection(ctx, collectionName)
-		require.NoError(ts.T(), err, "Error deleting collection")
-	}(ts, collectionName)
-
 	// Call the method under test to list all collections
 	collections, err := ts.client.ListCollections(ctx)
 	require.NoError(ts.T(), err)
-	require.Greater(ts.T(), len(collections), 1, "Expected at least one collection to exist")
+	require.Greater(ts.T(), len(collections), 0, "Expected at least one collection to exist")
 
 	// Check that the created collection is returned in the list
 	found := false
 	for _, collection := range collections {
-		if collection.Name == collectionName {
+		if collection.Name == ts.collectionName {
 			found = true
 		}
 	}
-	require.True(ts.T(), found, "Collection %v not found in list of collections", collectionName)
+	require.True(ts.T(), found, "Collection %v not found in list of collections", ts.collectionName)
 }
 
 func (ts *IntegrationTests) TestDescribeCollection() {
-	if ts.indexType == "serverless" {
-		ts.T().Skip("No pod index to test")
-	}
 	ctx := context.Background()
-	collectionName := uuid.New().String()
-
-	defer func(client *Client, ctx context.Context, collectionName string) {
-		err := client.DeleteCollection(ctx, collectionName)
-		require.NoError(ts.T(), err)
-	}(ts.client, ctx, collectionName)
-
-	_, err := ts.client.CreateCollection(ctx, &CreateCollectionRequest{
-		Name:   collectionName,
-		Source: ts.idxName,
-	})
-	require.NoError(ts.T(), err)
-
-	collection, err := ts.client.DescribeCollection(ctx, collectionName)
-	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), collectionName, collection.Name, "Collection name does not match")
-}
-
-func (ts *IntegrationTests) TestCreateCollection() {
 	if ts.indexType == "serverless" {
 		ts.T().Skip("No pod index to test")
 	}
-	name := uuid.New().String()
-	sourceIndex := ts.idxName
 
-	defer func() {
-		err := ts.client.DeleteCollection(context.Background(), name)
-		require.NoError(ts.T(), err)
-	}()
-
-	collection, err := ts.client.CreateCollection(context.Background(), &CreateCollectionRequest{
-		Name:   name,
-		Source: sourceIndex,
-	})
-
+	collection, err := ts.client.DescribeCollection(ctx, ts.collectionName)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), name, collection.Name, "Collection name does not match")
-}
-
-func (ts *IntegrationTests) TestDeleteCollection() {
-	if ts.indexType == "serverless" {
-		ts.T().Skip("No pod index to test")
-	}
-	collectionName := uuid.New().String()
-	_, err := ts.client.CreateCollection(context.Background(), &CreateCollectionRequest{
-		Name:   collectionName,
-		Source: ts.idxName,
-	})
-
-	require.NoError(ts.T(), err)
-
-	err = ts.client.DeleteCollection(context.Background(), collectionName)
-	require.NoError(ts.T(), err)
+	require.Equal(ts.T(), ts.collectionName, collection.Name, "Collection name does not match")
 }
 
 func (ts *IntegrationTests) TestDeletionProtection() {

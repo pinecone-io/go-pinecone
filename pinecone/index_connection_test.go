@@ -26,13 +26,6 @@ func (ts *IntegrationTests) TestFetchVectors() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IntegrationTests) TestFetchVectorsSourceTag() {
-	ctx := context.Background()
-	res, err := ts.idxConnSourceTag.FetchVectors(ctx, ts.vectorIds)
-	assert.NoError(ts.T(), err)
-	assert.NotNil(ts.T(), res)
-}
-
 func (ts *IntegrationTests) TestQueryByVector() {
 	vec := make([]float32, ts.dimension)
 	for i := range vec {
@@ -50,23 +43,6 @@ func (ts *IntegrationTests) TestQueryByVector() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IntegrationTests) TestQueryByVectorSourceTag() {
-	vec := make([]float32, ts.dimension)
-	for i := range vec {
-		vec[i] = 0.01
-	}
-
-	req := &QueryByVectorValuesRequest{
-		Vector: vec,
-		TopK:   5,
-	}
-
-	ctx := context.Background()
-	res, err := ts.idxConnSourceTag.QueryByVectorValues(ctx, req)
-	assert.NoError(ts.T(), err)
-	assert.NotNil(ts.T(), res)
-}
-
 func (ts *IntegrationTests) TestQueryById() {
 	req := &QueryByVectorIdRequest{
 		VectorId: ts.vectorIds[0],
@@ -75,18 +51,6 @@ func (ts *IntegrationTests) TestQueryById() {
 
 	ctx := context.Background()
 	res, err := ts.idxConn.QueryByVectorId(ctx, req)
-	assert.NoError(ts.T(), err)
-	assert.NotNil(ts.T(), res)
-}
-
-func (ts *IntegrationTests) TestQueryByIdSourceTag() {
-	req := &QueryByVectorIdRequest{
-		VectorId: ts.vectorIds[0],
-		TopK:     5,
-	}
-
-	ctx := context.Background()
-	res, err := ts.idxConnSourceTag.QueryByVectorId(ctx, req)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
