@@ -466,7 +466,7 @@ func TestHeadersOverrideAdditionalHeadersUnit(t *testing.T) {
 	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
 }
 
-func TestControllerHostOverride(t *testing.T) {
+func TestControllerHostOverrideUnit(t *testing.T) {
 	apiKey := "test-api-key"
 	httpClient := utils.CreateMockClient(`{"indexes": []}`)
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Host: "https://test-controller-host.io", RestClient: httpClient})
