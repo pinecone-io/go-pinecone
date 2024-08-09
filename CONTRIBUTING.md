@@ -42,7 +42,7 @@ with the submodule.
 The `go-pinecone` codebase includes both unit and integration tests. These tests are kept within the same files, but are
 constructed differently. See `/pinecone/index_connection_test.go` and `/pinecone/client_test.go` for examples. They are divided into sections with `// Integration tests: ` near the top, and `// Unit tests:` near the bottom of the file.
 
-For running tests you can use `just test` to run all tests, and `just test-unit` to only run integration tests.
+For running tests you can use `just test` to run all tests, and `just test-unit` to only run unit tests.
 
 ### Unit tests
 
@@ -69,7 +69,7 @@ func TestNewClientParamsSetUnit(t *testing.T) {
 
 For integration tests we use the `stretchr/testify` module, specifically for the `suite`, `assert`, and `require` packages. You can find the source code and documentation on GitHub: [https://github.com/stretchr/testify](https://github.com/stretchr/testify).
 
-There are two files that define the integration test suite, and include code that manages setup and teardown of external Index resources before the test files are executed:
+There are two files that define the integration test suite, and include code that manages setup and teardown of external Index resources before and after the integration suites execute.
 
 - `./pinecone/test_suite.go`
 - `./pinecone/suite_runner_test.go`
