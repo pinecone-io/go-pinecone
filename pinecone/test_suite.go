@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"runtime"
 	"time"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -34,12 +33,11 @@ func (ts *IntegrationTests) SetupSuite() {
 	_, err := WaitUntilIndexReady(ts, ctx)
 	require.NoError(ts.T(), err)
 
-	namespace, err := uuid.NewUUID()
-	require.NoError(ts.T(), err)
+	namespace := uuid.New().String()
 
 	idxConn, err := ts.client.Index(NewIndexConnParams{
 		Host:      ts.host,
-		Namespace: namespace.String(),
+		Namespace: namespace,
 	})
 
 	require.NoError(ts.T(), err)
@@ -106,12 +104,7 @@ func upsertVectors(ts *IntegrationTests, ctx context.Context, vectors []*Vector)
 	require.NoError(ts.T(), err)
 
 	upsertVectors, err := ts.idxConn.UpsertVectors(ctx, vectors)
-	if err != nil {
-		buf := make([]byte, 1<<16)
-		runtime.Stack(buf, true)
-		fmt.Printf("Stack trace: %s\n", buf)
-		return err
-	}
+	require.NoError(ts.T(), err)
 	fmt.Printf("Upserted vectors: %v into host: %s\n", upsertVectors, ts.host)
 
 	return nil

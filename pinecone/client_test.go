@@ -276,7 +276,7 @@ func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 }
 
 // Unit tests:
-func TestExtractAuthHeader(t *testing.T) {
+func TestExtractAuthHeaderUnit(t *testing.T) {
 	globalApiKey := os.Getenv("PINECONE_API_KEY")
 	os.Unsetenv("PINECONE_API_KEY")
 
@@ -320,7 +320,7 @@ func TestExtractAuthHeader(t *testing.T) {
 	os.Setenv("PINECONE_API_KEY", globalApiKey)
 }
 
-func TestApiKeyPassedToIndexConnection(t *testing.T) {
+func TestApiKeyPassedToIndexConnectionUnit(t *testing.T) {
 	apiKey := "test-api-key"
 
 	client, err := NewClient(NewClientParams{ApiKey: apiKey})
@@ -345,7 +345,7 @@ func TestApiKeyPassedToIndexConnection(t *testing.T) {
 	assert.True(t, metadataHasApiKey, "Expected IndexConnection metadata to contain 'Api-Key' with value '%s'", apiKey)
 }
 
-func TestNewClientParamsSet(t *testing.T) {
+func TestNewClientParamsSetUnit(t *testing.T) {
 	apiKey := "test-api-key"
 	client, err := NewClient(NewClientParams{ApiKey: apiKey})
 
@@ -358,7 +358,7 @@ func TestNewClientParamsSet(t *testing.T) {
 	require.Equal(t, 3, len(client.restClient.RequestEditors), "Expected client to have correct number of request editors")
 }
 
-func TestNewClientParamsSetSourceTag(t *testing.T) {
+func TestNewClientParamsSetSourceTagUnit(t *testing.T) {
 	apiKey := "test-api-key"
 	sourceTag := "test-source-tag"
 	client, err := NewClient(NewClientParams{
@@ -374,7 +374,7 @@ func TestNewClientParamsSetSourceTag(t *testing.T) {
 	require.Equal(t, 3, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 2, len(client.restClient.RequestEditors))
 }
 
-func TestNewClientParamsSetHeaders(t *testing.T) {
+func TestNewClientParamsSetHeadersUnit(t *testing.T) {
 	apiKey := "test-api-key"
 	headers := map[string]string{"test-header": "test-ptr"}
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers})
@@ -387,7 +387,7 @@ func TestNewClientParamsSetHeaders(t *testing.T) {
 	require.Equal(t, 4, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 3, len(client.restClient.RequestEditors))
 }
 
-func TestNewClientParamsNoApiKeyNoAuthorizationHeader(t *testing.T) {
+func TestNewClientParamsNoApiKeyNoAuthorizationHeaderUnit(t *testing.T) {
 	apiKey := os.Getenv("PINECONE_API_KEY")
 	os.Unsetenv("PINECONE_API_KEY")
 
@@ -402,7 +402,7 @@ func TestNewClientParamsNoApiKeyNoAuthorizationHeader(t *testing.T) {
 	os.Setenv("PINECONE_API_KEY", apiKey)
 }
 
-func TestHeadersAppliedToRequests(t *testing.T) {
+func TestHeadersAppliedToRequestsUnit(t *testing.T) {
 	apiKey := "test-api-key"
 	headers := map[string]string{"test-header": "123456"}
 
@@ -421,7 +421,7 @@ func TestHeadersAppliedToRequests(t *testing.T) {
 	assert.Equal(t, "123456", testHeaderValue, "Expected request to have header ptr '123456', but got '%s'", testHeaderValue)
 }
 
-func TestAdditionalHeadersAppliedToRequest(t *testing.T) {
+func TestAdditionalHeadersAppliedToRequestUnit(t *testing.T) {
 	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"test-header": "environment-header"}`)
 
 	apiKey := "test-api-key"
@@ -443,7 +443,7 @@ func TestAdditionalHeadersAppliedToRequest(t *testing.T) {
 	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
 }
 
-func TestHeadersOverrideAdditionalHeaders(t *testing.T) {
+func TestHeadersOverrideAdditionalHeadersUnit(t *testing.T) {
 	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"test-header": "environment-header"}`)
 
 	apiKey := "test-api-key"
@@ -481,7 +481,7 @@ func TestControllerHostOverride(t *testing.T) {
 	assert.Equal(t, "test-controller-host.io", mockTransport.Req.Host, "Expected request to be made to 'test-controller-host.io', but got '%s'", mockTransport.Req.URL.Host)
 }
 
-func TestControllerHostOverrideFromEnv(t *testing.T) {
+func TestControllerHostOverrideFromEnvUnit(t *testing.T) {
 	os.Setenv("PINECONE_CONTROLLER_HOST", "https://env-controller-host.io")
 
 	apiKey := "test-api-key"
@@ -500,7 +500,7 @@ func TestControllerHostOverrideFromEnv(t *testing.T) {
 	os.Unsetenv("PINECONE_CONTROLLER_HOST")
 }
 
-func TestControllerHostNormalization(t *testing.T) {
+func TestControllerHostNormalizationUnit(t *testing.T) {
 	tests := []struct {
 		name       string
 		host       string
@@ -545,7 +545,6 @@ func TestControllerHostNormalization(t *testing.T) {
 	}
 }
 
-// Unit tests:
 func TestIndexConnectionMissingReqdFieldsUnit(t *testing.T) {
 	client := &Client{}
 	_, err := client.Index(NewIndexConnParams{})
