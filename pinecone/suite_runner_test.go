@@ -10,48 +10,44 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+// This is the entry point for all integration tests
+// This test function is picked up by go test and triggers the suite runs
+func TestRunSuites(t *testing.T) {
+	RunSuites(t)
+}
+
 func RunSuites(t *testing.T) {
 	apiKey, present := os.LookupEnv("PINECONE_API_KEY")
 	assert.True(t, present, "PINECONE_API_KEY env variable not set")
 
-	client, err := NewClient(NewClientParams{ApiKey: apiKey})
+	sourceTag := "pinecone_test_go_sdk"
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: sourceTag})
 	require.NotNil(t, client, "Client should not be nil after creation")
-	require.NoError(t, err)
-
-	sourceTag := "test_source_tag"
-	clientSourceTag, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: sourceTag})
 	require.NoError(t, err)
 
 	serverlessIdx := BuildServerlessTestIndex(client, "serverless-"+GenerateTestIndexName())
 	podIdx := BuildPodTestIndex(client, "pods-"+GenerateTestIndexName())
 
 	podTestSuite := &IntegrationTests{
-		apiKey:          apiKey,
-		indexType:       "pods",
-		host:            podIdx.Host,
-		dimension:       podIdx.Dimension,
-		client:          client,
-		clientSourceTag: *clientSourceTag,
-		sourceTag:       sourceTag,
-		idxName:         podIdx.Name,
+		apiKey:    apiKey,
+		indexType: "pods",
+		host:      podIdx.Host,
+		dimension: podIdx.Dimension,
+		client:    client,
+		sourceTag: sourceTag,
+		idxName:   podIdx.Name,
 	}
 
 	serverlessTestSuite := &IntegrationTests{
-		host:            serverlessIdx.Host,
-		dimension:       serverlessIdx.Dimension,
-		apiKey:          apiKey,
-		indexType:       "serverless",
-		client:          client,
-		clientSourceTag: *clientSourceTag,
-		sourceTag:       sourceTag,
-		idxName:         serverlessIdx.Name,
+		apiKey:    apiKey,
+		indexType: "serverless",
+		host:      serverlessIdx.Host,
+		dimension: serverlessIdx.Dimension,
+		client:    client,
+		sourceTag: sourceTag,
+		idxName:   serverlessIdx.Name,
 	}
 
 	suite.Run(t, podTestSuite)
 	suite.Run(t, serverlessTestSuite)
-
-}
-
-func TestRunSuites(t *testing.T) {
-	RunSuites(t)
 }

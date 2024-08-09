@@ -24,214 +24,8 @@ import (
 )
 
 // Integration tests:
-func (ts *IntegrationTests) TestNewClientParamsSet() {
-	apiKey := "test-api-key"
-	client, err := NewClient(NewClientParams{ApiKey: apiKey})
-
-	require.NoError(ts.T(), err)
-	require.Empty(ts.T(), client.sourceTag, "Expected client to have empty sourceTag")
-	require.NotNil(ts.T(), client.headers, "Expected client headers to not be nil")
-	apiKeyHeader, ok := client.headers["Api-Key"]
-	require.True(ts.T(), ok, "Expected client to have an 'Api-Key' header")
-	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
-	require.Equal(ts.T(), 3, len(client.restClient.RequestEditors), "Expected client to have correct number of request editors")
-}
-
-func (ts *IntegrationTests) TestNewClientParamsSetSourceTag() {
-	apiKey := "test-api-key"
-	sourceTag := "test-source-tag"
-	client, err := NewClient(NewClientParams{
-		ApiKey:    apiKey,
-		SourceTag: sourceTag,
-	})
-
-	require.NoError(ts.T(), err)
-	apiKeyHeader, ok := client.headers["Api-Key"]
-	require.True(ts.T(), ok, "Expected client to have an 'Api-Key' header")
-	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
-	require.Equal(ts.T(), sourceTag, client.sourceTag, "Expected client to have sourceTag '%s', but got '%s'", sourceTag, client.sourceTag)
-	require.Equal(ts.T(), 3, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 2, len(client.restClient.RequestEditors))
-}
-
-func (ts *IntegrationTests) TestNewClientParamsSetHeaders() {
-	apiKey := "test-api-key"
-	headers := map[string]string{"test-header": "test-ptr"}
-	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers})
-
-	require.NoError(ts.T(), err)
-	apiKeyHeader, ok := client.headers["Api-Key"]
-	require.True(ts.T(), ok, "Expected client to have an 'Api-Key' header")
-	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
-	require.Equal(ts.T(), client.headers, headers, "Expected client to have headers '%+v', but got '%+v'", headers, client.headers)
-	require.Equal(ts.T(), 4, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 3, len(client.restClient.RequestEditors))
-}
-
-func (ts *IntegrationTests) TestNewClientParamsNoApiKeyNoAuthorizationHeader() {
-	apiKey := os.Getenv("PINECONE_API_KEY")
-	os.Unsetenv("PINECONE_API_KEY")
-
-	client, err := NewClient(NewClientParams{})
-	require.NotNil(ts.T(), err, "Expected error when creating client without an API key or Authorization header")
-	if !strings.Contains(err.Error(), "no API key provided, please pass an API key for authorization") {
-		ts.FailNow(fmt.Sprintf("Expected error to contain 'no API key provided, please pass an API key for authorization', but got '%s'", err.Error()))
-	}
-
-	require.Nil(ts.T(), client, "Expected client to be nil when creating client without an API key or Authorization header")
-
-	os.Setenv("PINECONE_API_KEY", apiKey)
-}
-
-func (ts *IntegrationTests) TestHeadersAppliedToRequests() {
-	apiKey := "test-api-key"
-	headers := map[string]string{"test-header": "123456"}
-
-	httpClient := utils.CreateMockClient(`{"indexes": []}`)
-	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers, RestClient: httpClient})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-	mockTransport := httpClient.Transport.(*utils.MockTransport)
-
-	_, err = client.ListIndexes(context.Background())
-	require.NoError(ts.T(), err)
-	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
-
-	testHeaderValue := mockTransport.Req.Header.Get("test-header")
-	assert.Equal(ts.T(), "123456", testHeaderValue, "Expected request to have header ptr '123456', but got '%s'", testHeaderValue)
-}
-
-func (ts *IntegrationTests) TestAdditionalHeadersAppliedToRequest() {
-	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"test-header": "environment-header"}`)
-
-	apiKey := "test-api-key"
-
-	httpClient := utils.CreateMockClient(`{"indexes": []}`)
-	client, err := NewClient(NewClientParams{ApiKey: apiKey, RestClient: httpClient})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-	mockTransport := httpClient.Transport.(*utils.MockTransport)
-
-	_, err = client.ListIndexes(context.Background())
-	require.NoError(ts.T(), err)
-	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
-
-	testHeaderValue := mockTransport.Req.Header.Get("test-header")
-	assert.Equal(ts.T(), "environment-header", testHeaderValue, "Expected request to have header ptr 'environment-header', but got '%s'", testHeaderValue)
-
-	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
-}
-
-func (ts *IntegrationTests) TestHeadersOverrideAdditionalHeaders() {
-	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"test-header": "environment-header"}`)
-
-	apiKey := "test-api-key"
-	headers := map[string]string{"test-header": "param-header"}
-
-	httpClient := utils.CreateMockClient(`{"indexes": []}`)
-	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers, RestClient: httpClient})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-	mockTransport := httpClient.Transport.(*utils.MockTransport)
-
-	_, err = client.ListIndexes(context.Background())
-	require.NoError(ts.T(), err)
-	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
-
-	testHeaderValue := mockTransport.Req.Header.Get("test-header")
-	assert.Equal(ts.T(), "param-header", testHeaderValue, "Expected request to have header ptr 'param-header', but got '%s'", testHeaderValue)
-
-	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
-}
-
-func (ts *IntegrationTests) TestControllerHostOverride() {
-	apiKey := "test-api-key"
-	httpClient := utils.CreateMockClient(`{"indexes": []}`)
-	client, err := NewClient(NewClientParams{ApiKey: apiKey, Host: "https://test-controller-host.io", RestClient: httpClient})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-	mockTransport := httpClient.Transport.(*utils.MockTransport)
-
-	_, err = client.ListIndexes(context.Background())
-	require.NoError(ts.T(), err)
-	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
-	assert.Equal(ts.T(), "test-controller-host.io", mockTransport.Req.Host, "Expected request to be made to 'test-controller-host.io', but got '%s'", mockTransport.Req.URL.Host)
-}
-
-func (ts *IntegrationTests) TestControllerHostOverrideFromEnv() {
-	os.Setenv("PINECONE_CONTROLLER_HOST", "https://env-controller-host.io")
-
-	apiKey := "test-api-key"
-	httpClient := utils.CreateMockClient(`{"indexes": []}`)
-	client, err := NewClient(NewClientParams{ApiKey: apiKey, RestClient: httpClient})
-	if err != nil {
-		ts.FailNow(err.Error())
-	}
-	mockTransport := httpClient.Transport.(*utils.MockTransport)
-
-	_, err = client.ListIndexes(context.Background())
-	require.NoError(ts.T(), err)
-	require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
-	assert.Equal(ts.T(), "env-controller-host.io", mockTransport.Req.Host, "Expected request to be made to 'env-controller-host.io', but got '%s'", mockTransport.Req.URL.Host)
-
-	os.Unsetenv("PINECONE_CONTROLLER_HOST")
-}
-
-func (ts *IntegrationTests) TestControllerHostNormalization() {
-	tests := []struct {
-		name       string
-		host       string
-		wantHost   string
-		wantScheme string
-	}{
-		{
-			name:       "Test with https prefix",
-			host:       "https://pinecone-api.io",
-			wantHost:   "pinecone-api.io",
-			wantScheme: "https",
-		}, {
-			name:       "Test with http prefix",
-			host:       "http://pinecone-api.io",
-			wantHost:   "pinecone-api.io",
-			wantScheme: "http",
-		}, {
-			name:       "Test without prefix",
-			host:       "pinecone-api.io",
-			wantHost:   "pinecone-api.io",
-			wantScheme: "https",
-		},
-	}
-
-	for _, tt := range tests {
-		ts.Run(tt.name, func() {
-			apiKey := "test-api-key"
-			httpClient := utils.CreateMockClient(`{"indexes": []}`)
-			client, err := NewClient(NewClientParams{ApiKey: apiKey, Host: tt.host, RestClient: httpClient})
-			if err != nil {
-				ts.FailNow(err.Error())
-			}
-			mockTransport := httpClient.Transport.(*utils.MockTransport)
-
-			_, err = client.ListIndexes(context.Background())
-			require.NoError(ts.T(), err)
-			require.NotNil(ts.T(), mockTransport.Req, "Expected request to be made")
-
-			assert.Equal(ts.T(), tt.wantHost, mockTransport.Req.URL.Host, "Expected request to be made to host '%s', but got '%s'", tt.wantHost, mockTransport.Req.URL.Host)
-			assert.Equal(ts.T(), tt.wantScheme, mockTransport.Req.URL.Scheme, "Expected request to be made to host '%s, but got '%s'", tt.wantScheme, mockTransport.Req.URL.Host)
-		})
-	}
-}
-
 func (ts *IntegrationTests) TestListIndexes() {
 	indexes, err := ts.client.ListIndexes(context.Background())
-	require.NoError(ts.T(), err)
-	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
-}
-
-func (ts *IntegrationTests) TestListIndexesSourceTag() {
-	indexes, err := ts.clientSourceTag.ListIndexes(context.Background())
 	require.NoError(ts.T(), err)
 	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
 }
@@ -302,10 +96,7 @@ func (ts *IntegrationTests) TestCreateServerlessIndex() {
 	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
 }
 
-func (ts *IntegrationTests) TestDescribeServerlessIndex() {
-	if ts.indexType == "pods" {
-		ts.T().Skip("No serverless index to test")
-	}
+func (ts *IntegrationTests) TestDescribeIndex() {
 	index, err := ts.client.DescribeIndex(context.Background(), ts.idxName)
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), ts.idxName, index.Name, "Index name does not match")
@@ -317,200 +108,65 @@ func (ts *IntegrationTests) TestDescribeNonExistentIndex() {
 	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
 }
 
-func (ts *IntegrationTests) TestDescribeServerlessIndexSourceTag() {
-	if ts.indexType == "pods" {
-		ts.T().Skip("No serverless index to test")
-	}
-	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.idxName)
-	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.idxName, index.Name, "Index name does not match")
-}
-
-func (ts *IntegrationTests) TestDescribePodIndex() {
-	if ts.indexType == "serverless" {
-		ts.T().Skip("No pod index to test")
-	}
-	index, err := ts.client.DescribeIndex(context.Background(), ts.idxName)
-	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.idxName, index.Name, "Index name does not match")
-}
-
-func (ts *IntegrationTests) TestDescribePodIndexSourceTag() {
-	if ts.indexType == "serverless" {
-		ts.T().Skip("No pod index to test")
-	}
-	index, err := ts.clientSourceTag.DescribeIndex(context.Background(), ts.idxName)
-	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.idxName, index.Name, "Index name does not match")
-}
-
 func (ts *IntegrationTests) TestListCollections() {
 	if ts.indexType == "serverless" {
 		ts.T().Skip("No pod index to test")
 	}
 	ctx := context.Background()
 
-	var collectionNames []string
-	for i := 0; i < 3; i++ {
-		collectionName := uuid.New().String()
-		collectionNames = append(collectionNames, collectionName)
-	}
-
-	defer func(ts *IntegrationTests, collectionNames []string) {
-		for _, name := range collectionNames {
-			err := ts.client.DeleteCollection(ctx, name)
-			require.NoError(ts.T(), err, "Error deleting collection")
-		}
-	}(ts, collectionNames)
-
-	for _, name := range collectionNames {
-		_, err := ts.client.CreateCollection(ctx, &CreateCollectionRequest{
-			Name:   name,
-			Source: ts.idxName,
-		})
-		require.NoError(ts.T(), err, "Error creating collection")
-	}
-
 	// Call the method under test to list all collections
 	collections, err := ts.client.ListCollections(ctx)
 	require.NoError(ts.T(), err)
-	require.Greater(ts.T(), len(collections), 2, "Expected at least three collections to exist")
+	require.Greater(ts.T(), len(collections), 0, "Expected at least one collection to exist")
 
-	// Check that the created collections are in the returned list
-	found := 0
+	// Check that the created collection is returned in the list
+	found := false
 	for _, collection := range collections {
-		for _, name := range collectionNames {
-			if collection.Name == name {
-				found++
-				break
-			}
+		if collection.Name == ts.collectionName {
+			found = true
 		}
 	}
-	require.Equal(ts.T(), len(collectionNames), found, "Not all created collections were listed")
+	require.True(ts.T(), found, "Collection %v not found in list of collections", ts.collectionName)
 }
 
 func (ts *IntegrationTests) TestDescribeCollection() {
-	if ts.indexType == "serverless" {
-		ts.T().Skip("No pod index to test")
-	}
 	ctx := context.Background()
-	collectionName := uuid.New().String()
-
-	defer func(client *Client, ctx context.Context, collectionName string) {
-		err := client.DeleteCollection(ctx, collectionName)
-		require.NoError(ts.T(), err)
-	}(ts.client, ctx, collectionName)
-
-	_, err := ts.client.CreateCollection(ctx, &CreateCollectionRequest{
-		Name:   collectionName,
-		Source: ts.idxName,
-	})
-	require.NoError(ts.T(), err)
-
-	collection, err := ts.client.DescribeCollection(ctx, collectionName)
-	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), collectionName, collection.Name, "Collection name does not match")
-}
-
-func (ts *IntegrationTests) TestCreateCollection() {
 	if ts.indexType == "serverless" {
 		ts.T().Skip("No pod index to test")
 	}
-	name := uuid.New().String()
-	sourceIndex := ts.idxName
 
-	defer func() {
-		err := ts.client.DeleteCollection(context.Background(), name)
-		require.NoError(ts.T(), err)
-	}()
-
-	collection, err := ts.client.CreateCollection(context.Background(), &CreateCollectionRequest{
-		Name:   name,
-		Source: sourceIndex,
-	})
-
+	collection, err := ts.client.DescribeCollection(ctx, ts.collectionName)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), name, collection.Name, "Collection name does not match")
+	require.Equal(ts.T(), ts.collectionName, collection.Name, "Collection name does not match")
 }
 
-func (ts *IntegrationTests) TestDeleteCollection() {
-	if ts.indexType == "serverless" {
-		ts.T().Skip("No pod index to test")
-	}
-	collectionName := uuid.New().String()
-	_, err := ts.client.CreateCollection(context.Background(), &CreateCollectionRequest{
-		Name:   collectionName,
-		Source: ts.idxName,
-	})
-
-	require.NoError(ts.T(), err)
-
-	err = ts.client.DeleteCollection(context.Background(), collectionName)
-	require.NoError(ts.T(), err)
-}
-
-func (ts *IntegrationTests) TestDeletionProtectionPodIntegration() {
-	name := uuid.New().String()
-
-	defer func(ts *IntegrationTests, name string) {
-		err := ts.deleteIndex(name)
-		require.NoError(ts.T(), err)
-	}(ts, name)
-
-	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
-		Name:               name,
-		Dimension:          10,
-		Metric:             Cosine,
-		Environment:        "us-east1-gcp",
-		PodType:            "p1.x1",
-		DeletionProtection: "enabled",
-		Shards:             1,
-		Replicas:           1,
-	})
-	require.NoError(ts.T(), err)
-
-	// validate we cannot delete the index
-	err = ts.client.DeleteIndex(context.Background(), name)
-	require.ErrorContainsf(ts.T(), err, "failed to delete index: Deletion protection is enabled for this index", err.Error())
-
-	// make sure configuring the index without specifying DeletionProtection maintains "enabled" state
-	index, err := ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x2"})
+func (ts *IntegrationTests) TestDeletionProtection() {
+	// configure index to enable deletion protection
+	index, err := ts.client.ConfigureIndex(context.Background(), ts.idxName, ConfigureIndexParams{DeletionProtection: "enabled"})
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), DeletionProtectionEnabled, index.DeletionProtection, "Expected deletion protection to be 'enabled'")
 
 	// validate we cannot delete the index
-	err = ts.client.DeleteIndex(context.Background(), name)
+	err = ts.client.DeleteIndex(context.Background(), ts.idxName)
 	require.ErrorContainsf(ts.T(), err, "failed to delete index: Deletion protection is enabled for this index", err.Error())
 
-	// disable deletion protection so we can clean up
-	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{DeletionProtection: "disabled"})
-	require.NoError(ts.T(), err)
-}
-
-func (ts *IntegrationTests) TestDeletionProtectionServerlessIntegration() {
-	name := uuid.New().String()
-
-	defer func(ts *IntegrationTests, name string) {
-		err := ts.deleteIndex(name)
+	// if testing a pods index, make sure configuring the index without specifying DeletionProtection maintains "enabled" state
+	if ts.indexType == "pods" {
+		index, err := ts.client.ConfigureIndex(context.Background(), ts.idxName, ConfigureIndexParams{PodType: "p1.x2"})
 		require.NoError(ts.T(), err)
-	}(ts, name)
+		require.Equal(ts.T(), DeletionProtectionEnabled, index.DeletionProtection, "Expected deletion protection to be 'enabled'")
 
-	_, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
-		Name:               name,
-		Dimension:          10,
-		Metric:             Cosine,
-		Cloud:              "aws",
-		Region:             "us-west-2",
-		DeletionProtection: "enabled",
-	})
+		// validate we cannot delete the index
+		err = ts.client.DeleteIndex(context.Background(), ts.idxName)
+		require.ErrorContainsf(ts.T(), err, "failed to delete index: Deletion protection is enabled for this index", err.Error())
+	}
+
+	// disable deletion protection so the index can be cleaned up during integration teardown
+	_, err = ts.client.ConfigureIndex(context.Background(), ts.idxName, ConfigureIndexParams{DeletionProtection: "disabled"})
 	require.NoError(ts.T(), err)
 
-	// validate we cannot delete the index
-	err = ts.client.DeleteIndex(context.Background(), name)
-	require.ErrorContainsf(ts.T(), err, "failed to delete index: Deletion protection is enabled for this index", err.Error())
-
-	// disable deletion protection so we can clean up
-	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{DeletionProtection: "disabled"})
+	// Before moving on to another test, wait for the index to be done upgrading
+	_, err = WaitUntilIndexReady(ts, context.Background())
 	require.NoError(ts.T(), err)
 }
 
@@ -558,6 +214,10 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 2})
 	require.NoError(ts.T(), err)
+
+	// Before moving on to another test, wait for the index to be done upgrading
+	_, err = WaitUntilIndexReady(ts, context.Background())
+	require.NoError(ts.T(), err)
 }
 
 func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
@@ -581,28 +241,14 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x4"})
 	require.NoError(ts.T(), err)
+
+	// Before moving on to another test, wait for the index to be done upgrading
+	_, err = WaitUntilIndexReady(ts, context.Background())
+	require.NoError(ts.T(), err)
 }
 
 func (ts *IntegrationTests) TestConfigureIndexIllegalNoPodsOrReplicasOrDeletionProtection() {
-	name := uuid.New().String()
-
-	defer func(ts *IntegrationTests, name string) {
-		err := ts.deleteIndex(name)
-		require.NoError(ts.T(), err)
-	}(ts, name)
-
-	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
-		Name:        name,
-		Dimension:   10,
-		Metric:      Cosine,
-		Environment: "us-east1-gcp",
-		PodType:     "p1.x2",
-	})
-	if err != nil {
-		log.Fatalf("Error creating index %s: %v", name, err)
-	}
-
-	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{})
+	_, err := ts.client.ConfigureIndex(context.Background(), ts.idxName, ConfigureIndexParams{})
 	require.ErrorContainsf(ts.T(), err, "must specify PodType, Replicas, or DeletionProtection", err.Error())
 }
 
@@ -629,11 +275,8 @@ func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
 }
 
-func (ts *IntegrationTests) deleteIndex(name string) error {
-	return ts.client.DeleteIndex(context.Background(), name)
-}
-
-func (ts *IntegrationTests) TestExtractAuthHeader() {
+// Unit tests:
+func TestExtractAuthHeaderUnit(t *testing.T) {
 	globalApiKey := os.Getenv("PINECONE_API_KEY")
 	os.Unsetenv("PINECONE_API_KEY")
 
@@ -642,9 +285,9 @@ func (ts *IntegrationTests) TestExtractAuthHeader() {
 	expectedHeader := map[string]string{"Api-Key": apiKey}
 	client, err := NewClient(NewClientParams{ApiKey: apiKey})
 	if err != nil {
-		ts.FailNow(err.Error())
+		t.Error(err.Error())
 	}
-	assert.Equal(ts.T(),
+	assert.Equal(t,
 		expectedHeader,
 		client.extractAuthHeader(),
 		"Expected client.extractAuthHeader to return %v but got '%s'", expectedHeader, client.extractAuthHeader(),
@@ -654,9 +297,9 @@ func (ts *IntegrationTests) TestExtractAuthHeader() {
 	expectedHeader = map[string]string{"Authorization": "Bearer test-token-123456"}
 	client, err = NewClientBase(NewClientBaseParams{Headers: expectedHeader})
 	if err != nil {
-		ts.FailNow(err.Error())
+		t.Error(err.Error())
 	}
-	assert.Equal(ts.T(),
+	assert.Equal(t,
 		expectedHeader,
 		client.extractAuthHeader(),
 		"Expected client.extractAuthHeader to return %v but got '%s'", expectedHeader, client.extractAuthHeader(),
@@ -666,9 +309,9 @@ func (ts *IntegrationTests) TestExtractAuthHeader() {
 	expectedHeader = map[string]string{"access_token": "test-token-123456"}
 	client, err = NewClientBase(NewClientBaseParams{Headers: expectedHeader})
 	if err != nil {
-		ts.FailNow(err.Error())
+		t.Error(err.Error())
 	}
-	assert.Equal(ts.T(),
+	assert.Equal(t,
 		expectedHeader,
 		client.extractAuthHeader(),
 		"Expected client.extractAuthHeader to return %v but got '%s'", expectedHeader, client.extractAuthHeader(),
@@ -677,17 +320,17 @@ func (ts *IntegrationTests) TestExtractAuthHeader() {
 	os.Setenv("PINECONE_API_KEY", globalApiKey)
 }
 
-func (ts *IntegrationTests) TestApiKeyPassedToIndexConnection() {
+func TestApiKeyPassedToIndexConnectionUnit(t *testing.T) {
 	apiKey := "test-api-key"
 
 	client, err := NewClient(NewClientParams{ApiKey: apiKey})
 	if err != nil {
-		ts.FailNow(err.Error())
+		t.Error(err.Error())
 	}
 
 	indexConn, err := client.Index(NewIndexConnParams{Host: "my-index-host.io"})
 	if err != nil {
-		ts.FailNow(err.Error())
+		t.Error(err.Error())
 	}
 
 	indexMetadata := indexConn.additionalMetadata
@@ -699,10 +342,209 @@ func (ts *IntegrationTests) TestApiKeyPassedToIndexConnection() {
 		}
 	}
 
-	assert.True(ts.T(), metadataHasApiKey, "Expected IndexConnection metadata to contain 'Api-Key' with value '%s'", apiKey)
+	assert.True(t, metadataHasApiKey, "Expected IndexConnection metadata to contain 'Api-Key' with value '%s'", apiKey)
 }
 
-// Unit tests:
+func TestNewClientParamsSetUnit(t *testing.T) {
+	apiKey := "test-api-key"
+	client, err := NewClient(NewClientParams{ApiKey: apiKey})
+
+	require.NoError(t, err)
+	require.Empty(t, client.sourceTag, "Expected client to have empty sourceTag")
+	require.NotNil(t, client.headers, "Expected client headers to not be nil")
+	apiKeyHeader, ok := client.headers["Api-Key"]
+	require.True(t, ok, "Expected client to have an 'Api-Key' header")
+	require.Equal(t, apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
+	require.Equal(t, 3, len(client.restClient.RequestEditors), "Expected client to have correct number of request editors")
+}
+
+func TestNewClientParamsSetSourceTagUnit(t *testing.T) {
+	apiKey := "test-api-key"
+	sourceTag := "test-source-tag"
+	client, err := NewClient(NewClientParams{
+		ApiKey:    apiKey,
+		SourceTag: sourceTag,
+	})
+
+	require.NoError(t, err)
+	apiKeyHeader, ok := client.headers["Api-Key"]
+	require.True(t, ok, "Expected client to have an 'Api-Key' header")
+	require.Equal(t, apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
+	require.Equal(t, sourceTag, client.sourceTag, "Expected client to have sourceTag '%s', but got '%s'", sourceTag, client.sourceTag)
+	require.Equal(t, 3, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 2, len(client.restClient.RequestEditors))
+}
+
+func TestNewClientParamsSetHeadersUnit(t *testing.T) {
+	apiKey := "test-api-key"
+	headers := map[string]string{"test-header": "test-ptr"}
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers})
+
+	require.NoError(t, err)
+	apiKeyHeader, ok := client.headers["Api-Key"]
+	require.True(t, ok, "Expected client to have an 'Api-Key' header")
+	require.Equal(t, apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
+	require.Equal(t, client.headers, headers, "Expected client to have headers '%+v', but got '%+v'", headers, client.headers)
+	require.Equal(t, 4, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 3, len(client.restClient.RequestEditors))
+}
+
+func TestNewClientParamsNoApiKeyNoAuthorizationHeaderUnit(t *testing.T) {
+	apiKey := os.Getenv("PINECONE_API_KEY")
+	os.Unsetenv("PINECONE_API_KEY")
+
+	client, err := NewClient(NewClientParams{})
+	require.NotNil(t, err, "Expected error when creating client without an API key or Authorization header")
+	if !strings.Contains(err.Error(), "no API key provided, please pass an API key for authorization") {
+		t.Errorf(fmt.Sprintf("Expected error to contain 'no API key provided, please pass an API key for authorization', but got '%s'", err.Error()))
+	}
+
+	require.Nil(t, client, "Expected client to be nil when creating client without an API key or Authorization header")
+
+	os.Setenv("PINECONE_API_KEY", apiKey)
+}
+
+func TestHeadersAppliedToRequestsUnit(t *testing.T) {
+	apiKey := "test-api-key"
+	headers := map[string]string{"test-header": "123456"}
+
+	httpClient := utils.CreateMockClient(`{"indexes": []}`)
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers, RestClient: httpClient})
+	if err != nil {
+		t.Error(err.Error())
+	}
+	mockTransport := httpClient.Transport.(*utils.MockTransport)
+
+	_, err = client.ListIndexes(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, mockTransport.Req, "Expected request to be made")
+
+	testHeaderValue := mockTransport.Req.Header.Get("test-header")
+	assert.Equal(t, "123456", testHeaderValue, "Expected request to have header ptr '123456', but got '%s'", testHeaderValue)
+}
+
+func TestAdditionalHeadersAppliedToRequestUnit(t *testing.T) {
+	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"test-header": "environment-header"}`)
+
+	apiKey := "test-api-key"
+
+	httpClient := utils.CreateMockClient(`{"indexes": []}`)
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, RestClient: httpClient})
+	if err != nil {
+		t.Error(err.Error())
+	}
+	mockTransport := httpClient.Transport.(*utils.MockTransport)
+
+	_, err = client.ListIndexes(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, mockTransport.Req, "Expected request to be made")
+
+	testHeaderValue := mockTransport.Req.Header.Get("test-header")
+	assert.Equal(t, "environment-header", testHeaderValue, "Expected request to have header ptr 'environment-header', but got '%s'", testHeaderValue)
+
+	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
+}
+
+func TestHeadersOverrideAdditionalHeadersUnit(t *testing.T) {
+	os.Setenv("PINECONE_ADDITIONAL_HEADERS", `{"test-header": "environment-header"}`)
+
+	apiKey := "test-api-key"
+	headers := map[string]string{"test-header": "param-header"}
+
+	httpClient := utils.CreateMockClient(`{"indexes": []}`)
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers, RestClient: httpClient})
+	if err != nil {
+		t.Error(err.Error())
+	}
+	mockTransport := httpClient.Transport.(*utils.MockTransport)
+
+	_, err = client.ListIndexes(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, mockTransport.Req, "Expected request to be made")
+
+	testHeaderValue := mockTransport.Req.Header.Get("test-header")
+	assert.Equal(t, "param-header", testHeaderValue, "Expected request to have header ptr 'param-header', but got '%s'", testHeaderValue)
+
+	os.Unsetenv("PINECONE_ADDITIONAL_HEADERS")
+}
+
+func TestControllerHostOverrideUnit(t *testing.T) {
+	apiKey := "test-api-key"
+	httpClient := utils.CreateMockClient(`{"indexes": []}`)
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, Host: "https://test-controller-host.io", RestClient: httpClient})
+	if err != nil {
+		t.Error(err.Error())
+	}
+	mockTransport := httpClient.Transport.(*utils.MockTransport)
+
+	_, err = client.ListIndexes(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, mockTransport.Req, "Expected request to be made")
+	assert.Equal(t, "test-controller-host.io", mockTransport.Req.Host, "Expected request to be made to 'test-controller-host.io', but got '%s'", mockTransport.Req.URL.Host)
+}
+
+func TestControllerHostOverrideFromEnvUnit(t *testing.T) {
+	os.Setenv("PINECONE_CONTROLLER_HOST", "https://env-controller-host.io")
+
+	apiKey := "test-api-key"
+	httpClient := utils.CreateMockClient(`{"indexes": []}`)
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, RestClient: httpClient})
+	if err != nil {
+		t.Error(err.Error())
+	}
+	mockTransport := httpClient.Transport.(*utils.MockTransport)
+
+	_, err = client.ListIndexes(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, mockTransport.Req, "Expected request to be made")
+	assert.Equal(t, "env-controller-host.io", mockTransport.Req.Host, "Expected request to be made to 'env-controller-host.io', but got '%s'", mockTransport.Req.URL.Host)
+
+	os.Unsetenv("PINECONE_CONTROLLER_HOST")
+}
+
+func TestControllerHostNormalizationUnit(t *testing.T) {
+	tests := []struct {
+		name       string
+		host       string
+		wantHost   string
+		wantScheme string
+	}{
+		{
+			name:       "Test with https prefix",
+			host:       "https://pinecone-api.io",
+			wantHost:   "pinecone-api.io",
+			wantScheme: "https",
+		}, {
+			name:       "Test with http prefix",
+			host:       "http://pinecone-api.io",
+			wantHost:   "pinecone-api.io",
+			wantScheme: "http",
+		}, {
+			name:       "Test without prefix",
+			host:       "pinecone-api.io",
+			wantHost:   "pinecone-api.io",
+			wantScheme: "https",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			apiKey := "test-api-key"
+			httpClient := utils.CreateMockClient(`{"indexes": []}`)
+			client, err := NewClient(NewClientParams{ApiKey: apiKey, Host: tt.host, RestClient: httpClient})
+			if err != nil {
+				t.Error(err.Error())
+			}
+			mockTransport := httpClient.Transport.(*utils.MockTransport)
+
+			_, err = client.ListIndexes(context.Background())
+			require.NoError(t, err)
+			require.NotNil(t, mockTransport.Req, "Expected request to be made")
+
+			assert.Equal(t, tt.wantHost, mockTransport.Req.URL.Host, "Expected request to be made to host '%s', but got '%s'", tt.wantHost, mockTransport.Req.URL.Host)
+			assert.Equal(t, tt.wantScheme, mockTransport.Req.URL.Scheme, "Expected request to be made to host '%s, but got '%s'", tt.wantScheme, mockTransport.Req.URL.Host)
+		})
+	}
+}
+
 func TestIndexConnectionMissingReqdFieldsUnit(t *testing.T) {
 	client := &Client{}
 	_, err := client.Index(NewIndexConnParams{})
@@ -1319,6 +1161,10 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 }
 
 // Helper functions:
+func (ts *IntegrationTests) deleteIndex(name string) error {
+	return ts.client.DeleteIndex(context.Background(), name)
+}
+
 func mockResponse(body string, statusCode int) *http.Response {
 	return &http.Response{
 		Status:     http.StatusText(statusCode),
