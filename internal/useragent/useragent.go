@@ -3,11 +3,12 @@ package useragent
 import (
 	"fmt"
 	"strings"
+
+	"github.com/pinecone-io/go-pinecone/internal"
 )
 
 func getPackageVersion() string {
-	// update at release time
-	return "v0.5.0"
+	return internal.Version
 }
 
 func BuildUserAgent(sourceTag string) string {
