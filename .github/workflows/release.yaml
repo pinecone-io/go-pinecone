@@ -1,0 +1,108 @@
+name: Release Client
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to tag and release"
+        required: true
+        type: string
+        default: "main"
+      releaseLevel:
+        description: "Release level (major, minor, patch)"
+        required: true
+        type: choice
+        default: "patch"
+        options:
+          - "patch" # bug fixes
+          - "minor" # new features, backwards compatible
+          - "major" # breaking changes
+      isPrerelease:
+        description: "Whether this is a prerelease (alpha / beta) client"
+        required: true
+        type: boolean
+        default: true
+      prereleaseSuffix:
+        description: "Suffix to add to version number for marking as a pre-release alpha or beta client. Value ignored when isPrerelease is false"
+        required: false
+        type: string
+        default: "alpha1"
+
+jobs:
+  bump-version-and-release:
+    runs-on: ubuntu-lastest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+
+      - name: Verify prereleaseSuffix not empty if isPrerelease is true
+        if: ${{ inputs.isPrerelease == true }}
+        run: |
+          if [ -z "${{ inputs.prereleaseSuffix }}" ]; then
+            echo "prereleaseSuffix cannot be empty if isPrerelease is true"
+            exit 1
+          fi
+
+      - name: Extract current release version through tag
+        id: get_tag_version
+        run: |
+          tag=$(git describe --tags --abbrev=0)
+          semver=${tag#v}  # Remove the 'v' prefix from version number
+          echo "Current Released Version: $semver"
+          echo "semver=$semver" >> $GITHUB_ENV # Set as environment variable
+
+      - name: Bump version
+        id: bump
+        uses: "./.github/actions/bump-version"
+        with:
+          versionFile: pinecone/__version__
+          bumpType: ${{ inputs.releaseLevel }}
+          prereleaseSuffix: ${{ inputs.prereleaseSuffix }}
+
+      - name: Verify unique release tag
+        run: |
+          TAG_NAME=${{ steps.bump.outputs.VERSION_TAG}}
+          if git rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
+            echo "Tag $TAG_NAME already exists"
+            exit 1
+          fi
+
+      - name: Update version.go file with new version tag
+        run: |
+          echo "Updating version.go file with new version tag"
+          sed -i "s/Version = \".*\"/Version = \"${{ steps.bump.outputs.VERSION_TAG }}\"/" internal/version.go
+
+      - name: Set up Git
+        run: |
+          git config --global user.name "Pinecone CI"
+          git config --global user.email "clients@pinecone.io"
+
+      - name: Discard changes to version file if prerelease
+        if: ${{ inputs.isPrerelease == true }}
+        run: |
+          git checkout -- internal/version.go
+
+      - name: Commit version.go changes if not prerelease
+        if: ${{ inputs.isPrerelease == false}}
+        run: |
+          git add internal/version.go
+          git commit -m "[skip ci] Bump version to ${{ steps.bump.outputs.VERSION_TAG }}"
+
+      - name: Tag version
+        run: |
+          newVersionTag="${{ steps.bump.outputs.VERSION_TAG }}"
+          git tag -a $newVersionTag -m "Release $newVersionTag"
+
+      - name: Push tags (prerelease)
+        if: ${{ inputs.isPrerelease == true }}
+        # We don't push the version.go for prerelease so the tag wouldn't be pushed
+        # Push just tags up here in that case since Go releases are handled via git tags
+        run: git push --tags
+
+      - name: Push tags and updated version.go file (production release)
+        if: ${{ inputs.isPrerelease == false }}
+        run: git push --follow-tags

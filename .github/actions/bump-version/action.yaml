@@ -1,0 +1,29 @@
+name: 'pinecone-io/bump-version'
+
+description: 'Bumps a given semantic version number based on a bumpType and prereleaseSuffix'
+
+inputs:
+  currentVersion:
+    description: 'The current version of the client to bump from'
+    required: true
+  bumpType:
+    description: 'The type of version bump (major, minor, patch)'
+    required: true
+  prereleaseSuffix:
+    description: 'Optional prerelease identifier to append to the version number'
+    required: false
+    default: ''
+
+outputs:
+  version:
+    description: 'The new version number'
+  version_tag:
+    description: 'The new version tag'
+  previous_version:
+    description: 'The previous version number'
+  previous_version_tag:
+    description: 'The previous version tag'
+
+runs:
+  using: 'node20'
+  main: 'index.js'
