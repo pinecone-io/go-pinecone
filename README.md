@@ -403,7 +403,7 @@ func main() {
 
 The following examlpe describes the statistics of an index by name.
 
-```Go
+```go
 package main
 
 import (
@@ -781,7 +781,7 @@ func main() {
 The following example deletes a vector by its ID value from `example-index` and `example-namespace`. You can pass a
 slice of vector IDs to `DeleteVectorsById`.
 
-```Go
+```go
 package main
 
 import (
@@ -829,7 +829,7 @@ func main() {
 
 The following example deletes vectors from `example-index` using a metadata filter.
 
-```Go
+```go
 package main
 
 import (
@@ -884,7 +884,7 @@ func main() {
 
 The following example deletes all vectors from `example-index` and `example-namespace`.
 
-```Go
+```go
 package main
 
 import (
@@ -1012,7 +1012,7 @@ func main() {
 
 The following example updates vectors by ID in `example-index` and `example-namespace`.
 
-```Go
+```go
 package main
 
 import (
@@ -1145,7 +1145,7 @@ Collections are only available for pod-based indexes.
 
 The following example creates a collection from a source index.
 
-```Go
+```go
 package main
 
 import (
@@ -1186,7 +1186,7 @@ func main() {
 
 The following example lists all collections in your Pinecone project.
 
-```Go
+```go
 package main
 
 import (
@@ -1231,7 +1231,7 @@ func main() {
 
 The following example describes a collection by name.
 
-```Go
+```go
 package main
 
 import (
@@ -1269,7 +1269,7 @@ func main() {
 
 The following example deletes a collection by name.
 
-```Go
+```go
 package main
 
 import (
@@ -1303,6 +1303,73 @@ func main() {
 		log.Printf("Successfully deleted collection \"%s\"\n", collectionName)
 	}
 }
+```
+
+## Inference
+
+The `Client` object has an `Inference` namespace which allows interacting with Pinecone's [Inference API](https://docs.pinecone.io/reference/api/2024-07/inference/generate-embeddings). The Inference API is a service that gives you access to embedding models hosted on Pinecone's infrastructure. Read more at [Understanding Pinecone Inference](https://docs.pinecone.io/guides/inference/understanding-inference).
+
+**Notes:**
+
+Models currently supported:
+
+- [multilingual-e5-large](https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models)
+
+### Create Embeddings
+
+Send text to Pinecone's inference API to generate embeddings for documents and queries.
+
+```go
+	ctx := context.Background()
+
+	pc, err := pinecone.NewClient(pinecone.NewClientParams{
+		ApiKey: "YOUR_API_KEY",
+	})
+	if err !=  nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	}
+
+	embeddingModel := "multilingual-e5-large"
+	documents := []string{
+		"Turkey is a classic meat to eat at American Thanksgiving."
+		"Many people enjoy the beautiful mosques in Turkey."
+	}
+	docParameters := pinecone.EmbedParameters{
+		InputType: "passage",
+		Truncate: "END",
+	}
+
+	docEmbeddingsResponse, err := pc.Inference.Embed(ctx, &pinecone.EmbedRequest{
+		Model: embeddingModel,
+		TextInputs: documents,
+		Parameters: docParameters,
+	})
+	if err != nil {
+		log.Fatalf("Failed to embed documents: %v", err)
+	}
+	fmt.Printf("docs embedding response: %+v", docEmbeddingsResponse)
+
+	// << Upsert documents into Pinecone >>
+
+	userQuery := []string{
+		"How should I prepare my turkey?"
+	}
+	queryParameters := pinecone.EmbedParameters{
+		InputType: "query",
+		Truncate: "END",
+	}
+	queryEmbeddingsResponse, err := pc.Inference.Embed(ctx, &pinecone.EmbedRequest{
+		Model: embeddingModel,
+		TextInputs: userQuery,
+		Parameters: queryParameters
+	})
+	if err != nil {
+		log.Fatalf("Failed to embed query: %v", err)
+	}
+	fmt.Printf("query embedding response: %+v", queryEmbeddingsResponse)
+
+	// << Send query to Pinecone to retrieve similar documents >>
+
 ```
 
 ## Support
