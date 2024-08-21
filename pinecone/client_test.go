@@ -1213,6 +1213,10 @@ func (ts *IntegrationTests) deleteIndex(name string) error {
 	_, err := WaitUntilIndexReady(ts, context.Background())
 	require.NoError(ts.T(), err)
 
+	index, err := ts.client.DescribeIndex(context.Background(), name)
+	require.NoError(ts.T(), err)
+	fmt.Printf("<<< TRYING TO DELETE INDEX >>> : %+v\n", index)
+
 	err = ts.client.DeleteIndex(context.Background(), name)
 	require.NoError(ts.T(), err)
 	return nil
