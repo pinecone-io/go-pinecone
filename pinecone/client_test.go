@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pinecone-io/go-pinecone/internal/gen"
@@ -165,6 +166,9 @@ func (ts *IntegrationTests) TestDeletionProtection() {
 	_, err = ts.client.ConfigureIndex(context.Background(), ts.idxName, ConfigureIndexParams{DeletionProtection: "disabled"})
 	require.NoError(ts.T(), err)
 
+	// allow time for the index to start upgrading
+	time.Sleep(3 * time.Second)
+
 	// Before moving on to another test, wait for the index to be done upgrading
 	_, err = WaitUntilIndexReady(ts, context.Background())
 	require.NoError(ts.T(), err)
@@ -215,6 +219,9 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 2})
 	require.NoError(ts.T(), err)
 
+	// allow time for the index to start upgrading
+	time.Sleep(3 * time.Second)
+
 	// Before moving on to another test, wait for the index to be done upgrading
 	_, err = WaitUntilIndexReady(ts, context.Background())
 	require.NoError(ts.T(), err)
@@ -241,6 +248,9 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x4"})
 	require.NoError(ts.T(), err)
+
+	// allow time for the index to start upgrading
+	time.Sleep(3 * time.Second)
 
 	// Before moving on to another test, wait for the index to be done upgrading
 	_, err = WaitUntilIndexReady(ts, context.Background())

@@ -24,16 +24,16 @@ import (
 // Client holds the parameters for connecting to the Pinecone service. It is returned by the NewClient and NewClientBase
 // functions. To use Client, first build the parameters of the request using NewClientParams (or NewClientBaseParams).
 // Then, pass those parameters into the NewClient (or NewClientBase) function to create a new Client object.
-// Once instantiated, you can use Client to execute control plane API requests (e.g. create an Index, list Indexes,
-// etc.), and Inference API requests. Read more about different control plane API routes at [docs.pinecone.io/reference/api].
+// Once instantiated, you can use Client to execute Pinecone API requests (e.g. create an Index, list Indexes,
+// etc.), and Inference API requests. Read more about different Pinecone API routes at [docs.pinecone.io/reference/api].
 //
 // Note: Client methods are safe for concurrent use.
 //
 // Fields:
 //   - Inference: An InferenceService object that exposes methods for interacting with the Pinecone [Inference API].
-//   - headers: An optional map of additional HTTP headers to include in each API request to the control plane,
-//     provided through NewClientParams.Headers or NewClientBaseParams.Headers.
-//   - restClient: Optional underlying *http.Client object used to communicate with the Pinecone control plane API,
+//   - headers: An optional map of additional HTTP headers to include in each API request, provided through
+//     NewClientParams.Headers or NewClientBaseParams.Headers.
+//   - restClient: Optional underlying *http.Client object used to communicate with the Pinecone API,
 //     provided through NewClientParams.RestClient or NewClientBaseParams.RestClient. If not provided,
 //     a default client is created for you.
 //   - sourceTag: An optional string used to help Pinecone attribute API activity, provided through NewClientParams.SourceTag
@@ -79,12 +79,11 @@ type Client struct {
 // NewClientParams holds the parameters for creating a new Client instance while authenticating via an API key.
 //
 // Fields:
-//   - ApiKey: (Required) The API key used to authenticate with the Pinecone control plane API.
+//   - ApiKey: (Required) The API key used to authenticate with the Pinecone API.
 //     This value must be passed by the user unless it is set as an environment variable ("PINECONE_API_KEY").
-//   - Headers: An optional map of additional HTTP headers to include in each API request to the control plane.
-//   - Host: (Optional) The host URL of the Pinecone control plane API. If not provided,
-//     the default value is "https://api.pinecone.io".
-//   - RestClient: An optional HTTP client to use for communication with the control plane API.
+//   - Headers: An optional map of additional HTTP headers to include in each API request.
+//   - Host: (Optional) The host URL of the Pinecone API. If not provided, the default value is "https://api.pinecone.io".
+//   - RestClient: An optional HTTP client to use for communication with the Pinecone API.
 //   - SourceTag: An optional string used to help Pinecone attribute API activity.
 //
 // See Client for code example.
@@ -100,11 +99,11 @@ type NewClientParams struct {
 // headers.
 //
 // Fields:
-//   - Headers: An optional map of additional HTTP headers to include in each API request to the control plane.
+//   - Headers: An optional map of additional HTTP headers to include in each API request.
 //     "Authorization" and "X-Project-Id" headers are required if authenticating using a JWT.
-//   - Host: (Optional) The host URL of the Pinecone control plane API. If not provided,
+//   - Host: (Optional) The host URL of the Pinecone API. If not provided,
 //     the default value is "https://api.pinecone.io".
-//   - RestClient: An optional *http.Client object to use for communication with the control plane API.
+//   - RestClient: An optional *http.Client object to use for communication with the Pinecone API.
 //   - SourceTag: An optional string used to help Pinecone attribute API activity.
 //
 // See Client for code example.
@@ -131,13 +130,13 @@ type NewIndexConnParams struct {
 }
 
 // NewClient creates and initializes a new instance of Client.
-// This function sets up the control plane client with the necessary configuration for authentication and communication.
+// This function sets up the Pinecone client with the necessary configuration for authentication and communication.
 //
 // Parameters:
 //   - in: A NewClientParams object. See NewClientParams for more information.
 //
 // Note: It is important to handle the error returned by this function to ensure that the
-// control plane client has been created successfully before attempting to make API calls.
+// Pinecone client has been created successfully before attempting to make API calls.
 //
 // Returns a pointer to an initialized Client instance or an error.
 //
@@ -181,12 +180,12 @@ func NewClient(in NewClientParams) (*Client, error) {
 // NewClientBase creates and initializes a new instance of Client with custom authentication headers.
 //
 // Parameters:
-//   - in: A NewClientBaseParams object that includes the necessary configuration for the control plane client. See
+//   - in: A NewClientBaseParams object that includes the necessary configuration for the Pinecone client. See
 //     NewClientBaseParams for more information.
 //
 // Notes:
 //   - It is important to handle the error returned by this function to ensure that the
-//     control plane client has been created successfully before attempting to make API calls.
+//     Pinecone client has been created successfully before attempting to make API calls.
 //   - A Pinecone API key is not required when using NewClientBase.
 //
 // Returns a pointer to an initialized Client instance or an error.
