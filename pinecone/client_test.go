@@ -40,7 +40,7 @@ func (ts *IntegrationTests) TestCreatePodIndex() {
 
 	idx, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
-		Dimension:   10,
+		Dimension:   2,
 		Metric:      Cosine,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x1",
@@ -180,7 +180,7 @@ func (ts *IntegrationTests) TestConfigureIndexIllegalScaleDown() {
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
-		Dimension:   10,
+		Dimension:   2,
 		Metric:      Cosine,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x2",
@@ -203,7 +203,7 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
-		Dimension:   10,
+		Dimension:   2,
 		Metric:      Cosine,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x2",
@@ -230,7 +230,7 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
-		Dimension:   10,
+		Dimension:   2,
 		Metric:      Cosine,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x2",
@@ -262,7 +262,7 @@ func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
-		Dimension:   10,
+		Dimension:   2,
 		Metric:      Cosine,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x2",
