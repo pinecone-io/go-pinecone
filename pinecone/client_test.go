@@ -1209,6 +1209,7 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 
 // Helper functions:
 func (ts *IntegrationTests) deleteIndex(name string) error {
+	time.Sleep(3 * time.Second)
 	_, err := WaitUntilIndexReady(ts, context.Background())
 	require.NoError(ts.T(), err)
 
