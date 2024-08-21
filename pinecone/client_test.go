@@ -167,7 +167,7 @@ func (ts *IntegrationTests) TestDeletionProtection() {
 	require.NoError(ts.T(), err)
 
 	// allow time for the index to start upgrading
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// Before moving on to another test, wait for the index to be done upgrading
 	_, err = WaitUntilIndexReady(ts, context.Background())
@@ -220,7 +220,7 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 	require.NoError(ts.T(), err)
 
 	// allow time for the index to start upgrading
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// Before moving on to another test, wait for the index to be done upgrading
 	_, err = WaitUntilIndexReady(ts, context.Background())
@@ -250,7 +250,7 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 	require.NoError(ts.T(), err)
 
 	// allow time for the index to start upgrading
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// Before moving on to another test, wait for the index to be done upgrading
 	_, err = WaitUntilIndexReady(ts, context.Background())
