@@ -25,11 +25,12 @@ import (
 // functions. To use Client, first build the parameters of the request using NewClientParams (or NewClientBaseParams).
 // Then, pass those parameters into the NewClient (or NewClientBase) function to create a new Client object.
 // Once instantiated, you can use Client to execute control plane API requests (e.g. create an Index, list Indexes,
-// etc.). Read more about different control plane API routes at [docs.pinecone.io/reference/api].
+// etc.), and Inference API requests. Read more about different control plane API routes at [docs.pinecone.io/reference/api].
 //
 // Note: Client methods are safe for concurrent use.
 //
 // Fields:
+//   - Inference: An InferenceService object that exposes methods for interacting with the Pinecone [Inference API].
 //   - headers: An optional map of additional HTTP headers to include in each API request to the control plane,
 //     provided through NewClientParams.Headers or NewClientBaseParams.Headers.
 //   - restClient: Optional underlying *http.Client object used to communicate with the Pinecone control plane API,
@@ -67,7 +68,9 @@ import (
 //	    }
 //
 // [docs.pinecone.io/reference/api]: https://docs.pinecone.io/reference/api/control-plane/list_indexes
+// [Inference API]: https://docs.pinecone.io/reference/api/2024-07/inference/generate-embeddings
 type Client struct {
+	Inference  *InferenceService
 	headers    map[string]string
 	restClient *control.Client
 	sourceTag  string
@@ -223,7 +226,7 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 		return nil, err
 	}
 
-	c := Client{restClient: client, sourceTag: in.SourceTag, headers: in.Headers}
+	c := Client{Inference: &InferenceService{client: client}, restClient: client, sourceTag: in.SourceTag, headers: in.Headers}
 	return &c, nil
 }
 
@@ -1199,6 +1202,124 @@ func (c *Client) DeleteCollection(ctx context.Context, collectionName string) er
 	return nil
 }
 
+// EmbedRequest holds the parameters for generating embeddings for a list of input strings.
+//
+// Fields:
+//   - Model: (Required) The model to use for generating embeddings.
+//   - TextInputs: (Required) A list of strings to generate embeddings for.
+//   - Parameters: (Optional) EmbedParameters object that contains additional parameters to use when generating embeddings.
+type EmbedRequest struct {
+	Model      string
+	TextInputs []string
+	Parameters EmbedParameters
+}
+
+// EmbedParameters contains model-specific parameters that can be used for generating embeddings.
+//
+// Fields:
+//   - InputType: (Optional) A common property used to distinguish between different types of data. For example, "passage", or "query".
+//   - Truncate: (Optional) How to handle inputs longer than those supported by the model. if "NONE", when the input exceeds
+//     the maximum input token length an error will be returned.
+type EmbedParameters struct {
+	InputType string
+	Truncate  string
+}
+
+// InferenceService is a struct which exposes methods for interacting with the Pinecone Inference API. InferenceService
+// can be accessed via the Client object through the Client.Inference namespace.
+//
+// [Pinecone Inference API]: https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models
+type InferenceService struct {
+	client *control.Client
+}
+
+// Embed generates embeddings for a list of inputs using the specified model and (optional) parameters.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime, allowing for the request
+//     to be canceled or to timeout according to the context's deadline.
+//   - in: A pointer to an EmbedRequest object that contains the model to use for embedding generation, the
+//     list of input strings to generate embeddings for, and any additional parameters to use for generation.
+//
+// Returns a pointer to an EmbeddingsList object or an error.
+//
+// Example:
+//
+//	    ctx := context.Background()
+//
+//	    clientParams := pinecone.NewClientParams{
+//		       ApiKey: "YOUR_API_KEY",
+//		       SourceTag: "your_source_identifier", // optional
+//	    }
+//
+//	    pc, err := pinecone.NewClient(clientParams)
+//
+//	    if err !=  nil {
+//		       log.Fatalf("Failed to create Client: %v", err)
+//	    } else {
+//		       fmt.Println("Successfully created a new Client object!")
+//	    }
+//
+//	    in := &pinecone.EmbedRequest{
+//		       Model: "multilingual-e5-large",
+//		       TextInputs: []string{"Who created the first computer?"},
+//		       Parameters: pinecone.EmbedParameters{
+//			       InputType: "passage",
+//			       Truncate: "END",
+//		       },
+//	    }
+//
+//	    res, err := pc.Inference.Embed(ctx, in)
+//	    if err != nil {
+//		       log.Fatalf("Failed to embed: %v", err)
+//	    } else {
+//		       fmt.Printf("Successfull generated embeddings: %+v", res)
+//	    }
+func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*control.EmbeddingsList, error) {
+
+	if len(in.TextInputs) == 0 {
+		return nil, fmt.Errorf("TextInputs must contain at least one value")
+	}
+
+	// Convert text inputs to the expected type
+	convertedInputs := make([]struct {
+		Text *string `json:"text,omitempty"`
+	}, len(in.TextInputs))
+	for i, input := range in.TextInputs {
+		convertedInputs[i] = struct {
+			Text *string `json:"text,omitempty"`
+		}{Text: &input}
+	}
+
+	req := control.EmbedRequest{
+		Model:  in.Model,
+		Inputs: convertedInputs,
+	}
+
+	// convert embedding parameters to expected type
+	if in.Parameters.InputType != "" || in.Parameters.Truncate != "" {
+		req.Parameters = &struct {
+			InputType *string `json:"input_type,omitempty"`
+			Truncate  *string `json:"truncate,omitempty"`
+		}{
+			InputType: pointerOrNil(in.Parameters.InputType),
+			Truncate:  pointerOrNil(in.Parameters.Truncate),
+		}
+	}
+
+	res, err := i.client.Embed(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to embed: ")
+	}
+
+	return decodeEmbeddingsList(res.Body)
+}
+
 func (c *Client) extractAuthHeader() map[string]string {
 	possibleAuthKeys := []string{
 		"api-key",
@@ -1267,6 +1388,16 @@ func decodeIndex(resBody io.ReadCloser) (*Index, error) {
 	}
 
 	return toIndex(&idx), nil
+}
+
+func decodeEmbeddingsList(resBody io.ReadCloser) (*control.EmbeddingsList, error) {
+	var embeddingsList control.EmbeddingsList
+	err := json.NewDecoder(resBody).Decode(&embeddingsList)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode embeddings response: %w", err)
+	}
+
+	return &embeddingsList, nil
 }
 
 func toCollection(cm *control.CollectionModel) *Collection {

@@ -275,6 +275,43 @@ func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
 }
 
+func (ts *IntegrationTests) TestGenerateEmbeddings() {
+	ctx := context.Background()
+	embeddingModel := "multilingual-e5-large"
+	embeddings, err := ts.client.Inference.Embed(ctx, &EmbedRequest{
+		Model: embeddingModel,
+		TextInputs: []string{
+			"The quick brown fox jumps over the lazy dog",
+			"Lorem ipsum",
+		},
+		Parameters: EmbedParameters{
+			InputType: "query",
+			Truncate:  "END",
+		},
+	})
+
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), embeddings, "Expected embedding to be non-nil")
+	require.Equal(ts.T(), embeddingModel, *embeddings.Model, "Expected model to be '%s', but got '%s'", embeddingModel, embeddings.Model)
+	require.Equal(ts.T(), 2, len(*embeddings.Data), "Expected 2 embeddings")
+	require.Equal(ts.T(), 1024, len(*(*embeddings.Data)[0].Values), "Expected embeddings to have length 1024")
+}
+
+func (ts *IntegrationTests) TestGenerateEmbeddingsInvalidInputs() {
+	ctx := context.Background()
+	embeddingModel := "multilingual-e5-large"
+	_, err := ts.client.Inference.Embed(ctx, &EmbedRequest{
+		Model: embeddingModel,
+		Parameters: EmbedParameters{
+			InputType: "query",
+			Truncate:  "END",
+		},
+	})
+
+	require.Error(ts.T(), err)
+	require.Contains(ts.T(), err.Error(), "TextInputs must contain at least one value")
+}
+
 // Unit tests:
 func TestExtractAuthHeaderUnit(t *testing.T) {
 	globalApiKey := os.Getenv("PINECONE_API_KEY")
@@ -1162,7 +1199,12 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 
 // Helper functions:
 func (ts *IntegrationTests) deleteIndex(name string) error {
-	return ts.client.DeleteIndex(context.Background(), name)
+	_, err := WaitUntilIndexReady(ts, context.Background())
+	require.NoError(ts.T(), err)
+
+	err = ts.client.DeleteIndex(context.Background(), name)
+	require.NoError(ts.T(), err)
+	return nil
 }
 
 func mockResponse(body string, statusCode int) *http.Response {
