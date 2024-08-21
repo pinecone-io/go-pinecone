@@ -137,6 +137,7 @@ func WaitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error
 		}
 		if index.Status.State == Ready && index.Status.Ready {
 			fmt.Printf("Index \"%s\" is ready!\n", ts.idxName)
+			fmt.Printf("BUT YEAH YOU SHOULD DOUBLE CHECK : %+v\n", index.Status)
 			return true, nil
 		} else {
 			fmt.Printf("Index \"%s\" not ready yet, retrying... (%d/%d)\n", ts.idxName, i, maxRetries)
