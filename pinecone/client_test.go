@@ -1215,7 +1215,8 @@ func (ts *IntegrationTests) deleteIndex(name string) error {
 
 	index, err := ts.client.DescribeIndex(context.Background(), name)
 	require.NoError(ts.T(), err)
-	fmt.Printf("<<< TRYING TO DELETE INDEX >>> : %+v\n", index)
+	fmt.Printf("<<< TRYING TO DELETE INDEX >>> : %+v", index)
+	fmt.Printf("<<< STATE >>> : %+v\n", index.Status)
 
 	err = ts.client.DeleteIndex(context.Background(), name)
 	require.NoError(ts.T(), err)
