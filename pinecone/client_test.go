@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pinecone-io/go-pinecone/internal/gen"
@@ -40,7 +41,7 @@ func (ts *IntegrationTests) TestCreatePodIndex() {
 
 	idx, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
-		Dimension:   10,
+		Dimension:   2,
 		Metric:      Cosine,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x1",
@@ -180,7 +181,7 @@ func (ts *IntegrationTests) TestConfigureIndexIllegalScaleDown() {
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
-		Dimension:   10,
+		Dimension:   2,
 		Metric:      Cosine,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x2",
@@ -196,14 +197,9 @@ func (ts *IntegrationTests) TestConfigureIndexIllegalScaleDown() {
 func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 	name := uuid.New().String()
 
-	defer func(ts *IntegrationTests, name string) {
-		err := ts.deleteIndex(name)
-		require.NoError(ts.T(), err)
-	}(ts, name)
-
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
-		Dimension:   10,
+		Dimension:   2,
 		Metric:      Cosine,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x2",
@@ -215,22 +211,22 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 2})
 	require.NoError(ts.T(), err)
 
-	// Before moving on to another test, wait for the index to be done upgrading
-	_, err = WaitUntilIndexReady(ts, context.Background())
+	// give index a bit of time to start upgrading before we poll
+	time.Sleep(500 * time.Millisecond)
+
+	isReady, _ := WaitUntilIndexReady(ts, context.Background())
+	require.True(ts.T(), isReady, "Expected index to be ready")
+
+	err = ts.client.DeleteIndex(context.Background(), name)
 	require.NoError(ts.T(), err)
 }
 
 func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 	name := uuid.New().String()
 
-	defer func(ts *IntegrationTests, name string) {
-		err := ts.deleteIndex(name)
-		require.NoError(ts.T(), err)
-	}(ts, name)
-
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
-		Dimension:   10,
+		Dimension:   2,
 		Metric:      Cosine,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x2",
@@ -242,8 +238,13 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x4"})
 	require.NoError(ts.T(), err)
 
-	// Before moving on to another test, wait for the index to be done upgrading
-	_, err = WaitUntilIndexReady(ts, context.Background())
+	// give index a bit of time to start upgrading before we poll
+	time.Sleep(500 * time.Millisecond)
+
+	isReady, _ := WaitUntilIndexReady(ts, context.Background())
+	require.True(ts.T(), isReady, "Expected index to be ready")
+
+	err = ts.client.DeleteIndex(context.Background(), name)
 	require.NoError(ts.T(), err)
 }
 
@@ -262,7 +263,7 @@ func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
-		Dimension:   10,
+		Dimension:   2,
 		Metric:      Cosine,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x2",
@@ -273,6 +274,43 @@ func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 30000})
 	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
+}
+
+func (ts *IntegrationTests) TestGenerateEmbeddings() {
+	ctx := context.Background()
+	embeddingModel := "multilingual-e5-large"
+	embeddings, err := ts.client.Inference.Embed(ctx, &EmbedRequest{
+		Model: embeddingModel,
+		TextInputs: []string{
+			"The quick brown fox jumps over the lazy dog",
+			"Lorem ipsum",
+		},
+		Parameters: EmbedParameters{
+			InputType: "query",
+			Truncate:  "END",
+		},
+	})
+
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), embeddings, "Expected embedding to be non-nil")
+	require.Equal(ts.T(), embeddingModel, *embeddings.Model, "Expected model to be '%s', but got '%s'", embeddingModel, embeddings.Model)
+	require.Equal(ts.T(), 2, len(*embeddings.Data), "Expected 2 embeddings")
+	require.Equal(ts.T(), 1024, len(*(*embeddings.Data)[0].Values), "Expected embeddings to have length 1024")
+}
+
+func (ts *IntegrationTests) TestGenerateEmbeddingsInvalidInputs() {
+	ctx := context.Background()
+	embeddingModel := "multilingual-e5-large"
+	_, err := ts.client.Inference.Embed(ctx, &EmbedRequest{
+		Model: embeddingModel,
+		Parameters: EmbedParameters{
+			InputType: "query",
+			Truncate:  "END",
+		},
+	})
+
+	require.Error(ts.T(), err)
+	require.Contains(ts.T(), err.Error(), "TextInputs must contain at least one value")
 }
 
 // Unit tests:
@@ -1162,6 +1200,9 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 
 // Helper functions:
 func (ts *IntegrationTests) deleteIndex(name string) error {
+	_, err := WaitUntilIndexReady(ts, context.Background())
+	require.NoError(ts.T(), err)
+
 	return ts.client.DeleteIndex(context.Background(), name)
 }
 
