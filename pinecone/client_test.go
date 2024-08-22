@@ -211,6 +211,7 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 2})
 	require.NoError(ts.T(), err)
 
+	// give index a bit of time to start upgrading before we poll
 	time.Sleep(500 * time.Millisecond)
 
 	isReady, _ := WaitUntilIndexReady(ts, context.Background())
@@ -237,6 +238,7 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x4"})
 	require.NoError(ts.T(), err)
 
+	// give index a bit of time to start upgrading before we poll
 	time.Sleep(500 * time.Millisecond)
 
 	isReady, _ := WaitUntilIndexReady(ts, context.Background())
@@ -1199,14 +1201,6 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 // Helper functions:
 func (ts *IntegrationTests) deleteIndex(name string) error {
 	_, err := WaitUntilIndexReady(ts, context.Background())
-	require.NoError(ts.T(), err)
-
-	index, err := ts.client.DescribeIndex(context.Background(), name)
-	require.NoError(ts.T(), err)
-	fmt.Printf("<<< TRYING TO DELETE INDEX >>> : %+v\n", index)
-	fmt.Printf("<<< STATE >>> : %+v\n\n", index.Status)
-
-	_, err = WaitUntilIndexReady(ts, context.Background())
 	require.NoError(ts.T(), err)
 
 	return ts.client.DeleteIndex(context.Background(), name)
