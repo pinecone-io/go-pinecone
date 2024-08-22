@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pinecone-io/go-pinecone/internal/gen"
@@ -196,10 +197,10 @@ func (ts *IntegrationTests) TestConfigureIndexIllegalScaleDown() {
 func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 	name := uuid.New().String()
 
-	defer func(ts *IntegrationTests, name string) {
-		err := ts.deleteIndex(name)
-		require.NoError(ts.T(), err)
-	}(ts, name)
+	// defer func(ts *IntegrationTests, name string) {
+	// 	err := ts.deleteIndex(name)
+	// 	require.NoError(ts.T(), err)
+	// }(ts, name)
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
@@ -215,18 +216,23 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 2})
 	require.NoError(ts.T(), err)
 
+	time.Sleep(2 * time.Second)
+
 	// Before moving on to another test, wait for the index to be done upgrading
 	_, err = WaitUntilIndexReady(ts, context.Background())
+	require.NoError(ts.T(), err)
+
+	err = ts.client.DeleteIndex(context.Background(), name)
 	require.NoError(ts.T(), err)
 }
 
 func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 	name := uuid.New().String()
 
-	defer func(ts *IntegrationTests, name string) {
-		err := ts.deleteIndex(name)
-		require.NoError(ts.T(), err)
-	}(ts, name)
+	// defer func(ts *IntegrationTests, name string) {
+	// 	err := ts.deleteIndex(name)
+	// 	require.NoError(ts.T(), err)
+	// }(ts, name)
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
@@ -242,8 +248,13 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x4"})
 	require.NoError(ts.T(), err)
 
+	time.Sleep(2 * time.Second)
+
 	// Before moving on to another test, wait for the index to be done upgrading
 	_, err = WaitUntilIndexReady(ts, context.Background())
+	require.NoError(ts.T(), err)
+
+	ts.client.DeleteIndex(context.Background(), name)
 	require.NoError(ts.T(), err)
 }
 
@@ -1204,8 +1215,11 @@ func (ts *IntegrationTests) deleteIndex(name string) error {
 
 	index, err := ts.client.DescribeIndex(context.Background(), name)
 	require.NoError(ts.T(), err)
-	fmt.Printf("<<< TRYING TO DELETE INDEX >>> : %+v", index)
-	fmt.Printf("<<< STATE >>> : %+v\n", index.Status)
+	fmt.Printf("<<< TRYING TO DELETE INDEX >>> : %+v\n", index)
+	fmt.Printf("<<< STATE >>> : %+v\n\n", index.Status)
+
+	_, err = WaitUntilIndexReady(ts, context.Background())
+	require.NoError(ts.T(), err)
 
 	return ts.client.DeleteIndex(context.Background(), name)
 }
