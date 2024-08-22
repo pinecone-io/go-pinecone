@@ -139,7 +139,6 @@ func WaitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error
 			return true, err
 		}
 
-		time.Sleep(delay)
 		totalSeconds := time.Since(start)
 
 		fmt.Printf("Index \"%s\" not ready yet, retrying... (%f/%f)\n", ts.idxName, totalSeconds.Seconds(), maxWaitTimeSeconds.Seconds())
