@@ -141,10 +141,13 @@ func WaitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error
 
 		totalSeconds := time.Since(start)
 
+		if totalSeconds >= maxWaitTimeSeconds {
+			return false, fmt.Errorf("Index \"%s\" not ready after %f seconds", ts.idxName, totalSeconds.Seconds())
+		}
+
 		fmt.Printf("Index \"%s\" not ready yet, retrying... (%f/%f)\n", ts.idxName, totalSeconds.Seconds(), maxWaitTimeSeconds.Seconds())
 		time.Sleep(delay)
 	}
-
 }
 
 func createVectorsForUpsert() []*Vector {
