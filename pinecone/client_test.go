@@ -197,11 +197,6 @@ func (ts *IntegrationTests) TestConfigureIndexIllegalScaleDown() {
 func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 	name := uuid.New().String()
 
-	// defer func(ts *IntegrationTests, name string) {
-	// 	err := ts.deleteIndex(name)
-	// 	require.NoError(ts.T(), err)
-	// }(ts, name)
-
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
 		Dimension:   2,
@@ -216,11 +211,10 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 2})
 	require.NoError(ts.T(), err)
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(500 * time.Millisecond)
 
-	// Before moving on to another test, wait for the index to be done upgrading
-	_, err = WaitUntilIndexReady(ts, context.Background())
-	require.NoError(ts.T(), err)
+	isReady, _ := WaitUntilIndexReady(ts, context.Background())
+	require.True(ts.T(), isReady, "Expected index to be ready")
 
 	err = ts.client.DeleteIndex(context.Background(), name)
 	require.NoError(ts.T(), err)
@@ -228,11 +222,6 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 
 func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 	name := uuid.New().String()
-
-	// defer func(ts *IntegrationTests, name string) {
-	// 	err := ts.deleteIndex(name)
-	// 	require.NoError(ts.T(), err)
-	// }(ts, name)
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
@@ -248,11 +237,10 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x4"})
 	require.NoError(ts.T(), err)
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(500 * time.Millisecond)
 
-	// Before moving on to another test, wait for the index to be done upgrading
-	_, err = WaitUntilIndexReady(ts, context.Background())
-	require.NoError(ts.T(), err)
+	isReady, _ := WaitUntilIndexReady(ts, context.Background())
+	require.True(ts.T(), isReady, "Expected index to be ready")
 
 	err = ts.client.DeleteIndex(context.Background(), name)
 	require.NoError(ts.T(), err)

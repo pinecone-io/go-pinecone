@@ -126,29 +126,26 @@ func createCollection(ts *IntegrationTests, ctx context.Context) {
 }
 
 func WaitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error) {
-	maxRetries := 24
+	start := time.Now()
 	delay := 5 * time.Second
-	totalSeconds := 0
-	time.Sleep(2 * time.Second)
+	maxWaitTimeSeconds := 280 * time.Second
 
-	for i := 0; i < maxRetries; i++ {
+	for {
 		index, err := ts.client.DescribeIndex(ctx, ts.idxName)
-		if err != nil {
-			fmt.Printf("Error describing index: %v\n", err)
+		require.NoError(ts.T(), err)
+
+		if index.Status.Ready && index.Status.State == Ready {
+			fmt.Printf("Index \"%s\" is ready after %f seconds\n", ts.idxName, time.Since(start).Seconds())
+			return true, err
 		}
-		if index.Status.State == Ready && index.Status.Ready {
-			fmt.Printf("Index \"%s\" is ready!\n", ts.idxName)
-			fmt.Printf("BUT YEAH YOU SHOULD DOUBLE CHECK : %+v\n", index.Status)
-			return true, nil
-		} else {
-			fmt.Printf("Index \"%s\" not ready yet, retrying... (%d/%d)\n", ts.idxName, i, maxRetries)
-			time.Sleep(delay)
-			totalSeconds += int(delay.Seconds())
-		}
+
+		time.Sleep(delay)
+		totalSeconds := time.Since(start)
+
+		fmt.Printf("Index \"%s\" not ready yet, retrying... (%f/%f)\n", ts.idxName, totalSeconds.Seconds(), maxWaitTimeSeconds.Seconds())
+		time.Sleep(delay)
 	}
 
-	fmt.Printf("Index \"%s\" not ready after %d seconds\n", ts.idxName, totalSeconds)
-	return false, nil
 }
 
 func createVectorsForUpsert() []*Vector {
