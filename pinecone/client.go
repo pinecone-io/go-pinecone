@@ -1218,7 +1218,7 @@ type EmbedRequest struct {
 // Fields:
 //   - InputType: (Optional) A common property used to distinguish between different types of data. For example, "passage", or "query".
 //   - Truncate: (Optional) How to handle inputs longer than those supported by the model. if "NONE", when the input exceeds
-//     the maximum input token length an error will be returned.
+//     the maximum input token length, an error will be returned.
 type EmbedParameters struct {
 	InputType string
 	Truncate  string
