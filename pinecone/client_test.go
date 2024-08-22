@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pinecone-io/go-pinecone/internal/gen"
@@ -166,9 +165,6 @@ func (ts *IntegrationTests) TestDeletionProtection() {
 	_, err = ts.client.ConfigureIndex(context.Background(), ts.idxName, ConfigureIndexParams{DeletionProtection: "disabled"})
 	require.NoError(ts.T(), err)
 
-	// allow time for the index to start upgrading
-	time.Sleep(5 * time.Second)
-
 	// Before moving on to another test, wait for the index to be done upgrading
 	_, err = WaitUntilIndexReady(ts, context.Background())
 	require.NoError(ts.T(), err)
@@ -219,9 +215,6 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 2})
 	require.NoError(ts.T(), err)
 
-	// allow time for the index to start upgrading
-	time.Sleep(5 * time.Second)
-
 	// Before moving on to another test, wait for the index to be done upgrading
 	_, err = WaitUntilIndexReady(ts, context.Background())
 	require.NoError(ts.T(), err)
@@ -248,9 +241,6 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x4"})
 	require.NoError(ts.T(), err)
-
-	// allow time for the index to start upgrading
-	time.Sleep(5 * time.Second)
 
 	// Before moving on to another test, wait for the index to be done upgrading
 	_, err = WaitUntilIndexReady(ts, context.Background())
@@ -1209,8 +1199,6 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 
 // Helper functions:
 func (ts *IntegrationTests) deleteIndex(name string) error {
-	time.Sleep(5 * time.Second)
-
 	_, err := WaitUntilIndexReady(ts, context.Background())
 	require.NoError(ts.T(), err)
 
@@ -1219,9 +1207,7 @@ func (ts *IntegrationTests) deleteIndex(name string) error {
 	fmt.Printf("<<< TRYING TO DELETE INDEX >>> : %+v", index)
 	fmt.Printf("<<< STATE >>> : %+v\n", index.Status)
 
-	err = ts.client.DeleteIndex(context.Background(), name)
-	require.NoError(ts.T(), err)
-	return nil
+	return ts.client.DeleteIndex(context.Background(), name)
 }
 
 func mockResponse(body string, statusCode int) *http.Response {

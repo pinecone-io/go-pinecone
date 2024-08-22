@@ -129,6 +129,7 @@ func WaitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error
 	maxRetries := 24
 	delay := 5 * time.Second
 	totalSeconds := 0
+	time.Sleep(2 * time.Second)
 
 	for i := 0; i < maxRetries; i++ {
 		index, err := ts.client.DescribeIndex(ctx, ts.idxName)
