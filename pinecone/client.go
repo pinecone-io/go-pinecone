@@ -31,7 +31,7 @@ import (
 //
 // Fields:
 //   - Inference: An InferenceService object that exposes methods for interacting with the Pinecone [Inference API].
-//   - headers: An optional map of additional HTTP headers to include in each API request, provided through
+//   - headers: An optional map of HTTP headers to include in each API request, provided through
 //     NewClientParams.Headers or NewClientBaseParams.Headers.
 //   - restClient: Optional underlying *http.Client object used to communicate with the Pinecone API,
 //     provided through NewClientParams.RestClient or NewClientBaseParams.RestClient. If not provided,
@@ -81,7 +81,7 @@ type Client struct {
 // Fields:
 //   - ApiKey: (Required) The API key used to authenticate with the Pinecone API.
 //     This value must be passed by the user unless it is set as an environment variable ("PINECONE_API_KEY").
-//   - Headers: An optional map of additional HTTP headers to include in each API request.
+//   - Headers: (Optional) An optional map of HTTP headers to include in each API request.
 //   - Host: (Optional) The host URL of the Pinecone API. If not provided, the default value is "https://api.pinecone.io".
 //   - RestClient: An optional HTTP client to use for communication with the Pinecone API.
 //   - SourceTag: An optional string used to help Pinecone attribute API activity.
@@ -96,15 +96,15 @@ type NewClientParams struct {
 }
 
 // NewClientBaseParams holds the parameters for creating a new Client instance while passing custom authentication
-// headers.
+// headers. If there is no API key or authentication provided through Headers, API calls will fail.
 //
 // Fields:
-//   - Headers: An optional map of additional HTTP headers to include in each API request.
+//   - Headers: (Optional) A map of HTTP headers to include in each API request.
 //     "Authorization" and "X-Project-Id" headers are required if authenticating using a JWT.
 //   - Host: (Optional) The host URL of the Pinecone API. If not provided,
 //     the default value is "https://api.pinecone.io".
-//   - RestClient: An optional *http.Client object to use for communication with the Pinecone API.
-//   - SourceTag: An optional string used to help Pinecone attribute API activity.
+//   - RestClient: (Optional) An *http.Client object to use for communication with the Pinecone API.
+//   - SourceTag: (Optional) A string used to help Pinecone attribute API activity.
 //
 // See Client for code example.
 type NewClientBaseParams struct {
@@ -119,8 +119,8 @@ type NewClientBaseParams struct {
 // Fields:
 //   - Host: (Required) The host URL of the Pinecone index. To find your host url use the DescribeIndex or ListIndexes methods.
 //     Alternatively, the host is displayed in the Pinecone web console.
-//   - Namespace: Optional index namespace to use for operations. If not provided, the default namespace of "" will be used.
-//   - AdditionalMetadata: Optional additional metadata to be sent with each RPC request.
+//   - Namespace: (Optional) The index namespace to use for operations. If not provided, the default namespace of "" will be used.
+//   - AdditionalMetadata: (Optional) Metadata to be sent with each RPC request.
 //
 // See Client.Index for code example.
 type NewIndexConnParams struct {
@@ -571,7 +571,7 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //   - Cloud: (Required) The public [cloud provider] where you would like your Index hosted.
 //     For serverless Indexes, you define only the cloud and region where the Index should be hosted.
 //   - Region: (Required) The [region] where you would like your Index to be created.
-//   - DeletionProtection: (Optional) determines whether [deletion protection] is "enabled" or "disabled" for the index.
+//   - DeletionProtection: (Optional) Determines whether [deletion protection] is "enabled" or "disabled" for the index.
 //     When "enabled", the index cannot be deleted. Defaults to "disabled".
 //
 // To create a new Serverless Index, use the CreateServerlessIndex method on the Client object.
@@ -1237,7 +1237,7 @@ type InferenceService struct {
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - in: A pointer to an EmbedRequest object that contains the model to use for embedding generation, the
+//   - in: A pointer to an EmbedRequest object that contains the model t4o use for embedding generation, the
 //     list of input strings to generate embeddings for, and any additional parameters to use for generation.
 //
 // Returns a pointer to an EmbeddingsList object or an error.
