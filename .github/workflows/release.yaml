@@ -33,6 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SEMVER_VERSION: "" # Set by the get_tag_version step
+      PRERELEASE_SUFFIX: "" # Set by the set_prerelease_suffix step
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,7 +49,7 @@ jobs:
             exit 1
           fi
 
-      - name: Extract current release version through tag
+      - name: Extract current release version through tag and set SEMVER_VERSION
         id: get_tag_version
         run: |
           tag=$(git describe --tags --abbrev=0)
@@ -56,13 +57,19 @@ jobs:
           echo "Current Released Version: $semver"
           echo "SEMVER_VERSION=$semver" >> $GITHUB_ENV # Set as environment variable
 
+      - name: Set PRERELEASE_SUFFIX if isPrerelease is true
+        id: set_prerelease_suffix
+        if: ${{ inputs.isPrerelease == true }}
+        run: |
+          echo "PRERELEASE_SUFFIX=${{ inputs.prereleaseSuffix }}" >> $GITHUB_ENV
+
       - name: Bump version
         id: bump
         uses: "./.github/actions/bump-version"
         with:
           currentVersion: ${{ env.SEMVER_VERSION}}
           bumpType: ${{ inputs.releaseLevel }}
-          prereleaseSuffix: ${{ inputs.prereleaseSuffix }}
+          prereleaseSuffix: ${{ env.PRERELEASE_SUFFIX }}
 
       - name: Verify unique release tag
         run: |
