@@ -26,12 +26,13 @@ on:
         description: "Suffix to add to version number for marking as a pre-release alpha or beta client. Value ignored when isPrerelease is false"
         required: false
         type: string
-        default: "alpha1"
+        default: ""
 
 jobs:
   bump-version-and-release:
     runs-on: ubuntu-latest
-
+    env:
+      SEMVER_VERSION: "" # Set by the get_tag_version step
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,13 +54,13 @@ jobs:
           tag=$(git describe --tags --abbrev=0)
           semver=${tag#v}  # Remove the 'v' prefix from version number
           echo "Current Released Version: $semver"
-          echo "semver=$semver" >> $GITHUB_ENV # Set as environment variable
+          echo "SEMVER_VERSION=$semver" >> $GITHUB_ENV # Set as environment variable
 
       - name: Bump version
         id: bump
         uses: "./.github/actions/bump-version"
         with:
-          versionFile: pinecone/__version__
+          currentVersion: ${{ env.SEMVER_VERSION}}
           bumpType: ${{ inputs.releaseLevel }}
           prereleaseSuffix: ${{ inputs.prereleaseSuffix }}
 
