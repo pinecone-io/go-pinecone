@@ -30,7 +30,7 @@ on:
 
 jobs:
   bump-version-and-release:
-    runs-on: ubuntu-lastest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
