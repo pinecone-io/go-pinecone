@@ -159,7 +159,7 @@ func main() {
 	})
 
 	if err != nil {
-		log.Fatalf("Failed to create serverless index: %s", indexName)
+		log.Fatalf("Failed to create serverless index: %v", err)
 	} else {
 		fmt.Printf("Successfully created serverless index: %s", idx.Name)
 	}
