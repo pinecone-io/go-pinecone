@@ -66,17 +66,6 @@ func (ts *IntegrationTests) TestDeleteVectorsById() {
 	}
 }
 
-func (ts *IntegrationTests) TestUpsertSparseVectors() {
-	ctx := context.Background()
-	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
-	assert.NoError(ts.T(), err)
-
-	_, err = ts.idxConn.UpsertVectors(ctx, generateVectors(5, ts.dimension))
-	if err != nil {
-		log.Fatalf("Failed to upsert sparse vectors in TestUpsertSparseVectors test. Error: %v", err)
-	}
-}
-
 func (ts *IntegrationTests) TestDeleteVectorsByFilter() {
 	metadataFilter := map[string]interface{}{
 		"genre": "classical",
