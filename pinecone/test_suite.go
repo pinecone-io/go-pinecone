@@ -47,14 +47,14 @@ func (ts *IntegrationTests) SetupSuite() {
 	ts.idxConn = idxConn
 
 	// Deterministically create vectors
-	vectors := generateVectors(10, ts.dimension)
+	vectors := GenerateVectors(10, ts.dimension, false)
 
-	// Set vector IDs
+	// Add vector ids to the suite
 	vectorIds := make([]string, len(vectors))
 	for i, v := range vectors {
 		vectorIds[i] = v.Id
 	}
-	ts.vectorIds = vectorIds
+	ts.vectorIds = append(ts.vectorIds, vectorIds...)
 
 	// Upsert vectors
 	err = upsertVectors(ts, ctx, vectors)
@@ -104,9 +104,16 @@ func upsertVectors(ts *IntegrationTests, ctx context.Context, vectors []*Vector)
 	_, err := WaitUntilIndexReady(ts, ctx)
 	require.NoError(ts.T(), err)
 
+	ids := make([]string, len(vectors))
+	for i, v := range vectors {
+		ids[i] = v.Id
+	}
+
 	upsertVectors, err := ts.idxConn.UpsertVectors(ctx, vectors)
 	require.NoError(ts.T(), err)
 	fmt.Printf("Upserted vectors: %v into host: %s\n", upsertVectors, ts.host)
+
+	ts.vectorIds = append(ts.vectorIds, ids...)
 
 	return nil
 }
@@ -151,7 +158,7 @@ func WaitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error
 	}
 }
 
-func generateVectors(numOfVectors int, dimension int32) []*Vector {
+func GenerateVectors(numOfVectors int, dimension int32, isSparse bool) []*Vector {
 	vectors := make([]*Vector, numOfVectors)
 
 	for i := 0; i < int(numOfVectors); i++ {
@@ -161,12 +168,14 @@ func generateVectors(numOfVectors int, dimension int32) []*Vector {
 			Values: randomFloats,
 		}
 
-		var sparseValues SparseValues
-		for j := 0; j < int(dimension); j++ {
-			sparseValues.Indices = append(sparseValues.Indices, uint32(j))
+		if isSparse {
+			var sparseValues SparseValues
+			for j := 0; j < int(dimension); j++ {
+				sparseValues.Indices = append(sparseValues.Indices, uint32(j))
+			}
+			sparseValues.Values = generateVectorValues(dimension)
+			vectors[i].SparseValues = &sparseValues
 		}
-		sparseValues.Values = generateVectorValues(dimension)
-		vectors[i].SparseValues = &sparseValues
 
 		metadata := &structpb.Struct{
 			Fields: map[string]*structpb.Value{

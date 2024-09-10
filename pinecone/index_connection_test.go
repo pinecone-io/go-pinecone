@@ -59,11 +59,21 @@ func (ts *IntegrationTests) TestDeleteVectorsById() {
 	ctx := context.Background()
 	err := ts.idxConn.DeleteVectorsById(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
+	ts.vectorIds = []string{}
 
-	_, err = ts.idxConn.UpsertVectors(ctx, generateVectors(5, ts.dimension))
+	vectors := GenerateVectors(5, ts.dimension, true)
+
+	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
 		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
 	}
+
+	vectorIds := make([]string, len(vectors))
+	for i, v := range vectors {
+		vectorIds[i] = v.Id
+	}
+
+	ts.vectorIds = append(ts.vectorIds, vectorIds...)
 }
 
 func (ts *IntegrationTests) TestDeleteVectorsByFilter() {
@@ -84,22 +94,42 @@ func (ts *IntegrationTests) TestDeleteVectorsByFilter() {
 	} else {
 		assert.NoError(ts.T(), err)
 	}
+	ts.vectorIds = []string{}
 
-	_, err = ts.idxConn.UpsertVectors(ctx, generateVectors(5, ts.dimension))
+	vectors := GenerateVectors(5, ts.dimension, true)
+
+	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
 		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
 	}
+
+	vectorIds := make([]string, len(vectors))
+	for i, v := range vectors {
+		vectorIds[i] = v.Id
+	}
+
+	ts.vectorIds = append(ts.vectorIds, vectorIds...)
 }
 
 func (ts *IntegrationTests) TestDeleteAllVectorsInNamespace() {
 	ctx := context.Background()
 	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
 	assert.NoError(ts.T(), err)
+	ts.vectorIds = []string{}
 
-	_, err = ts.idxConn.UpsertVectors(ctx, generateVectors(5, ts.dimension))
+	vectors := GenerateVectors(5, ts.dimension, true)
+
+	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
 		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
 	}
+
+	vectorIds := make([]string, len(vectors))
+	for i, v := range vectors {
+		vectorIds[i] = v.Id
+	}
+
+	ts.vectorIds = append(ts.vectorIds, vectorIds...)
 
 }
 
