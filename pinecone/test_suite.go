@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"time"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -46,14 +47,14 @@ func (ts *IntegrationTests) SetupSuite() {
 	ts.idxConn = idxConn
 
 	// Deterministically create vectors
-	vectors := createVectorsForUpsert()
+	vectors := GenerateVectors(10, ts.dimension, false)
 
-	// Set vector IDs
+	// Add vector ids to the suite
 	vectorIds := make([]string, len(vectors))
 	for i, v := range vectors {
 		vectorIds[i] = v.Id
 	}
-	ts.vectorIds = vectorIds
+	ts.vectorIds = append(ts.vectorIds, vectorIds...)
 
 	// Upsert vectors
 	err = upsertVectors(ts, ctx, vectors)
@@ -103,9 +104,16 @@ func upsertVectors(ts *IntegrationTests, ctx context.Context, vectors []*Vector)
 	_, err := WaitUntilIndexReady(ts, ctx)
 	require.NoError(ts.T(), err)
 
+	ids := make([]string, len(vectors))
+	for i, v := range vectors {
+		ids[i] = v.Id
+	}
+
 	upsertVectors, err := ts.idxConn.UpsertVectors(ctx, vectors)
 	require.NoError(ts.T(), err)
 	fmt.Printf("Upserted vectors: %v into host: %s\n", upsertVectors, ts.host)
+
+	ts.vectorIds = append(ts.vectorIds, ids...)
 
 	return nil
 }
@@ -150,24 +158,46 @@ func WaitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error
 	}
 }
 
-func createVectorsForUpsert() []*Vector {
-	vectors := make([]*Vector, 5)
-	for i := 0; i < 5; i++ {
+func GenerateVectors(numOfVectors int, dimension int32, isSparse bool) []*Vector {
+	vectors := make([]*Vector, numOfVectors)
+
+	for i := 0; i < int(numOfVectors); i++ {
+		randomFloats := generateVectorValues(dimension)
 		vectors[i] = &Vector{
-			Id:     fmt.Sprintf("vector-%d", i+1),
-			Values: []float32{float32(i), float32(i) + 0.1, float32(i) + 0.2, float32(i) + 0.3, float32(i) + 0.4},
-			SparseValues: &SparseValues{
-				Indices: []uint32{0, 1, 2, 3, 4},
-				Values:  []float32{float32(i), float32(i) + 0.1, float32(i) + 0.2, float32(i) + 0.3, float32(i) + 0.4},
-			},
-			Metadata: &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
-				},
+			Id:     fmt.Sprintf("vector-%d", i),
+			Values: randomFloats,
+		}
+
+		if isSparse {
+			var sparseValues SparseValues
+			for j := 0; j < int(dimension); j++ {
+				sparseValues.Indices = append(sparseValues.Indices, uint32(j))
+			}
+			sparseValues.Values = generateVectorValues(dimension)
+			vectors[i].SparseValues = &sparseValues
+		}
+
+		metadata := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
 			},
 		}
+		vectors[i].Metadata = metadata
 	}
+
 	return vectors
+}
+
+func generateVectorValues(dimension int32) []float32 {
+	maxInt := 1000000 // A large integer to normalize the float values
+	values := make([]float32, dimension)
+
+	for i := int32(0); i < dimension; i++ {
+		// Generate a random integer and normalize it to the range [0, 1)
+		values[i] = float32(rand.Intn(maxInt)) / float32(maxInt)
+	}
+
+	return values
 }
 
 func BuildServerlessTestIndex(in *Client, idxName string) *Index {
