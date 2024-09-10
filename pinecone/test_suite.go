@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"time"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -46,7 +47,7 @@ func (ts *IntegrationTests) SetupSuite() {
 	ts.idxConn = idxConn
 
 	// Deterministically create vectors
-	vectors := createVectorsForUpsert()
+	vectors := generateVectors(10, ts.dimension)
 
 	// Set vector IDs
 	vectorIds := make([]string, len(vectors))
@@ -150,24 +151,44 @@ func WaitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error
 	}
 }
 
-func createVectorsForUpsert() []*Vector {
-	vectors := make([]*Vector, 5)
-	for i := 0; i < 5; i++ {
+func generateVectors(numOfVectors int, dimension int32) []*Vector {
+	vectors := make([]*Vector, numOfVectors)
+
+	for i := 0; i < int(numOfVectors); i++ {
+		randomFloats := generateVectorValues(dimension)
 		vectors[i] = &Vector{
-			Id:     fmt.Sprintf("vector-%d", i+1),
-			Values: []float32{float32(i), float32(i) + 0.1, float32(i) + 0.2, float32(i) + 0.3, float32(i) + 0.4},
-			SparseValues: &SparseValues{
-				Indices: []uint32{0, 1, 2, 3, 4},
-				Values:  []float32{float32(i), float32(i) + 0.1, float32(i) + 0.2, float32(i) + 0.3, float32(i) + 0.4},
-			},
-			Metadata: &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
-				},
+			Id:     fmt.Sprintf("vector-%d", i),
+			Values: randomFloats,
+		}
+
+		var sparseValues SparseValues
+		for j := 0; j < int(dimension); j++ {
+			sparseValues.Indices = append(sparseValues.Indices, uint32(j))
+		}
+		sparseValues.Values = generateVectorValues(dimension)
+		vectors[i].SparseValues = &sparseValues
+
+		metadata := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
 			},
 		}
+		vectors[i].Metadata = metadata
 	}
+
 	return vectors
+}
+
+func generateVectorValues(dimension int32) []float32 {
+	maxInt := 1000000 // A large integer to normalize the float values
+	values := make([]float32, dimension)
+
+	for i := int32(0); i < dimension; i++ {
+		// Generate a random integer and normalize it to the range [0, 1)
+		values[i] = float32(rand.Intn(maxInt)) / float32(maxInt)
+	}
+
+	return values
 }
 
 func BuildServerlessTestIndex(in *Client, idxName string) *Index {

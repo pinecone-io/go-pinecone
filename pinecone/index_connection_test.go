@@ -60,9 +60,20 @@ func (ts *IntegrationTests) TestDeleteVectorsById() {
 	err := ts.idxConn.DeleteVectorsById(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
 
-	_, err = ts.idxConn.UpsertVectors(ctx, createVectorsForUpsert())
+	_, err = ts.idxConn.UpsertVectors(ctx, generateVectors(5, ts.dimension))
 	if err != nil {
 		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
+	}
+}
+
+func (ts *IntegrationTests) TestUpsertSparseVectors() {
+	ctx := context.Background()
+	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
+	assert.NoError(ts.T(), err)
+
+	_, err = ts.idxConn.UpsertVectors(ctx, generateVectors(5, ts.dimension))
+	if err != nil {
+		log.Fatalf("Failed to upsert sparse vectors in TestUpsertSparseVectors test. Error: %v", err)
 	}
 }
 
@@ -85,7 +96,7 @@ func (ts *IntegrationTests) TestDeleteVectorsByFilter() {
 		assert.NoError(ts.T(), err)
 	}
 
-	_, err = ts.idxConn.UpsertVectors(ctx, createVectorsForUpsert())
+	_, err = ts.idxConn.UpsertVectors(ctx, generateVectors(5, ts.dimension))
 	if err != nil {
 		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
 	}
@@ -96,7 +107,7 @@ func (ts *IntegrationTests) TestDeleteAllVectorsInNamespace() {
 	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
 	assert.NoError(ts.T(), err)
 
-	_, err = ts.idxConn.UpsertVectors(ctx, createVectorsForUpsert())
+	_, err = ts.idxConn.UpsertVectors(ctx, generateVectors(5, ts.dimension))
 	if err != nil {
 		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
 	}
