@@ -202,6 +202,43 @@ type EmbeddingsList struct {
 	} `json:"usage,omitempty"`
 }
 
+// RerankRequest The request structure for reranking documents based on a query.
+type RerankRequest struct {
+	Model           string     `json:"model"`
+	Query           *string    `json:"query"`
+	ReturnDocuments bool       `json:"return_documents"`
+	TopN            int        `json:"top_n"`
+	Documents       []struct {
+		Id   *string `json:"id"`
+		Text *string `json:"text"`
+	} `json:"documents"`
+}
+
+// Document Represents a document with an ID and text.
+type Document struct {
+	Id   *string `json:"id"`
+	Text *string `json:"text"`
+}
+
+// RankedDocument Represents a document with a ranking score.
+type RankedDocument struct {
+	Index    int      `json:"index"`
+	Document Document `json:"document"`
+	Score    float64  `json:"score"`
+}
+
+// Usage Usage statistics for reranking operations.
+type Usage struct {
+	RerankUnits int `json:"rerank_units"`
+}
+
+// RerankList The list of ranked documents and usage statistics.
+type RerankList struct {
+	Data   *[]RankedDocument `json:"data"`
+	Usage  Usage             `json:"usage"`
+}
+
+
 // ErrorResponse The response shape used for all error responses.
 type ErrorResponse struct {
 	// Error Detailed information about the error that occurred.
@@ -322,6 +359,9 @@ type CreateCollectionJSONRequestBody = CreateCollectionRequest
 
 // EmbedJSONRequestBody defines body for Embed for application/json ContentType.
 type EmbedJSONRequestBody = EmbedRequest
+
+// RerankJSONRequestBody defines body for Rerank for application/json ContentType.
+type RerankJSONRequestBody = RerankRequest
 
 // CreateIndexJSONRequestBody defines body for CreateIndex for application/json ContentType.
 type CreateIndexJSONRequestBody = CreateIndexRequest
@@ -530,6 +570,11 @@ type ClientInterface interface {
 	EmbedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	Embed(ctx context.Context, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	
+	// RerankWithBody request with any body
+	RerankWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	Rerank(ctx context.Context, body RerankJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListIndexes request
 	ListIndexes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -625,6 +670,30 @@ func (c *Client) EmbedWithBody(ctx context.Context, contentType string, body io.
 
 func (c *Client) Embed(ctx context.Context, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewEmbedRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RerankWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRerankRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) Rerank(ctx context.Context, body RerankJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRerankRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -875,6 +944,46 @@ func NewEmbedRequestWithBody(server string, contentType string, body io.Reader) 
 	}
 
 	operationPath := fmt.Sprintf("/embed")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRerankRequest creates a new HTTP request for the Rerank operation with a JSON body.
+func NewRerankRequest(server string, body RerankJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRerankRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRerankRequestWithBody generates requests for Rerank with any type of body
+func NewRerankRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/rerank")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1284,6 +1393,31 @@ func (r EmbedResponse) StatusCode() int {
 	return 0
 }
 
+type RerankResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RerankList
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r RerankResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RerankResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListIndexesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1474,6 +1608,23 @@ func (c *ClientWithResponses) EmbedWithResponse(ctx context.Context, body EmbedJ
 		return nil, err
 	}
 	return ParseEmbedResponse(rsp)
+}
+
+// EmbedWithBodyWithResponse request with arbitrary body returning *EmbedResponse
+func (c *ClientWithResponses) RerankWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RerankResponse, error) {
+	rsp, err := c.RerankWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRerankResponse(rsp)
+}
+
+func (c *ClientWithResponses) RerankWithResponse(ctx context.Context, body RerankJSONRequestBody, reqEditors ...RequestEditorFn) (*RerankResponse, error) {
+	rsp, err := c.Rerank(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRerankResponse(rsp)
 }
 
 // ListIndexesWithResponse request returning *ListIndexesResponse
@@ -1748,6 +1899,53 @@ func ParseEmbedResponse(rsp *http.Response) (*EmbedResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest EmbeddingsList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRerankResponse parses an HTTP response from a RerankWithResponse call
+func ParseRerankResponse(rsp *http.Response) (*RerankResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RerankResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RerankList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

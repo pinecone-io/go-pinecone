@@ -1224,6 +1224,32 @@ type EmbedParameters struct {
 	Truncate  string
 }
 
+// RerankRequest holds the parameters for reranking a list of documents based on a query.
+//
+// Fields:
+//   - Model: (Required) The model to use for reranking.
+//   - Query: (Required) The query string to use for reranking the documents.
+//   - ReturnDocuments: (Required) A boolean indicating whether to return the documents in the response.
+//   - TopN: (Required) The number of top documents to return after reranking.
+//   - Documents: (Required) A list of Document objects to be reranked.
+type RerankRequest struct {
+	Model           string     
+	Query           string   
+	ReturnDocuments bool      
+	TopN            int        
+	Documents       []Document 
+}
+
+// Document represents a single document to be reranked.
+//
+// Fields:
+//   - ID: (Required) The unique identifier of the document.
+//   - Text: (Required) The text content of the document.
+type Document struct {
+	Id   string 
+	Text string 
+}
+
 // InferenceService is a struct which exposes methods for interacting with the Pinecone Inference API. InferenceService
 // can be accessed via the Client object through the Client.Inference namespace.
 //
@@ -1319,6 +1345,81 @@ func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*contro
 	return decodeEmbeddingsList(res.Body)
 }
 
+// Rerank processes the reranking of documents based on the provided query and model.
+//
+// Fields:
+//   - Model: The model to use for reranking.
+//   - Query: The query to base the reranking on.
+//   - ReturnDocuments: A boolean indicating whether to return the documents.
+//   - TopN: The number of top documents to return.
+//   - Documents: A list of documents to be reranked.
+//
+// Example:
+//
+//	    ctx := context.Background()
+//
+//	    clientParams := pinecone.NewClientParams{
+//		       ApiKey: "YOUR_API_KEY",
+//		       SourceTag: "your_source_identifier", // optional
+//	    }
+//
+//	    pc, err := pinecone.NewClient(clientParams)
+//
+//	    if err !=  nil {
+//		       log.Fatalf("Failed to create Client: %v", err)
+//	    } else {
+//		       fmt.Println("Successfully created a new Client object!")
+//	    }
+//
+//	    in := pinecone.RerankRequest{
+//		       Model:           "your_model",
+//		       Query:           "your_query",
+//		       ReturnDocuments: true,
+//		       TopN:            5,
+//		       Documents:       []pinecone.Document{{Id: "doc1", Text: "text1"}, {Id: "doc2", Text: "text2"}},
+//	    }
+//
+//	    res, err := pc.Inference.Rerank(ctx, in)
+//	    if err != nil {
+//		       log.Fatalf("Failed to rerank: %v", err)
+//	    } else {
+//		       fmt.Printf("Successfully reranked documents: %+v", res)
+//	    }
+func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*control.RerankList, error) {
+
+	if len(in.Documents) <= 2 {
+		return nil, fmt.Errorf("documents must contain at least more than two value")
+	}
+		// Convert documents to the expected type
+		convertedDocuments := make([]struct {
+			Id   *string `json:"id"`
+			Text *string `json:"text"`
+		}, len(in.Documents))
+		for i, doc := range in.Documents {
+			convertedDocuments[i] = struct {
+				Id   *string `json:"id"`
+				Text *string `json:"text"`
+			}{Id: &doc.Id, Text: &doc.Text}
+		}
+	req := control.RerankRequest{
+		Model:in.Model,
+		Query: &in.Query,
+		ReturnDocuments: in.ReturnDocuments,
+		TopN: in.TopN,
+		Documents: convertedDocuments,
+
+	}
+	res, err := i.client.Rerank(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to embed: ")
+	}
+	return decodeRerankList(res.Body)
+}
+
 func (c *Client) extractAuthHeader() map[string]string {
 	possibleAuthKeys := []string{
 		"api-key",
@@ -1397,6 +1498,16 @@ func decodeEmbeddingsList(resBody io.ReadCloser) (*control.EmbeddingsList, error
 	}
 
 	return &embeddingsList, nil
+}
+
+func decodeRerankList(resBody io.ReadCloser) (*control.RerankList, error) {
+	var rerankList control.RerankList
+	err := json.NewDecoder(resBody).Decode(&rerankList)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode rerank response: %w", err)
+	}
+
+	return &rerankList, nil
 }
 
 func toCollection(cm *control.CollectionModel) *Collection {
