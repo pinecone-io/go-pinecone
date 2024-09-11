@@ -158,6 +158,10 @@ type Usage struct {
 	ReadUnits uint32 `json:"read_units"`
 }
 
+type RerankUsage struct {
+	RerankUnits *int `json:"rerank_units,omitempty"`
+}
+
 // MetadataFilter represents the [metadata filters] attached to a Pinecone request.
 // These optional metadata filters are applied to query and deletion requests.
 //
