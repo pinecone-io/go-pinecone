@@ -12,6 +12,7 @@ import (
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -37,7 +38,7 @@ type newIndexParameters struct {
 }
 
 func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*IndexConnection, error) {
-	target := normalizeHost(in.host)
+	target, isSecure := normalizeHost(in.host)
 
 	// configure default gRPC DialOptions
 	grpcOptions := []grpc.DialOption{
@@ -45,11 +46,11 @@ func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*In
 		grpc.WithUserAgent(useragent.BuildUserAgentGRPC(in.sourceTag)),
 	}
 
-	// if the target includes an http:// address, don't include TLS
-	// otherwise we need to add transport credentials
-	if !strings.HasPrefix(target, "http://") {
+	if isSecure {
 		config := &tls.Config{}
 		grpcOptions = append(grpcOptions, grpc.WithTransportCredentials(credentials.NewTLS(config)))
+	} else {
+		grpcOptions = append(grpcOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
 	// if we have user-provided dialOpts, append them to the defaults here
@@ -1104,24 +1105,26 @@ func sparseValToGrpc(sv *SparseValues) *data.SparseValues {
 	}
 }
 
-func normalizeHost(host string) string {
+func normalizeHost(host string) (string, bool) {
+	// default to secure unless http is specified
+	isSecure := true
+
 	parsedHost, err := url.Parse(host)
 	if err != nil {
 		log.Default().Printf("Failed to parse host %s: %v", host, err)
-		return host
+		return host, isSecure
 	}
 
-	// if https:// or http:// without a port, strip the scheme
+	if parsedHost.Scheme == "http" {
+		isSecure = false
+	}
+
+	// the gRPC client is not expecting a scheme so we strip that out
 	if parsedHost.Scheme == "https" {
 		host = strings.TrimPrefix(host, "https://")
-	} else if parsedHost.Scheme == "http" && parsedHost.Port() == "" {
+	} else if parsedHost.Scheme == "http" {
 		host = strings.TrimPrefix(host, "http://")
 	}
 
-	// if a port was provided leave it, otherwise we append :443
-	if parsedHost.Port() == "" {
-		host = host + ":443"
-	}
-
-	return host
+	return host, isSecure
 }
