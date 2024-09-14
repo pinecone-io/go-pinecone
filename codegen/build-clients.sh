@@ -17,8 +17,8 @@ inference_destination="internal/gen/${inference_module}"
 # version file
 version_file="internal/gen/api_version.go"
 # generated oas files
-db_control_oas_file="${db_control_destination}/control_plane.oas.go"
-inference_oas_file="${inference_destination}/${version}_${inference_module}.oas.go"
+db_control_oas_file="${db_control_destination}/${db_control_module}_${version}.oas.go"
+inference_oas_file="${inference_destination}/${inference_module}_${version}.oas.go"
 
 set -eux -o pipefail
 
