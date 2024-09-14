@@ -5,16 +5,16 @@ import (
 	"net/http"
 )
 
-type customHeader struct {
+type CustomHeader struct {
 	name  string
 	value string
 }
 
-func NewHeaderProvider(name string, value string) *customHeader {
-	return &customHeader{name: name, value: value}
+func NewHeaderProvider(name string, value string) *CustomHeader {
+	return &CustomHeader{name: name, value: value}
 }
 
-func (h *customHeader) Intercept(ctx context.Context, req *http.Request) error {
+func (h *CustomHeader) Intercept(ctx context.Context, req *http.Request) error {
 	req.Header.Set(h.name, h.value)
 	return nil
 }
