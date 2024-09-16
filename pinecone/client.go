@@ -15,7 +15,8 @@ import (
 	"strings"
 
 	"github.com/pinecone-io/go-pinecone/internal/gen"
-	"github.com/pinecone-io/go-pinecone/internal/gen/control"
+	"github.com/pinecone-io/go-pinecone/internal/gen/db_control"
+	"github.com/pinecone-io/go-pinecone/internal/gen/inference"
 	"github.com/pinecone-io/go-pinecone/internal/provider"
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
 	"google.golang.org/grpc"
@@ -72,7 +73,7 @@ import (
 type Client struct {
 	Inference  *InferenceService
 	headers    map[string]string
-	restClient *control.Client
+	restClient *db_control.Client
 	sourceTag  string
 }
 
@@ -210,6 +211,7 @@ func NewClient(in NewClientParams) (*Client, error) {
 //	    }
 func NewClientBase(in NewClientBaseParams) (*Client, error) {
 	clientOptions := buildClientBaseOptions(in)
+	inference_client_options := buildInferenceBaseOptions(in)
 	var err error
 
 	controlHostOverride := valueOrFallback(in.Host, os.Getenv("PINECONE_CONTROLLER_HOST"))
@@ -220,12 +222,16 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 		}
 	}
 
-	client, err := control.NewClient(valueOrFallback(controlHostOverride, "https://api.pinecone.io"), clientOptions...)
+	db_control_client, err := db_control.NewClient(valueOrFallback(controlHostOverride, "https://api.pinecone.io"), clientOptions...)
+	if err != nil {
+		return nil, err
+	}
+	inference_client, err := inference.NewClient(valueOrFallback(controlHostOverride, "https://api.pinecone.io"), inference_client_options...)
 	if err != nil {
 		return nil, err
 	}
 
-	c := Client{Inference: &InferenceService{client: client}, restClient: client, sourceTag: in.SourceTag, headers: in.Headers}
+	c := Client{Inference: &InferenceService{client: inference_client}, restClient: db_control_client, sourceTag: in.SourceTag, headers: in.Headers}
 	return &c, nil
 }
 
@@ -354,7 +360,7 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 		return nil, handleErrorResponseBody(res, "failed to list indexes: ")
 	}
 
-	var indexList control.IndexList
+	var indexList db_control.IndexList
 	err = json.NewDecoder(res.Body).Decode(&indexList)
 	if err != nil {
 		return nil, err
@@ -518,18 +524,18 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 		return nil, fmt.Errorf("fields Name, Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest")
 	}
 
-	deletionProtection := pointerOrNil(control.DeletionProtection(in.DeletionProtection))
-	metric := pointerOrNil(control.CreateIndexRequestMetric(in.Metric))
+	deletionProtection := pointerOrNil(db_control.DeletionProtection(in.DeletionProtection))
+	metric := pointerOrNil(db_control.CreateIndexRequestMetric(in.Metric))
 
-	req := control.CreateIndexRequest{
+	req := db_control.CreateIndexRequest{
 		Name:               in.Name,
 		Dimension:          in.Dimension,
 		Metric:             metric,
 		DeletionProtection: deletionProtection,
 	}
 
-	req.Spec = control.IndexSpec{
-		Pod: &control.PodSpec{
+	req.Spec = db_control.IndexSpec{
+		Pod: &db_control.PodSpec{
 			Environment:      in.Environment,
 			PodType:          in.PodType,
 			Pods:             in.TotalCount(),
@@ -668,17 +674,17 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 		return nil, fmt.Errorf("fields Name, Dimension, Metric, Cloud, and Region must be included in CreateServerlessIndexRequest")
 	}
 
-	deletionProtection := pointerOrNil(control.DeletionProtection(in.DeletionProtection))
-	metric := pointerOrNil(control.CreateIndexRequestMetric(in.Metric))
+	deletionProtection := pointerOrNil(db_control.DeletionProtection(in.DeletionProtection))
+	metric := pointerOrNil(db_control.CreateIndexRequestMetric(in.Metric))
 
-	req := control.CreateIndexRequest{
+	req := db_control.CreateIndexRequest{
 		Name:               in.Name,
 		Dimension:          in.Dimension,
 		Metric:             metric,
 		DeletionProtection: deletionProtection,
-		Spec: control.IndexSpec{
-			Serverless: &control.ServerlessSpec{
-				Cloud:  control.ServerlessSpecCloud(in.Cloud),
+		Spec: db_control.IndexSpec{
+			Serverless: &db_control.ServerlessSpec{
+				Cloud:  db_control.ServerlessSpecCloud(in.Cloud),
 				Region: in.Region,
 			},
 		},
@@ -889,7 +895,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	replicas := pointerOrNil(in.Replicas)
 	deletionProtection := pointerOrNil(in.DeletionProtection)
 
-	var request control.ConfigureIndexRequest
+	var request db_control.ConfigureIndexRequest
 	if podType != nil || replicas != nil {
 		request.Spec =
 			&struct {
@@ -907,7 +913,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 				},
 			}
 	}
-	request.DeletionProtection = (*control.DeletionProtection)(deletionProtection)
+	request.DeletionProtection = (*db_control.DeletionProtection)(deletionProtection)
 
 	res, err := c.restClient.ConfigureIndex(ctx, name, request)
 	if err != nil {
@@ -976,7 +982,7 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 		return nil, handleErrorResponseBody(res, "failed to list collections: ")
 	}
 
-	var collectionsResponse control.CollectionList
+	var collectionsResponse db_control.CollectionList
 	if err := json.NewDecoder(res.Body).Decode(&collectionsResponse); err != nil {
 		return nil, err
 	}
@@ -1132,7 +1138,7 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 		return nil, fmt.Errorf("fields Name and Source must be included in CreateCollectionRequest")
 	}
 
-	req := control.CreateCollectionRequest{
+	req := db_control.CreateCollectionRequest{
 		Name:   in.Name,
 		Source: in.Source,
 	}
@@ -1229,7 +1235,7 @@ type EmbedParameters struct {
 //
 // [Pinecone Inference API]: https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models
 type InferenceService struct {
-	client *control.Client
+	client *inference.Client
 }
 
 // Embed generates embeddings for a list of inputs using the specified model and (optional) parameters.
@@ -1274,7 +1280,7 @@ type InferenceService struct {
 //	    } else {
 //		       fmt.Printf("Successfull generated embeddings: %+v", res)
 //	    }
-func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*control.EmbeddingsList, error) {
+func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*inference.EmbeddingsList, error) {
 
 	if len(in.TextInputs) == 0 {
 		return nil, fmt.Errorf("TextInputs must contain at least one value")
@@ -1290,7 +1296,7 @@ func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*contro
 		}{Text: &input}
 	}
 
-	req := control.EmbedRequest{
+	req := inference.EmbedRequest{
 		Model:  in.Model,
 		Inputs: convertedInputs,
 	}
@@ -1337,7 +1343,7 @@ func (c *Client) extractAuthHeader() map[string]string {
 	return nil
 }
 
-func toIndex(idx *control.IndexModel) *Index {
+func toIndex(idx *db_control.IndexModel) *Index {
 	if idx == nil {
 		return nil
 	}
@@ -1380,7 +1386,7 @@ func toIndex(idx *control.IndexModel) *Index {
 }
 
 func decodeIndex(resBody io.ReadCloser) (*Index, error) {
-	var idx control.IndexModel
+	var idx db_control.IndexModel
 	err := json.NewDecoder(resBody).Decode(&idx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode idx response: %w", err)
@@ -1389,8 +1395,8 @@ func decodeIndex(resBody io.ReadCloser) (*Index, error) {
 	return toIndex(&idx), nil
 }
 
-func decodeEmbeddingsList(resBody io.ReadCloser) (*control.EmbeddingsList, error) {
-	var embeddingsList control.EmbeddingsList
+func decodeEmbeddingsList(resBody io.ReadCloser) (*inference.EmbeddingsList, error) {
+	var embeddingsList inference.EmbeddingsList
 	err := json.NewDecoder(resBody).Decode(&embeddingsList)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode embeddings response: %w", err)
@@ -1399,7 +1405,7 @@ func decodeEmbeddingsList(resBody io.ReadCloser) (*control.EmbeddingsList, error
 	return &embeddingsList, nil
 }
 
-func toCollection(cm *control.CollectionModel) *Collection {
+func toCollection(cm *db_control.CollectionModel) *Collection {
 	if cm == nil {
 		return nil
 	}
@@ -1415,7 +1421,7 @@ func toCollection(cm *control.CollectionModel) *Collection {
 }
 
 func decodeCollection(resBody io.ReadCloser) (*Collection, error) {
-	var collectionModel control.CollectionModel
+	var collectionModel db_control.CollectionModel
 	err := json.NewDecoder(resBody).Decode(&collectionModel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode collection response: %w", err)
@@ -1424,8 +1430,8 @@ func decodeCollection(resBody io.ReadCloser) (*Collection, error) {
 	return toCollection(&collectionModel), nil
 }
 
-func decodeErrorResponse(resBodyBytes []byte) (*control.ErrorResponse, error) {
-	var errorResponse control.ErrorResponse
+func decodeErrorResponse(resBodyBytes []byte) (*db_control.ErrorResponse, error) {
+	var errorResponse db_control.ErrorResponse
 	err := json.Unmarshal(resBodyBytes, &errorResponse)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode error response: %w", err)
@@ -1487,16 +1493,45 @@ func formatError(errMap errorResponseMap) error {
 	return &PineconeError{Code: errMap.StatusCode, Msg: baseError}
 }
 
-func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
-	clientOptions := []control.ClientOption{}
+func buildClientBaseOptions(in NewClientBaseParams) []db_control.ClientOption {
+	clientOptions := []db_control.ClientOption{}
+	headerProviders := buildSharedProviderHeaders(in)
+
+	for _, provider := range headerProviders {
+		clientOptions = append(clientOptions, db_control.WithRequestEditorFn(provider.Intercept))
+	}
+
+	// apply custom http client if provided
+	if in.RestClient != nil {
+		clientOptions = append(clientOptions, db_control.WithHTTPClient(in.RestClient))
+	}
+
+	return clientOptions
+}
+
+func buildInferenceBaseOptions(in NewClientBaseParams) []inference.ClientOption {
+	clientOptions := []inference.ClientOption{}
+	headerProviders := buildSharedProviderHeaders(in)
+
+	for _, provider := range headerProviders {
+		clientOptions = append(clientOptions, inference.WithRequestEditorFn(provider.Intercept))
+	}
+
+	// apply custom http client if provided
+	if in.RestClient != nil {
+		clientOptions = append(clientOptions, inference.WithHTTPClient(in.RestClient))
+	}
+
+	return clientOptions
+}
+
+func buildSharedProviderHeaders(in NewClientBaseParams) []*provider.CustomHeader {
+	providers := []*provider.CustomHeader{}
 
 	// build and apply user agent header
-	userAgentProvider := provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag))
-	clientOptions = append(clientOptions, control.WithRequestEditorFn(userAgentProvider.Intercept))
-
+	providers = append(providers, provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(in.SourceTag)))
 	// build and apply api version header
-	apiVersionProvider := provider.NewHeaderProvider("X-Pinecone-Api-Version", gen.PineconeApiVersion)
-	clientOptions = append(clientOptions, control.WithRequestEditorFn(apiVersionProvider.Intercept))
+	providers = append(providers, provider.NewHeaderProvider("X-Pinecone-Api-Version", gen.PineconeApiVersion))
 
 	// get headers from environment
 	envAdditionalHeaders, hasEnvAdditionalHeaders := os.LookupEnv("PINECONE_ADDITIONAL_HEADERS")
@@ -1507,26 +1542,18 @@ func buildClientBaseOptions(in NewClientBaseParams) []control.ClientOption {
 			log.Printf("failed to parse PINECONE_ADDITIONAL_HEADERS: %v", err)
 		}
 	}
-
 	// merge headers from parameters if passed with additionalHeaders from environment
 	if in.Headers != nil {
 		for key, value := range in.Headers {
 			additionalHeaders[key] = value
 		}
 	}
-
-	// add headers to client options
+	// create header providers
 	for key, value := range additionalHeaders {
-		headerProvider := provider.NewHeaderProvider(key, value)
-		clientOptions = append(clientOptions, control.WithRequestEditorFn(headerProvider.Intercept))
+		providers = append(providers, provider.NewHeaderProvider(key, value))
 	}
 
-	// apply custom http client if provided
-	if in.RestClient != nil {
-		clientOptions = append(clientOptions, control.WithHTTPClient(in.RestClient))
-	}
-
-	return clientOptions
+	return providers
 }
 
 func ensureURLScheme(inputURL string) (string, error) {
