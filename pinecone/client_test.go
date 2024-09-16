@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pinecone-io/go-pinecone/internal/gen"
-	"github.com/pinecone-io/go-pinecone/internal/gen/control"
+	"github.com/pinecone-io/go-pinecone/internal/gen/db_control"
 	"github.com/pinecone-io/go-pinecone/internal/provider"
 
 	"github.com/google/uuid"
@@ -293,9 +293,9 @@ func (ts *IntegrationTests) TestGenerateEmbeddings() {
 
 	require.NoError(ts.T(), err)
 	require.NotNil(ts.T(), embeddings, "Expected embedding to be non-nil")
-	require.Equal(ts.T(), embeddingModel, *embeddings.Model, "Expected model to be '%s', but got '%s'", embeddingModel, embeddings.Model)
-	require.Equal(ts.T(), 2, len(*embeddings.Data), "Expected 2 embeddings")
-	require.Equal(ts.T(), 1024, len(*(*embeddings.Data)[0].Values), "Expected embeddings to have length 1024")
+	require.Equal(ts.T(), embeddingModel, embeddings.Model, "Expected model to be '%s', but got '%s'", embeddingModel, embeddings.Model)
+	require.Equal(ts.T(), 2, len(embeddings.Data), "Expected 2 embeddings")
+	require.Equal(ts.T(), 1024, len(*embeddings.Data[0].Values), "Expected embeddings to have length 1024")
 }
 
 func (ts *IntegrationTests) TestGenerateEmbeddingsInvalidInputs() {
@@ -806,12 +806,12 @@ func TestEnsureURLSchemeUnit(t *testing.T) {
 }
 
 func TestToIndexUnit(t *testing.T) {
-	deletionProtectionEnabled := control.Enabled
-	deletionProtectionDisabled := control.Disabled
+	deletionProtectionEnabled := db_control.Enabled
+	deletionProtectionDisabled := db_control.Disabled
 
 	tests := []struct {
 		name           string
-		originalInput  *control.IndexModel
+		originalInput  *db_control.IndexModel
 		expectedOutput *Index
 	}{
 		{
@@ -821,19 +821,19 @@ func TestToIndexUnit(t *testing.T) {
 		},
 		{
 			name: "pod index input",
-			originalInput: &control.IndexModel{
+			originalInput: &db_control.IndexModel{
 				Name:               "testIndex",
 				Dimension:          128,
 				Host:               "test-host",
 				Metric:             "cosine",
 				DeletionProtection: &deletionProtectionDisabled,
 				Spec: struct {
-					Pod        *control.PodSpec        `json:"pod,omitempty"`
-					Serverless *control.ServerlessSpec `json:"serverless,omitempty"`
+					Pod        *db_control.PodSpec        `json:"pod,omitempty"`
+					Serverless *db_control.ServerlessSpec `json:"serverless,omitempty"`
 				}(struct {
-					Pod        *control.PodSpec
-					Serverless *control.ServerlessSpec
-				}{Pod: &control.PodSpec{
+					Pod        *db_control.PodSpec
+					Serverless *db_control.ServerlessSpec
+				}{Pod: &db_control.PodSpec{
 					Environment:      "test-environ",
 					PodType:          "p1.x2",
 					Pods:             1,
@@ -843,8 +843,8 @@ func TestToIndexUnit(t *testing.T) {
 					MetadataConfig:   nil,
 				}}),
 				Status: struct {
-					Ready bool                          `json:"ready"`
-					State control.IndexModelStatusState `json:"state"`
+					Ready bool                             `json:"ready"`
+					State db_control.IndexModelStatusState `json:"state"`
 				}{
 					Ready: true,
 					State: "active",
@@ -874,25 +874,25 @@ func TestToIndexUnit(t *testing.T) {
 		},
 		{
 			name: "serverless index input",
-			originalInput: &control.IndexModel{
+			originalInput: &db_control.IndexModel{
 				Name:               "testIndex",
 				Dimension:          128,
 				Host:               "test-host",
 				Metric:             "cosine",
 				DeletionProtection: &deletionProtectionEnabled,
 				Spec: struct {
-					Pod        *control.PodSpec        `json:"pod,omitempty"`
-					Serverless *control.ServerlessSpec `json:"serverless,omitempty"`
+					Pod        *db_control.PodSpec        `json:"pod,omitempty"`
+					Serverless *db_control.ServerlessSpec `json:"serverless,omitempty"`
 				}(struct {
-					Pod        *control.PodSpec
-					Serverless *control.ServerlessSpec
-				}{Serverless: &control.ServerlessSpec{
+					Pod        *db_control.PodSpec
+					Serverless *db_control.ServerlessSpec
+				}{Serverless: &db_control.ServerlessSpec{
 					Cloud:  "test-environ",
 					Region: "test-region",
 				}}),
 				Status: struct {
-					Ready bool                          `json:"ready"`
-					State control.IndexModelStatusState `json:"state"`
+					Ready bool                             `json:"ready"`
+					State db_control.IndexModelStatusState `json:"state"`
 				}{
 					Ready: true,
 					State: "active",
@@ -936,7 +936,7 @@ func TestToCollectionUnit(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		originalInput  *control.CollectionModel
+		originalInput  *db_control.CollectionModel
 		expectedOutput *Collection
 	}{
 		{
@@ -946,7 +946,7 @@ func TestToCollectionUnit(t *testing.T) {
 		},
 		{
 			name: "collection input",
-			originalInput: &control.CollectionModel{
+			originalInput: &db_control.CollectionModel{
 				Dimension:   &dimension,
 				Name:        "testCollection",
 				Environment: "test-environ",
@@ -965,7 +965,7 @@ func TestToCollectionUnit(t *testing.T) {
 		},
 		{
 			name: "collection input",
-			originalInput: &control.CollectionModel{
+			originalInput: &db_control.CollectionModel{
 				Dimension:   &dimension,
 				Name:        "testCollection",
 				Environment: "test-environ",
@@ -1149,7 +1149,7 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 		name           string
 		params         NewClientBaseParams
 		envHeaders     string
-		expect         []control.ClientOption
+		expect         []db_control.ClientOption
 		expectEnvUnset bool
 	}{
 		{
@@ -1158,10 +1158,10 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 				SourceTag: "source-tag",
 				Headers:   map[string]string{"Param-Header": "param-value"},
 			},
-			expect: []control.ClientOption{
-				control.WithRequestEditorFn(provider.NewHeaderProvider("User-Agent", "test-user-agent").Intercept),
-				control.WithRequestEditorFn(provider.NewHeaderProvider("X-Pinecone-Api-Version", gen.PineconeApiVersion).Intercept),
-				control.WithRequestEditorFn(provider.NewHeaderProvider("Param-Header", "param-value").Intercept),
+			expect: []db_control.ClientOption{
+				db_control.WithRequestEditorFn(provider.NewHeaderProvider("User-Agent", "test-user-agent").Intercept),
+				db_control.WithRequestEditorFn(provider.NewHeaderProvider("X-Pinecone-Api-Version", gen.PineconeApiVersion).Intercept),
+				db_control.WithRequestEditorFn(provider.NewHeaderProvider("Param-Header", "param-value").Intercept),
 			},
 			expectEnvUnset: true,
 		},
@@ -1172,11 +1172,11 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 				Headers:   map[string]string{"Param-Header": "param-value"},
 			},
 			envHeaders: `{"Env-Header": "env-value"}`,
-			expect: []control.ClientOption{
-				control.WithRequestEditorFn(provider.NewHeaderProvider("Env-Header", "env-value").Intercept),
-				control.WithRequestEditorFn(provider.NewHeaderProvider("X-Pinecone-Api-Version", gen.PineconeApiVersion).Intercept),
-				control.WithRequestEditorFn(provider.NewHeaderProvider("User-Agent", "test-user-agent").Intercept),
-				control.WithRequestEditorFn(provider.NewHeaderProvider("Param-Header", "param-value").Intercept),
+			expect: []db_control.ClientOption{
+				db_control.WithRequestEditorFn(provider.NewHeaderProvider("Env-Header", "env-value").Intercept),
+				db_control.WithRequestEditorFn(provider.NewHeaderProvider("X-Pinecone-Api-Version", gen.PineconeApiVersion).Intercept),
+				db_control.WithRequestEditorFn(provider.NewHeaderProvider("User-Agent", "test-user-agent").Intercept),
+				db_control.WithRequestEditorFn(provider.NewHeaderProvider("Param-Header", "param-value").Intercept),
 			},
 		},
 	}

@@ -1,14 +1,26 @@
 #!/bin/bash
 
-set -eux -o pipefail
-
 version=$1 # e.g. 2024-07
 
-# data_destination must align with the option go_package: 
-# https://github.com/pinecone-io/apis/blob/e9b47c76f649656002f4911946ca6c4c4a6f04fc/src/release/data/data.proto#L3
-data_destination="internal/gen/data"
-control_destination="internal/gen/control"
+# modules
+db_control_module="db_control"
+db_data_module="db_data"
+inference_module="inference"
+
+# generated output destination paths
+# db_data_destination must align with the option go_package in the proto file: 
+# https://github.com/pinecone-io/apis/blob/d1d005e75cc9fe9a5c486ef9218fe87b57765961/src/release/db/data/data.proto#L3
+db_data_destination="internal/gen/data"
+db_control_destination="internal/gen/${db_control_module}"
+inference_destination="internal/gen/${inference_module}"
+
+# version file
 version_file="internal/gen/api_version.go"
+# generated oas files
+db_control_oas_file="${db_control_destination}/${db_control_module}_${version}.oas.go"
+inference_oas_file="${inference_destination}/${inference_module}_${version}.oas.go"
+
+set -eux -o pipefail
 
 update_apis_repo() {
     echo "Updating apis repo"
@@ -27,18 +39,35 @@ verify_spec_version() {
         echo "Version is required"
         exit 1
     fi 
+
+    verify_directory_exists "codegen/apis/_build/${version}"
+}
+
+verify_directory_exists() {
+	local directory=$1
+	if [ ! -d "$directory" ]; then
+		echo "Directory does not exist at $directory"
+		exit 1
+	fi
 }
 
 generate_oas_client() {
-    oas_file="codegen/apis/_build/${version}/control_${version}.oas.yaml"
+    local module=$1
+    local destination=$2
 
-    oapi-codegen --package=control \
+    # source oas file for module and version
+    oas_file="codegen/apis/_build/${version}/${module}_${version}.oas.yaml"
+
+    oapi-codegen --package=${module} \
     --generate types,client \
-    "${oas_file}" > "${control_destination}/control_plane.oas.go"
+    "${oas_file}" > "${destination}"
 }
 
 generate_proto_client() {
-    proto_file="codegen/apis/_build/${version}/data_${version}.proto"
+    local module=$1
+
+    # source proto file for module and version
+    proto_file="codegen/apis/_build/${version}/${module}_${version}.proto"
 
     protoc --experimental_allow_proto3_optional \
     --proto_path=codegen/apis/vendor/protos \
@@ -63,19 +92,21 @@ EOL
 update_apis_repo
 verify_spec_version $version
 
-# Generate control plane client code
-rm -rf "${control_destination}"
-mkdir -p "${control_destination}"
+# Generate db_control oas client
+rm -rf "${db_control_destination}"
+mkdir -p "${db_control_destination}"
+generate_oas_client $db_control_module $db_control_oas_file
 
-generate_oas_client
+# Generate inference oas client
+rm -rf "${inference_destination}"
+mkdir -p "${inference_destination}"
+generate_oas_client $inference_module $inference_oas_file
 
-# Generate data plane client code
-rm -rf "${data_destination}"
-mkdir -p "${data_destination}"
-
-generate_proto_client
+# Generate db_data proto client
+rm -rf "${db_data_destination}"
+mkdir -p "${db_data_destination}"
+generate_proto_client $db_data_module
 
 # Generate version file
 rm -rf "${version_file}"
-
 generate_version_file

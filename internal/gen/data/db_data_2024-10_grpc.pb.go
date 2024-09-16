@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             v5.27.1
-// source: data_2024-07.proto
+// source: db_data_2024-10.proto
 
 package data
 
@@ -409,5 +409,5 @@ var VectorService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "data_2024-07.proto",
+	Metadata: "db_data_2024-10.proto",
 }
