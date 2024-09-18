@@ -54,7 +54,6 @@ func (ts *IntegrationTests) SetupSuite() {
 	for i, v := range vectors {
 		vectorIds[i] = v.Id
 	}
-	ts.vectorIds = append(ts.vectorIds, vectorIds...)
 
 	// Upsert vectors
 	err = upsertVectors(ts, ctx, vectors)
