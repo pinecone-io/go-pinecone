@@ -61,7 +61,7 @@ func (ts *IntegrationTests) TestDeleteVectorsById() {
 	assert.NoError(ts.T(), err)
 	ts.vectorIds = []string{}
 
-	vectors := GenerateVectors(5, ts.dimension, true)
+	vectors := GenerateVectors(5, ts.dimension, true, nil)
 
 	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
@@ -96,7 +96,7 @@ func (ts *IntegrationTests) TestDeleteVectorsByFilter() {
 	}
 	ts.vectorIds = []string{}
 
-	vectors := GenerateVectors(5, ts.dimension, true)
+	vectors := GenerateVectors(5, ts.dimension, true, nil)
 
 	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
@@ -117,7 +117,7 @@ func (ts *IntegrationTests) TestDeleteAllVectorsInNamespace() {
 	assert.NoError(ts.T(), err)
 	ts.vectorIds = []string{}
 
-	vectors := GenerateVectors(5, ts.dimension, true)
+	vectors := GenerateVectors(5, ts.dimension, true, nil)
 
 	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
