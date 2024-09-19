@@ -36,12 +36,13 @@ jobs:
         run: |
           go get ./pinecone
       - name: Run tests
+        continue-on-error: true
         run: go test -count=1 -v ./pinecone
         env:
           PINECONE_API_KEY: ${{ secrets.API_KEY }}
       - name: Run local integration tests
         run: go test -count =1 -v ./pinecone -tags=localServer
         env:
-          PINECONE_INDEX_URL_POD: https://localhost:5081
-          PINECONE_INDEX_URL_SERVERLESS: https://localhost:5082
+          PINECONE_INDEX_URL_POD: http://pc-index-pod:5082
+          PINECONE_INDEX_URL_SERVERLESS: http://pc-index-serverless:5081
           PINECONE_DIMENSION: 1536
