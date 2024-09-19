@@ -58,11 +58,11 @@ func TestRunLocalIntegrationSuite(t *testing.T) {
 }
 
 func RunLocalSuite(t *testing.T) {
-	localHostPod, present := os.LookupEnv("PINECONE_LOCAL_HOST_POD")
-	assert.True(t, present, "PINECONE_LOCAL_HOST_POD env variable not set")
+	localHostPod, present := os.LookupEnv("PINECONE_INDEX_URL_POD")
+	assert.True(t, present, "PINECONE_INDEX_URL_POD env variable not set")
 
-	localHostServerless, present := os.LookupEnv("PINECONE_LOCAL_HOST_SERVERLESS")
-	assert.True(t, present, "PINECONE_LOCAL_HOST_SERVERLESS env variable not set")
+	localHostServerless, present := os.LookupEnv("PINECONE_INDEX_URL_SERVERLESS")
+	assert.True(t, present, "PINECONE_INDEX_URL_SERVERLESS env variable not set")
 
 	dimension, present := os.LookupEnv("PINECONE_DIMENSION")
 	assert.True(t, present, "PINECONE_DIMENSION env variable not set")
