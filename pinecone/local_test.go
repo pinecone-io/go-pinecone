@@ -122,7 +122,7 @@ func (ts *LocalIntegrationTests) TestQueryVectors() {
 	require.NoError(ts.T(), err)
 
 	assert.NotNil(ts.T(), queryVectorsByIdResponse, "Query results should not be nil")
-	assert.Equal(ts.T(), 1, len(queryVectorsByIdResponse.Matches), "Query results should have 10 matches")
+	assert.Equal(ts.T(), topK, len(queryVectorsByIdResponse.Matches), "Query results should have 10 matches")
 	assert.Equal(ts.T(), queryVectorId, queryVectorsByIdResponse.Matches[0].Vector.Id, "Top query result vector id should match queryVectorId")
 }
 
