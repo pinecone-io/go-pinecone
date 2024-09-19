@@ -54,10 +54,12 @@ func (ts *LocalIntegrationTests) TearDownSuite() {
 // This test function is picked up by go test and triggers the suite runs when
 // the
 func TestRunLocalIntegrationSuite(t *testing.T) {
+	fmt.Println("Running local integration tests")
 	RunLocalSuite(t)
 }
 
 func RunLocalSuite(t *testing.T) {
+	fmt.Println("Running local integration tests")
 	localHostPod, present := os.LookupEnv("PINECONE_INDEX_URL_POD")
 	assert.True(t, present, "PINECONE_INDEX_URL_POD env variable not set")
 
