@@ -27,11 +27,10 @@ type LocalIntegrationTests struct {
 }
 
 func (ts *LocalIntegrationTests) SetupSuite() {
-	fmt.Printf("Local Integration Suite Setup")
 	ctx := context.Background()
 
 	// Deterministically create vectors
-	vectors := GenerateVectors(10, ts.dimension, false)
+	vectors := GenerateVectors(100, ts.dimension, false)
 
 	// Upsert vectors
 	upsertedVectors, err := ts.idxConn.UpsertVectors(ctx, vectors)
@@ -47,7 +46,15 @@ func (ts *LocalIntegrationTests) SetupSuite() {
 }
 
 func (ts *LocalIntegrationTests) TearDownSuite() {
-	fmt.Printf("Local Integration Suite Teardown")
+	// test deleting vectors as a part of cleanup
+	err := ts.idxConn.DeleteVectorsById(context.Background(), ts.vectorIds)
+	require.NoError(ts.T(), err)
+
+	description, err := ts.idxConn.DescribeIndexStats(context.Background())
+	require.NoError(ts.T(), err)
+
+	assert.NotNil(ts.T(), description, "Index description should not be nil")
+	assert.Equal(ts.T(), uint32(0), description.TotalVectorCount, "Total vector count should be 0 after deleting")
 }
 
 // This is the entry point for all local integration tests
@@ -126,10 +133,22 @@ func (ts *LocalIntegrationTests) TestQueryVectors() {
 	assert.Equal(ts.T(), queryVectorId, queryVectorsByIdResponse.Matches[0].Vector.Id, "Top query result vector id should match queryVectorId")
 }
 
-// func (ts *LocalIntegrationTests) TestUpdateVectors() {
+func (ts *LocalIntegrationTests) TestUpdateVectors() {
+	updateVectorId := ts.vectorIds[0]
+	newValues := generateVectorValues(ts.dimension)
 
-// }
+	err := ts.idxConn.UpdateVector(context.Background(), &UpdateVectorRequest{Id: updateVectorId, Values: newValues})
+	require.NoError(ts.T(), err)
 
-// func (ts *LocalIntegrationTests) TestDeleteVectors() {
+	fetchVectorsResponse, err := ts.idxConn.FetchVectors(context.Background(), []string{updateVectorId})
+	require.NoError(ts.T(), err)
+	assert.Equal(ts.T(), newValues, fetchVectorsResponse.Vectors[updateVectorId].Values, "Updated vector values should match")
+}
 
-// }
+func (ts *LocalIntegrationTests) TestDescribeIndexStats() {
+	description, err := ts.idxConn.DescribeIndexStats(context.Background())
+	require.NoError(ts.T(), err)
+
+	assert.NotNil(ts.T(), description, "Index description should not be nil")
+	assert.Equal(ts.T(), description.TotalVectorCount, uint32(len(ts.vectorIds)), "Index host should match")
+}
