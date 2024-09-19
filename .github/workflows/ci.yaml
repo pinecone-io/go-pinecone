@@ -43,6 +43,6 @@ jobs:
       - name: Run local integration tests
         run: go test -count=1 -v ./pinecone -run TestRunLocalIntegrationSuite -tags=localServer
         env:
-          PINECONE_INDEX_URL_POD: http://pc-index-pod:5082
-          PINECONE_INDEX_URL_SERVERLESS: http://pc-index-serverless:5081
+          PINECONE_INDEX_URL_POD: http://5082:5082
+          PINECONE_INDEX_URL_SERVERLESS: http://pc-index-serverless5081:5081
           PINECONE_DIMENSION: 1536
