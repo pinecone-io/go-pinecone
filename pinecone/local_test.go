@@ -65,12 +65,12 @@ func (ts *LocalIntegrationTests) TearDownSuite() {
 		// Delete all remaining vectors
 		err = idxConn.DeleteAllVectorsInNamespace(context.Background())
 		require.NoError(ts.T(), err)
-
-		description, err := idxConn.DescribeIndexStats(context.Background())
-		require.NoError(ts.T(), err)
-		assert.NotNil(ts.T(), description, "Index description should not be nil")
-		assert.Equal(ts.T(), uint32(0), description.TotalVectorCount, "Total vector count should be 0 after deleting")
 	}
+
+	description, err := ts.idxConns[0].DescribeIndexStats(context.Background())
+	require.NoError(ts.T(), err)
+	assert.NotNil(ts.T(), description, "Index description should not be nil")
+	assert.Equal(ts.T(), uint32(0), description.TotalVectorCount, "Total vector count should be 0 after deleting")
 }
 
 // This is the entry point for all local integration tests
