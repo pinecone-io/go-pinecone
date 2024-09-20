@@ -7,8 +7,6 @@ import (
 	"math/rand"
 	"time"
 
-	"google.golang.org/protobuf/types/known/structpb"
-
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -47,14 +45,13 @@ func (ts *IntegrationTests) SetupSuite() {
 	ts.idxConn = idxConn
 
 	// Deterministically create vectors
-	vectors := GenerateVectors(10, ts.dimension, false)
+	vectors := GenerateVectors(10, ts.dimension, false, nil)
 
 	// Add vector ids to the suite
 	vectorIds := make([]string, len(vectors))
 	for i, v := range vectors {
 		vectorIds[i] = v.Id
 	}
-	ts.vectorIds = append(ts.vectorIds, vectorIds...)
 
 	// Upsert vectors
 	err = upsertVectors(ts, ctx, vectors)
@@ -158,7 +155,7 @@ func WaitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error
 	}
 }
 
-func GenerateVectors(numOfVectors int, dimension int32, isSparse bool) []*Vector {
+func GenerateVectors(numOfVectors int, dimension int32, isSparse bool, metadata *Metadata) []*Vector {
 	vectors := make([]*Vector, numOfVectors)
 
 	for i := 0; i < int(numOfVectors); i++ {
@@ -177,12 +174,9 @@ func GenerateVectors(numOfVectors int, dimension int32, isSparse bool) []*Vector
 			vectors[i].SparseValues = &sparseValues
 		}
 
-		metadata := &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
-			},
+		if metadata != nil {
+			vectors[i].Metadata = metadata
 		}
-		vectors[i].Metadata = metadata
 	}
 
 	return vectors

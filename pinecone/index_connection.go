@@ -389,7 +389,7 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 
 	return &ListVectorsResponse{
 		VectorIds:           vectorIds,
-		Usage:               &Usage{ReadUnits: derefOrDefault(res.Usage.ReadUnits, 0)},
+		Usage:               toUsage(res.Usage),
 		NextPaginationToken: toPaginationToken(res.Pagination),
 		Namespace:           idx.Namespace,
 	}, nil
