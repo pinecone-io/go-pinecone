@@ -15,7 +15,7 @@ jobs:
         env:
           PORT: 5081
           DIMENSION: 1536
-          METRIC: cosine
+          METRIC: dot-product
           INDEX_TYPE: serverless
       pc-index-pod:
         image: ghcr.io/pinecone-io/pinecone-index:latest

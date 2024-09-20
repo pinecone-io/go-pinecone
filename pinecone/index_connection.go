@@ -387,9 +387,16 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 		vectorIds[i] = &res.Vectors[i].Id
 	}
 
+	var usage *Usage
+	if res.Usage != nil {
+		usage = &Usage{ReadUnits: derefOrDefault(res.Usage.ReadUnits, 0)}
+	} else {
+		usage = nil
+	}
+
 	return &ListVectorsResponse{
 		VectorIds:           vectorIds,
-		Usage:               &Usage{ReadUnits: derefOrDefault(res.Usage.ReadUnits, 0)},
+		Usage:               usage,
 		NextPaginationToken: toPaginationToken(res.Pagination),
 		Namespace:           idx.Namespace,
 	}, nil

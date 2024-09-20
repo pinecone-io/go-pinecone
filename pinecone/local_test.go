@@ -203,3 +203,19 @@ func (ts *LocalIntegrationTests) TestDescribeIndexStats() {
 		assert.Equal(ts.T(), description.TotalVectorCount, uint32(len(ts.vectorIds)*2), "Index host should match")
 	}
 }
+
+func (ts *LocalIntegrationTests) TestListVectorIds() {
+	limit := uint32(25)
+	// Listing vector ids is only available for serverless indexes
+	if ts.indexType == "serverless" {
+		for _, idxConn := range ts.idxConns {
+			listVectorIdsResponse, err := idxConn.ListVectors(context.Background(), &ListVectorsRequest{
+				Limit: &limit,
+			})
+			require.NoError(ts.T(), err)
+
+			assert.NotNil(ts.T(), listVectorIdsResponse, "ListVectors response should not be nil")
+			assert.Equal(ts.T(), limit, uint32(len(listVectorIdsResponse.VectorIds)), "ListVectors response should have %d vector ids", limit)
+		}
+	}
+}
