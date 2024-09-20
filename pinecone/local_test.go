@@ -59,8 +59,12 @@ func (ts *LocalIntegrationTests) TearDownSuite() {
 		require.NoError(ts.T(), err)
 
 		// Delete vectors by filter
+		err = idxConn.DeleteVectorsByFilter(context.Background(), ts.metadata)
+		require.NoError(ts.T(), err)
 
 		// Delete all remaining vectors
+		err = idxConn.DeleteAllVectorsInNamespace(context.Background())
+		require.NoError(ts.T(), err)
 
 		description, err := idxConn.DescribeIndexStats(context.Background())
 		require.NoError(ts.T(), err)
@@ -194,6 +198,6 @@ func (ts *LocalIntegrationTests) TestDescribeIndexStats() {
 		require.NoError(ts.T(), err)
 
 		assert.NotNil(ts.T(), description, "Index description should not be nil")
-		assert.Equal(ts.T(), description.TotalVectorCount, uint32(len(ts.vectorIds)), "Index host should match")
+		assert.Equal(ts.T(), description.TotalVectorCount, uint32(len(ts.vectorIds)*2), "Index host should match")
 	}
 }
