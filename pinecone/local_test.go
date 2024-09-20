@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -171,12 +172,36 @@ func (ts *LocalIntegrationTests) TestQueryVectors() {
 	topK := 10
 
 	for _, idxConn := range ts.idxConns {
-		queryVectorsByIdResponse, err := idxConn.QueryByVectorId(context.Background(), &QueryByVectorIdRequest{VectorId: queryVectorId, TopK: uint32(topK)})
+		queryVectorsByIdResponse, err := idxConn.QueryByVectorId(context.Background(), &QueryByVectorIdRequest{
+			VectorId:        queryVectorId,
+			TopK:            uint32(topK),
+			IncludeValues:   true,
+			IncludeMetadata: true,
+		})
 		require.NoError(ts.T(), err)
 
-		assert.NotNil(ts.T(), queryVectorsByIdResponse, "Query results should not be nil")
-		assert.Equal(ts.T(), topK, len(queryVectorsByIdResponse.Matches), "Query results should have 10 matches")
-		assert.Equal(ts.T(), queryVectorId, queryVectorsByIdResponse.Matches[0].Vector.Id, "Top query result vector id should match queryVectorId")
+		assert.NotNil(ts.T(), queryVectorsByIdResponse, "QueryByVectorId results should not be nil")
+		assert.Equal(ts.T(), topK, len(queryVectorsByIdResponse.Matches), "QueryByVectorId results should have 10 matches")
+		assert.Equal(ts.T(), queryVectorId, queryVectorsByIdResponse.Matches[0].Vector.Id, "Top QueryByVectorId result's vector id should match queryVectorId")
+
+		queryByVectorValuesResponse, err := idxConn.QueryByVectorValues(context.Background(), &QueryByVectorValuesRequest{
+			Vector:          queryVectorsByIdResponse.Matches[0].Vector.Values,
+			TopK:            uint32(topK),
+			MetadataFilter:  ts.metadata,
+			IncludeValues:   true,
+			IncludeMetadata: true,
+		})
+		require.NoError(ts.T(), err)
+
+		assert.NotNil(ts.T(), queryByVectorValuesResponse, "QueryByVectorValues results should not be nil")
+		assert.Equal(ts.T(), topK, len(queryByVectorValuesResponse.Matches), "QueryByVectorValues results should have 10 matches")
+
+		resultMetadata, err := protojson.Marshal(queryByVectorValuesResponse.Matches[0].Vector.Metadata)
+		assert.NoError(ts.T(), err)
+		suiteMetadata, err := protojson.Marshal(ts.metadata)
+		assert.NoError(ts.T(), err)
+
+		assert.Equal(ts.T(), resultMetadata, suiteMetadata, "Top QueryByVectorValues result's metadata should match the test suite's metadata")
 	}
 }
 
