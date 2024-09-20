@@ -313,6 +313,26 @@ func (ts *IntegrationTests) TestGenerateEmbeddingsInvalidInputs() {
 	require.Contains(ts.T(), err.Error(), "TextInputs must contain at least one value")
 }
 
+func (ts *IntegrationTests) TestRerankDocument() {
+	ctx := context.Background()
+	rerankModel := "bge-reranker-v2-m3"
+	ranking, err := ts.client.Inference.Rerank(ctx, &RerankRequest{
+		Model:           rerankModel,
+		Query:           "The tech company Apple is known for its innovative products like the iPhone.",
+		ReturnDocuments: true,
+		TopN:            4,
+		Documents: []Document{
+			{Id: "vec1", Text: "Apple is a popular fruit known for its sweetness and crisp texture."},
+			{Id: "vec2", Text: "Many people enjoy eating apples as a healthy snack."},
+			{Id: "vec3", Text: "Apple Inc. has revolutionized the tech industry with its sleek designs and user-friendly interfaces."},
+			{Id: "vec4", Text: "An apple a day keeps the doctor away, as the saying goes."},
+		}})
+
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), ranking, "Expected reranking result to be non-nil")
+	require.Equal(ts.T(), 4, len(*ranking.Data), "Expected 4 rankings")
+}
+
 // Unit tests:
 func TestExtractAuthHeaderUnit(t *testing.T) {
 	globalApiKey := os.Getenv("PINECONE_API_KEY")
