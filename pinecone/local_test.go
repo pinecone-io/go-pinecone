@@ -59,8 +59,10 @@ func (ts *LocalIntegrationTests) TearDownSuite() {
 		require.NoError(ts.T(), err)
 
 		// Delete vectors by filter
-		err = idxConn.DeleteVectorsByFilter(context.Background(), ts.metadata)
-		require.NoError(ts.T(), err)
+		if ts.indexType == "pods" {
+			err = idxConn.DeleteVectorsByFilter(context.Background(), ts.metadata)
+			require.NoError(ts.T(), err)
+		}
 
 		// Delete all remaining vectors
 		err = idxConn.DeleteAllVectorsInNamespace(context.Background())
