@@ -177,7 +177,7 @@ func (ts *IntegrationTests) TestMetadataAppliedToRequests() {
 	require.True(ts.T(), ok, "Expected client to have an 'api-key' header")
 	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'api-key' header to equal %s", apiKey)
 	require.Equal(ts.T(), namespace, idxConn.Namespace, "Expected idxConn to have namespace '%s', but got '%s'", namespace, idxConn.Namespace)
-	require.NotNil(ts.T(), idxConn.dataClient, "Expected idxConn to have non-nil dataClient")
+	require.NotNil(ts.T(), idxConn.grpcClient, "Expected idxConn to have non-nil dataClient")
 	require.NotNil(ts.T(), idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
 
 	// initiate request to trigger the MetadataInterceptor
@@ -299,7 +299,7 @@ func TestNewIndexConnection(t *testing.T) {
 	require.True(t, ok, "Expected client to have an 'api-key' header")
 	require.Equal(t, apiKey, apiKeyHeader, "Expected 'api-key' header to equal %s", apiKey)
 	require.Empty(t, idxConn.Namespace, "Expected idxConn to have empty namespace, but got '%s'", idxConn.Namespace)
-	require.NotNil(t, idxConn.dataClient, "Expected idxConn to have non-nil dataClient")
+	require.NotNil(t, idxConn.grpcClient, "Expected idxConn to have non-nil dataClient")
 	require.NotNil(t, idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
 }
 
@@ -320,7 +320,7 @@ func TestNewIndexConnectionNamespace(t *testing.T) {
 	require.True(t, ok, "Expected client to have an 'api-key' header")
 	require.Equal(t, apiKey, apiKeyHeader, "Expected 'api-key' header to equal %s", apiKey)
 	require.Equal(t, namespace, idxConn.Namespace, "Expected idxConn to have namespace '%s', but got '%s'", namespace, idxConn.Namespace)
-	require.NotNil(t, idxConn.dataClient, "Expected idxConn to have non-nil dataClient")
+	require.NotNil(t, idxConn.grpcClient, "Expected idxConn to have non-nil dataClient")
 	require.NotNil(t, idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
 }
 

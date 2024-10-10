@@ -8,7 +8,8 @@ import (
 	"net/url"
 	"strings"
 
-	db_data "github.com/pinecone-io/go-pinecone/internal/gen/db_data/grpc"
+	dbDataGrpc "github.com/pinecone-io/go-pinecone/internal/gen/db_data/grpc"
+	dbDataRest "github.com/pinecone-io/go-pinecone/internal/gen/db_data/rest"
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -26,7 +27,7 @@ import (
 type IndexConnection struct {
 	Namespace          string
 	additionalMetadata map[string]string
-	dataClient         *db_data.VectorServiceClient
+	grpcClient         *dbDataGrpc.VectorServiceClient
 	grpcConn           *grpc.ClientConn
 }
 
@@ -35,6 +36,7 @@ type newIndexParameters struct {
 	namespace          string
 	sourceTag          string
 	additionalMetadata map[string]string
+	dbDataClient       *dbDataRest.Client
 }
 
 func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*IndexConnection, error) {
@@ -65,11 +67,11 @@ func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*In
 		return nil, err
 	}
 
-	dataClient := db_data.NewVectorServiceClient(conn)
+	dataClient := dbDataGrpc.NewVectorServiceClient(conn)
 
 	idx := IndexConnection{
 		Namespace:          in.namespace,
-		dataClient:         &dataClient,
+		grpcClient:         &dataClient,
 		grpcConn:           conn,
 		additionalMetadata: in.additionalMetadata,
 	}
@@ -185,17 +187,17 @@ func (idx *IndexConnection) Close() error {
 //		       log.Fatalf("Successfully upserted %d vector(s)!\n", count)
 //	    }
 func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (uint32, error) {
-	vectors := make([]*db_data.Vector, len(in))
+	vectors := make([]*dbDataGrpc.Vector, len(in))
 	for i, v := range in {
 		vectors[i] = vecToGrpc(v)
 	}
 
-	req := &db_data.UpsertRequest{
+	req := &dbDataGrpc.UpsertRequest{
 		Vectors:   vectors,
 		Namespace: idx.Namespace,
 	}
 
-	res, err := (*idx.dataClient).Upsert(idx.akCtx(ctx), req)
+	res, err := (*idx.grpcClient).Upsert(idx.akCtx(ctx), req)
 	if err != nil {
 		return 0, err
 	}
@@ -263,12 +265,12 @@ type FetchVectorsResponse struct {
 //		       fmt.Println("No vectors found")
 //	    }
 func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*FetchVectorsResponse, error) {
-	req := &db_data.FetchRequest{
+	req := &dbDataGrpc.FetchRequest{
 		Ids:       ids,
 		Namespace: idx.Namespace,
 	}
 
-	res, err := (*idx.dataClient).Fetch(idx.akCtx(ctx), req)
+	res, err := (*idx.grpcClient).Fetch(idx.akCtx(ctx), req)
 	if err != nil {
 		return nil, err
 	}
@@ -371,13 +373,13 @@ type ListVectorsResponse struct {
 //		       fmt.Printf("Found %d vector(s)\n", len(res.VectorIds))
 //	    }
 func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequest) (*ListVectorsResponse, error) {
-	req := &db_data.ListRequest{
+	req := &dbDataGrpc.ListRequest{
 		Prefix:          in.Prefix,
 		Limit:           in.Limit,
 		PaginationToken: in.PaginationToken,
 		Namespace:       idx.Namespace,
 	}
-	res, err := (*idx.dataClient).List(idx.akCtx(ctx), req)
+	res, err := (*idx.grpcClient).List(idx.akCtx(ctx), req)
 	if err != nil {
 		return nil, err
 	}
@@ -501,7 +503,7 @@ type QueryVectorsResponse struct {
 //		       }
 //	    }
 func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryByVectorValuesRequest) (*QueryVectorsResponse, error) {
-	req := &db_data.QueryRequest{
+	req := &dbDataGrpc.QueryRequest{
 		Namespace:       idx.Namespace,
 		TopK:            in.TopK,
 		Filter:          in.MetadataFilter,
@@ -591,7 +593,7 @@ type QueryByVectorIdRequest struct {
 //		       }
 //	    }
 func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVectorIdRequest) (*QueryVectorsResponse, error) {
-	req := &db_data.QueryRequest{
+	req := &dbDataGrpc.QueryRequest{
 		Id:              in.VectorId,
 		Namespace:       idx.Namespace,
 		TopK:            in.TopK,
@@ -652,7 +654,7 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 //		       log.Fatalf("Failed to delete vector with ID: %s. Error: %s\n", vectorId, err)
 //	    }
 func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string) error {
-	req := db_data.DeleteRequest{
+	req := dbDataGrpc.DeleteRequest{
 		Ids:       ids,
 		Namespace: idx.Namespace,
 	}
@@ -716,7 +718,7 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 //		       log.Fatalf("Failed to delete vector(s) with filter: %+v. Error: %s\n", filter, err)
 //	    }
 func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, metadataFilter *MetadataFilter) error {
-	req := db_data.DeleteRequest{
+	req := dbDataGrpc.DeleteRequest{
 		Filter:    metadataFilter,
 		Namespace: idx.Namespace,
 	}
@@ -768,7 +770,7 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, metadataF
 //		       log.Fatalf("Failed to delete vectors in namespace: \"%s\". Error: %s", idxConnection.Namespace, err)
 //	    }
 func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx context.Context) error {
-	req := db_data.DeleteRequest{
+	req := dbDataGrpc.DeleteRequest{
 		Namespace: idx.Namespace,
 		DeleteAll: true,
 	}
@@ -842,7 +844,7 @@ func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRe
 		return fmt.Errorf("a vector ID plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
 	}
 
-	req := &db_data.UpdateRequest{
+	req := &dbDataGrpc.UpdateRequest{
 		Id:           in.Id,
 		Values:       in.Values,
 		SparseValues: sparseValToGrpc(in.SparseValues),
@@ -850,7 +852,7 @@ func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRe
 		Namespace:    idx.Namespace,
 	}
 
-	_, err := (*idx.dataClient).Update(idx.akCtx(ctx), req)
+	_, err := (*idx.grpcClient).Update(idx.akCtx(ctx), req)
 	return err
 }
 
@@ -973,10 +975,10 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 //		       }
 //	    }
 func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, metadataFilter *MetadataFilter) (*DescribeIndexStatsResponse, error) {
-	req := &db_data.DescribeIndexStatsRequest{
+	req := &dbDataGrpc.DescribeIndexStatsRequest{
 		Filter: metadataFilter,
 	}
-	res, err := (*idx.dataClient).DescribeIndexStats(idx.akCtx(ctx), req)
+	res, err := (*idx.grpcClient).DescribeIndexStats(idx.akCtx(ctx), req)
 	if err != nil {
 		return nil, err
 	}
@@ -996,8 +998,8 @@ func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, meta
 	}, nil
 }
 
-func (idx *IndexConnection) query(ctx context.Context, req *db_data.QueryRequest) (*QueryVectorsResponse, error) {
-	res, err := (*idx.dataClient).Query(idx.akCtx(ctx), req)
+func (idx *IndexConnection) query(ctx context.Context, req *dbDataGrpc.QueryRequest) (*QueryVectorsResponse, error) {
+	res, err := (*idx.grpcClient).Query(idx.akCtx(ctx), req)
 	if err != nil {
 		return nil, err
 	}
@@ -1014,8 +1016,8 @@ func (idx *IndexConnection) query(ctx context.Context, req *db_data.QueryRequest
 	}, nil
 }
 
-func (idx *IndexConnection) delete(ctx context.Context, req *db_data.DeleteRequest) error {
-	_, err := (*idx.dataClient).Delete(idx.akCtx(ctx), req)
+func (idx *IndexConnection) delete(ctx context.Context, req *dbDataGrpc.DeleteRequest) error {
+	_, err := (*idx.grpcClient).Delete(idx.akCtx(ctx), req)
 	return err
 }
 
@@ -1029,7 +1031,7 @@ func (idx *IndexConnection) akCtx(ctx context.Context) context.Context {
 	return metadata.AppendToOutgoingContext(ctx, newMetadata...)
 }
 
-func toVector(vector *db_data.Vector) *Vector {
+func toVector(vector *dbDataGrpc.Vector) *Vector {
 	if vector == nil {
 		return nil
 	}
@@ -1041,11 +1043,11 @@ func toVector(vector *db_data.Vector) *Vector {
 	}
 }
 
-func toScoredVector(sv *db_data.ScoredVector) *ScoredVector {
+func toScoredVector(sv *dbDataGrpc.ScoredVector) *ScoredVector {
 	if sv == nil {
 		return nil
 	}
-	v := toVector(&db_data.Vector{
+	v := toVector(&dbDataGrpc.Vector{
 		Id:           sv.Id,
 		Values:       sv.Values,
 		SparseValues: sv.SparseValues,
@@ -1057,7 +1059,7 @@ func toScoredVector(sv *db_data.ScoredVector) *ScoredVector {
 	}
 }
 
-func toSparseValues(sv *db_data.SparseValues) *SparseValues {
+func toSparseValues(sv *dbDataGrpc.SparseValues) *SparseValues {
 	if sv == nil {
 		return nil
 	}
@@ -1067,7 +1069,7 @@ func toSparseValues(sv *db_data.SparseValues) *SparseValues {
 	}
 }
 
-func toUsage(u *db_data.Usage) *Usage {
+func toUsage(u *dbDataGrpc.Usage) *Usage {
 	if u == nil {
 		return nil
 	}
@@ -1076,18 +1078,18 @@ func toUsage(u *db_data.Usage) *Usage {
 	}
 }
 
-func toPaginationToken(p *db_data.Pagination) *string {
+func toPaginationToken(p *dbDataGrpc.Pagination) *string {
 	if p == nil {
 		return nil
 	}
 	return &p.Next
 }
 
-func vecToGrpc(v *Vector) *db_data.Vector {
+func vecToGrpc(v *Vector) *dbDataGrpc.Vector {
 	if v == nil {
 		return nil
 	}
-	return &db_data.Vector{
+	return &dbDataGrpc.Vector{
 		Id:           v.Id,
 		Values:       v.Values,
 		Metadata:     v.Metadata,
@@ -1095,11 +1097,11 @@ func vecToGrpc(v *Vector) *db_data.Vector {
 	}
 }
 
-func sparseValToGrpc(sv *SparseValues) *db_data.SparseValues {
+func sparseValToGrpc(sv *SparseValues) *dbDataGrpc.SparseValues {
 	if sv == nil {
 		return nil
 	}
-	return &db_data.SparseValues{
+	return &dbDataGrpc.SparseValues{
 		Indices: sv.Indices,
 		Values:  sv.Values,
 	}

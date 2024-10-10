@@ -274,6 +274,12 @@ type StartImportRequest struct {
 	Uri *string `json:"uri,omitempty"`
 }
 
+// StartImportResponse The response for the `start_import` operation.
+type StartImportResponse struct {
+	// Id Unique identifier for the import operations.
+	Id *string `json:"id,omitempty"`
+}
+
 // UpdateRequest The request for the `update` operation.
 type UpdateRequest struct {
 	// Id Vector's unique id.
@@ -475,8 +481,8 @@ type ClientInterface interface {
 	// CancelBulkImport request
 	CancelBulkImport(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DescribeImport request
-	DescribeImport(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// DescribeBulkImport request
+	DescribeBulkImport(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DescribeIndexStatsWithBody request with any body
 	DescribeIndexStatsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -558,8 +564,8 @@ func (c *Client) CancelBulkImport(ctx context.Context, id string, reqEditors ...
 	return c.Client.Do(req)
 }
 
-func (c *Client) DescribeImport(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDescribeImportRequest(c.Server, id)
+func (c *Client) DescribeBulkImport(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDescribeBulkImportRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -853,8 +859,8 @@ func NewCancelBulkImportRequest(server string, id string) (*http.Request, error)
 	return req, nil
 }
 
-// NewDescribeImportRequest generates requests for DescribeImport
-func NewDescribeImportRequest(server string, id string) (*http.Request, error) {
+// NewDescribeBulkImportRequest generates requests for DescribeBulkImport
+func NewDescribeBulkImportRequest(server string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1299,8 +1305,8 @@ type ClientWithResponsesInterface interface {
 	// CancelBulkImportWithResponse request
 	CancelBulkImportWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*CancelBulkImportResponse, error)
 
-	// DescribeImportWithResponse request
-	DescribeImportWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DescribeImportResponse, error)
+	// DescribeBulkImportWithResponse request
+	DescribeBulkImportWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DescribeBulkImportResponse, error)
 
 	// DescribeIndexStatsWithBodyWithResponse request with any body
 	DescribeIndexStatsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DescribeIndexStatsResponse, error)
@@ -1362,6 +1368,7 @@ func (r ListBulkImportsResponse) StatusCode() int {
 type StartBulkImportResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON200      *StartImportResponse
 	JSON400      *RpcStatus
 	JSON4XX      *RpcStatus
 	JSON5XX      *RpcStatus
@@ -1408,7 +1415,7 @@ func (r CancelBulkImportResponse) StatusCode() int {
 	return 0
 }
 
-type DescribeImportResponse struct {
+type DescribeBulkImportResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ImportModel
@@ -1418,7 +1425,7 @@ type DescribeImportResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r DescribeImportResponse) Status() string {
+func (r DescribeBulkImportResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1426,7 +1433,7 @@ func (r DescribeImportResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DescribeImportResponse) StatusCode() int {
+func (r DescribeBulkImportResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1643,13 +1650,13 @@ func (c *ClientWithResponses) CancelBulkImportWithResponse(ctx context.Context, 
 	return ParseCancelBulkImportResponse(rsp)
 }
 
-// DescribeImportWithResponse request returning *DescribeImportResponse
-func (c *ClientWithResponses) DescribeImportWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DescribeImportResponse, error) {
-	rsp, err := c.DescribeImport(ctx, id, reqEditors...)
+// DescribeBulkImportWithResponse request returning *DescribeBulkImportResponse
+func (c *ClientWithResponses) DescribeBulkImportWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DescribeBulkImportResponse, error) {
+	rsp, err := c.DescribeBulkImport(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDescribeImportResponse(rsp)
+	return ParseDescribeBulkImportResponse(rsp)
 }
 
 // DescribeIndexStatsWithBodyWithResponse request with arbitrary body returning *DescribeIndexStatsResponse
@@ -1816,6 +1823,13 @@ func ParseStartBulkImportResponse(rsp *http.Response) (*StartBulkImportResponse,
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StartImportResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest RpcStatus
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -1889,15 +1903,15 @@ func ParseCancelBulkImportResponse(rsp *http.Response) (*CancelBulkImportRespons
 	return response, nil
 }
 
-// ParseDescribeImportResponse parses an HTTP response from a DescribeImportWithResponse call
-func ParseDescribeImportResponse(rsp *http.Response) (*DescribeImportResponse, error) {
+// ParseDescribeBulkImportResponse parses an HTTP response from a DescribeBulkImportWithResponse call
+func ParseDescribeBulkImportResponse(rsp *http.Response) (*DescribeBulkImportResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DescribeImportResponse{
+	response := &DescribeBulkImportResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

@@ -16,6 +16,7 @@ import (
 
 	"github.com/pinecone-io/go-pinecone/internal/gen"
 	"github.com/pinecone-io/go-pinecone/internal/gen/db_control"
+	db_data "github.com/pinecone-io/go-pinecone/internal/gen/db_data/rest"
 	"github.com/pinecone-io/go-pinecone/internal/gen/inference"
 	"github.com/pinecone-io/go-pinecone/internal/provider"
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
@@ -71,10 +72,11 @@ import (
 // [docs.pinecone.io/reference/api]: https://docs.pinecone.io/reference/api/control-plane/list_indexes
 // [Inference API]: https://docs.pinecone.io/reference/api/2024-07/inference/generate-embeddings
 type Client struct {
-	Inference  *InferenceService
-	headers    map[string]string
+	Inference *InferenceService
+	// headers    map[string]string
 	restClient *db_control.Client
-	sourceTag  string
+	// sourceTag  string
+	baseParams *NewClientBaseParams
 }
 
 // NewClientParams holds the parameters for creating a new Client instance while authenticating via an API key.
@@ -210,8 +212,8 @@ func NewClient(in NewClientParams) (*Client, error) {
 //		           fmt.Println("Successfully created a new Client object!")
 //	    }
 func NewClientBase(in NewClientBaseParams) (*Client, error) {
-	clientOptions := buildClientBaseOptions(in)
-	inference_client_options := buildInferenceBaseOptions(in)
+	controlOptions := buildClientBaseOptions(in)
+	inferenceOptions := buildInferenceBaseOptions(in)
 	var err error
 
 	controlHostOverride := valueOrFallback(in.Host, os.Getenv("PINECONE_CONTROLLER_HOST"))
@@ -222,16 +224,22 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 		}
 	}
 
-	db_control_client, err := db_control.NewClient(valueOrFallback(controlHostOverride, "https://api.pinecone.io"), clientOptions...)
+	dbControlClient, err := db_control.NewClient(valueOrFallback(controlHostOverride, "https://api.pinecone.io"), controlOptions...)
 	if err != nil {
 		return nil, err
 	}
-	inference_client, err := inference.NewClient(valueOrFallback(controlHostOverride, "https://api.pinecone.io"), inference_client_options...)
+	inferenceClient, err := inference.NewClient(valueOrFallback(controlHostOverride, "https://api.pinecone.io"), inferenceOptions...)
 	if err != nil {
 		return nil, err
 	}
 
-	c := Client{Inference: &InferenceService{client: inference_client}, restClient: db_control_client, sourceTag: in.SourceTag, headers: in.Headers}
+	c := Client{
+		Inference:  &InferenceService{client: inferenceClient},
+		restClient: dbControlClient,
+		// sourceTag:  in.SourceTag,
+		// headers:    in.Headers,
+		baseParams: &in,
+	}
 	return &c, nil
 }
 
@@ -304,16 +312,33 @@ func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*Ind
 		in.AdditionalMetadata[key] = value
 	}
 
+	dbDataOptions := buildDataClientBaseOptions(*c.baseParams)
+	dbDataClient, err := db_data.NewClient(ensureHostHasHttps(in.Host), dbDataOptions...)
+	if err != nil {
+		return nil, err
+	}
+
 	idx, err := newIndexConnection(newIndexParameters{
 		host:               in.Host,
 		namespace:          in.Namespace,
-		sourceTag:          c.sourceTag,
+		sourceTag:          c.baseParams.SourceTag,
 		additionalMetadata: in.AdditionalMetadata,
+		dbDataClient:       dbDataClient,
 	}, dialOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return idx, nil
+}
+
+func ensureHostHasHttps(host string) string {
+	if strings.HasPrefix("http://", host) {
+		return strings.Replace(host, "http://", "https://", 1)
+	} else if !strings.HasPrefix("https://", host) {
+		return "https://" + host
+	}
+
+	return host
 }
 
 // ListIndexes retrieves a list of all Indexes in a Pinecone [project].
@@ -1332,7 +1357,7 @@ func (c *Client) extractAuthHeader() map[string]string {
 		"access_token",
 	}
 
-	for key, value := range c.headers {
+	for key, value := range c.baseParams.Headers {
 		for _, checkKey := range possibleAuthKeys {
 			if strings.ToLower(key) == checkKey {
 				return map[string]string{key: value}
@@ -1520,6 +1545,22 @@ func buildInferenceBaseOptions(in NewClientBaseParams) []inference.ClientOption 
 	// apply custom http client if provided
 	if in.RestClient != nil {
 		clientOptions = append(clientOptions, inference.WithHTTPClient(in.RestClient))
+	}
+
+	return clientOptions
+}
+
+func buildDataClientBaseOptions(in NewClientBaseParams) []db_data.ClientOption {
+	clientOptions := []db_data.ClientOption{}
+	headerProviders := buildSharedProviderHeaders(in)
+
+	for _, provider := range headerProviders {
+		clientOptions = append(clientOptions, db_data.WithRequestEditorFn(provider.Intercept))
+	}
+
+	// apply custom http client if provided
+	if in.RestClient != nil {
+		clientOptions = append(clientOptions, db_data.WithHTTPClient(in.RestClient))
 	}
 
 	return clientOptions
