@@ -7,16 +7,22 @@ db_control_module="db_control"
 db_data_module="db_data"
 inference_module="inference"
 
-# generated output destination paths
+# db_data_destination="internal/gen/${db_data_module}"
+
+# generated grpc output destination paths
 # db_data_destination must align with the option go_package in the proto file: 
 # https://github.com/pinecone-io/apis/blob/d1d005e75cc9fe9a5c486ef9218fe87b57765961/src/release/db/data/data.proto#L3
-db_data_destination="internal/gen/data"
+# db_data_grpc_destination="${db_data_destination}/grpc"
+db_data_destination="internal/gen/${db_data_module}"
 db_control_destination="internal/gen/${db_control_module}"
 inference_destination="internal/gen/${inference_module}"
 
 # version file
 version_file="internal/gen/api_version.go"
-# generated oas files
+
+# generated oas file destination paths
+db_data_rest_destination="${db_data_destination}/rest"
+db_data_oas_file="${db_data_rest_destination}/${db_data_module}_${version}.oas.go"
 db_control_oas_file="${db_control_destination}/${db_control_module}_${version}.oas.go"
 inference_oas_file="${inference_destination}/${inference_module}_${version}.oas.go"
 
@@ -92,6 +98,9 @@ EOL
 update_apis_repo
 verify_spec_version $version
 
+# Clear internal/gen/* contents
+rm -rf internal/gen/*
+
 # Generate db_control oas client
 rm -rf "${db_control_destination}"
 mkdir -p "${db_control_destination}"
@@ -102,9 +111,12 @@ rm -rf "${inference_destination}"
 mkdir -p "${inference_destination}"
 generate_oas_client $inference_module $inference_oas_file
 
-# Generate db_data proto client
+# Generate db_data oas and proto clients
 rm -rf "${db_data_destination}"
 mkdir -p "${db_data_destination}"
+mkdir -p "${db_data_rest_destination}"
+
+generate_oas_client $db_data_module $db_data_oas_file
 generate_proto_client $db_data_module
 
 # Generate version file

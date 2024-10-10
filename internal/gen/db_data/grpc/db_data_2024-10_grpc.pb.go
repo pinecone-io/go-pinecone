@@ -4,7 +4,7 @@
 // - protoc             v5.27.1
 // source: db_data_2024-10.proto
 
-package data
+package grpc
 
 import (
 	context "context"
