@@ -3,8 +3,11 @@ package pinecone
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -27,6 +30,7 @@ import (
 type IndexConnection struct {
 	Namespace          string
 	additionalMetadata map[string]string
+	restClient         *dbDataRest.Client
 	grpcClient         *dbDataGrpc.VectorServiceClient
 	grpcConn           *grpc.ClientConn
 }
@@ -71,6 +75,7 @@ func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*In
 
 	idx := IndexConnection{
 		Namespace:          in.namespace,
+		restClient:         in.dbDataClient,
 		grpcClient:         &dataClient,
 		grpcConn:           conn,
 		additionalMetadata: in.additionalMetadata,
@@ -996,6 +1001,105 @@ func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, meta
 		TotalVectorCount: res.TotalVectorCount,
 		Namespaces:       namespaceSummaries,
 	}, nil
+}
+
+func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integrationId *string, errorMode *dbDataRest.ImportErrorMode) (*dbDataRest.StartImportResponse, error) {
+	req := dbDataRest.StartImportRequest{
+		Uri:           &uri,
+		IntegrationId: integrationId,
+		ErrorMode:     errorMode,
+	}
+
+	res, err := (*idx.restClient).StartBulkImport(idx.akCtx(ctx), req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to start import: ")
+	}
+
+	return decodeStartImportResponse(res.Body)
+}
+
+func (idx *IndexConnection) DescribeImport(ctx context.Context, id string) (*dbDataRest.ImportModel, error) {
+	res, err := (*idx.restClient).DescribeBulkImport(idx.akCtx(ctx), id)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	importModel, err := decodeImportModel(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	return importModel, nil
+}
+
+type ListImportsRequest struct {
+	Limit           *int32
+	PaginationToken *string
+}
+
+func (idx *IndexConnection) ListImports(ctx context.Context, req *ListImportsRequest) (*dbDataRest.ListImportsResponse, error) {
+	params := dbDataRest.ListBulkImportsParams{
+		Limit:           req.Limit,
+		PaginationToken: req.PaginationToken,
+	}
+
+	res, err := (*idx.restClient).ListBulkImports(idx.akCtx(ctx), &params)
+	if err != nil {
+		return nil, err
+	}
+
+	listImportsResponse, err := decodeListImportsResponse(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return listImportsResponse, nil
+}
+
+func (idx *IndexConnection) CancelImport(ctx context.Context, id string) error {
+	res, err := (*idx.restClient).CancelBulkImport(idx.akCtx(ctx), id)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return handleErrorResponseBody(res, "failed to cancel import: ")
+	}
+
+	return nil
+}
+
+func decodeListImportsResponse(body io.ReadCloser) (*dbDataRest.ListImportsResponse, error) {
+	var listImportsResponse *dbDataRest.ListImportsResponse
+	if err := json.NewDecoder(body).Decode(&listImportsResponse); err != nil {
+		return nil, err
+	}
+
+	return listImportsResponse, nil
+}
+
+func decodeImportModel(body io.ReadCloser) (*dbDataRest.ImportModel, error) {
+	var importModel dbDataRest.ImportModel
+	if err := json.NewDecoder(body).Decode(&importModel); err != nil {
+		return nil, err
+	}
+
+	return &importModel, nil
+}
+
+func decodeStartImportResponse(body io.ReadCloser) (*dbDataRest.StartImportResponse, error) {
+	var importResponse dbDataRest.StartImportResponse
+	if err := json.NewDecoder(body).Decode(&importResponse); err != nil {
+		return nil, err
+	}
+
+	return &importResponse, nil
 }
 
 func (idx *IndexConnection) query(ctx context.Context, req *dbDataGrpc.QueryRequest) (*QueryVectorsResponse, error) {

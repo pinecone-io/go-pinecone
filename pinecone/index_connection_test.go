@@ -240,7 +240,7 @@ func (ts *IntegrationTests) TestUpdateVectorMetadata() {
 	assert.Equal(ts.T(), expectedGenre, actualGenre, "Metadata does not match")
 }
 
-func (ts *IntegrationTests) TestUpdateVectorSparseValues() error {
+func (ts *IntegrationTests) TestUpdateVectorSparseValues() {
 	ctx := context.Background()
 
 	dims := int(ts.dimension)
@@ -269,8 +269,37 @@ func (ts *IntegrationTests) TestUpdateVectorSparseValues() error {
 	actualSparseValues := vector.Vectors[ts.vectorIds[0]].SparseValues.Values
 
 	assert.ElementsMatch(ts.T(), expectedSparseValues.Values, actualSparseValues, "Sparse values do not match")
+}
 
-	return nil
+func (ts *IntegrationTests) TestImportFlow() {
+	if ts.indexType != "serverless" {
+		ts.T().Skip("Skipping import flow test for non-serverless index")
+	}
+
+	testImportUri := "s3://dev-bulk-import-datasets-pub/10-records-dim-10/"
+	ctx := context.Background()
+
+	startRes, err := ts.idxConn.StartImport(ctx, testImportUri, nil, nil)
+	assert.NoError(ts.T(), err)
+	assert.NotNil(ts.T(), startRes)
+	fmt.Printf("Import started with ID: %s\n", *startRes.Id)
+
+	assert.NotNil(ts.T(), startRes.Id)
+	describeRes, err := ts.idxConn.DescribeImport(ctx, *startRes.Id)
+	assert.NoError(ts.T(), err)
+	assert.NotNil(ts.T(), describeRes)
+	assert.Equal(ts.T(), *startRes.Id, *describeRes.Id)
+
+	limit := int32(10)
+	listRes, err := ts.idxConn.ListImports(ctx, &ListImportsRequest{
+		PaginationToken: nil,
+		Limit:           &limit,
+	})
+	assert.NoError(ts.T(), err)
+	assert.NotNil(ts.T(), listRes)
+
+	err = ts.idxConn.CancelImport(ctx, *startRes.Id)
+	assert.NoError(ts.T(), err)
 }
 
 // Unit tests:

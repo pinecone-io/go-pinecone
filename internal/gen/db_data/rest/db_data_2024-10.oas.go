@@ -39,7 +39,7 @@ const (
 // CancelImportResponse The response for the `cancel_import` operation.
 type CancelImportResponse = map[string]interface{}
 
-// DeleteRequest The request for the `Delete` operation.
+// DeleteRequest The request for the `delete` operation.
 type DeleteRequest struct {
 	// DeleteAll This indicates that all vectors in the index namespace should be deleted.
 	DeleteAll *bool `json:"deleteAll,omitempty"`
@@ -55,7 +55,7 @@ type DeleteRequest struct {
 	Namespace *string `json:"namespace,omitempty"`
 }
 
-// DeleteResponse The response for the `Delete` operation.
+// DeleteResponse The response for the `delete` operation.
 type DeleteResponse = map[string]interface{}
 
 // DescribeIndexStatsRequest The request for the `describe_index_stats` operation.
@@ -82,12 +82,6 @@ type ImportErrorMode struct {
 
 // ImportErrorModeOnError Indicates how to respond to errors during the import process.
 type ImportErrorModeOnError string
-
-// ImportListResponse The response for the `list_imports` operation.
-type ImportListResponse struct {
-	Data       *[]ImportModel `json:"data,omitempty"`
-	Pagination *Pagination    `json:"pagination,omitempty"`
-}
 
 // ImportModel The model for an import operation.
 type ImportModel struct {
@@ -138,12 +132,18 @@ type IndexDescription struct {
 	TotalVectorCount *int64 `json:"totalVectorCount,omitempty"`
 }
 
+// ListImportsResponse The response for the `list_imports` operation.
+type ListImportsResponse struct {
+	Data       *[]ImportModel `json:"data,omitempty"`
+	Pagination *Pagination    `json:"pagination,omitempty"`
+}
+
 // ListItem defines model for ListItem.
 type ListItem struct {
 	Id *string `json:"id,omitempty"`
 }
 
-// ListResponse The response for the `List` operation.
+// ListResponse The response for the `list` operation.
 type ListResponse struct {
 	// Namespace The namespace of the vectors.
 	Namespace  *string     `json:"namespace,omitempty"`
@@ -168,7 +168,7 @@ type QueryRequest struct {
 	// Filter The filter to apply. You can use vector metadata to limit your search. See [Filter with metadata](https://docs.pinecone.io/guides/data/filter-with-metadata).
 	Filter *map[string]interface{} `json:"filter,omitempty"`
 
-	// Id The unique ID of the vector to be used as a query vector. Each `query()` request can contain only one of the parameters `queries`, `vector`, or  `id`.
+	// Id The unique ID of the vector to be used as a query vector. Each `query` request can contain only one of the parameters `queries`, `vector`, or  `id`.
 	Id *string `json:"id,omitempty"`
 
 	// IncludeMetadata Indicates whether metadata is included in the response as well as the ids.
@@ -190,7 +190,7 @@ type QueryRequest struct {
 	// TopK The number of results to return for each query.
 	TopK int64 `json:"topK"`
 
-	// Vector The query vector. This should be the same length as the dimension of the index being queried. Each `query()` request can contain only one of the parameters `id` or `vector`.
+	// Vector The query vector. This should be the same length as the dimension of the index being queried. Each `query` request can contain only one of the parameters `id` or `vector`.
 	Vector *[]float32 `json:"vector,omitempty"`
 }
 
@@ -262,7 +262,7 @@ type SparseValues struct {
 	Values []float32 `json:"values"`
 }
 
-// StartImportRequest The request for the `import` operation.
+// StartImportRequest The request for the `start_import` operation.
 type StartImportRequest struct {
 	// ErrorMode Indicates how to respond to errors during the import process.
 	ErrorMode *ImportErrorMode `json:"errorMode,omitempty"`
@@ -391,8 +391,8 @@ type QueryVectorsJSONRequestBody = QueryRequest
 // DeleteVectorsJSONRequestBody defines body for DeleteVectors for application/json ContentType.
 type DeleteVectorsJSONRequestBody = DeleteRequest
 
-// UpdateVectorsJSONRequestBody defines body for UpdateVectors for application/json ContentType.
-type UpdateVectorsJSONRequestBody = UpdateRequest
+// UpdateVectorJSONRequestBody defines body for UpdateVector for application/json ContentType.
+type UpdateVectorJSONRequestBody = UpdateRequest
 
 // UpsertVectorsJSONRequestBody defines body for UpsertVectors for application/json ContentType.
 type UpsertVectorsJSONRequestBody = UpsertRequest
@@ -505,10 +505,10 @@ type ClientInterface interface {
 	// ListVectors request
 	ListVectors(ctx context.Context, params *ListVectorsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateVectorsWithBody request with any body
-	UpdateVectorsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UpdateVectorWithBody request with any body
+	UpdateVectorWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpdateVectors(ctx context.Context, body UpdateVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateVector(ctx context.Context, body UpdateVectorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpsertVectorsWithBody request with any body
 	UpsertVectorsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -672,8 +672,8 @@ func (c *Client) ListVectors(ctx context.Context, params *ListVectorsParams, req
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateVectorsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateVectorsRequestWithBody(c.Server, contentType, body)
+func (c *Client) UpdateVectorWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVectorRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -684,8 +684,8 @@ func (c *Client) UpdateVectorsWithBody(ctx context.Context, contentType string, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateVectors(ctx context.Context, body UpdateVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateVectorsRequest(c.Server, body)
+func (c *Client) UpdateVector(ctx context.Context, body UpdateVectorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVectorRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1171,19 +1171,19 @@ func NewListVectorsRequest(server string, params *ListVectorsParams) (*http.Requ
 	return req, nil
 }
 
-// NewUpdateVectorsRequest calls the generic UpdateVectors builder with application/json body
-func NewUpdateVectorsRequest(server string, body UpdateVectorsJSONRequestBody) (*http.Request, error) {
+// NewUpdateVectorRequest calls the generic UpdateVector builder with application/json body
+func NewUpdateVectorRequest(server string, body UpdateVectorJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpdateVectorsRequestWithBody(server, "application/json", bodyReader)
+	return NewUpdateVectorRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewUpdateVectorsRequestWithBody generates requests for UpdateVectors with any type of body
-func NewUpdateVectorsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdateVectorRequestWithBody generates requests for UpdateVector with any type of body
+func NewUpdateVectorRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1329,10 +1329,10 @@ type ClientWithResponsesInterface interface {
 	// ListVectorsWithResponse request
 	ListVectorsWithResponse(ctx context.Context, params *ListVectorsParams, reqEditors ...RequestEditorFn) (*ListVectorsResponse, error)
 
-	// UpdateVectorsWithBodyWithResponse request with any body
-	UpdateVectorsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVectorsResponse, error)
+	// UpdateVectorWithBodyWithResponse request with any body
+	UpdateVectorWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVectorResponse, error)
 
-	UpdateVectorsWithResponse(ctx context.Context, body UpdateVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVectorsResponse, error)
+	UpdateVectorWithResponse(ctx context.Context, body UpdateVectorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVectorResponse, error)
 
 	// UpsertVectorsWithBodyWithResponse request with any body
 	UpsertVectorsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertVectorsResponse, error)
@@ -1343,7 +1343,7 @@ type ClientWithResponsesInterface interface {
 type ListBulkImportsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *ImportListResponse
+	JSON200      *ListImportsResponse
 	JSON400      *RpcStatus
 	JSON4XX      *RpcStatus
 	JSON5XX      *RpcStatus
@@ -1565,7 +1565,7 @@ func (r ListVectorsResponse) StatusCode() int {
 	return 0
 }
 
-type UpdateVectorsResponse struct {
+type UpdateVectorResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *UpdateResponse
@@ -1575,7 +1575,7 @@ type UpdateVectorsResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r UpdateVectorsResponse) Status() string {
+func (r UpdateVectorResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1583,7 +1583,7 @@ func (r UpdateVectorsResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r UpdateVectorsResponse) StatusCode() int {
+func (r UpdateVectorResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1728,21 +1728,21 @@ func (c *ClientWithResponses) ListVectorsWithResponse(ctx context.Context, param
 	return ParseListVectorsResponse(rsp)
 }
 
-// UpdateVectorsWithBodyWithResponse request with arbitrary body returning *UpdateVectorsResponse
-func (c *ClientWithResponses) UpdateVectorsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVectorsResponse, error) {
-	rsp, err := c.UpdateVectorsWithBody(ctx, contentType, body, reqEditors...)
+// UpdateVectorWithBodyWithResponse request with arbitrary body returning *UpdateVectorResponse
+func (c *ClientWithResponses) UpdateVectorWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVectorResponse, error) {
+	rsp, err := c.UpdateVectorWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateVectorsResponse(rsp)
+	return ParseUpdateVectorResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpdateVectorsWithResponse(ctx context.Context, body UpdateVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVectorsResponse, error) {
-	rsp, err := c.UpdateVectors(ctx, body, reqEditors...)
+func (c *ClientWithResponses) UpdateVectorWithResponse(ctx context.Context, body UpdateVectorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVectorResponse, error) {
+	rsp, err := c.UpdateVector(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateVectorsResponse(rsp)
+	return ParseUpdateVectorResponse(rsp)
 }
 
 // UpsertVectorsWithBodyWithResponse request with arbitrary body returning *UpsertVectorsResponse
@@ -1777,7 +1777,7 @@ func ParseListBulkImportsResponse(rsp *http.Response) (*ListBulkImportsResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ImportListResponse
+		var dest ListImportsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2185,15 +2185,15 @@ func ParseListVectorsResponse(rsp *http.Response) (*ListVectorsResponse, error) 
 	return response, nil
 }
 
-// ParseUpdateVectorsResponse parses an HTTP response from a UpdateVectorsWithResponse call
-func ParseUpdateVectorsResponse(rsp *http.Response) (*UpdateVectorsResponse, error) {
+// ParseUpdateVectorResponse parses an HTTP response from a UpdateVectorWithResponse call
+func ParseUpdateVectorResponse(rsp *http.Response) (*UpdateVectorResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &UpdateVectorsResponse{
+	response := &UpdateVectorResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
