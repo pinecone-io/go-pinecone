@@ -7,12 +7,9 @@ db_control_module="db_control"
 db_data_module="db_data"
 inference_module="inference"
 
-# db_data_destination="internal/gen/${db_data_module}"
-
 # generated grpc output destination paths
 # db_data_destination must align with the option go_package in the proto file: 
 # https://github.com/pinecone-io/apis/blob/d1d005e75cc9fe9a5c486ef9218fe87b57765961/src/release/db/data/data.proto#L3
-# db_data_grpc_destination="${db_data_destination}/grpc"
 db_data_destination="internal/gen/${db_data_module}"
 db_control_destination="internal/gen/${db_control_module}"
 inference_destination="internal/gen/${inference_module}"
