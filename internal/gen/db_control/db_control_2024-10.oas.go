@@ -53,6 +53,7 @@ const (
 	NOTFOUND            ErrorResponseErrorCode = "NOT_FOUND"
 	OK                  ErrorResponseErrorCode = "OK"
 	OUTOFRANGE          ErrorResponseErrorCode = "OUT_OF_RANGE"
+	PAYMENTREQUIRED     ErrorResponseErrorCode = "PAYMENT_REQUIRED"
 	PERMISSIONDENIED    ErrorResponseErrorCode = "PERMISSION_DENIED"
 	QUOTAEXCEEDED       ErrorResponseErrorCode = "QUOTA_EXCEEDED"
 	RESOURCEEXHAUSTED   ErrorResponseErrorCode = "RESOURCE_EXHAUSTED"
@@ -1089,6 +1090,7 @@ type CreateCollectionResponse struct {
 	JSON201      *CollectionModel
 	JSON400      *ErrorResponse
 	JSON401      *ErrorResponse
+	JSON402      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON409      *ErrorResponse
 	JSON422      *ErrorResponse
@@ -1190,6 +1192,7 @@ type CreateIndexResponse struct {
 	JSON201      *IndexModel
 	JSON400      *ErrorResponse
 	JSON401      *ErrorResponse
+	JSON402      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
@@ -1269,6 +1272,7 @@ type ConfigureIndexResponse struct {
 	JSON202      *IndexModel
 	JSON400      *ErrorResponse
 	JSON401      *ErrorResponse
+	JSON402      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON422      *ErrorResponse
@@ -1471,6 +1475,13 @@ func ParseCreateCollectionResponse(rsp *http.Response) (*CreateCollectionRespons
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 402:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON402 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -1666,6 +1677,13 @@ func ParseCreateIndexResponse(rsp *http.Response) (*CreateIndexResponse, error) 
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 402:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON402 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -1834,6 +1852,13 @@ func ParseConfigureIndexResponse(rsp *http.Response) (*ConfigureIndexResponse, e
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 402:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON402 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest ErrorResponse
