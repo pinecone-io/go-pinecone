@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	dbDataGrpc "github.com/pinecone-io/go-pinecone/internal/gen/db_data/grpc"
+	db_data_grpc "github.com/pinecone-io/go-pinecone/internal/gen/db_data/grpc"
 	"github.com/pinecone-io/go-pinecone/internal/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -291,10 +291,7 @@ func (ts *IntegrationTests) TestImportFlow() {
 	assert.Equal(ts.T(), startRes.Id, describeRes.Id)
 
 	limit := int32(10)
-	listRes, err := ts.idxConn.ListImports(ctx, &ListImportsRequest{
-		PaginationToken: nil,
-		Limit:           &limit,
-	})
+	listRes, err := ts.idxConn.ListImports(ctx, &limit, nil)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), listRes)
 
@@ -547,7 +544,7 @@ func TestMarshalDescribeIndexStatsResponseUnit(t *testing.T) {
 func TestToVectorUnit(t *testing.T) {
 	tests := []struct {
 		name     string
-		vector   *dbDataGrpc.Vector
+		vector   *db_data_grpc.Vector
 		expected *Vector
 	}{
 		{
@@ -557,7 +554,7 @@ func TestToVectorUnit(t *testing.T) {
 		},
 		{
 			name: "Pass dense vector",
-			vector: &dbDataGrpc.Vector{
+			vector: &db_data_grpc.Vector{
 				Id:     "dense-1",
 				Values: []float32{0.01, 0.02, 0.03},
 			},
@@ -568,10 +565,10 @@ func TestToVectorUnit(t *testing.T) {
 		},
 		{
 			name: "Pass sparse vector",
-			vector: &dbDataGrpc.Vector{
+			vector: &db_data_grpc.Vector{
 				Id:     "sparse-1",
 				Values: nil,
-				SparseValues: &dbDataGrpc.SparseValues{
+				SparseValues: &db_data_grpc.SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
 				},
@@ -587,10 +584,10 @@ func TestToVectorUnit(t *testing.T) {
 		},
 		{
 			name: "Pass hybrid vector",
-			vector: &dbDataGrpc.Vector{
+			vector: &db_data_grpc.Vector{
 				Id:     "hybrid-1",
 				Values: []float32{0.01, 0.02, 0.03},
-				SparseValues: &dbDataGrpc.SparseValues{
+				SparseValues: &db_data_grpc.SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
 				},
@@ -607,10 +604,10 @@ func TestToVectorUnit(t *testing.T) {
 		},
 		{
 			name: "Pass hybrid vector with metadata",
-			vector: &dbDataGrpc.Vector{
+			vector: &db_data_grpc.Vector{
 				Id:     "hybrid-metadata-1",
 				Values: []float32{0.01, 0.02, 0.03},
-				SparseValues: &dbDataGrpc.SparseValues{
+				SparseValues: &db_data_grpc.SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
 				},
@@ -645,7 +642,7 @@ func TestToVectorUnit(t *testing.T) {
 func TestToSparseValuesUnit(t *testing.T) {
 	tests := []struct {
 		name         string
-		sparseValues *dbDataGrpc.SparseValues
+		sparseValues *db_data_grpc.SparseValues
 		expected     *SparseValues
 	}{
 		{
@@ -655,7 +652,7 @@ func TestToSparseValuesUnit(t *testing.T) {
 		},
 		{
 			name: "Pass sparse values",
-			sparseValues: &dbDataGrpc.SparseValues{
+			sparseValues: &db_data_grpc.SparseValues{
 				Indices: []uint32{0, 2},
 				Values:  []float32{0.01, 0.03},
 			},
@@ -676,7 +673,7 @@ func TestToSparseValuesUnit(t *testing.T) {
 func TestToScoredVectorUnit(t *testing.T) {
 	tests := []struct {
 		name         string
-		scoredVector *dbDataGrpc.ScoredVector
+		scoredVector *db_data_grpc.ScoredVector
 		expected     *ScoredVector
 	}{
 		{
@@ -686,7 +683,7 @@ func TestToScoredVectorUnit(t *testing.T) {
 		},
 		{
 			name: "Pass scored dense vector",
-			scoredVector: &dbDataGrpc.ScoredVector{
+			scoredVector: &db_data_grpc.ScoredVector{
 				Id:     "dense-1",
 				Values: []float32{0.01, 0.01, 0.01},
 				Score:  0.1,
@@ -701,9 +698,9 @@ func TestToScoredVectorUnit(t *testing.T) {
 		},
 		{
 			name: "Pass scored sparse vector",
-			scoredVector: &dbDataGrpc.ScoredVector{
+			scoredVector: &db_data_grpc.ScoredVector{
 				Id: "sparse-1",
-				SparseValues: &dbDataGrpc.SparseValues{
+				SparseValues: &db_data_grpc.SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
 				},
@@ -722,10 +719,10 @@ func TestToScoredVectorUnit(t *testing.T) {
 		},
 		{
 			name: "Pass scored hybrid vector",
-			scoredVector: &dbDataGrpc.ScoredVector{
+			scoredVector: &db_data_grpc.ScoredVector{
 				Id:     "hybrid-1",
 				Values: []float32{0.01, 0.02, 0.03},
-				SparseValues: &dbDataGrpc.SparseValues{
+				SparseValues: &db_data_grpc.SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
 				},
@@ -745,10 +742,10 @@ func TestToScoredVectorUnit(t *testing.T) {
 		},
 		{
 			name: "Pass scored hybrid vector with metadata",
-			scoredVector: &dbDataGrpc.ScoredVector{
+			scoredVector: &db_data_grpc.ScoredVector{
 				Id:     "hybrid-metadata-1",
 				Values: []float32{0.01, 0.02, 0.03},
-				SparseValues: &dbDataGrpc.SparseValues{
+				SparseValues: &db_data_grpc.SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
 				},
@@ -789,7 +786,7 @@ func TestVecToGrpcUnit(t *testing.T) {
 	tests := []struct {
 		name     string
 		vector   *Vector
-		expected *dbDataGrpc.Vector
+		expected *db_data_grpc.Vector
 	}{
 		{
 			name:     "Pass nil vector, expect nil to be returned",
@@ -802,7 +799,7 @@ func TestVecToGrpcUnit(t *testing.T) {
 				Id:     "dense-1",
 				Values: []float32{0.01, 0.02, 0.03},
 			},
-			expected: &dbDataGrpc.Vector{
+			expected: &db_data_grpc.Vector{
 				Id:     "dense-1",
 				Values: []float32{0.01, 0.02, 0.03},
 			},
@@ -817,9 +814,9 @@ func TestVecToGrpcUnit(t *testing.T) {
 					Values:  []float32{0.01, 0.03},
 				},
 			},
-			expected: &dbDataGrpc.Vector{
+			expected: &db_data_grpc.Vector{
 				Id: "sparse-1",
-				SparseValues: &dbDataGrpc.SparseValues{
+				SparseValues: &db_data_grpc.SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
 				},
@@ -835,10 +832,10 @@ func TestVecToGrpcUnit(t *testing.T) {
 					Values:  []float32{0.01, 0.03},
 				},
 			},
-			expected: &dbDataGrpc.Vector{
+			expected: &db_data_grpc.Vector{
 				Id:     "hybrid-1",
 				Values: []float32{0.01, 0.02, 0.03},
-				SparseValues: &dbDataGrpc.SparseValues{
+				SparseValues: &db_data_grpc.SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
 				},
@@ -859,10 +856,10 @@ func TestVecToGrpcUnit(t *testing.T) {
 					},
 				},
 			},
-			expected: &dbDataGrpc.Vector{
+			expected: &db_data_grpc.Vector{
 				Id:     "hybrid-metadata-1",
 				Values: []float32{0.01, 0.02, 0.03},
-				SparseValues: &dbDataGrpc.SparseValues{
+				SparseValues: &db_data_grpc.SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
 				},
@@ -888,7 +885,7 @@ func TestSparseValToGrpcUnit(t *testing.T) {
 		name         string
 		sparseValues *SparseValues
 		metadata     *structpb.Struct
-		expected     *dbDataGrpc.SparseValues
+		expected     *db_data_grpc.SparseValues
 	}{
 		{
 			name:         "Pass nil sparse values, expect nil to be returned",
@@ -901,7 +898,7 @@ func TestSparseValToGrpcUnit(t *testing.T) {
 				Indices: []uint32{0, 2},
 				Values:  []float32{0.01, 0.03},
 			},
-			expected: &dbDataGrpc.SparseValues{
+			expected: &db_data_grpc.SparseValues{
 				Indices: []uint32{0, 2},
 				Values:  []float32{0.01, 0.03},
 			},
@@ -917,7 +914,7 @@ func TestSparseValToGrpcUnit(t *testing.T) {
 					"genre": {Kind: &structpb.Value_StringValue{StringValue: "classical"}},
 				},
 			},
-			expected: &dbDataGrpc.SparseValues{
+			expected: &db_data_grpc.SparseValues{
 				Indices: []uint32{0, 2},
 				Values:  []float32{0.01, 0.03},
 			},
@@ -1000,7 +997,7 @@ func TestToUsageUnit(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		usage    *dbDataGrpc.Usage
+		usage    *db_data_grpc.Usage
 		expected *Usage
 	}{
 		{
@@ -1010,7 +1007,7 @@ func TestToUsageUnit(t *testing.T) {
 		},
 		{
 			name: "Pass usage",
-			usage: &dbDataGrpc.Usage{
+			usage: &db_data_grpc.Usage{
 				ReadUnits: &u5,
 			},
 			expected: &Usage{
@@ -1062,17 +1059,17 @@ func TestToPaginationTokenGrpc(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		token    *dbDataGrpc.Pagination
+		token    *db_data_grpc.Pagination
 		expected *string
 	}{
 		{
 			name:     "Pass empty token, expect empty string to be returned",
-			token:    &dbDataGrpc.Pagination{},
+			token:    &db_data_grpc.Pagination{},
 			expected: &tokenForNilCase,
 		},
 		{
 			name: "Pass token",
-			token: &dbDataGrpc.Pagination{
+			token: &db_data_grpc.Pagination{
 				Next: "next-token",
 			},
 			expected: &tokenForPositiveCase,
