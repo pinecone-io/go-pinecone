@@ -534,7 +534,7 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 type QueryByVectorIdRequest struct {
 	VectorId        string
 	TopK            uint32
-	metadataFilter  *MetadataFilter
+	MetadataFilter  *MetadataFilter
 	IncludeValues   bool
 	IncludeMetadata bool
 	SparseValues    *SparseValues
@@ -602,7 +602,7 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 		Id:              in.VectorId,
 		Namespace:       idx.Namespace,
 		TopK:            in.TopK,
-		Filter:          in.metadataFilter,
+		Filter:          in.MetadataFilter,
 		IncludeValues:   in.IncludeValues,
 		IncludeMetadata: in.IncludeMetadata,
 		SparseVector:    sparseValToGrpc(in.SparseValues),
