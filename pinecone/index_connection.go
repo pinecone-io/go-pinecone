@@ -397,7 +397,7 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 	return &ListVectorsResponse{
 		VectorIds:           vectorIds,
 		Usage:               toUsage(res.Usage),
-		NextPaginationToken: toPaginationToken(res.Pagination),
+		NextPaginationToken: toPaginationTokenGrpc(res.Pagination),
 		Namespace:           idx.Namespace,
 	}, nil
 }
@@ -1003,11 +1003,30 @@ func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, meta
 	}, nil
 }
 
-func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integrationId *string, errorMode *dbDataRest.ImportErrorMode) (*dbDataRest.StartImportResponse, error) {
+type StartImportResponse struct {
+	Id string `json:"id,omitempty"`
+}
+
+func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integrationId *string, errorMode *ImportErrorMode) (*StartImportResponse, error) {
+	if uri == "" {
+		return nil, fmt.Errorf("must specify a uri to start an import")
+	}
+
+	var errorModeStruct *dbDataRest.ImportErrorMode
+	onErrorMode := pointerOrNil(dbDataRest.ImportErrorModeOnError(*errorMode))
+
+	if onErrorMode != nil {
+		errorModeStruct = &dbDataRest.ImportErrorMode{
+			OnError: onErrorMode,
+		}
+	}
+
+	intId := pointerOrNil(*integrationId)
+
 	req := dbDataRest.StartImportRequest{
 		Uri:           &uri,
-		IntegrationId: integrationId,
-		ErrorMode:     errorMode,
+		IntegrationId: intId,
+		ErrorMode:     errorModeStruct,
 	}
 
 	res, err := (*idx.restClient).StartBulkImport(idx.akCtx(ctx), req)
@@ -1023,7 +1042,7 @@ func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integra
 	return decodeStartImportResponse(res.Body)
 }
 
-func (idx *IndexConnection) DescribeImport(ctx context.Context, id string) (*dbDataRest.ImportModel, error) {
+func (idx *IndexConnection) DescribeImport(ctx context.Context, id string) (*Import, error) {
 	res, err := (*idx.restClient).DescribeBulkImport(idx.akCtx(ctx), id)
 	if err != nil {
 		return nil, err
@@ -1034,7 +1053,7 @@ func (idx *IndexConnection) DescribeImport(ctx context.Context, id string) (*dbD
 	if err != nil {
 		return nil, err
 	}
-	return importModel, nil
+	return toImport(importModel), nil
 }
 
 type ListImportsRequest struct {
@@ -1042,7 +1061,12 @@ type ListImportsRequest struct {
 	PaginationToken *string
 }
 
-func (idx *IndexConnection) ListImports(ctx context.Context, req *ListImportsRequest) (*dbDataRest.ListImportsResponse, error) {
+type ListImportsResponse struct {
+	Imports             []*Import `json:"imports,omitempty"`
+	NextPaginationToken *string   `json:"next_pagination_token,omitempty"`
+}
+
+func (idx *IndexConnection) ListImports(ctx context.Context, req *ListImportsRequest) (*ListImportsResponse, error) {
 	params := dbDataRest.ListBulkImportsParams{
 		Limit:           req.Limit,
 		PaginationToken: req.PaginationToken,
@@ -1075,13 +1099,13 @@ func (idx *IndexConnection) CancelImport(ctx context.Context, id string) error {
 	return nil
 }
 
-func decodeListImportsResponse(body io.ReadCloser) (*dbDataRest.ListImportsResponse, error) {
+func decodeListImportsResponse(body io.ReadCloser) (*ListImportsResponse, error) {
 	var listImportsResponse *dbDataRest.ListImportsResponse
 	if err := json.NewDecoder(body).Decode(&listImportsResponse); err != nil {
 		return nil, err
 	}
 
-	return listImportsResponse, nil
+	return toListImportsResponse(listImportsResponse), nil
 }
 
 func decodeImportModel(body io.ReadCloser) (*dbDataRest.ImportModel, error) {
@@ -1093,13 +1117,13 @@ func decodeImportModel(body io.ReadCloser) (*dbDataRest.ImportModel, error) {
 	return &importModel, nil
 }
 
-func decodeStartImportResponse(body io.ReadCloser) (*dbDataRest.StartImportResponse, error) {
-	var importResponse dbDataRest.StartImportResponse
+func decodeStartImportResponse(body io.ReadCloser) (*StartImportResponse, error) {
+	var importResponse *dbDataRest.StartImportResponse
 	if err := json.NewDecoder(body).Decode(&importResponse); err != nil {
 		return nil, err
 	}
 
-	return &importResponse, nil
+	return toImportResponse(importResponse), nil
 }
 
 func (idx *IndexConnection) query(ctx context.Context, req *dbDataGrpc.QueryRequest) (*QueryVectorsResponse, error) {
@@ -1182,11 +1206,59 @@ func toUsage(u *dbDataGrpc.Usage) *Usage {
 	}
 }
 
-func toPaginationToken(p *dbDataGrpc.Pagination) *string {
+func toPaginationTokenGrpc(p *dbDataGrpc.Pagination) *string {
 	if p == nil {
 		return nil
 	}
 	return &p.Next
+}
+
+func toPaginationTokenRest(p *dbDataRest.Pagination) *string {
+	if p == nil {
+		return nil
+	}
+	return p.Next
+}
+
+func toImport(importModel *dbDataRest.ImportModel) *Import {
+	if importModel == nil {
+		return nil
+	}
+
+	return &Import{
+		Id:         *importModel.Id,
+		Uri:        *importModel.Uri,
+		Status:     ImportStatus(*importModel.Status),
+		CreatedAt:  importModel.CreatedAt,
+		FinishedAt: importModel.FinishedAt,
+		Error:      importModel.Error,
+	}
+}
+
+func toImportResponse(importResponse *dbDataRest.StartImportResponse) *StartImportResponse {
+	if importResponse == nil {
+		return nil
+	}
+
+	return &StartImportResponse{
+		Id: derefOrDefault(importResponse.Id, ""),
+	}
+}
+
+func toListImportsResponse(listImportsResponse *dbDataRest.ListImportsResponse) *ListImportsResponse {
+	if listImportsResponse == nil {
+		return nil
+	}
+
+	imports := make([]*Import, len(*listImportsResponse.Data))
+	for i, importModel := range *listImportsResponse.Data {
+		imports[i] = toImport(&importModel)
+	}
+
+	return &ListImportsResponse{
+		Imports:             imports,
+		NextPaginationToken: toPaginationTokenRest(listImportsResponse.Pagination),
+	}
 }
 
 func vecToGrpc(v *Vector) *dbDataGrpc.Vector {

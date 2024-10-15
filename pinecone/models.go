@@ -1,6 +1,8 @@
 package pinecone
 
 import (
+	"time"
+
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -167,3 +169,38 @@ type MetadataFilter = structpb.Struct
 //
 // [attached to, or updated for, a vector]: https://docs.pinecone.io/guides/data/filter-with-metadata#inserting-metadata-into-an-index
 type Metadata = structpb.Struct
+
+type ImportStatus string
+
+const (
+	Cancelled  ImportStatus = "Cancelled"
+	Completed  ImportStatus = "Completed"
+	Failed     ImportStatus = "Failed"
+	InProgress ImportStatus = "InProgress"
+	Pending    ImportStatus = "Pending"
+)
+
+type ImportErrorMode string
+
+const (
+	Abort    ImportErrorMode = "abort"
+	Continue ImportErrorMode = "continue"
+)
+
+type Import struct {
+	Id string `json:"id,omitempty"`
+
+	PercentComplete float32 `json:"percent_complete,omitempty"`
+
+	RecordsImported int64 `json:"records_imported,omitempty"`
+
+	Status ImportStatus `json:"status,omitempty"`
+
+	Uri string `json:"uri,omitempty"`
+
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	Error *string `json:"error,omitempty"`
+
+	FinishedAt *time.Time `json:"finished_at,omitempty"`
+}
