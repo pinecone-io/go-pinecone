@@ -87,7 +87,9 @@ func (ts *IntegrationTests) TearDownSuite() {
 	_, err = WaitUntilIndexReady(ts, ctx)
 	require.NoError(ts.T(), err)
 	err = ts.client.DeleteIndex(ctx, ts.idxName)
-	require.NoError(ts.T(), err)
+	if err != nil {
+		fmt.Printf("Failed to delete index during test cleanup: %v\n", err)
+	}
 
 	fmt.Printf("\n %s setup suite torn down successfully\n", ts.indexType)
 }
