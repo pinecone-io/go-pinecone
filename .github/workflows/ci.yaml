@@ -34,7 +34,6 @@ jobs:
         run: |
           go get ./pinecone
       - name: Run tests
-        continue-on-error: true
         run: go test -count=1 -v ./pinecone
         env:
           PINECONE_API_KEY: ${{ secrets.API_KEY }}
