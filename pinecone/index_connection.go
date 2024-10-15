@@ -1062,21 +1062,15 @@ func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integra
 		return nil, fmt.Errorf("must specify a uri to start an import")
 	}
 
-	var errorModeStruct *db_data_rest.ImportErrorMode
-	onErrorMode := pointerOrNil(db_data_rest.ImportErrorModeOnError(*errorMode))
-
-	if onErrorMode != nil {
-		errorModeStruct = &db_data_rest.ImportErrorMode{
-			OnError: onErrorMode,
-		}
-	}
-
-	intId := pointerOrNil(*integrationId)
-
 	req := db_data_rest.StartImportRequest{
 		Uri:           &uri,
-		IntegrationId: intId,
-		ErrorMode:     errorModeStruct,
+		IntegrationId: pointerOrNil(*integrationId),
+	}
+
+	if errorMode != nil {
+		req.ErrorMode = &db_data_rest.ImportErrorMode{
+			OnError: pointerOrNil(db_data_rest.ImportErrorModeOnError(*errorMode)),
+		}
 	}
 
 	res, err := (*idx.restClient).StartBulkImport(idx.akCtx(ctx), req)
