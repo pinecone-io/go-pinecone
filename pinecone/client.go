@@ -16,7 +16,7 @@ import (
 
 	"github.com/pinecone-io/go-pinecone/internal/gen"
 	"github.com/pinecone-io/go-pinecone/internal/gen/db_control"
-	db_data "github.com/pinecone-io/go-pinecone/internal/gen/db_data/rest"
+	db_data_rest "github.com/pinecone-io/go-pinecone/internal/gen/db_data/rest"
 	"github.com/pinecone-io/go-pinecone/internal/gen/inference"
 	"github.com/pinecone-io/go-pinecone/internal/provider"
 	"github.com/pinecone-io/go-pinecone/internal/useragent"
@@ -313,7 +313,7 @@ func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*Ind
 	}
 
 	dbDataOptions := buildDataClientBaseOptions(*c.baseParams)
-	dbDataClient, err := db_data.NewClient(ensureHostHasHttps(in.Host), dbDataOptions...)
+	dbDataClient, err := db_data_rest.NewClient(ensureHostHasHttps(in.Host), dbDataOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -1550,17 +1550,17 @@ func buildInferenceBaseOptions(in NewClientBaseParams) []inference.ClientOption 
 	return clientOptions
 }
 
-func buildDataClientBaseOptions(in NewClientBaseParams) []db_data.ClientOption {
-	clientOptions := []db_data.ClientOption{}
+func buildDataClientBaseOptions(in NewClientBaseParams) []db_data_rest.ClientOption {
+	clientOptions := []db_data_rest.ClientOption{}
 	headerProviders := buildSharedProviderHeaders(in)
 
 	for _, provider := range headerProviders {
-		clientOptions = append(clientOptions, db_data.WithRequestEditorFn(provider.Intercept))
+		clientOptions = append(clientOptions, db_data_rest.WithRequestEditorFn(provider.Intercept))
 	}
 
 	// apply custom http client if provided
 	if in.RestClient != nil {
-		clientOptions = append(clientOptions, db_data.WithHTTPClient(in.RestClient))
+		clientOptions = append(clientOptions, db_data_rest.WithHTTPClient(in.RestClient))
 	}
 
 	return clientOptions
