@@ -282,13 +282,13 @@ func (ts *IntegrationTests) TestImportFlow() {
 	startRes, err := ts.idxConn.StartImport(ctx, testImportUri, nil, nil)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), startRes)
-	fmt.Printf("Import started with ID: %s\n", *startRes.Id)
+	fmt.Printf("Import started with ID: %s\n", startRes.Id)
 
 	assert.NotNil(ts.T(), startRes.Id)
-	describeRes, err := ts.idxConn.DescribeImport(ctx, *startRes.Id)
+	describeRes, err := ts.idxConn.DescribeImport(ctx, startRes.Id)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), describeRes)
-	assert.Equal(ts.T(), *startRes.Id, *describeRes.Id)
+	assert.Equal(ts.T(), startRes.Id, describeRes.Id)
 
 	limit := int32(10)
 	listRes, err := ts.idxConn.ListImports(ctx, &ListImportsRequest{
@@ -298,7 +298,7 @@ func (ts *IntegrationTests) TestImportFlow() {
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), listRes)
 
-	err = ts.idxConn.CancelImport(ctx, *startRes.Id)
+	err = ts.idxConn.CancelImport(ctx, startRes.Id)
 	assert.NoError(ts.T(), err)
 }
 
@@ -1056,7 +1056,7 @@ func TestNormalizeHostUnit(t *testing.T) {
 	}
 }
 
-func TestToPaginationToken(t *testing.T) {
+func TestToPaginationTokenGrpc(t *testing.T) {
 	tokenForNilCase := ""
 	tokenForPositiveCase := "next-token"
 
@@ -1081,7 +1081,7 @@ func TestToPaginationToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := toPaginationToken(tt.token)
+			result := toPaginationTokenGrpc(tt.token)
 			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
 		})
 	}
