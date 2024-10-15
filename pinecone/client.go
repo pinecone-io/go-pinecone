@@ -33,13 +33,10 @@ import (
 //
 // Fields:
 //   - Inference: An InferenceService object that exposes methods for interacting with the Pinecone [Inference API].
-//   - headers: An optional map of HTTP headers to include in each API request, provided through
-//     NewClientParams.Headers or NewClientBaseParams.Headers.
 //   - restClient: Optional underlying *http.Client object used to communicate with the Pinecone API,
 //     provided through NewClientParams.RestClient or NewClientBaseParams.RestClient. If not provided,
 //     a default client is created for you.
-//   - sourceTag: An optional string used to help Pinecone attribute API activity, provided through NewClientParams.SourceTag
-//     or NewClientBaseParams.SourceTag.
+//   - baseParams: A NewClientBaseParams object that holds the configuration for the Pinecone client.
 //
 // Example:
 //
@@ -72,10 +69,8 @@ import (
 // [docs.pinecone.io/reference/api]: https://docs.pinecone.io/reference/api/control-plane/list_indexes
 // [Inference API]: https://docs.pinecone.io/reference/api/2024-07/inference/generate-embeddings
 type Client struct {
-	Inference *InferenceService
-	// headers    map[string]string
+	Inference  *InferenceService
 	restClient *db_control.Client
-	// sourceTag  string
 	baseParams *NewClientBaseParams
 }
 
@@ -236,8 +231,6 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 	c := Client{
 		Inference:  &InferenceService{client: inferenceClient},
 		restClient: dbControlClient,
-		// sourceTag:  in.SourceTag,
-		// headers:    in.Headers,
 		baseParams: &in,
 	}
 	return &c, nil
