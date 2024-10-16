@@ -317,10 +317,11 @@ func (ts *IntegrationTests) TestRerankDocument() {
 	ctx := context.Background()
 	rerankModel := "bge-reranker-v2-m3"
 	topN := 4
+	retunDocuments := true
 	ranking, err := ts.client.Inference.Rerank(ctx, &RerankRequest{
 		Model:           rerankModel,
 		Query:           "i love cats",
-		ReturnDocuments: nil,
+		ReturnDocuments: &retunDocuments,
 		TopN:            &topN,
 		RankFields:      &[]string{"text"},
 		Documents: []Document{

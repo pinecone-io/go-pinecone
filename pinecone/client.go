@@ -1261,7 +1261,7 @@ type InferenceService struct {
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - in: A pointer to an EmbedRequest object that contains the model t4o use for embedding generation, the
+//   - in: A pointer to an EmbedRequest object that contains the model to use for embedding generation, the
 //     list of input strings to generate embeddings for, and any additional parameters to use for generation.
 //
 // Returns a pointer to an EmbeddingsList object or an error.
@@ -1343,78 +1343,102 @@ func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*infere
 	return decodeEmbeddingsList(res.Body)
 }
 
+// Document is a map representing the document to be reranked.
 type Document map[string]string
 
-// RerankRequest holds the parameters for reranking a list of documents based on a query.
+// RerankRequest holds the parameters for calling [InferenceService.Rerank] and reranking documents
+// by a specified query and model.
 //
 // Fields:
-//   - Model: (Required) The model to use for reranking.
-//   - Query: (Required) The query string to use for reranking the documents.
-//   - ReturnDocuments: (Required) A boolean indicating whether to return the documents in the response.
-//   - TopN: (Required) The number of top documents to return after reranking.
+//   - Model: "The [model] to use for reranking.
+//   - Query: (Required) The query to compare with documents.
 //   - Documents: (Required) A list of Document objects to be reranked.
+//   - RankFields: (Optional) A list of document fields to use for ranking.
+//   - ReturnDocuments: (Optional) Whether to include documents in the response. Defaults to true.
+//   - TopN: (Optional) How many documents to return. Defaults to the length of input Documents.
+//   - Parameters: (Optional) Additional model-specific parameters for the reranker
+//
+// [model]: https://docs.pinecone.io/guides/inference/understanding-inference#models
 type RerankRequest struct {
-	Documents       []Document
 	Model           string
 	Query           string
-	Parameters      *map[string]string
+	Documents       []Document
 	RankFields      *[]string
 	ReturnDocuments *bool
 	TopN            *int
+	Parameters      *map[string]string
 }
 
-type RerankResult struct {
-	Document *Document        `json:"document,omitempty"`
-	Index    IntegrationTests `json:"index"`
-	Score    float32          `json:"score"`
-}
-
-type RerankResponse struct {
-	Data  []RerankResult `json:"data,omitempty"`
-	Model string         `json:"model,omitempty"`
-	Usage RerankUsage    `json:"usage"`
-}
-
-// Rerank processes the reranking of documents based on the provided query and model.
+// Represents a ranked document with a relevance score and an index position.
 //
 // Fields:
-//   - Model: The model to use for reranking.
-//   - Query: The query to base the reranking on.
-//   - ReturnDocuments: A boolean indicating whether to return the documents.
-//   - TopN: The number of top documents to return.
-//   - Documents: A list of documents to be reranked.
+//   - Document: The [Document].
+//   - Index: The index position of the document from the original request. This can be used
+//     to locate the position of the document relative to others described in the request.
+//   - Score: The relevance score of the document indicating how closely it matches the query.
+type RankedDocument struct {
+	Document *Document `json:"document,omitempty"`
+	Index    int       `json:"index"`
+	Score    float32   `json:"score"`
+}
+
+// RerankResponse is the result of a reranking operation.
+//
+// Fields:
+//   - Data: A list of documents which have been reranked. The documents are sorted in order of relevance,
+//     with the first being the most relevant.
+//   - Model: The model used to rerank documents.
+//   - Usage: Usage statistics for the reranking operation.
+type RerankResponse struct {
+	Data  []RankedDocument `json:"data,omitempty"`
+	Model string           `json:"model"`
+	Usage RerankUsage      `json:"usage"`
+}
+
+// Rerank documents with associated relevance scores that represent the relevance of each document
+// to the provided query using the specified model.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime, allowing for the request
+//     to be canceled or to timeout according to the context's deadline.
+//   - in: A pointer to a [RerankRequest] object that contains the model, query, and documents to use for reranking.
 //
 // Example:
 //
-//	    ctx := context.Background()
+//	     ctx := context.Background()
 //
-//	    clientParams := pinecone.NewClientParams{
-//		       ApiKey: "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
-//	    }
+//	     clientParams := pinecone.NewClientParams{
+//		        ApiKey:    "YOUR_API_KEY",
+//		        SourceTag: "your_source_identifier", // optional
+//	     }
 //
-//	    pc, err := pinecone.NewClient(clientParams)
+//	     pc, err := pinecone.NewClient(clientParams)
+//	     if err != nil {
+//		        log.Fatalf("Failed to create Client: %v", err)
+//	     }
 //
-//	    if err !=  nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
-//	    }
+//	     rerankModel := "bge-reranker-v2-m3"
+//	     topN := 2
+//	     retunDocuments := true
+//	     documents := []pinecone.Document{
+//		        {"id": "vec1", "text": "Apple is a popular fruit known for its sweetness and crisp texture."},
+//		        {"id": "vec2", "text": "Many people enjoy eating apples as a healthy snack."},
+//		        {"id": "vec3", "text": "Apple Inc. has revolutionized the tech industry with its sleek designs and user-friendly interfaces."},
+//		        {"id": "vec4", "text": "An apple a day keeps the doctor away, as the saying goes."},
+//	     }
 //
-//	    in := pinecone.RerankRequest{
-//		       Model:           "your_model",
-//		       Query:           "your_query",
-//		       ReturnDocuments: true,
-//		       TopN:            5,
-//		       Documents:       []pinecone.Document{{Id: "doc1", Text: "text1"}, {Id: "doc2", Text: "text2"}},
-//	    }
-//
-//	    res, err := pc.Inference.Rerank(ctx, in)
-//	    if err != nil {
-//		       log.Fatalf("Failed to rerank: %v", err)
-//	    } else {
-//		       fmt.Printf("Successfully reranked documents: %+v", res)
-//	    }
+//	     ranking, err := pc.Inference.Rerank(ctx, &pinecone.RerankRequest{
+//		        Model:           rerankModel,
+//		        Query:           "i love cats",
+//		        ReturnDocuments: &retunDocuments,
+//		        TopN:            &topN,
+//		        RankFields:      &[]string{"text"},
+//		        Documents:       documents,
+//	     })
+//	     if err != nil {
+//		        log.Fatalf("Failed to rerank: %v", err)
+//	     }
+//	     fmt.Printf("Rerank result: %+v\n", ranking)
 func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*RerankResponse, error) {
 	convertedDocuments := make([]inference.Document, len(in.Documents))
 	for i, doc := range in.Documents {
@@ -1433,9 +1457,9 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return nil, handleErrorResponseBody(res, "failed to embed: ")
+		return nil, handleErrorResponseBody(res, "failed to rerank: ")
 	}
-	return decodeRerankList(res.Body)
+	return decodeRerankResponse(res.Body)
 }
 
 func (c *Client) extractAuthHeader() map[string]string {
@@ -1518,7 +1542,7 @@ func decodeEmbeddingsList(resBody io.ReadCloser) (*inference.EmbeddingsList, err
 	return &embeddingsList, nil
 }
 
-func decodeRerankList(resBody io.ReadCloser) (*RerankResponse, error) {
+func decodeRerankResponse(resBody io.ReadCloser) (*RerankResponse, error) {
 	var rerankResponse RerankResponse
 	err := json.NewDecoder(resBody).Decode(&rerankResponse)
 	if err != nil {
