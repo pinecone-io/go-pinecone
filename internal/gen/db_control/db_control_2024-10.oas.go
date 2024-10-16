@@ -53,6 +53,7 @@ const (
 	NOTFOUND            ErrorResponseErrorCode = "NOT_FOUND"
 	OK                  ErrorResponseErrorCode = "OK"
 	OUTOFRANGE          ErrorResponseErrorCode = "OUT_OF_RANGE"
+	PAYMENTREQUIRED     ErrorResponseErrorCode = "PAYMENT_REQUIRED"
 	PERMISSIONDENIED    ErrorResponseErrorCode = "PERMISSION_DENIED"
 	QUOTAEXCEEDED       ErrorResponseErrorCode = "QUOTA_EXCEEDED"
 	RESOURCEEXHAUSTED   ErrorResponseErrorCode = "RESOURCE_EXHAUSTED"
@@ -131,6 +132,9 @@ type ConfigureIndexRequest struct {
 			Replicas *int32 `json:"replicas,omitempty"`
 		} `json:"pod"`
 	} `json:"spec,omitempty"`
+
+	// Tags Custom user tags added to an index. Keys must be alphanumeric and 80 characters or less. Values must be 120 characters or less.
+	Tags *IndexTags `json:"tags,omitempty"`
 }
 
 // CreateCollectionRequest The configuration needed to create a Pinecone collection.
@@ -160,6 +164,9 @@ type CreateIndexRequest struct {
 	//
 	// For serverless indexes, you define only the [cloud and region](http://docs.pinecone.io/guides/indexes/understanding-indexes#cloud-regions) where the index should be hosted. For pod-based indexes, you define the [environment](http://docs.pinecone.io/guides/indexes/understanding-indexes#pod-environments) where the index should be hosted, the [pod type and size](http://docs.pinecone.io/guides/indexes/understanding-indexes#pod-types) to use, and other index characteristics.
 	Spec IndexSpec `json:"spec"`
+
+	// Tags Custom user tags added to an index. Keys must be alphanumeric and 80 characters or less. Values must be 120 characters or less.
+	Tags *IndexTags `json:"tags,omitempty"`
 }
 
 // CreateIndexRequestMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
@@ -218,6 +225,9 @@ type IndexModel struct {
 		Ready bool                  `json:"ready"`
 		State IndexModelStatusState `json:"state"`
 	} `json:"status"`
+
+	// Tags Custom user tags added to an index. Keys must be alphanumeric and 80 characters or less. Values must be 120 characters or less.
+	Tags *IndexTags `json:"tags,omitempty"`
 }
 
 // IndexModelMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
@@ -243,6 +253,9 @@ type IndexSpec0 = interface{}
 
 // IndexSpec1 defines model for .
 type IndexSpec1 = interface{}
+
+// IndexTags Custom user tags added to an index. Keys must be alphanumeric and 80 characters or less. Values must be 120 characters or less.
+type IndexTags map[string]*string
 
 // PodSpec Configuration needed to deploy a pod-based index.
 type PodSpec struct {
@@ -1077,6 +1090,7 @@ type CreateCollectionResponse struct {
 	JSON201      *CollectionModel
 	JSON400      *ErrorResponse
 	JSON401      *ErrorResponse
+	JSON402      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON409      *ErrorResponse
 	JSON422      *ErrorResponse
@@ -1178,6 +1192,7 @@ type CreateIndexResponse struct {
 	JSON201      *IndexModel
 	JSON400      *ErrorResponse
 	JSON401      *ErrorResponse
+	JSON402      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
@@ -1257,6 +1272,7 @@ type ConfigureIndexResponse struct {
 	JSON202      *IndexModel
 	JSON400      *ErrorResponse
 	JSON401      *ErrorResponse
+	JSON402      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON422      *ErrorResponse
@@ -1459,6 +1475,13 @@ func ParseCreateCollectionResponse(rsp *http.Response) (*CreateCollectionRespons
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 402:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON402 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -1654,6 +1677,13 @@ func ParseCreateIndexResponse(rsp *http.Response) (*CreateIndexResponse, error) 
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 402:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON402 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -1822,6 +1852,13 @@ func ParseConfigureIndexResponse(rsp *http.Response) (*ConfigureIndexResponse, e
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 402:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON402 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest ErrorResponse

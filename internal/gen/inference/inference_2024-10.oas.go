@@ -45,12 +45,12 @@ type Document map[string]string
 
 // EmbedRequest defines model for EmbedRequest.
 type EmbedRequest struct {
-	// Inputs List of inputs to generate embeddings for that varies by model
+	// Inputs List of inputs to generate embeddings for.
 	Inputs []struct {
 		Text *string `json:"text,omitempty"`
 	} `json:"inputs"`
 
-	// Model Model name to use for embedding generation.
+	// Model The [model](https://docs.pinecone.io/guides/inference/understanding-inference#models) to use for embedding generation.
 	Model string `json:"model"`
 
 	// Parameters Model-specific parameters.
@@ -58,7 +58,7 @@ type EmbedRequest struct {
 		// InputType Common property used to distinguish between types of data.
 		InputType *string `json:"input_type,omitempty"`
 
-		// Truncate How to handle inputs longer than those supported by the model. If NONE, when the input exceeds the maximum input token length an error will be returned.
+		// Truncate How to handle inputs longer than those supported by the model. If `"END"`, truncate the input sequence at the token limit. If `"NONE"`, return an error when the input exceeds the token limit.
 		Truncate *string `json:"truncate,omitempty"`
 	} `json:"parameters,omitempty"`
 }
@@ -71,15 +71,15 @@ type Embedding struct {
 
 // EmbeddingsList Embeddings generated for the input
 type EmbeddingsList struct {
-	// Data The embeddings generated for the inputs
+	// Data The embeddings generated for the inputs.
 	Data []Embedding `json:"data"`
 
 	// Model The model used to generate the embeddings
 	Model string `json:"model"`
 
-	// Usage Usage statistics for model inference including any instruction prefixes
+	// Usage Usage statistics for the model inference.
 	Usage struct {
-		// TotalTokens Total number tokens consumed across all inputs
+		// TotalTokens Total number of tokens consumed across all inputs.
 		TotalTokens *int `json:"total_tokens,omitempty"`
 	} `json:"usage"`
 }
@@ -102,16 +102,30 @@ type ErrorResponse struct {
 // ErrorResponseErrorCode defines model for ErrorResponse.Error.Code.
 type ErrorResponseErrorCode string
 
-// RankResult Reranking score of single input
-type RankResult struct {
+// RankedDocument A ranked document with a relevance score and an index position.
+type RankedDocument struct {
 	// Document Document for reranking
 	Document *Document `json:"document,omitempty"`
 
-	// Index The index of the document in the input list
+	// Index The index of the document
 	Index int `json:"index"`
 
 	// Score The relevance score of the document normalized between 0 and 1.
 	Score float32 `json:"score"`
+}
+
+// RerankResult The result of a reranking request.
+type RerankResult struct {
+	// Data The reranked documents.
+	Data []RankedDocument `json:"data"`
+
+	// Model The model used to rerank documents.
+	Model string `json:"model"`
+
+	// Usage Usage statistics for the model inference.
+	Usage struct {
+		RerankUnits *int `json:"rerank_units,omitempty"`
+	} `json:"usage"`
 }
 
 // RerankJSONBody defines parameters for Rerank.
@@ -119,16 +133,16 @@ type RerankJSONBody struct {
 	// Documents The documents to rerank.
 	Documents []Document `json:"documents"`
 
-	// Model Model to use for reranking.
+	// Model The [model](https://docs.pinecone.io/guides/inference/understanding-inference#models) to use for reranking.
 	Model string `json:"model"`
 
-	// Parameters Additional model specific parameters for the reranker.
+	// Parameters Additional model-specific parameters for the reranker.
 	Parameters *map[string]string `json:"parameters,omitempty"`
 
 	// Query The query to rerank documents against.
 	Query string `json:"query"`
 
-	// RankFields The fields to rank the documents by. If not provided the default is text.
+	// RankFields The fields to rank the documents by. If not provided, the default is `"text"`.
 	RankFields *[]string `json:"rank_fields,omitempty"`
 
 	// ReturnDocuments Whether to return the documents in the response.
@@ -438,21 +452,10 @@ func (r EmbedResponse) StatusCode() int {
 type RerankResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		// Data The reranked documents
-		Data []RankResult `json:"data"`
-
-		// Model The model used for reranking
-		Model string `json:"model"`
-
-		// Usage Usage statistics for the inference
-		Usage struct {
-			RerankUnits *int `json:"rerank_units,omitempty"`
-		} `json:"usage"`
-	}
-	JSON400 *ErrorResponse
-	JSON401 *ErrorResponse
-	JSON500 *ErrorResponse
+	JSON200      *RerankResult
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON500      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -567,18 +570,7 @@ func ParseRerankResponse(rsp *http.Response) (*RerankResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			// Data The reranked documents
-			Data []RankResult `json:"data"`
-
-			// Model The model used for reranking
-			Model string `json:"model"`
-
-			// Usage Usage statistics for the inference
-			Usage struct {
-				RerankUnits *int `json:"rerank_units,omitempty"`
-			} `json:"usage"`
-		}
+		var dest RerankResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
