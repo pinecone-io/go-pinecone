@@ -1343,15 +1343,7 @@ func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*infere
 	return decodeEmbeddingsList(res.Body)
 }
 
-// Document represents a single document to be reranked.
-//
-// Fields:
-//   - ID: (Required) The unique identifier of the document.
-//   - Text: (Required) The text content of the document.
-type Document struct {
-	Id   string
-	Text string
-}
+type Document map[string]string
 
 // RerankRequest holds the parameters for reranking a list of documents based on a query.
 //
@@ -1362,23 +1354,25 @@ type Document struct {
 //   - TopN: (Required) The number of top documents to return after reranking.
 //   - Documents: (Required) A list of Document objects to be reranked.
 type RerankRequest struct {
+	Documents       []Document
 	Model           string
 	Query           string
-	ReturnDocuments bool
-	TopN            int
-	Documents       []Document
+	Parameters      *map[string]string
+	RankFields      *[]string
+	ReturnDocuments *bool
+	TopN            *int
 }
 
-type RankResult struct {
+type RerankResult struct {
 	Document *Document        `json:"document,omitempty"`
 	Index    IntegrationTests `json:"index"`
 	Score    float32          `json:"score"`
 }
 
 type RerankResponse struct {
-	Data  []RankResult `json:"data,omitempty"`
-	Model string       `json:"model,omitempty"`
-	Usage RerankUsage  `json:"usage"`
+	Data  []RerankResult `json:"data,omitempty"`
+	Model string         `json:"model,omitempty"`
+	Usage RerankUsage    `json:"usage"`
 }
 
 // Rerank processes the reranking of documents based on the provided query and model.
@@ -1422,20 +1416,15 @@ type RerankResponse struct {
 //		       fmt.Printf("Successfully reranked documents: %+v", res)
 //	    }
 func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*RerankResponse, error) {
-
-	if len(in.Documents) <= 2 {
-		return nil, fmt.Errorf("documents must contain at least more than two value")
-	}
-	// Convert documents to the expected type
 	convertedDocuments := make([]inference.Document, len(in.Documents))
 	for i, doc := range in.Documents {
-		convertedDocuments[i] = inference.Document{"Id": doc.Id, "Text": doc.Text}
+		convertedDocuments[i] = inference.Document(doc)
 	}
 	req := inference.RerankJSONRequestBody{
 		Model:           in.Model,
 		Query:           in.Query,
-		ReturnDocuments: &in.ReturnDocuments,
-		TopN:            &in.TopN,
+		ReturnDocuments: in.ReturnDocuments,
+		TopN:            in.TopN,
 		Documents:       convertedDocuments,
 	}
 	res, err := i.client.Rerank(ctx, req)
