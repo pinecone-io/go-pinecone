@@ -271,7 +271,7 @@ func (ts *IntegrationTests) TestUpdateVectorSparseValues() {
 	assert.ElementsMatch(ts.T(), expectedSparseValues.Values, actualSparseValues, "Sparse values do not match")
 }
 
-func (ts *IntegrationTests) TestImportFlow() {
+func (ts *IntegrationTests) TestImportFlowHappyPath() {
 	if ts.indexType != "serverless" {
 		ts.T().Skip("Skipping import flow test for non-serverless index")
 	}
@@ -282,7 +282,6 @@ func (ts *IntegrationTests) TestImportFlow() {
 	startRes, err := ts.idxConn.StartImport(ctx, testImportUri, nil, nil)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), startRes)
-	fmt.Printf("Import started with ID: %s\n", startRes.Id)
 
 	assert.NotNil(ts.T(), startRes.Id)
 	describeRes, err := ts.idxConn.DescribeImport(ctx, startRes.Id)
@@ -297,6 +296,17 @@ func (ts *IntegrationTests) TestImportFlow() {
 
 	err = ts.idxConn.CancelImport(ctx, startRes.Id)
 	assert.NoError(ts.T(), err)
+}
+
+func (ts *IntegrationTests) TestImportFlowNoUriError() {
+	if ts.indexType != "serverless" {
+		ts.T().Skip("Skipping import flow test for non-serverless index")
+	}
+
+	ctx := context.Background()
+	_, err := ts.idxConn.StartImport(ctx, "", nil, nil)
+	assert.Error(ts.T(), err)
+	assert.Contains(ts.T(), err.Error(), "must specify a uri")
 }
 
 // Unit tests:
