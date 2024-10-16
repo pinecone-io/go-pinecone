@@ -227,12 +227,14 @@ func (ts *IntegrationTests) TestUpdateVectorMetadata() {
 	})
 	assert.NoError(ts.T(), err)
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	vector, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
 	if err != nil {
 		ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
 	}
+
+	assert.NotNil(ts.T(), vector.Vectors[ts.vectorIds[0]].Metadata, "Metadata is nil after update")
 
 	expectedGenre := expectedMetadataMap.Fields["genre"].GetStringValue()
 	actualGenre := vector.Vectors[ts.vectorIds[0]].Metadata.Fields["genre"].GetStringValue()
