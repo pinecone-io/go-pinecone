@@ -1012,8 +1012,8 @@ type StartImportResponse struct {
 }
 
 // StartImport imports data from a storage provider into an index. The uri parameter must start with the
-// schema of a supported storage provider. For buckets that are not publicly readable, you will also need to
-// separately configure a storage integration and pass the integration id.
+// schema of a supported storage provider (e.g. "s3://"). For buckets that are not publicly readable, you will also need to
+// separately configure a [storage integration] and pass the integration id.
 //
 // Returns a pointer to a StartImportResponse object with the import ID or an error if the request fails.
 //
@@ -1057,6 +1057,8 @@ type StartImportResponse struct {
 //	         log.Fatalf("Failed to start import: %v", err)
 //	     }
 //	     fmt.Printf("import starteed with ID: %s", importRes.Id)
+//
+// [storage integration]: https://docs.pinecone.io/guides/operations/integrations/manage-storage-integrations
 func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integrationId *string, errorMode *ImportErrorMode) (*StartImportResponse, error) {
 	if uri == "" {
 		return nil, fmt.Errorf("must specify a uri to start an import")
@@ -1093,8 +1095,8 @@ func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integra
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - id: The id of the import operation. This is returned when you call StartImport, or can be retrieved
-//     through the ListImports method.
+//   - id: The id of the import operation. This is returned when you call [IndexConnection.StartImport], or can be retrieved
+//     through the [IndexConnection.ListImports] method.
 //
 // Example:
 //
