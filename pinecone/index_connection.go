@@ -1012,7 +1012,7 @@ type StartImportResponse struct {
 }
 
 // StartImport imports data from a storage provider into an index. The uri parameter must start with the
-// schema of a supported storage provider (e.g. "s3://"). For buckets that are not publicly readable, you will also need to
+// scheme of a supported storage provider (e.g. "s3://"). For buckets that are not publicly readable, you will also need to
 // separately configure a [storage integration] and pass the integration id.
 //
 // Returns a pointer to a StartImportResponse object with the import ID or an error if the request fails.
