@@ -388,9 +388,9 @@ func TestNewClientParamsSetUnit(t *testing.T) {
 	client, err := NewClient(NewClientParams{ApiKey: apiKey})
 
 	require.NoError(t, err)
-	require.Empty(t, client.sourceTag, "Expected client to have empty sourceTag")
-	require.NotNil(t, client.headers, "Expected client headers to not be nil")
-	apiKeyHeader, ok := client.headers["Api-Key"]
+	require.Empty(t, client.baseParams.SourceTag, "Expected client to have empty sourceTag")
+	require.NotNil(t, client.baseParams.Headers, "Expected client headers to not be nil")
+	apiKeyHeader, ok := client.baseParams.Headers["Api-Key"]
 	require.True(t, ok, "Expected client to have an 'Api-Key' header")
 	require.Equal(t, apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
 	require.Equal(t, 3, len(client.restClient.RequestEditors), "Expected client to have correct number of request editors")
@@ -405,10 +405,10 @@ func TestNewClientParamsSetSourceTagUnit(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	apiKeyHeader, ok := client.headers["Api-Key"]
+	apiKeyHeader, ok := client.baseParams.Headers["Api-Key"]
 	require.True(t, ok, "Expected client to have an 'Api-Key' header")
 	require.Equal(t, apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
-	require.Equal(t, sourceTag, client.sourceTag, "Expected client to have sourceTag '%s', but got '%s'", sourceTag, client.sourceTag)
+	require.Equal(t, sourceTag, client.baseParams.SourceTag, "Expected client to have sourceTag '%s', but got '%s'", sourceTag, client.baseParams.SourceTag)
 	require.Equal(t, 3, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 2, len(client.restClient.RequestEditors))
 }
 
@@ -418,10 +418,10 @@ func TestNewClientParamsSetHeadersUnit(t *testing.T) {
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, Headers: headers})
 
 	require.NoError(t, err)
-	apiKeyHeader, ok := client.headers["Api-Key"]
+	apiKeyHeader, ok := client.baseParams.Headers["Api-Key"]
 	require.True(t, ok, "Expected client to have an 'Api-Key' header")
 	require.Equal(t, apiKey, apiKeyHeader, "Expected 'Api-Key' header to match provided ApiKey")
-	require.Equal(t, client.headers, headers, "Expected client to have headers '%+v', but got '%+v'", headers, client.headers)
+	require.Equal(t, client.baseParams.Headers, headers, "Expected client to have headers '%+v', but got '%+v'", headers, client.baseParams.Headers)
 	require.Equal(t, 4, len(client.restClient.RequestEditors), "Expected client to have %s request editors, but got %s", 3, len(client.restClient.RequestEditors))
 }
 
@@ -1072,7 +1072,7 @@ func TestNewClientUnit(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, client)
-				assert.Equal(t, tc.expectedHeaders, client.headers, "Expected headers to be '%v', but got '%v'", tc.expectedHeaders, client.headers)
+				assert.Equal(t, tc.expectedHeaders, client.baseParams.Headers, "Expected headers to be '%v', but got '%v'", tc.expectedHeaders, client.baseParams.Headers)
 			}
 		})
 	}

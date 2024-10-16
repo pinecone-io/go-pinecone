@@ -87,7 +87,20 @@ func (ts *IntegrationTests) TearDownSuite() {
 	_, err = WaitUntilIndexReady(ts, ctx)
 	require.NoError(ts.T(), err)
 	err = ts.client.DeleteIndex(ctx, ts.idxName)
-	require.NoError(ts.T(), err)
+
+	// If the index failed to delete, wait a bit and retry cleaning up
+	// Somtimes indexes are stuck upgrading, or have pending collections
+	retry := 4
+	for err != nil && retry > 0 {
+		time.Sleep(5 * time.Second)
+		fmt.Printf("Failed to delete index \"%s\". Retrying... (%d/4)\n", ts.idxName, 5-retry)
+		err = ts.client.DeleteIndex(ctx, ts.idxName)
+		retry--
+	}
+
+	if err != nil {
+		fmt.Printf("Failed to delete index \"%s\" after 4 retries: %v\n", ts.idxName, err)
+	}
 
 	fmt.Printf("\n %s setup suite torn down successfully\n", ts.indexType)
 }

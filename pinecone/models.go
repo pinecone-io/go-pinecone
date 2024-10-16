@@ -1,6 +1,8 @@
 package pinecone
 
 import (
+	"time"
+
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -167,3 +169,55 @@ type MetadataFilter = structpb.Struct
 //
 // [attached to, or updated for, a vector]: https://docs.pinecone.io/guides/data/filter-with-metadata#inserting-metadata-into-an-index
 type Metadata = structpb.Struct
+
+// ImportStatus represents the status of an import operation.
+//
+// Values:
+//   - Cancelled: The import was canceled.
+//   - Completed: The import completed successfully.
+//   - Failed: The import encountered an error and did not complete successfully.
+//   - InProgress: The import is currently in progress.
+//   - Pending: The import is pending and has not yet started.
+type ImportStatus string
+
+const (
+	Cancelled  ImportStatus = "Cancelled"
+	Completed  ImportStatus = "Completed"
+	Failed     ImportStatus = "Failed"
+	InProgress ImportStatus = "InProgress"
+	Pending    ImportStatus = "Pending"
+)
+
+// ImportErrorMode specifies how errors are handled during an import.
+//
+// Values:
+//   - Abort: The import process will abort upon encountering an error.
+//   - Continue: The import process will continue, skipping over records that produce errors.
+type ImportErrorMode string
+
+const (
+	Abort    ImportErrorMode = "abort"
+	Continue ImportErrorMode = "continue"
+)
+
+// Import represents the details and status of a bulk import process.
+//
+// Fields:
+//   - Id: The unique identifier of the import process.
+//   - PercentComplete: The percentage of the import process that has been completed.
+//   - RecordsImported: The total number of records successfully imported.
+//   - Status: The current status of the import (e.g., "InProgress", "Completed", "Failed").
+//   - Uri: The URI of the source data for the import.
+//   - CreatedAt: The time at which the import process was initiated.
+//   - FinishedAt: The time at which the import process finished (either successfully or with an error).
+//   - Error: If the import failed, contains the error message associated with the failure.
+type Import struct {
+	Id              string       `json:"id,omitempty"`
+	PercentComplete float32      `json:"percent_complete,omitempty"`
+	RecordsImported int64        `json:"records_imported,omitempty"`
+	Status          ImportStatus `json:"status,omitempty"`
+	Uri             string       `json:"uri,omitempty"`
+	CreatedAt       *time.Time   `json:"created_at,omitempty"`
+	FinishedAt      *time.Time   `json:"finished_at,omitempty"`
+	Error           *string      `json:"error,omitempty"`
+}
