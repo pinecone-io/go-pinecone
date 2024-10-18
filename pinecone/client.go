@@ -1450,9 +1450,11 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 	req := inference.RerankJSONRequestBody{
 		Model:           in.Model,
 		Query:           in.Query,
+		Documents:       convertedDocuments,
+		RankFields:      in.RankFields,
 		ReturnDocuments: in.ReturnDocuments,
 		TopN:            in.TopN,
-		Documents:       convertedDocuments,
+		Parameters:      in.Parameters,
 	}
 	res, err := i.client.Rerank(ctx, req)
 	if err != nil {
