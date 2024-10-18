@@ -160,7 +160,7 @@ type Usage struct {
 
 // RerankUsage is the usage stats ([Rerank Units]) for a reranking request.
 //
-// [Read Units]: https://docs.pinecone.io/guides/organizations/manage-cost/understanding-cost#rerank
+// [Rerank Units]: https://docs.pinecone.io/guides/organizations/manage-cost/understanding-cost#rerank
 type RerankUsage struct {
 	RerankUnits *int `json:"rerank_units,omitempty"`
 }
