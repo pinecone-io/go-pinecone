@@ -158,6 +158,13 @@ type Usage struct {
 	ReadUnits uint32 `json:"read_units"`
 }
 
+// RerankUsage is the usage stats ([Rerank Units]) for a reranking request.
+//
+// [Rerank Units]: https://docs.pinecone.io/guides/organizations/manage-cost/understanding-cost#rerank
+type RerankUsage struct {
+	RerankUnits *int `json:"rerank_units,omitempty"`
+}
+
 // MetadataFilter represents the [metadata filters] attached to a Pinecone request.
 // These optional metadata filters are applied to query and deletion requests.
 //

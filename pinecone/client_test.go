@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/internal/gen"
 	"github.com/pinecone-io/go-pinecone/internal/gen/db_control"
 	"github.com/pinecone-io/go-pinecone/internal/provider"
 
-	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/internal/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -277,6 +277,11 @@ func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 }
 
 func (ts *IntegrationTests) TestGenerateEmbeddings() {
+	// Run Embed tests once rather than duplicating across serverless & pods
+	if ts.indexType == "pod" {
+		ts.T().Skip("Skipping Embed tests for pods")
+	}
+
 	ctx := context.Background()
 	embeddingModel := "multilingual-e5-large"
 	embeddings, err := ts.client.Inference.Embed(ctx, &EmbedRequest{
@@ -311,6 +316,164 @@ func (ts *IntegrationTests) TestGenerateEmbeddingsInvalidInputs() {
 
 	require.Error(ts.T(), err)
 	require.Contains(ts.T(), err.Error(), "TextInputs must contain at least one value")
+}
+
+func (ts *IntegrationTests) TestRerankDocumentDefaultField() {
+	// Run Rerank tests once rather than duplicating across serverless & pods
+	if ts.indexType == "pod" {
+		ts.T().Skip("Skipping Rerank tests for pods")
+	}
+
+	ctx := context.Background()
+	rerankModel := "bge-reranker-v2-m3"
+	topN := 2
+	retunDocuments := true
+	ranking, err := ts.client.Inference.Rerank(ctx, &RerankRequest{
+		Model:           rerankModel,
+		Query:           "i love apples",
+		ReturnDocuments: &retunDocuments,
+		TopN:            &topN,
+		Documents: []Document{
+			{"id": "vec1", "text": "Apple is a popular fruit known for its sweetness and crisp texture."},
+			{"id": "vec2", "text": "Many people enjoy eating apples as a healthy snack."},
+			{"id": "vec3", "text": "Apple Inc. has revolutionized the tech industry with its sleek designs and user-friendly interfaces."},
+			{"id": "vec4", "text": "An apple a day keeps the doctor away, as the saying goes."},
+		}})
+
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), ranking, "Expected reranking result to be non-nil")
+	require.Equal(ts.T(), topN, len(ranking.Data), "Expected %v rankings", topN)
+
+	doc := *ranking.Data[0].Document
+	_, exists := doc["text"]
+	require.True(ts.T(), exists, "Expected '%s' to exist in Document map", "text")
+	_, exists = doc["id"]
+	require.True(ts.T(), exists, "Expected '%s' to exist in Document map", "id")
+}
+
+func (ts *IntegrationTests) TestRerankDocumentCustomField() {
+	// Run Rerank tests once rather than duplicating across serverless & pods
+	if ts.indexType == "pod" {
+		ts.T().Skip("Skipping Rerank tests for pods")
+	}
+
+	ctx := context.Background()
+	rerankModel := "bge-reranker-v2-m3"
+	topN := 2
+	retunDocuments := true
+	ranking, err := ts.client.Inference.Rerank(ctx, &RerankRequest{
+		Model:           rerankModel,
+		Query:           "i love apples",
+		ReturnDocuments: &retunDocuments,
+		TopN:            &topN,
+		RankFields:      &[]string{"customField"},
+		Documents: []Document{
+			{"id": "vec1", "customField": "Apple is a popular fruit known for its sweetness and crisp texture."},
+			{"id": "vec2", "customField": "Many people enjoy eating apples as a healthy snack."},
+			{"id": "vec3", "customField": "Apple Inc. has revolutionized the tech industry with its sleek designs and user-friendly interfaces."},
+			{"id": "vec4", "customField": "An apple a day keeps the doctor away, as the saying goes."},
+		}})
+
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), ranking, "Expected reranking result to be non-nil")
+	require.Equal(ts.T(), topN, len(ranking.Data), "Expected %v rankings", topN)
+
+	doc := *ranking.Data[0].Document
+	_, exists := doc["customField"]
+	require.True(ts.T(), exists, "Expected '%s' to exist in Document map", "customField")
+	_, exists = doc["id"]
+	require.True(ts.T(), exists, "Expected '%s' to exist in Document map", "id")
+}
+
+func (ts *IntegrationTests) TestRerankDocumentAllDefaults() {
+	// Run Rerank tests once rather than duplicating across serverless & pods
+	if ts.indexType == "pod" {
+		ts.T().Skip("Skipping Rerank tests for pods")
+	}
+
+	ctx := context.Background()
+	rerankModel := "bge-reranker-v2-m3"
+	ranking, err := ts.client.Inference.Rerank(ctx, &RerankRequest{
+		Model: rerankModel,
+		Query: "i love apples",
+		Documents: []Document{
+			{"id": "vec1", "text": "Apple is a popular fruit known for its sweetness and crisp texture."},
+			{"id": "vec2", "text": "Many people enjoy eating apples as a healthy snack."},
+			{"id": "vec3", "text": "Apple Inc. has revolutionized the tech industry with its sleek designs and user-friendly interfaces."},
+			{"id": "vec4", "text": "An apple a day keeps the doctor away, as the saying goes."},
+		}})
+
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), ranking, "Expected reranking result to be non-nil")
+	require.Equal(ts.T(), 4, len(ranking.Data), "Expected %v rankings", 4)
+
+	doc := *ranking.Data[0].Document
+	_, exists := doc["text"]
+	require.True(ts.T(), exists, "Expected '%s' to exist in Document map", "text")
+	_, exists = doc["id"]
+	require.True(ts.T(), exists, "Expected '%s' to exist in Document map", "id")
+}
+
+func (ts *IntegrationTests) TestRerankDocumentsMultipleRankFields() {
+	// Run Rerank tests once rather than duplicating across serverless & pods
+	if ts.indexType == "pod" {
+		ts.T().Skip("Skipping Rerank tests for pods")
+	}
+
+	ctx := context.Background()
+	rerankModel := "bge-reranker-v2-m3"
+	_, err := ts.client.Inference.Rerank(ctx, &RerankRequest{
+		Model:      rerankModel,
+		Query:      "i love apples",
+		RankFields: &[]string{"text", "custom-field"},
+		Documents: []Document{
+			{
+				"id":           "vec1",
+				"text":         "Apple is a popular fruit known for its sweetness and crisp texture.",
+				"custom-field": "another field",
+			},
+			{
+				"id":           "vec2",
+				"text":         "Many people enjoy eating apples as a healthy snack.",
+				"custom-field": "another field",
+			},
+			{
+				"id":           "vec3",
+				"text":         "Apple Inc. has revolutionized the tech industry with its sleek designs and user-friendly interfaces.",
+				"custom-field": "another field",
+			},
+			{
+				"id":           "vec4",
+				"text":         "An apple a day keeps the doctor away, as the saying goes.",
+				"custom-field": "another field",
+			},
+		}})
+
+	require.Error(ts.T(), err)
+	require.Contains(ts.T(), err.Error(), "Only one rank field is supported for model")
+}
+
+func (ts *IntegrationTests) TestRerankDocumentFieldError() {
+	// Run Rerank tests once rather than duplicating across serverless & pods
+	if ts.indexType == "pod" {
+		ts.T().Skip("Skipping Rerank tests for pods")
+	}
+
+	ctx := context.Background()
+	rerankModel := "bge-reranker-v2-m3"
+	_, err := ts.client.Inference.Rerank(ctx, &RerankRequest{
+		Model:      rerankModel,
+		Query:      "i love apples",
+		RankFields: &[]string{"custom-field"},
+		Documents: []Document{
+			{"id": "vec1", "text": "Apple is a popular fruit known for its sweetness and crisp texture."},
+			{"id": "vec2", "text": "Many people enjoy eating apples as a healthy snack."},
+			{"id": "vec3", "text": "Apple Inc. has revolutionized the tech industry with its sleek designs and user-friendly interfaces."},
+			{"id": "vec4", "text": "An apple a day keeps the doctor away, as the saying goes."},
+		}})
+
+	require.Error(ts.T(), err)
+	require.Contains(ts.T(), err.Error(), "field 'custom-field' not found in document")
 }
 
 // Unit tests:
