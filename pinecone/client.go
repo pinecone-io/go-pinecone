@@ -1351,11 +1351,12 @@ type Document map[string]string
 //
 // Fields:
 //   - Model: "The [model] to use for reranking.
-//   - Query: (Required) The query to compare with documents.
-//   - Documents: (Required) A list of Document objects to be reranked.
-//   - RankFields: (Optional) A list of document fields to use for ranking.
-//   - ReturnDocuments: (Optional) Whether to include documents in the response. Defaults to true.
-//   - TopN: (Optional) How many documents to return. Defaults to the length of input Documents.
+//   - Query: (Required) The query to rerank Documents against.
+//   - Documents: (Required) A list of Document objects to be reranked. The default is "text", but you can
+//     specify this behavior with [RerankRequest.RankFields].
+//   - RankFields: (Optional) The fields to rank the Documents by. If not provided, the default is "text".
+//   - ReturnDocuments: (Optional) Whether to include Documents in the response. Defaults to true.
+//   - TopN: (Optional) How many Documents to return. Defaults to the length of input Documents.
 //   - Parameters: (Optional) Additional model-specific parameters for the reranker
 //
 // [model]: https://docs.pinecone.io/guides/inference/understanding-inference#models
@@ -1373,9 +1374,9 @@ type RerankRequest struct {
 //
 // Fields:
 //   - Document: The [Document].
-//   - Index: The index position of the document from the original request. This can be used
+//   - Index: The index position of the Document from the original request. This can be used
 //     to locate the position of the document relative to others described in the request.
-//   - Score: The relevance score of the document indicating how closely it matches the query.
+//   - Score: The relevance score of the Document indicating how closely it matches the query.
 type RankedDocument struct {
 	Document *Document `json:"document,omitempty"`
 	Index    int       `json:"index"`
@@ -1385,17 +1386,19 @@ type RankedDocument struct {
 // RerankResponse is the result of a reranking operation.
 //
 // Fields:
-//   - Data: A list of documents which have been reranked. The documents are sorted in order of relevance,
+//   - Data: A list of Documents which have been reranked. The Documents are sorted in order of relevance,
 //     with the first being the most relevant.
-//   - Model: The model used to rerank documents.
-//   - Usage: Usage statistics for the reranking operation.
+//   - Model: The model used to rerank Documents.
+//   - Usage: Usage statistics ([Rerank Units]) for the reranking operation.
+//
+// [Read Units]: https://docs.pinecone.io/guides/organizations/manage-cost/understanding-cost#rerank
 type RerankResponse struct {
 	Data  []RankedDocument `json:"data,omitempty"`
 	Model string           `json:"model"`
 	Usage RerankUsage      `json:"usage"`
 }
 
-// Rerank documents with associated relevance scores that represent the relevance of each document
+// Rerank Documents with associated relevance scores that represent the relevance of each Document
 // to the provided query using the specified model.
 //
 // Parameters:
@@ -1421,15 +1424,15 @@ type RerankResponse struct {
 //	     topN := 2
 //	     retunDocuments := true
 //	     documents := []pinecone.Document{
-//		        {"id": "vec1", "text": "Apple is a popular fruit known for its sweetness and crisp texture."},
-//		        {"id": "vec2", "text": "Many people enjoy eating apples as a healthy snack."},
-//		        {"id": "vec3", "text": "Apple Inc. has revolutionized the tech industry with its sleek designs and user-friendly interfaces."},
-//		        {"id": "vec4", "text": "An apple a day keeps the doctor away, as the saying goes."},
+//		        {"id": "doc1", "text": "Apple is a popular fruit known for its sweetness and crisp texture."},
+//		        {"id": "doc2", "text": "Many people enjoy eating apples as a healthy snack."},
+//		        {"id": "doc3", "text": "Apple Inc. has revolutionized the tech industry with its sleek designs and user-friendly interfaces."},
+//		        {"id": "doc4", "text": "An apple a day keeps the doctor away, as the saying goes."},
 //	     }
 //
 //	     ranking, err := pc.Inference.Rerank(ctx, &pinecone.RerankRequest{
 //		        Model:           rerankModel,
-//		        Query:           "i love cats",
+//		        Query:           "i love to eat apples",
 //		        ReturnDocuments: &retunDocuments,
 //		        TopN:            &topN,
 //		        RankFields:      &[]string{"text"},
