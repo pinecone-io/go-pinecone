@@ -579,6 +579,74 @@ func main() {
 }
 ```
 
+### Import vectors from object storage
+
+You can now [import vectors en masse](https://docs.pinecone.io/guides/data/understanding-imports) from object 
+storage. `Import` is a long-running, asynchronous operation that imports large numbers of records into a Pinecone
+serverless index.
+
+In order to import vectors from object storage, they must be stored in Parquet files and adhere to the necessary
+[file format](https://docs.pinecone.io/guides/data/understanding-imports#parquet-file-format). Your object storage
+must also adhere to the necessary [directory structure](https://docs.pinecone.io/guides/data/understanding-imports#directory-structure).
+
+The following example imports 10 vectors from an Amazon S3 bucket into a Pinecone serverless index:
+
+```go
+    ctx := context.Background()
+
+    clientParams := pinecone.NewClientParams{
+        ApiKey: os.Getenv("PINECONE_API_KEY"),
+    }
+
+    pc, err := pinecone.NewClient(clientParams)
+
+    if err != nil {
+        log.Fatalf("Failed to create Client: %v", err)
+    } else {
+        fmt.Println("Successfully created a new Client object!")
+    }
+
+    indexName := "sample-index"
+
+    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+        Name:      indexName,
+        Dimension: 3,
+        Metric:    pinecone.Cosine,
+        Cloud:     pinecone.Aws,
+        Region:    "us-east-1",
+    })
+
+    if err != nil {
+        log.Fatalf("Failed to create serverless index: %v", err)
+    } else {
+        fmt.Printf("Successfully created serverless index: %s", idx.Name)
+    }
+
+    idx, err = pc.DescribeIndex(ctx, "pinecone-index")
+    
+	if err != nil {
+        log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+    }
+
+    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
+    if err != nil {
+        log.Fatalf("Failed to create IndexConnection for Host: %v: %v", idx.Host, err)
+    }
+
+    storageURI := "s3://my-bucket/my-directory/"
+
+    errorMode := "abort" // Will abort if error encountered; other option: "continue"
+	
+    importRes, err := idxConnection.StartImport(ctx, storageURI, nil, (*pinecone.ImportErrorMode)(&errorMode))
+
+	if err != nil {
+        log.Fatalf("Failed to start import: %v", err)
+    }
+	
+    fmt.Printf("import started with ID: %s", importRes.Id)
+```
+You can [start, cancel, and check the status](https://docs.pinecone.io/guides/data/import-data) of all or one import operation(s).
+
 ### Query an index
 
 #### Query by vector values
