@@ -602,8 +602,6 @@ The following example imports vectors from an Amazon S3 bucket into a Pinecone s
 
     if err != nil {
         log.Fatalf("Failed to create Client: %v", err)
-    } else {
-        fmt.Println("Successfully created a new Client object!")
     }
 
     indexName := "sample-index"
@@ -618,8 +616,6 @@ The following example imports vectors from an Amazon S3 bucket into a Pinecone s
 
     if err != nil {
         log.Fatalf("Failed to create serverless index: %v", err)
-    } else {
-        fmt.Printf("Successfully created serverless index: %s", idx.Name)
     }
 
     idx, err = pc.DescribeIndex(ctx, "pinecone-index")
