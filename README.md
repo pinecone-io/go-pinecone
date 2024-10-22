@@ -579,6 +579,70 @@ func main() {
 }
 ```
 
+### Import vectors from object storage
+
+You can now [import vectors en masse](https://docs.pinecone.io/guides/data/understanding-imports) from object 
+storage. `Import` is a long-running, asynchronous operation that imports large numbers of records into a Pinecone
+serverless index.
+
+In order to import vectors from object storage, they must be stored in Parquet files and adhere to the necessary
+[file format](https://docs.pinecone.io/guides/data/understanding-imports#parquet-file-format). Your object storage
+must also adhere to the necessary [directory structure](https://docs.pinecone.io/guides/data/understanding-imports#directory-structure).
+
+The following example imports vectors from an Amazon S3 bucket into a Pinecone serverless index:
+
+```go
+    ctx := context.Background()
+
+    clientParams := pinecone.NewClientParams{
+        ApiKey: os.Getenv("PINECONE_API_KEY"),
+    }
+
+    pc, err := pinecone.NewClient(clientParams)
+
+    if err != nil {
+        log.Fatalf("Failed to create Client: %v", err)
+    }
+
+    indexName := "sample-index"
+
+    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+        Name:      indexName,
+        Dimension: 3,
+        Metric:    pinecone.Cosine,
+        Cloud:     pinecone.Aws,
+        Region:    "us-east-1",
+    })
+
+    if err != nil {
+        log.Fatalf("Failed to create serverless index: %v", err)
+    }
+
+    idx, err = pc.DescribeIndex(ctx, "pinecone-index")
+    
+	if err != nil {
+        log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+    }
+
+    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
+    if err != nil {
+        log.Fatalf("Failed to create IndexConnection for Host: %v: %v", idx.Host, err)
+    }
+
+    storageURI := "s3://my-bucket/my-directory/"
+
+    errorMode := "abort" // Will abort if error encountered; other option: "continue"
+	
+    importRes, err := idxConnection.StartImport(ctx, storageURI, nil, (*pinecone.ImportErrorMode)(&errorMode))
+
+	if err != nil {
+        log.Fatalf("Failed to start import: %v", err)
+    }
+	
+    fmt.Printf("import started with ID: %s", importRes.Id)
+```
+You can [start, cancel, and check the status](https://docs.pinecone.io/guides/data/import-data) of all or one import operation(s).
+
 ### Query an index
 
 #### Query by vector values
@@ -1307,13 +1371,17 @@ func main() {
 
 ## Inference
 
-The `Client` object has an `Inference` namespace which allows interacting with Pinecone's [Inference API](https://docs.pinecone.io/reference/api/2024-07/inference/generate-embeddings). The Inference API is a service that gives you access to embedding models hosted on Pinecone's infrastructure. Read more at [Understanding Pinecone Inference](https://docs.pinecone.io/guides/inference/understanding-inference).
+The `Client` object has an `Inference` namespace which allows interacting with
+Pinecone's [Inference API](https://docs.pinecone.io/reference/api/2024-07/inference/generate-embeddings). The Inference
+API is a service that gives you access to embedding models hosted on Pinecone's infrastructure. Read more
+at [Understanding Pinecone Inference](https://docs.pinecone.io/guides/inference/understanding-inference).
 
 **Notes:**
 
 Models currently supported:
 
-- [multilingual-e5-large](https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models)
+- Embedding: [multilingual-e5-large](https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models)
+- Reranking: [bge-reranker-v2-m3](https://docs.pinecone.io/models/bge-reranker-v2-m3)
 
 ### Create Embeddings
 
@@ -1368,11 +1436,67 @@ Send text to Pinecone's inference API to generate embeddings for documents and q
 	}
 	fmt.Printf("query embedding response: %+v", queryEmbeddingsResponse)
 
-	// << Send query to Pinecone to retrieve similar documents >>
+    // << Send query to Pinecone to retrieve similar documents >>
+```
 
+### Rerank documents
+
+Rerank documents in descending relevance-order against a query.
+
+**Note:** The `score` represents the absolute measure of relevance of a given query and passage pair. Normalized
+between [0, 1], the `score` represents how closely relevant a specific item and query are, with scores closer to 1
+indicating higher relevance.
+
+```go
+    ctx := context.Background()
+
+    pc, err := pinecone.NewClient(pinecone.NewClientParams{
+        ApiKey: "YOUR-API-KEY"
+	})
+
+    if err != nil {
+        log.Fatalf("Failed to create Client: %v", err)
+    }
+
+    rerankModel := "bge-reranker-v2-m3"
+    query := "What are some good Turkey dishes for Thanksgiving?"
+  
+    documents := []pinecone.Document{
+      {"title": "Turkey Sandwiches", "body": "Turkey is a classic meat to eat at American Thanksgiving."},
+      {"title": "Lemon Turkey", "body": "A lemon brined Turkey with apple sausage stuffing is a classic Thanksgiving main course."},
+      {"title": "Thanksgiving", "body": "My favorite Thanksgiving dish is pumpkin pie"},
+      {"title": "Protein Sources", "body": "Turkey is a great source of protein."},
+    }
+
+    // Optional arguments
+    topN := 3
+    returnDocuments := false
+    rankFields := []string{"body"}
+    modelParams := map[string]string{
+      "truncate": "END",
+    }
+
+    rerankRequest := pinecone.RerankRequest{
+      Model:           rerankModel,
+      Query:           query,
+      Documents:       documents,
+      TopN:            &topN,
+      ReturnDocuments: &returnDocuments,
+      RankFields:      &rankFields,
+      Parameters:      &modelParams,
+    }
+
+    rerankResponse, err := pc.Inference.Rerank(ctx, &rerankRequest)
+
+    if err != nil {
+      log.Fatalf("Failed to rerank documents: %v", err)
+    }
+
+    fmt.Printf("rerank response: %+v", rerankResponse)
 ```
 
 ## Support
 
-To get help using go-pinecone you can file an issue on [GitHub](https://github.com/pinecone-io/go-pinecone/issues), visit the [community forum](https://community.pinecone.io/),
+To get help using go-pinecone you can file an issue on [GitHub](https://github.com/pinecone-io/go-pinecone/issues),
+visit the [community forum](https://community.pinecone.io/),
 or reach out to support@pinecone.io.
