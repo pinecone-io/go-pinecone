@@ -1225,6 +1225,14 @@ func (c *Client) DeleteCollection(ctx context.Context, collectionName string) er
 	return nil
 }
 
+// InferenceService is a struct which exposes methods for interacting with the Pinecone Inference API. InferenceService
+// can be accessed via the Client object through the Client.Inference namespace.
+//
+// [Pinecone Inference API]: https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models
+type InferenceService struct {
+	client *inference.Client
+}
+
 // EmbedRequest holds the parameters for generating embeddings for a list of input strings.
 //
 // Fields:
@@ -1248,12 +1256,20 @@ type EmbedParameters struct {
 	Truncate  string
 }
 
-// InferenceService is a struct which exposes methods for interacting with the Pinecone Inference API. InferenceService
-// can be accessed via the Client object through the Client.Inference namespace.
+// EmbedResponse represents holds the embeddings generated for a single input.
 //
-// [Pinecone Inference API]: https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models
-type InferenceService struct {
-	client *inference.Client
+// Fields:
+//   - Data: A list of Embedding objects containing the embeddings generated for the input.
+//   - Model: The model used to generate the embeddings.
+//   - Usage: Usage statistics ([Total Tokens]) for the request.
+//
+// [Total Tokens]: https://docs.pinecone.io/guides/organizations/manage-cost/understanding-cost#embed
+type EmbedResponse struct {
+	Data  []Embedding `json:"data"`
+	Model string      `json:"model"`
+	Usage struct {
+		TotalTokens *int `json:"total_tokens,omitempty"`
+	} `json:"usage"`
 }
 
 // Embed generates embeddings for a list of inputs using the specified model and (optional) parameters.
@@ -1298,7 +1314,7 @@ type InferenceService struct {
 //	    } else {
 //		       fmt.Printf("Successfull generated embeddings: %+v", res)
 //	    }
-func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*inference.EmbeddingsList, error) {
+func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedResponse, error) {
 
 	if len(in.TextInputs) == 0 {
 		return nil, fmt.Errorf("TextInputs must contain at least one value")
@@ -1537,8 +1553,8 @@ func decodeIndex(resBody io.ReadCloser) (*Index, error) {
 	return toIndex(&idx), nil
 }
 
-func decodeEmbeddingsList(resBody io.ReadCloser) (*inference.EmbeddingsList, error) {
-	var embeddingsList inference.EmbeddingsList
+func decodeEmbeddingsList(resBody io.ReadCloser) (*EmbedResponse, error) {
+	var embeddingsList EmbedResponse
 	err := json.NewDecoder(resBody).Decode(&embeddingsList)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode embeddings response: %w", err)

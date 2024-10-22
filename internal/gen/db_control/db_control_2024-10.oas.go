@@ -134,7 +134,7 @@ type ConfigureIndexRequest struct {
 	} `json:"spec,omitempty"`
 
 	// Tags Custom user tags added to an index. Keys must be alphanumeric and 80 characters or less. Values must be 120 characters or less.
-	Tags *IndexTags `json:"tags,omitempty"`
+	Tags *IndexTags `json:"tags"`
 }
 
 // CreateCollectionRequest The configuration needed to create a Pinecone collection.
@@ -166,7 +166,7 @@ type CreateIndexRequest struct {
 	Spec IndexSpec `json:"spec"`
 
 	// Tags Custom user tags added to an index. Keys must be alphanumeric and 80 characters or less. Values must be 120 characters or less.
-	Tags *IndexTags `json:"tags,omitempty"`
+	Tags *IndexTags `json:"tags"`
 }
 
 // CreateIndexRequestMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
@@ -227,7 +227,7 @@ type IndexModel struct {
 	} `json:"status"`
 
 	// Tags Custom user tags added to an index. Keys must be alphanumeric and 80 characters or less. Values must be 120 characters or less.
-	Tags *IndexTags `json:"tags,omitempty"`
+	Tags *IndexTags `json:"tags"`
 }
 
 // IndexModelMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
@@ -255,7 +255,7 @@ type IndexSpec0 = interface{}
 type IndexSpec1 = interface{}
 
 // IndexTags Custom user tags added to an index. Keys must be alphanumeric and 80 characters or less. Values must be 120 characters or less.
-type IndexTags map[string]*string
+type IndexTags map[string]string
 
 // PodSpec Configuration needed to deploy a pod-based index.
 type PodSpec struct {

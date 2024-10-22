@@ -271,7 +271,7 @@ type StartImportRequest struct {
 	IntegrationId *string `json:"integrationId,omitempty"`
 
 	// Uri The URI prefix under which the data to import is available. All data within this prefix will be listed then imported into the target index. Currently only `s3://` URIs are supported.
-	Uri *string `json:"uri,omitempty"`
+	Uri string `json:"uri"`
 }
 
 // StartImportResponse The response for the `start_import` operation.

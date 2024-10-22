@@ -177,6 +177,13 @@ type MetadataFilter = structpb.Struct
 // [attached to, or updated for, a vector]: https://docs.pinecone.io/guides/data/filter-with-metadata#inserting-metadata-into-an-index
 type Metadata = structpb.Struct
 
+// The embedding of a single input which is returned after [generating embeddings].
+//
+// [generating embeddings]: https://docs.pinecone.io/guides/inference/generate-embeddings#3-generate-embeddings
+type Embedding struct {
+	Values *[]float32 `json:"values,omitempty"`
+}
+
 // ImportStatus represents the status of an import operation.
 //
 // Values:
