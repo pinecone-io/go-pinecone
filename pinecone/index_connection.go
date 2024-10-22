@@ -1065,7 +1065,7 @@ func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integra
 	}
 
 	req := db_data_rest.StartImportRequest{
-		Uri:           &uri,
+		Uri:           uri,
 		IntegrationId: integrationId,
 	}
 
