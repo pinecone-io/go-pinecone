@@ -1509,9 +1509,9 @@ func toIndex(idx *db_control.IndexModel) *Index {
 		spec.Pod = &PodSpec{
 			Environment:      idx.Spec.Pod.Environment,
 			PodType:          idx.Spec.Pod.PodType,
-			PodCount:         derefOrDefault(idx.Spec.Pod.Pods, 0),
-			Replicas:         derefOrDefault(idx.Spec.Pod.Replicas, 0),
-			ShardCount:       derefOrDefault(idx.Spec.Pod.Shards, 0),
+			PodCount:         derefOrDefault(idx.Spec.Pod.Pods, 1),
+			Replicas:         derefOrDefault(idx.Spec.Pod.Replicas, 1),
+			ShardCount:       derefOrDefault(idx.Spec.Pod.Shards, 1),
 			SourceCollection: idx.Spec.Pod.SourceCollection,
 		}
 		if idx.Spec.Pod.MetadataConfig != nil {
