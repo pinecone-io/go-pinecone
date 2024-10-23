@@ -106,7 +106,7 @@ type PodSpecMetadataConfig struct {
 type PodSpec struct {
 	Environment      string                 `json:"environment"`
 	PodType          string                 `json:"pod_type"`
-	PodCount         int32                  `json:"pod_count"`
+	PodCount         int                    `json:"pod_count"`
 	Replicas         int32                  `json:"replicas"`
 	ShardCount       int32                  `json:"shard_count"`
 	SourceCollection *string                `json:"source_collection,omitempty"`

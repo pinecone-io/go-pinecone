@@ -272,13 +272,13 @@ type PodSpec struct {
 	PodType string `json:"pod_type"`
 
 	// Pods The number of pods to be used in the index. This should be equal to `shards` x `replicas`.'
-	Pods int `json:"pods"`
+	Pods *int `json:"pods,omitempty"`
 
 	// Replicas The number of replicas. Replicas duplicate your index. They provide higher availability and throughput. Replicas can be scaled up or down as your needs change.
-	Replicas int32 `json:"replicas"`
+	Replicas *int32 `json:"replicas,omitempty"`
 
 	// Shards The number of shards. Shards split your data across multiple pods so you can fit more data into an index.
-	Shards int32 `json:"shards"`
+	Shards *int32 `json:"shards,omitempty"`
 
 	// SourceCollection The name of the collection to be used as the source for the index.
 	SourceCollection *string `json:"source_collection,omitempty"`
@@ -1220,6 +1220,7 @@ type DeleteIndexResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
@@ -1744,6 +1745,13 @@ func ParseDeleteIndexResponse(rsp *http.Response) (*DeleteIndexResponse, error) 
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorResponse

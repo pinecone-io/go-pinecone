@@ -971,6 +971,9 @@ func TestEnsureURLSchemeUnit(t *testing.T) {
 func TestToIndexUnit(t *testing.T) {
 	deletionProtectionEnabled := db_control.Enabled
 	deletionProtectionDisabled := db_control.Disabled
+	pods := 1
+	replicas := int32(1)
+	shards := int32(1)
 
 	tests := []struct {
 		name           string
@@ -999,9 +1002,9 @@ func TestToIndexUnit(t *testing.T) {
 				}{Pod: &db_control.PodSpec{
 					Environment:      "test-environ",
 					PodType:          "p1.x2",
-					Pods:             1,
-					Replicas:         1,
-					Shards:           1,
+					Pods:             &pods,
+					Replicas:         &replicas,
+					Shards:           &shards,
 					SourceCollection: nil,
 					MetadataConfig:   nil,
 				}}),
