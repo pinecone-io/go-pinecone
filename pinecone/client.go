@@ -544,6 +544,9 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 
 	deletionProtection := pointerOrNil(db_control.DeletionProtection(in.DeletionProtection))
 	metric := pointerOrNil(db_control.CreateIndexRequestMetric(in.Metric))
+	pods := in.TotalCount()
+	replicas := in.ReplicaCount()
+	shards := in.ShardCount()
 
 	req := db_control.CreateIndexRequest{
 		Name:               in.Name,
@@ -556,9 +559,9 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 		Pod: &db_control.PodSpec{
 			Environment:      in.Environment,
 			PodType:          in.PodType,
-			Pods:             in.TotalCount(),
-			Replicas:         in.ReplicaCount(),
-			Shards:           in.ShardCount(),
+			Pods:             &pods,
+			Replicas:         &replicas,
+			Shards:           &shards,
 			SourceCollection: in.SourceCollection,
 		},
 	}
@@ -1506,9 +1509,9 @@ func toIndex(idx *db_control.IndexModel) *Index {
 		spec.Pod = &PodSpec{
 			Environment:      idx.Spec.Pod.Environment,
 			PodType:          idx.Spec.Pod.PodType,
-			PodCount:         int32(idx.Spec.Pod.Pods),
-			Replicas:         idx.Spec.Pod.Replicas,
-			ShardCount:       idx.Spec.Pod.Shards,
+			PodCount:         derefOrDefault(idx.Spec.Pod.Pods, 1),
+			Replicas:         derefOrDefault(idx.Spec.Pod.Replicas, 1),
+			ShardCount:       derefOrDefault(idx.Spec.Pod.Shards, 1),
 			SourceCollection: idx.Spec.Pod.SourceCollection,
 		}
 		if idx.Spec.Pod.MetadataConfig != nil {
