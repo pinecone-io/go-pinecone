@@ -23,20 +23,20 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Client holds the parameters for connecting to the Pinecone service. It is returned by the NewClient and NewClientBase
-// functions. To use Client, first build the parameters of the request using NewClientParams (or NewClientBaseParams).
-// Then, pass those parameters into the NewClient (or NewClientBase) function to create a new Client object.
-// Once instantiated, you can use Client to execute Pinecone API requests (e.g. create an Index, list Indexes,
-// etc.), and Inference API requests. Read more about different Pinecone API routes at [docs.pinecone.io/reference/api].
+// [Client] holds the parameters for connecting to the Pinecone service. It is returned by the [NewClient] and [NewClientBase]
+// functions. To use Client, first build the parameters of the request using [NewClientParams] (or [NewClientBaseParams]).
+// Then, pass those parameters into the [NewClient] (or [NewClientBase]) function to create a new [Client] object.
+// Once instantiated, you can use [Client] to execute Pinecone API requests (e.g. create an [Index], list Indexes,
+// etc.), and Inference API requests. Read more about different Pinecone API routes [here].
 //
 // Note: Client methods are safe for concurrent use.
 //
 // Fields:
-//   - Inference: An InferenceService object that exposes methods for interacting with the Pinecone [Inference API].
+//   - Inference: An [InferenceService] object that exposes methods for interacting with the Pinecone [Inference API].
 //   - restClient: Optional underlying *http.Client object used to communicate with the Pinecone API,
-//     provided through NewClientParams.RestClient or NewClientBaseParams.RestClient. If not provided,
+//     provided through [NewClientParams.RestClient] or [NewClientBaseParams.RestClient]. If not provided,
 //     a default client is created for you.
-//   - baseParams: A NewClientBaseParams object that holds the configuration for the Pinecone client.
+//   - baseParams: A [NewClientBaseParams] object that holds the configuration for the Pinecone client.
 //
 // Example:
 //
@@ -66,7 +66,7 @@ import (
 //		       log.Println("IndexConnection created successfully!")
 //	    }
 //
-// [docs.pinecone.io/reference/api]: https://docs.pinecone.io/reference/api/control-plane/list_indexes
+// [here]: https://docs.pinecone.io/reference/api/control-plane/list_indexes
 // [Inference API]: https://docs.pinecone.io/reference/api/2024-07/inference/generate-embeddings
 type Client struct {
 	Inference  *InferenceService
@@ -74,7 +74,7 @@ type Client struct {
 	baseParams *NewClientBaseParams
 }
 
-// NewClientParams holds the parameters for creating a new Client instance while authenticating via an API key.
+// [NewClientParams] holds the parameters for creating a new [Client] instance while authenticating via an API key.
 //
 // Fields:
 //   - ApiKey: (Required) The API key used to authenticate with the Pinecone API.
@@ -84,7 +84,7 @@ type Client struct {
 //   - RestClient: An optional HTTP client to use for communication with the Pinecone API.
 //   - SourceTag: An optional string used to help Pinecone attribute API activity.
 //
-// See Client for code example.
+// See [Client] for code example.
 type NewClientParams struct {
 	ApiKey     string            // required - provide through NewClientParams or environment variable PINECONE_API_KEY
 	Headers    map[string]string // optional
@@ -93,7 +93,7 @@ type NewClientParams struct {
 	SourceTag  string            // optional
 }
 
-// NewClientBaseParams holds the parameters for creating a new Client instance while passing custom authentication
+// [NewClientBaseParams] holds the parameters for creating a new [Client] instance while passing custom authentication
 // headers. If there is no API key or authentication provided through Headers, API calls will fail.
 //
 // Fields:
@@ -104,7 +104,7 @@ type NewClientParams struct {
 //   - RestClient: (Optional) An *http.Client object to use for communication with the Pinecone API.
 //   - SourceTag: (Optional) A string used to help Pinecone attribute API activity.
 //
-// See Client for code example.
+// See [Client] for code example.
 type NewClientBaseParams struct {
 	Headers    map[string]string
 	Host       string
@@ -112,31 +112,31 @@ type NewClientBaseParams struct {
 	SourceTag  string
 }
 
-// NewIndexConnParams holds the parameters for creating an IndexConnection to a Pinecone index.
+// [NewIndexConnParams] holds the parameters for creating an [IndexConnection] to a Pinecone index.
 //
 // Fields:
-//   - Host: (Required) The host URL of the Pinecone index. To find your host url use the DescribeIndex or ListIndexes methods.
+//   - Host: (Required) The host URL of the Pinecone index. To find your host url use the [Client.DescribeIndex] or [Client.ListIndexes] methods.
 //     Alternatively, the host is displayed in the Pinecone web console.
 //   - Namespace: (Optional) The index namespace to use for operations. If not provided, the default namespace of "" will be used.
 //   - AdditionalMetadata: (Optional) Metadata to be sent with each RPC request.
 //
-// See Client.Index for code example.
+// See [Client.Index] for code example.
 type NewIndexConnParams struct {
 	Host               string            // required - obtained through DescribeIndex or ListIndexes
 	Namespace          string            // optional - if not provided the default namespace of "" will be used
 	AdditionalMetadata map[string]string // optional
 }
 
-// NewClient creates and initializes a new instance of Client.
+// [NewClient] creates and initializes a new instance of [Client].
 // This function sets up the Pinecone client with the necessary configuration for authentication and communication.
 //
 // Parameters:
-//   - in: A NewClientParams object. See NewClientParams for more information.
+//   - in: A [NewClientParams] object. See [NewClientParams] for more information.
 //
 // Note: It is important to handle the error returned by this function to ensure that the
 // Pinecone client has been created successfully before attempting to make API calls.
 //
-// Returns a pointer to an initialized Client instance or an error.
+// Returns a pointer to an initialized [Client] instance or an error.
 //
 // Example:
 //
@@ -175,18 +175,18 @@ func NewClient(in NewClientParams) (*Client, error) {
 	return NewClientBase(NewClientBaseParams{Headers: clientHeaders, Host: in.Host, RestClient: in.RestClient, SourceTag: in.SourceTag})
 }
 
-// NewClientBase creates and initializes a new instance of Client with custom authentication headers.
+// [NewClientBase] creates and initializes a new instance of [Client] with custom authentication headers.
 //
 // Parameters:
-//   - in: A NewClientBaseParams object that includes the necessary configuration for the Pinecone client. See
-//     NewClientBaseParams for more information.
+//   - in: A [NewClientBaseParams] object that includes the necessary configuration for the Pinecone client. See
+//     [NewClientBaseParams] for more information.
 //
 // Notes:
 //   - It is important to handle the error returned by this function to ensure that the
 //     Pinecone client has been created successfully before attempting to make API calls.
-//   - A Pinecone API key is not required when using NewClientBase.
+//   - A Pinecone API key is not required when using [NewClientBase].
 //
-// Returns a pointer to an initialized Client instance or an error.
+// Returns a pointer to an initialized [Client] instance or an error.
 //
 // Example:
 //
@@ -236,16 +236,16 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 	return &c, nil
 }
 
-// Index creates an IndexConnection to a specified host.
+// [Client.Index] creates an [IndexConnection] to a specified host.
 //
 // Parameters:
-//   - in: A NewIndexConnParams object that includes the necessary configuration to create an IndexConnection.
+//   - in: A [NewIndexConnParams] object that includes the necessary configuration to create an [IndexConnection].
 //     See NewIndexConnParams for more information.
 //
-// Note: It is important to handle the error returned by this method to ensure that the IndexConnection is created
+// Note: It is important to handle the error returned by this method to ensure that the [IndexConnection] is created
 // successfully before making data plane calls.
 //
-// Returns a pointer to an IndexConnection instance or an error.
+// Returns a pointer to an [IndexConnection] instance or an error.
 //
 // Example:
 //
@@ -334,7 +334,7 @@ func ensureHostHasHttps(host string) string {
 	return host
 }
 
-// ListIndexes retrieves a list of all Indexes in a Pinecone [project].
+// [Client.ListIndexes] retrieves a list of all Indexes in a Pinecone [project].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -392,23 +392,23 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	return indexes, nil
 }
 
-// CreatePodIndexRequest holds the parameters for creating a new pods-based Index.
+// [CreatePodIndexRequest] holds the parameters for creating a new pods-based Index.
 //
 // Fields:
-//   - Name: (Required) The name of the Index. Resource name must be 1-45 characters long,
+//   - Name: (Required) The name of the [Index]. Resource name must be 1-45 characters long,
 //     start and end with an alphanumeric character,
 //     and consist only of lower case alphanumeric characters or '-'.
 //   - Dimension: (Required) The [dimensionality] of the vectors to be inserted in the Index.
 //   - Metric: (Required) The distance metric to be used for [similarity] search. You can use
 //     'euclidean', 'cosine', or 'dotproduct'.
 //   - Environment: (Required) The [cloud environment] where the Index will be hosted.
-//   - PodType: (Required) The [type of pod] to use for the Index. One of `s1`, `p1`, or `p2` appended with `.` and
+//   - PodType: (Required) The [type of pod] to use for the [Index]. One of `s1`, `p1`, or `p2` appended with `.` and
 //     one of `x1`, `x2`, `x4`, or `x8`.
 //   - Shards: (Optional) The number of shards to use for the Index (defaults to 1).
 //     Shards split your data across multiple pods, so you can fit more data into an Index.
 //   - Replicas: (Optional) The number of [replicas] to use for the Index (defaults to 1). Replicas duplicate your Index.
 //     They provide higher availability and throughput. Replicas can be scaled up or down as your needs change.
-//   - SourceCollection: (Optional) The name of the Collection to be used as the source for the Index.
+//   - SourceCollection: (Optional) The name of the [Collection] to be used as the source for the Index.
 //   - MetadataConfig: (Optional) The [metadata configuration] for the behavior of Pinecone's internal metadata Index. By
 //     default, all metadata is indexed; when `metadata_config` is present,
 //     only specified metadata fields are indexed. These configurations are
@@ -416,7 +416,7 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //   - DeletionProtection: (Optional) determines whether [deletion protection] is "enabled" or "disabled" for the index.
 //     When "enabled", the index cannot be deleted. Defaults to "disabled".
 //
-// To create a new pods-based Index, use the CreatePodIndex method on the Client object.
+// To create a new pods-based Index, use the [Client.CreatePodIndex] method.
 //
 // Example:
 //
@@ -475,31 +475,31 @@ type CreatePodIndexRequest struct {
 	MetadataConfig     *PodSpecMetadataConfig
 }
 
-// ReplicaCount ensures the replica count of a pods-based Index is >1.
-// It returns a pointer to the number of replicas on a CreatePodIndexRequest object.
+// [CreatePodIndexRequestReplicaCount] ensures the replica count of a pods-based Index is >1.
+// It returns a pointer to the number of replicas on a [CreatePodIndexRequest] object.
 func (req CreatePodIndexRequest) ReplicaCount() int32 {
 	return minOne(req.Replicas)
 }
 
-// ShardCount ensures the number of shards on a pods-based Index is >1. It returns a pointer to the number of shards on
-// a CreatePodIndexRequest object.
+// [CreatePodIndexRequestShardCount] ensures the number of shards on a pods-based Index is >1. It returns a pointer to the number of shards on
+// a [CreatePodIndexRequest] object.
 func (req CreatePodIndexRequest) ShardCount() int32 {
 	return minOne(req.Shards)
 }
 
-// TotalCount calculates and returns the total number of pods (replicas*shards) on a CreatePodIndexRequest object.
+// [CreatePodIndexRequest.TotalCount] calculates and returns the total number of pods (replicas*shards) on a [CreatePodIndexRequest] object.
 func (req CreatePodIndexRequest) TotalCount() int {
 	return int(req.ReplicaCount() * req.ShardCount())
 }
 
-// CreatePodIndex creates and initializes a new pods-based Index via the specified Client.
+// [Client.CreatePodIndex] creates and initializes a new pods-based Index via the specified [Client].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - in: A pointer to a CreatePodIndexRequest object. See CreatePodIndexRequest for more information.
+//   - in: A pointer to a [CreatePodIndexRequest] object. See [CreatePodIndexRequest] for more information.
 //
-// Returns a pointer to an Index object or an error.
+// Returns a pointer to an [Index] object or an error.
 //
 // Example:
 //
@@ -584,21 +584,21 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 	return decodeIndex(res.Body)
 }
 
-// CreateServerlessIndexRequest holds the parameters for creating a new [Serverless] Index.
+// [CreateServerlessIndexRequest] holds the parameters for creating a new [Serverless] Index.
 //
 // Fields:
-//   - Name: (Required) The name of the Index. Resource name must be 1-45 characters long,
+//   - Name: (Required) The name of the [Index]. Resource name must be 1-45 characters long,
 //     start and end with an alphanumeric character,
 //     and consist only of lower case alphanumeric characters or '-'.
-//   - Dimension: (Required) The [dimensionality] of the vectors to be inserted in the Index.
+//   - Dimension: (Required) The [dimensionality] of the vectors to be inserted in the [Index].
 //   - Metric: (Required) The metric used to measure the [similarity] between vectors ('euclidean', 'cosine', or 'dotproduct').
-//   - Cloud: (Required) The public [cloud provider] where you would like your Index hosted.
-//     For serverless Indexes, you define only the cloud and region where the Index should be hosted.
-//   - Region: (Required) The [region] where you would like your Index to be created.
+//   - Cloud: (Required) The public [cloud provider] where you would like your [Index] hosted.
+//     For serverless Indexes, you define only the cloud and region where the [Index] should be hosted.
+//   - Region: (Required) The [region] where you would like your [Index] to be created.
 //   - DeletionProtection: (Optional) Determines whether [deletion protection] is "enabled" or "disabled" for the index.
 //     When "enabled", the index cannot be deleted. Defaults to "disabled".
 //
-// To create a new Serverless Index, use the CreateServerlessIndex method on the Client object.
+// To create a new Serverless Index, use the [Client.CreateServerlessIndex] method.
 //
 // Example:
 //
@@ -647,14 +647,14 @@ type CreateServerlessIndexRequest struct {
 	Region             string
 }
 
-// CreateServerlessIndex creates and initializes a new serverless Index via the specified Client.
+// [Client.CreateServerlessIndex] creates and initializes a new serverless Index via the specified [Client].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - in: A pointer to a CreateServerlessIndexRequest object. See CreateServerlessIndexRequest for more information.
+//   - in: A pointer to a [CreateServerlessIndexRequest] object. See [CreateServerlessIndexRequest] for more information.
 //
-// Returns a pointer to an Index object or an error.
+// Returns a pointer to an [Index] object or an error.
 //
 // Example:
 //
@@ -721,14 +721,14 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 	return decodeIndex(res.Body)
 }
 
-// DescribeIndex retrieves information about a specific Index. See Index for more information.
+// [Client.DescribeIndex] retrieves information about a specific [Index]. See [Index] for more information.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - idxName: The name of the Index to describe.
+//   - idxName: The name of the [Index] to describe.
 //
-// Returns a pointer to an Index object or an error.
+// Returns a pointer to an [Index] object or an error.
 //
 // Example:
 //
@@ -773,12 +773,12 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 	return decodeIndex(res.Body)
 }
 
-// DeleteIndex deletes a specific Index.
+// [Client.DeleteIndex] deletes a specific [Index].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - idxName: The name of the Index to delete.
+//   - idxName: The name of the [Index] to delete.
 //
 // Returns an error if the deletion fails.
 //
@@ -820,8 +820,8 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	return nil
 }
 
-// ConfigureIndexParams contains parameters for configuring an index. For both pod-based
-// and serverless indexes you can configure the DeletionProtection status for an index.
+// [ConfigureIndexParams] contains parameters for configuring an [Index]. For both pod-based
+// and serverless indexes you can configure the DeletionProtection status for an [Index].
 // For pod-based indexes you can also configure the number of Replicas and the PodType.
 // Each of the fields is optional, but at least one field must be set.
 // See [scale a pods-based index] for more information.
@@ -863,19 +863,19 @@ type ConfigureIndexParams struct {
 	DeletionProtection DeletionProtection
 }
 
-// ConfigureIndex is used to [scale a pods-based index] up or down by changing the size of the pods or the number of
-// replicas, or to enable and disable deletion protection for an index.
+// [Client.ConfigureIndex] is used to [scale a pods-based index] up or down by changing the size of the pods or the number of
+// replicas, or to enable and disable deletion protection for an [Index].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - name: The name of the index to configure.
-//   - in: A pointer to a ConfigureIndexParams object that contains the parameters for configuring the index.
+//   - name: The name of the [Index] to configure.
+//   - in: A pointer to a ConfigureIndexParams object that contains the parameters for configuring the [Index].
 //
-// Note: You can only scale an index up, not down. If you want to scale an index down,
+// Note: You can only scale an [Index] up, not down. If you want to scale an [Index] down,
 // you must create a new index with the desired configuration.
 //
-// Returns a pointer to a configured Index object or an error.
+// Returns a pointer to a configured [Index] object or an error.
 //
 // Example:
 //
@@ -947,7 +947,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	return decodeIndex(res.Body)
 }
 
-// ListCollections retrieves a list of all Collections in a Pinecone [project]. See Collection for more information.
+// [Client.ListCollections] retrieves a list of all Collections in a Pinecone [project]. See [understanding collections] for more information.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -988,7 +988,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 //	    }
 //
 // [project]: https://docs.pinecone.io/guides/projects/understanding-projects
-// [Collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
+// [understanding collections]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	res, err := c.restClient.ListCollections(ctx)
 	if err != nil {
@@ -1013,24 +1013,25 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	return collections, nil
 }
 
-// DescribeCollection retrieves information about a specific [Collection].
+// [Client.DescribeCollection] retrieves information about a specific [Collection]. See [understanding collections]
+// for more information.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - collectionName: The name of the Collection to describe.
+//   - collectionName: The name of the [Collection] to describe.
 //
-// Returns a pointer to a Collection object or an error.
+// Returns a pointer to a [Collection] object or an error.
 //
 // Note: Collections are only available for pods-based Indexes.
 //
-// Since the returned value is a pointer to a Collection object, it will have the following fields:
-//   - Name: The name of the Collection.
-//   - Size: The size of the Collection in bytes.
-//   - Status: The status of the Collection.
-//   - Dimension: The [dimensionality] of the vectors stored in each record held in the Collection.
-//   - VectorCount: The number of records stored in the Collection.
-//   - Environment: The cloud environment where the Collection is hosted.
+// Since the returned value is a pointer to a [Collection] object, it will have the following fields:
+//   - Name: The name of the [Collection].
+//   - Size: The size of the [Collection] in bytes.
+//   - Status: The status of the [Collection].
+//   - Dimension: The [dimensionality] of the vectors stored in each record held in the [Collection].
+//   - VectorCount: The number of records stored in the [Collection].
+//   - Environment: The cloud environment where the [Collection] is hosted.
 //
 // Example:
 //
@@ -1056,7 +1057,7 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 //	    }
 //
 // [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
-// [Collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
+// [understanding collections]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) DescribeCollection(ctx context.Context, collectionName string) (*Collection, error) {
 	res, err := c.restClient.DescribeCollection(ctx, collectionName)
 	if err != nil {
@@ -1071,13 +1072,13 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string) 
 	return decodeCollection(res.Body)
 }
 
-// CreateCollectionRequest holds the parameters for creating a new [Collection].
+// [CreateCollectionRequest] holds the parameters for creating a new [Collection].
 //
 // Fields:
-//   - Name: (Required) The name of the Collection.
-//   - Source: (Required) The name of the Index to be used as the source for the Collection.
+//   - Name: (Required) The name of the [Collection].
+//   - Source: (Required) The name of the Index to be used as the source for the [Collection].
 //
-// To create a new Collection, use the CreateCollection method on the Client object.
+// To create a new [Collection], use the [Client.CreateCollection] method.
 //
 // Note: Collections are only available for pods-based Indexes.
 //
@@ -1106,23 +1107,21 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string) 
 //	    } else {
 //		       fmt.Printf("Successfully created collection \"%s\".", collection.Name)
 //	    }
-//
-// [Collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
 type CreateCollectionRequest struct {
 	Name   string
 	Source string
 }
 
-// CreateCollection creates and initializes a new [Collection] via the specified Client.
+// [Client.CreateCollection] creates and initializes a new [Collection] via the specified [Client].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - in: A pointer to a CreateCollectionRequest object.
+//   - in: A pointer to a [CreateCollectionRequest] object.
 //
 // Note: Collections are only available for pods-based Indexes.
 //
-// Returns a pointer to a Collection object or an error.
+// Returns a pointer to a [Collection] object or an error.
 //
 // Example:
 //
@@ -1149,8 +1148,6 @@ type CreateCollectionRequest struct {
 //	    } else {
 //		       fmt.Printf("Successfully created collection \"%s\".", collection.Name)
 //	    }
-//
-// [Collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionRequest) (*Collection, error) {
 	if in.Source == "" || in.Name == "" {
 		return nil, fmt.Errorf("fields Name and Source must be included in CreateCollectionRequest")
@@ -1174,12 +1171,12 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 	return decodeCollection(res.Body)
 }
 
-// DeleteCollection deletes a specific [Collection]
+// [Client.DeleteCollection] deletes a specific [Collection]
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - collectionName: The name of the Collection to delete.
+//   - collectionName: The name of the [Collection] to delete.
 //
 // Note: Collections are only available for pods-based Indexes.
 //
@@ -1209,8 +1206,6 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 //	    } else {
 //		       log.Printf("Successfully deleted collection \"%s\"\n", collectionName)
 //	    }
-//
-// [Collection]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) DeleteCollection(ctx context.Context, collectionName string) error {
 	res, err := c.restClient.DeleteCollection(ctx, collectionName)
 	if err != nil {
@@ -1225,7 +1220,7 @@ func (c *Client) DeleteCollection(ctx context.Context, collectionName string) er
 	return nil
 }
 
-// InferenceService is a struct which exposes methods for interacting with the Pinecone Inference API. InferenceService
+// [InferenceService] is a struct which exposes methods for interacting with the Pinecone Inference API. [InferenceService]
 // can be accessed via the Client object through the Client.Inference namespace.
 //
 // [Pinecone Inference API]: https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models
@@ -1233,7 +1228,7 @@ type InferenceService struct {
 	client *inference.Client
 }
 
-// EmbedRequest holds the parameters for generating embeddings for a list of input strings.
+// [EmbedRequest] holds the parameters for generating embeddings for a list of input strings.
 //
 // Fields:
 //   - Model: (Required) The model to use for generating embeddings.
@@ -1245,7 +1240,7 @@ type EmbedRequest struct {
 	Parameters EmbedParameters
 }
 
-// EmbedParameters contains model-specific parameters that can be used for generating embeddings.
+// [EmbedParameters] contains model-specific parameters that can be used for generating embeddings.
 //
 // Fields:
 //   - InputType: (Optional) A common property used to distinguish between different types of data. For example, "passage", or "query".
@@ -1256,10 +1251,10 @@ type EmbedParameters struct {
 	Truncate  string
 }
 
-// EmbedResponse represents holds the embeddings generated for a single input.
+// [EmbedResponse] represents holds the embeddings generated for a single input.
 //
 // Fields:
-//   - Data: A list of Embedding objects containing the embeddings generated for the input.
+//   - Data: A list of [Embedding] objects containing the embeddings generated for the input.
 //   - Model: The model used to generate the embeddings.
 //   - Usage: Usage statistics ([Total Tokens]) for the request.
 //
@@ -1272,7 +1267,7 @@ type EmbedResponse struct {
 	} `json:"usage"`
 }
 
-// Embed generates embeddings for a list of inputs using the specified model and (optional) parameters.
+// [InferenceService.Embed] generates embeddings for a list of inputs using the specified model and (optional) parameters.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1280,7 +1275,7 @@ type EmbedResponse struct {
 //   - in: A pointer to an EmbedRequest object that contains the model to use for embedding generation, the
 //     list of input strings to generate embeddings for, and any additional parameters to use for generation.
 //
-// Returns a pointer to an EmbeddingsList object or an error.
+// Returns a pointer to an [EmbeddingsList] object or an error.
 //
 // Example:
 //
@@ -1359,10 +1354,10 @@ func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedR
 	return decodeEmbeddingsList(res.Body)
 }
 
-// Document is a map representing the document to be reranked.
+// [Document] is a map representing the document to be reranked.
 type Document map[string]string
 
-// RerankRequest holds the parameters for calling [InferenceService.Rerank] and reranking documents
+// [RerankRequest] holds the parameters for calling [InferenceService.Rerank] and reranking documents
 // by a specified query and model.
 //
 // Fields:
@@ -1399,12 +1394,12 @@ type RankedDocument struct {
 	Score    float32   `json:"score"`
 }
 
-// RerankResponse is the result of a reranking operation.
+// [RerankResponse] is the result of a reranking operation.
 //
 // Fields:
-//   - Data: A list of Documents which have been reranked. The Documents are sorted in order of relevance,
+//   - Data: A list of [RankedDocument] objects which have been reranked. The RankedDocuments are sorted in order of relevance,
 //     with the first being the most relevant.
-//   - Model: The model used to rerank Documents.
+//   - Model: The model used to rerank documents.
 //   - Usage: Usage statistics ([Rerank Units]) for the reranking operation.
 //
 // [Read Units]: https://docs.pinecone.io/guides/organizations/manage-cost/understanding-cost#rerank
@@ -1414,7 +1409,7 @@ type RerankResponse struct {
 	Usage RerankUsage      `json:"usage"`
 }
 
-// Rerank Documents with associated relevance scores that represent the relevance of each Document
+// [InferenceService.Rerank] reranks documents with associated relevance scores that represent the relevance of each [Document]
 // to the provided query using the specified model.
 //
 // Parameters:

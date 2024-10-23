@@ -280,8 +280,9 @@ func (ts *IntegrationTests) TestImportFlowHappyPath() {
 
 	testImportUri := "s3://dev-bulk-import-datasets-pub/10-records-dim-10/"
 	ctx := context.Background()
+	errorMode := "continue"
 
-	startRes, err := ts.idxConn.StartImport(ctx, testImportUri, nil, nil)
+	startRes, err := ts.idxConn.StartImport(ctx, testImportUri, nil, (*ImportErrorMode)(&errorMode))
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), startRes)
 
