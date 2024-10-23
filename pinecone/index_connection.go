@@ -20,7 +20,8 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-// IndexConnection holds the parameters for a Pinecone IndexConnection object.
+// [IndexConnection] holds the parameters for a Pinecone [IndexConnection] object. You can
+// instantiate an [IndexConnection] by calling the [Client.Index] method with a [NewIndexConnParams] object.
 //
 // Fields:
 //   - Namespace: The namespace where index operations will be performed.
@@ -83,7 +84,7 @@ func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*In
 	return &idx, nil
 }
 
-// Close closes the grpc.ClientConn to a Pinecone index.
+// [IndexConnection.Close] closes the grpc.ClientConn to a Pinecone [Index].
 //
 // Returns an error if the connection cannot be closed, otherwise returns nil.
 //
@@ -124,7 +125,7 @@ func (idx *IndexConnection) Close() error {
 	return err
 }
 
-// UpsertVectors upserts vectors into a Pinecone index.
+// [IndexConnection.UpsertVectors] upserts vectors into a Pinecone [Index].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -209,8 +210,7 @@ func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (ui
 	return res.UpsertedCount, nil
 }
 
-// FetchVectorsResponse holds the parameters for the FetchVectorsResponse object,
-// which is returned by the FetchVectors method.
+// [FetchVectorsResponse] is returned by the [IndexConnection.FetchVectors] method.
 //
 // Fields:
 //   - Vectors: The vectors fetched.
@@ -222,7 +222,7 @@ type FetchVectorsResponse struct {
 	Namespace string             `json:"namespace"`
 }
 
-// FetchVectors fetches vectors by ID from a Pinecone index.
+// [IndexConnection.FetchVectors] fetches vectors by ID from a Pinecone [Index].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -292,8 +292,7 @@ func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*Fe
 	}, nil
 }
 
-// ListVectorsRequest holds the parameters for the ListVectorsRequest object,
-// which is passed into the ListVectors method.
+// [ListVectorsRequest] holds the parameters passed into the [IndexConnection.ListVectors] method.
 //
 // Fields:
 //   - Prefix: (Optional) The prefix by which to filter. If unspecified,
@@ -306,8 +305,7 @@ type ListVectorsRequest struct {
 	PaginationToken *string
 }
 
-// ListVectorsResponse holds the parameters for the ListVectorsResponse object,
-// which is returned by the ListVectors method.
+// [ListVectorsResponse] is returned by the [IndexConnection.ListVectors] method.
 //
 // Fields:
 //   - VectorIds: The unique IDs of the returned vectors.
@@ -321,17 +319,17 @@ type ListVectorsResponse struct {
 	Namespace           string    `json:"namespace"`
 }
 
-// ListVectors lists vectors in a Pinecone index. You can filter vectors by prefix,
+// [IndexConnection.ListVectors] lists vectors in a Pinecone index. You can filter vectors by prefix,
 // limit the number of vectors returned, and paginate through results.
 //
 // Note: ListVectors is only available for Serverless indexes.
 //
-// Returns a pointer to a ListVectorsResponse object or an error if the request fails.
+// Returns a pointer to a [ListVectorsResponse] object or an error if the request fails.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - in: A ListVectorsRequest object with the parameters for the request.
+//   - in: A [ListVectorsRequest] object with the parameters for the request.
 //
 // Example:
 //
@@ -402,8 +400,7 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 	}, nil
 }
 
-// QueryByVectorValuesRequest holds the parameters for the QueryByVectorValuesRequest object,
-// which is passed into the QueryByVectorValues method.
+// [QueryByVectorValuesRequest] holds the parameters for the [IndexConnection.QueryByVectorValues] method.
 //
 // Fields:
 //   - Vector: (Required) The query vector used to find similar vectors.
@@ -421,8 +418,7 @@ type QueryByVectorValuesRequest struct {
 	SparseValues    *SparseValues
 }
 
-// QueryVectorsResponse holds the parameters for the QueryVectorsResponse object,
-// which is returned by the QueryByVectorValues method.
+// [QueryVectorsResponse] is returned by the [IndexConnection.QueryByVectorValues] method.
 //
 // Fields:
 //   - Matches: The vectors that are most similar to the query vector.
@@ -434,9 +430,9 @@ type QueryVectorsResponse struct {
 	Namespace string          `json:"namespace"`
 }
 
-// QueryByVectorValues queries a Pinecone index for vectors that are most similar to a provided query vector.
+// [IndexConnection.QueryByVectorValues] queries a Pinecone [Index] for vectors that are most similar to a provided query vector.
 //
-// Returns a pointer to a QueryVectorsResponse object or an error if the request fails.
+// Returns a pointer to a [QueryVectorsResponse] object or an error if the request fails.
 //
 // Note: To issue a hybrid query with both dense and sparse values,
 // your index's similarity metric must be dot-product.
@@ -444,7 +440,7 @@ type QueryVectorsResponse struct {
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - in: A QueryByVectorValuesRequest object with the parameters for the request.
+//   - in: A [QueryByVectorValuesRequest] object with the parameters for the request.
 //
 // Example:
 //
@@ -521,8 +517,7 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 	return idx.query(ctx, req)
 }
 
-// QueryByVectorIdRequest holds the parameters for the QueryByVectorIdRequest object,
-// which is passed into the QueryByVectorId method.
+// [QueryByVectorIdRequest] holds the parameters for the [IndexConnection.QueryByVectorId] method.
 //
 // Fields:
 //   - VectorId: (Required) The unique ID of the vector used to find similar vectors.
@@ -540,12 +535,12 @@ type QueryByVectorIdRequest struct {
 	SparseValues    *SparseValues
 }
 
-// QueryByVectorId uses a vector ID to query a Pinecone index and retrieve vectors that are most similar to the
+// [IndexConnection.QueryByVectorId] uses a vector ID to query a Pinecone [Index] and retrieve vectors that are most similar to the
 // provided ID's underlying vector.
 //
-// Returns a pointer to a QueryVectorsResponse object or an error if the request fails.
+// Returns a pointer to a [QueryVectorsResponse] object or an error if the request fails.
 //
-// Note: QueryByVectorId executes a nearest neighbors search, meaning that unless TopK=1 in the QueryByVectorIdRequest
+// Note: QueryByVectorId executes a nearest neighbors search, meaning that unless TopK=1 in the [QueryByVectorIdRequest]
 // object, it will return 2+ vectors. The vector with a score of 1.0 is the vector with the same ID as the query vector.
 //
 // Parameters:
@@ -611,13 +606,12 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 	return idx.query(ctx, req)
 }
 
-// DeleteVectorsById deletes vectors by ID from a Pinecone index.
+// [IndexConnection.DeleteVectorsById] deletes vectors by ID from a Pinecone [Index].
 //
-// Returns an error if the request fails,
-// otherwise returns nil. This method will also return nil if the passed vector ID does not exist in the index or
-// namespace.
+// Returns an error if the request fails, otherwise returns nil. This method will also return
+// nil if the passed vector ID does not exist in the index or namespace.
 //
-// Note: You must instantiate an Index connection with a Namespace in NewIndexConnParams in order to delete vectors
+// Note: You must create an [IndexConnection] with a Namespace in [NewIndexConnParams] in order to delete vectors
 // in a namespace other than the default: "".
 //
 // Parameters:
@@ -667,13 +661,13 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 	return idx.delete(ctx, &req)
 }
 
-// DeleteVectorsByFilter deletes vectors from a Pinecone index, given a filter.
+// [IndexConnection.DeleteVectorsByFilter] deletes vectors from a Pinecone [Index], given a filter.
 //
 // Returns an error if the request fails, otherwise returns nil.
 //
-// Note: DeleteVectorsByFilter is only available on pods-based indexes.
-// Additionally, you must instantiate an IndexConnection using the Index method with a Namespace in NewIndexConnParams
-// in order to delete vectors in a namespace other than the default.
+// Note: [DeleteVectorsByFilter] is only available on pods-based indexes.
+// Additionally, you must create an [IndexConnection] using the [Client.Index] method with a Namespace in [NewIndexConnParams]
+// in order to delete vectors in a namespace other than the default: "".
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -731,12 +725,12 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, metadataF
 	return idx.delete(ctx, &req)
 }
 
-// DeleteAllVectorsInNamespace deletes all vectors in a specific namespace.
+// [IndexConnection.DeleteAllVectorsInNamespace] deletes all vectors in a specific namespace.
 //
 // Returns an error if the request fails, otherwise returns nil.
 //
-// Note: You must instantiate an IndexConnection using the Index method with a Namespace in NewIndexConnParams
-// in order to delete vectors in a namespace other than the default.
+// Note: You must instantiate an [IndexConnection] using the [Client.Index] method with a Namespace in [NewIndexConnParams]
+// in order to delete vectors in a namespace other than the default: "".
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -783,8 +777,7 @@ func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx context.Context) err
 	return idx.delete(ctx, &req)
 }
 
-// UpdateVectorRequest holds the parameters for the UpdateVectorRequest object,
-// which is passed into the UpdateVector method.
+// [UpdateVectorRequest] holds the parameters for the [IndexConnection.UpdateVector] method.
 //
 // Fields:
 //   - Id: (Required) The unique ID of the vector to update.
@@ -798,14 +791,14 @@ type UpdateVectorRequest struct {
 	Metadata     *Metadata
 }
 
-// UpdateVector updates a vector in a Pinecone index by ID.
+// [IndexConnection.UpdateVector] updates a vector in a Pinecone [Index] by ID.
 //
 // Returns an error if the request fails, returns nil otherwise.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - in: An UpdateVectorRequest object with the parameters for the request.
+//   - in: An [UpdateVectorRequest] object with the parameters for the request.
 //
 // Example:
 //
@@ -861,14 +854,13 @@ func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRe
 	return err
 }
 
-// DescribeIndexStatsResponse holds the parameters for the DescribeIndexStatsResponse object,
-// which is returned by the DescribeIndexStats method.
+// [DescribeIndexStatsResponse] is returned by the [IndexConnection.DescribeIndexStats] method.
 //
 // Fields:
-//   - Dimension: The dimension of the index.
-//   - IndexFullness: The fullness level of the index. Note: only available on pods-based indexes.
-//   - TotalVectorCount: The total number of vectors in the index.
-//   - Namespaces: The namespace(s) in the index.
+//   - Dimension: The dimension of the [Index].
+//   - IndexFullness: The fullness level of the [Index]. Note: only available on pods-based indexes.
+//   - TotalVectorCount: The total number of vectors in the [Index].
+//   - Namespaces: The namespace(s) in the [Index].
 type DescribeIndexStatsResponse struct {
 	Dimension        uint32                       `json:"dimension"`
 	IndexFullness    float32                      `json:"index_fullness"`
@@ -876,9 +868,9 @@ type DescribeIndexStatsResponse struct {
 	Namespaces       map[string]*NamespaceSummary `json:"namespaces,omitempty"`
 }
 
-// DescribeIndexStats returns statistics about a Pinecone index.
+// [IndexConnection.DescribeIndexStats] returns statistics about a Pinecone [Index].
 //
-// Returns a pointer to a DescribeIndexStatsResponse object or an error if the request fails.
+// Returns a pointer to a [DescribeIndexStatsResponse] object or an error if the request fails.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -922,9 +914,9 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 	return idx.DescribeIndexStatsFiltered(ctx, nil)
 }
 
-// DescribeIndexStatsFiltered returns statistics about a Pinecone index, filtered by a given filter.
+// [IndexConnection.DescribeIndexStatsFiltered] returns statistics about a Pinecone [Index], filtered by a given filter.
 //
-// Returns a pointer to a DescribeIndexStatsResponse object or an error if the request fails.
+// Returns a pointer to a [DescribeIndexStatsResponse] object or an error if the request fails.
 //
 // Note: DescribeIndexStatsFiltered is only available on pods-based indexes.
 //
@@ -1003,7 +995,7 @@ func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, meta
 	}, nil
 }
 
-// StartImportResponse holds the response parameters for the StartImport method.
+// [StartImportResponse] holds the response parameters for the [IndexConnection.StartImport] method.
 //
 // Fields:
 //   - Id: The ID of the import process that was started.
@@ -1011,11 +1003,11 @@ type StartImportResponse struct {
 	Id string `json:"id,omitempty"`
 }
 
-// StartImport imports data from a storage provider into an index. The uri parameter must start with the
+// [IndexConnection.StartImport] imports data from a storage provider into an [Index]. The uri parameter must start with the
 // scheme of a supported storage provider (e.g. "s3://"). For buckets that are not publicly readable, you will also need to
 // separately configure a [storage integration] and pass the integration id.
 //
-// Returns a pointer to a StartImportResponse object with the import ID or an error if the request fails.
+// Returns a pointer to a [StartImportResponse] object with the [Import] ID or an error if the request fails.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -1088,9 +1080,9 @@ func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integra
 	return decodeStartImportResponse(res.Body)
 }
 
-// DescribeImport retrieves information about a specific import operation.
+// [IndexConnection.DescribeImport] retrieves information about a specific [Import] operation.
 //
-// Returns an Import object representing the current state of the import or an error if the request fails.
+// Returns a pointer to an [Import] object representing the current state of the import process, or an error if the request fails.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -1140,7 +1132,7 @@ func (idx *IndexConnection) DescribeImport(ctx context.Context, id string) (*Imp
 	return toImport(importModel), nil
 }
 
-// ListImportsRequest holds the parameters for the ListImports method.
+// [ListImportsRequest] holds the parameters for the [IndexConnection.ListImports] method.
 //
 // Fields:
 //   - Limit: The maximum number of imports to return.
@@ -1150,25 +1142,25 @@ type ListImportsRequest struct {
 	PaginationToken *string
 }
 
-// ListImportsResponse holds the result of listing bulk imports.
+// [ListImportsResponse] holds the result of listing [Import] objects.
 //
 // Fields:
-//   - Imports: The list of Import objects returned.
+//   - Imports: The list of [Import] objects returned.
 //   - NextPaginationToken: The token for paginating through results, if more imports are available.
 type ListImportsResponse struct {
 	Imports             []*Import `json:"imports,omitempty"`
 	NextPaginationToken *string   `json:"next_pagination_token,omitempty"`
 }
 
-// ListImports returns information about import operations. It returns operations in a
+// [IndexConnection.ListImports] returns information about [Import] operations. It returns operations in a
 // paginated form, with a pagination token to fetch the next page of results.
 //
-// Returns a pointer to a ListImportsResponse object or an error if the request fails.
+// Returns a pointer to a [ListImportsResponse] object or an error if the request fails.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - req: A ListImportsRequest object containing pagination and filter options.
+//   - req: A [ListImportsRequest] object containing pagination and filter options.
 //
 // Example:
 //
@@ -1226,14 +1218,14 @@ func (idx *IndexConnection) ListImports(ctx context.Context, limit *int32, pagin
 	return listImportsResponse, nil
 }
 
-// CancelImport cancels an import operation by id.
+// [IndexConnection.CancelImport] cancels an [Import] operation by id.
 //
 // Returns an error if the request fails.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - id: The id of the import operation to cancel.
+//   - id: The id of the [Import] operation to cancel.
 //
 // Example:
 //
