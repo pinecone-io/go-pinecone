@@ -24,9 +24,10 @@ func RunSuites(t *testing.T) {
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: sourceTag})
 	require.NotNil(t, client, "Client should not be nil after creation")
 	require.NoError(t, err)
+	indexTags := IndexTags{"test1": "test-tag-1", "test2": "test-tag-2"}
 
-	serverlessIdx := BuildServerlessTestIndex(client, "serverless-"+GenerateTestIndexName())
-	podIdx := BuildPodTestIndex(client, "pods-"+GenerateTestIndexName())
+	serverlessIdx := BuildServerlessTestIndex(client, "serverless-"+GenerateTestIndexName(), indexTags)
+	podIdx := BuildPodTestIndex(client, "pods-"+GenerateTestIndexName(), indexTags)
 
 	podTestSuite := &IntegrationTests{
 		apiKey:    apiKey,
@@ -36,6 +37,7 @@ func RunSuites(t *testing.T) {
 		client:    client,
 		sourceTag: sourceTag,
 		idxName:   podIdx.Name,
+		indexTags: &indexTags,
 	}
 
 	serverlessTestSuite := &IntegrationTests{
@@ -46,6 +48,7 @@ func RunSuites(t *testing.T) {
 		client:    client,
 		sourceTag: sourceTag,
 		idxName:   serverlessIdx.Name,
+		indexTags: &indexTags,
 	}
 
 	suite.Run(t, podTestSuite)

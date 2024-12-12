@@ -131,10 +131,10 @@ func (ts *IntegrationTests) TestListCollections() {
 }
 
 func (ts *IntegrationTests) TestDescribeCollection() {
-	ctx := context.Background()
 	if ts.indexType == "serverless" {
 		ts.T().Skip("No pod index to test")
 	}
+	ctx := context.Background()
 
 	collection, err := ts.client.DescribeCollection(ctx, ts.collectionName)
 	require.NoError(ts.T(), err)
@@ -250,7 +250,7 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 
 func (ts *IntegrationTests) TestConfigureIndexIllegalNoPodsOrReplicasOrDeletionProtection() {
 	_, err := ts.client.ConfigureIndex(context.Background(), ts.idxName, ConfigureIndexParams{})
-	require.ErrorContainsf(ts.T(), err, "must specify PodType, Replicas, or DeletionProtection", err.Error())
+	require.ErrorContainsf(ts.T(), err, "must specify PodType, Replicas, DeletionProtection, or Tags", err.Error())
 }
 
 func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
@@ -474,6 +474,37 @@ func (ts *IntegrationTests) TestRerankDocumentFieldError() {
 
 	require.Error(ts.T(), err)
 	require.Contains(ts.T(), err.Error(), "field 'custom-field' not found in document")
+}
+
+func (ts *IntegrationTests) TestIndexTags() {
+	// Validate that index tags are set
+	index, err := ts.client.DescribeIndex(context.Background(), ts.idxName)
+	require.NoError(ts.T(), err)
+
+	assert.Equal(ts.T(), ts.indexTags, index.Tags, "Expected index tags to match")
+
+	// Update first tag, and clear the second
+	counter := 0
+	updatedTags := make(IndexTags)
+	deletedTag := ""
+	for key := range *ts.indexTags {
+		if counter == 0 {
+			updatedTags[key] = "updated-tag"
+		} else {
+			deletedTag = key
+			updatedTags[key] = ""
+		}
+		counter++
+	}
+
+	index, err = ts.client.ConfigureIndex(context.Background(), ts.idxName, ConfigureIndexParams{Tags: updatedTags})
+	require.NoError(ts.T(), err)
+
+	// Remove empty tag from the map
+	delete(updatedTags, deletedTag)
+
+	assert.Equal(ts.T(), &updatedTags, index.Tags, "Expected index tags to match")
+	ts.indexTags = &updatedTags
 }
 
 // Unit tests:

@@ -415,6 +415,7 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //     only valid for use with pod-based Indexes.
 //   - DeletionProtection: (Optional) determines whether [deletion protection] is "enabled" or "disabled" for the index.
 //     When "enabled", the index cannot be deleted. Defaults to "disabled".
+//   - Tags: (Optional) A map of tags to associate with the Index.
 //
 // To create a new pods-based Index, use the [Client.CreatePodIndex] method.
 //
@@ -473,6 +474,7 @@ type CreatePodIndexRequest struct {
 	Replicas           int32
 	SourceCollection   *string
 	MetadataConfig     *PodSpecMetadataConfig
+	Tags               *IndexTags
 }
 
 // [CreatePodIndexRequestReplicaCount] ensures the replica count of a pods-based Index is >1.
@@ -548,11 +550,17 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 	replicas := in.ReplicaCount()
 	shards := in.ShardCount()
 
+	var tags *db_control.IndexTags
+	if in.Tags != nil {
+		tags = (*db_control.IndexTags)(in.Tags)
+	}
+
 	req := db_control.CreateIndexRequest{
 		Name:               in.Name,
 		Dimension:          in.Dimension,
 		Metric:             metric,
 		DeletionProtection: deletionProtection,
+		Tags:               tags,
 	}
 
 	req.Spec = db_control.IndexSpec{
@@ -595,11 +603,12 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //     and consist only of lower case alphanumeric characters or '-'.
 //   - Dimension: (Required) The [dimensionality] of the vectors to be inserted in the [Index].
 //   - Metric: (Required) The metric used to measure the [similarity] between vectors ('euclidean', 'cosine', or 'dotproduct').
+//   - DeletionProtection: (Optional) Determines whether [deletion protection] is "enabled" or "disabled" for the index.
+//     When "enabled", the index cannot be deleted. Defaults to "disabled".
 //   - Cloud: (Required) The public [cloud provider] where you would like your [Index] hosted.
 //     For serverless Indexes, you define only the cloud and region where the [Index] should be hosted.
 //   - Region: (Required) The [region] where you would like your [Index] to be created.
-//   - DeletionProtection: (Optional) Determines whether [deletion protection] is "enabled" or "disabled" for the index.
-//     When "enabled", the index cannot be deleted. Defaults to "disabled".
+//   - Tags: (Optional) A map of tags to associate with the Index.
 //
 // To create a new Serverless Index, use the [Client.CreateServerlessIndex] method.
 //
@@ -648,6 +657,7 @@ type CreateServerlessIndexRequest struct {
 	DeletionProtection DeletionProtection
 	Cloud              Cloud
 	Region             string
+	Tags               *IndexTags
 }
 
 // [Client.CreateServerlessIndex] creates and initializes a new serverless Index via the specified [Client].
@@ -698,6 +708,11 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 	deletionProtection := pointerOrNil(db_control.DeletionProtection(in.DeletionProtection))
 	metric := pointerOrNil(db_control.CreateIndexRequestMetric(in.Metric))
 
+	var tags *db_control.IndexTags
+	if in.Tags != nil {
+		tags = (*db_control.IndexTags)(in.Tags)
+	}
+
 	req := db_control.CreateIndexRequest{
 		Name:               in.Name,
 		Dimension:          in.Dimension,
@@ -709,6 +724,7 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 				Region: in.Region,
 			},
 		},
+		Tags: tags,
 	}
 
 	res, err := c.restClient.CreateIndex(ctx, req)
@@ -838,6 +854,7 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //     go to [app.pinecone.io], select your project, and configure the maximum number of pods.
 //   - DeletionProtection: (Optional) DeletionProtection determines whether [deletion protection]
 //     is "enabled" or "disabled" for the index. When "enabled", the index cannot be deleted. Defaults to "disabled".
+//   - Tags: (Optional) A map of tags to associate with the Index.
 //
 // Example:
 //
@@ -864,6 +881,7 @@ type ConfigureIndexParams struct {
 	PodType            string
 	Replicas           int32
 	DeletionProtection DeletionProtection
+	Tags               IndexTags
 }
 
 // [Client.ConfigureIndex] is used to [scale a pods-based index] up or down by changing the size of the pods or the number of
@@ -908,8 +926,8 @@ type ConfigureIndexParams struct {
 //
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
 func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIndexParams) (*Index, error) {
-	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" {
-		return nil, fmt.Errorf("must specify PodType, Replicas, or DeletionProtection when configuring an index")
+	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" && in.Tags == nil {
+		return nil, fmt.Errorf("must specify PodType, Replicas, DeletionProtection, or Tags when configuring an index")
 	}
 
 	podType := pointerOrNil(in.PodType)
@@ -935,6 +953,8 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 			}
 	}
 	request.DeletionProtection = (*db_control.DeletionProtection)(deletionProtection)
+	request.Tags = (*db_control.IndexTags)(&in.Tags)
+	fmt.Printf("request.Tags: %+v\n", request.Tags)
 
 	res, err := c.restClient.ConfigureIndex(ctx, name, request)
 	if err != nil {
@@ -1528,6 +1548,7 @@ func toIndex(idx *db_control.IndexModel) *Index {
 		Ready: idx.Status.Ready,
 		State: IndexStatusState(idx.Status.State),
 	}
+	tags := (*IndexTags)(idx.Tags)
 	deletionProtection := derefOrDefault(idx.DeletionProtection, "disabled")
 
 	return &Index{
@@ -1538,6 +1559,7 @@ func toIndex(idx *db_control.IndexModel) *Index {
 		DeletionProtection: DeletionProtection(deletionProtection),
 		Spec:               spec,
 		Status:             status,
+		Tags:               tags,
 	}
 }
 
