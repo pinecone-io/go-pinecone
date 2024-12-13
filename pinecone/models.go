@@ -65,6 +65,9 @@ type IndexSpec struct {
 	Serverless *ServerlessSpec `json:"serverless,omitempty"`
 }
 
+// [IndexTags] is a set of key-value pairs that can be attached to a Pinecone [Index].
+type IndexTags map[string]string
+
 // [Index] is a Pinecone [Index] object. Can be either a pod-based or a serverless [Index], depending on the [IndexSpec].
 type Index struct {
 	Name               string             `json:"name"`
@@ -74,6 +77,7 @@ type Index struct {
 	DeletionProtection DeletionProtection `json:"deletion_protection,omitempty"`
 	Spec               *IndexSpec         `json:"spec,omitempty"`
 	Status             *IndexStatus       `json:"status,omitempty"`
+	Tags               *IndexTags         `json:"tags,omitempty"`
 }
 
 // [Collection] is a Pinecone [collection entity]. Only available for pod-based Indexes.

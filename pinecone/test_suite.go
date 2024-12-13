@@ -24,6 +24,7 @@ type IntegrationTests struct {
 	idxConn        *IndexConnection
 	collectionName string
 	sourceTag      string
+	indexTags      *IndexTags
 }
 
 func (ts *IntegrationTests) SetupSuite() {
@@ -207,7 +208,7 @@ func generateVectorValues(dimension int32) []float32 {
 	return values
 }
 
-func BuildServerlessTestIndex(in *Client, idxName string) *Index {
+func BuildServerlessTestIndex(in *Client, idxName string, tags IndexTags) *Index {
 	ctx := context.Background()
 
 	fmt.Printf("Creating Serverless index: %s\n", idxName)
@@ -217,6 +218,7 @@ func BuildServerlessTestIndex(in *Client, idxName string) *Index {
 		Metric:    Cosine,
 		Region:    "us-east-1",
 		Cloud:     "aws",
+		Tags:      &tags,
 	})
 	if err != nil {
 		log.Fatalf("Failed to create Serverless index \"%s\" in integration test: %v", err, idxName)
@@ -226,7 +228,7 @@ func BuildServerlessTestIndex(in *Client, idxName string) *Index {
 	return serverlessIdx
 }
 
-func BuildPodTestIndex(in *Client, name string) *Index {
+func BuildPodTestIndex(in *Client, name string, tags IndexTags) *Index {
 	ctx := context.Background()
 
 	fmt.Printf("Creating pod index: %s\n", name)
@@ -236,6 +238,7 @@ func BuildPodTestIndex(in *Client, name string) *Index {
 		Metric:      Cosine,
 		Environment: "us-east-1-aws",
 		PodType:     "p1",
+		Tags:        &tags,
 	})
 	if err != nil {
 		log.Fatalf("Failed to create pod index in buildPodTestIndex test: %v", err)
