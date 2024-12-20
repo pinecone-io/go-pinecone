@@ -217,6 +217,8 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 	isReady, _ := WaitUntilIndexReady(ts, context.Background())
 	require.True(ts.T(), isReady, "Expected index to be ready")
 
+	time.Sleep(500 * time.Millisecond)
+
 	err = ts.client.DeleteIndex(context.Background(), name)
 	require.NoError(ts.T(), err)
 }
@@ -243,6 +245,8 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 
 	isReady, _ := WaitUntilIndexReady(ts, context.Background())
 	require.True(ts.T(), isReady, "Expected index to be ready")
+
+	time.Sleep(500 * time.Millisecond)
 
 	err = ts.client.DeleteIndex(context.Background(), name)
 	require.NoError(ts.T(), err)

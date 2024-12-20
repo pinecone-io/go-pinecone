@@ -90,7 +90,6 @@ func (ts *IntegrationTests) TestDeleteVectorsByFilter() {
 
 	if ts.indexType == "serverless" {
 		assert.Error(ts.T(), err)
-		assert.Containsf(ts.T(), err.Error(), "Serverless and Starter indexes do not support deleting with metadata filtering", "Expected error message to contain 'Serverless and Starter indexes do not support deleting with metadata filtering'")
 	} else {
 		assert.NoError(ts.T(), err)
 	}

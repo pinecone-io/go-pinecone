@@ -156,6 +156,7 @@ func main() {
 		Metric:    pinecone.Cosine,
 		Cloud:     pinecone.Aws,
 		Region:    "us-east-1",
+		Tags:      &pinecone.IndexTags{"environment": "development"},
 	})
 
 	if err != nil {
@@ -209,6 +210,7 @@ func main() {
 		Environment:    "us-west1-gcp",
 		PodType:        "s1",
 		MetadataConfig: podIndexMetadata,
+		Tags:           &pinecone.IndexTags{"environment": "development"},
 	})
 
 	if err != nil {
@@ -344,9 +346,7 @@ func main() {
 
 ### Configure an index
 
-There are multiple ways to configure Pinecone indexes. You are able to configure Deletion Protection for both
-pod-based and Serverless indexes. Additionally, you can configure the size of your pods and the number of replicas
-for pod-based indexes. Examples for each of these configurations are provided below.
+There are multiple ways to configure Pinecone indexes. You are able to configure Deletion Protection and Tags for both pod-based and Serverless indexes. Additionally, you can configure the size of your pods and the number of replicas for pod-based indexes. Examples for each of these configurations are provided below.
 
 ```go
 package main
@@ -374,22 +374,49 @@ func main() {
 	}
 
 	// To scale the size of your pods-based index from "x2" to "x4":
-	_, err := pc.ConfigureIndex(ctx, "my-pod-index", pinecone.ConfigureIndexParams{PodType: "p1.x4"})
+	_, err := pc.ConfigureIndex(ctx,
+		"my-pod-index",
+		pinecone.ConfigureIndexParams{
+			PodType: "p1.x4",
+		},
+	)
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
 
 	// To scale the number of replicas to 4:
-	_, err := pc.ConfigureIndex(ctx, "my-pod-index", pinecone.ConfigureIndexParams{Replicas: 4})
+	_, err := pc.ConfigureIndex(ctx,
+		"my-pod-index",
+		pinecone.ConfigureIndexParams{
+			Replicas: 4,
+		},
+	)
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
 
 	// To scale both the size of your pods and the number of replicas:
-	_, err := pc.ConfigureIndex(ctx, "my-pod-index", pinecone.ConfigureIndexParams{PodType: "p1.x4", Replicas: 4})
+	_, err := pc.ConfigureIndex(ctx,
+		"my-pod-index",
+		pinecone.ConfigureIndexParams{
+			PodType: "p1.x4",
+			Replicas: 4,
+		},
+	)
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
+
+	// To add or remove IndexTags
+	_, err := pc.ConfigureIndex(ctx,
+		"my-pod-index",
+		pinecone.ConfigureIndexParams{
+			Tags: pinecone.IndexTags{
+				"environment": "development",
+				"source":  "",
+			},
+		},
+	)
 
 	// To enable deletion protection:
 	_, err := pc.ConfigureIndex(ctx, "my-index", pinecone.ConfigureIndexParams{DeletionProtection: "enabled"})
@@ -581,7 +608,7 @@ func main() {
 
 ### Import vectors from object storage
 
-You can now [import vectors en masse](https://docs.pinecone.io/guides/data/understanding-imports) from object 
+You can now [import vectors en masse](https://docs.pinecone.io/guides/data/understanding-imports) from object
 storage. `Import` is a long-running, asynchronous operation that imports large numbers of records into a Pinecone
 serverless index.
 
@@ -619,7 +646,7 @@ The following example imports vectors from an Amazon S3 bucket into a Pinecone s
     }
 
     idx, err = pc.DescribeIndex(ctx, "pinecone-index")
-    
+
 	if err != nil {
         log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
     }
@@ -632,15 +659,16 @@ The following example imports vectors from an Amazon S3 bucket into a Pinecone s
     storageURI := "s3://my-bucket/my-directory/"
 
     errorMode := "abort" // Will abort if error encountered; other option: "continue"
-	
+
     importRes, err := idxConnection.StartImport(ctx, storageURI, nil, (*pinecone.ImportErrorMode)(&errorMode))
 
 	if err != nil {
         log.Fatalf("Failed to start import: %v", err)
     }
-	
+
     fmt.Printf("import started with ID: %s", importRes.Id)
 ```
+
 You can [start, cancel, and check the status](https://docs.pinecone.io/guides/data/import-data) of all or one import operation(s).
 
 ### Query an index
@@ -1460,7 +1488,7 @@ indicating higher relevance.
 
     rerankModel := "bge-reranker-v2-m3"
     query := "What are some good Turkey dishes for Thanksgiving?"
-  
+
     documents := []pinecone.Document{
       {"title": "Turkey Sandwiches", "body": "Turkey is a classic meat to eat at American Thanksgiving."},
       {"title": "Lemon Turkey", "body": "A lemon brined Turkey with apple sausage stuffing is a classic Thanksgiving main course."},
