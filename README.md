@@ -24,7 +24,7 @@ See the [Pinecone API Docs](https://docs.pinecone.io/reference/) for more inform
 To upgrade the SDK to the latest version, run:
 
 ```shell
-go get -u github.com/pinecone-io/go-pinecone/pinecone@latest
+go get -u github.com/pinecone-io/go-pinecone/v2/pinecone@latest
 ```
 
 ## Prerequisites
@@ -36,7 +36,7 @@ go get -u github.com/pinecone-io/go-pinecone/pinecone@latest
 To install the Pinecone Go SDK, run the following in your terminal:
 
 ```shell
-go get github.com/pinecone-io/go-pinecone/pinecone
+go get github.com/pinecone-io/go-pinecone/v2/pinecone
 ```
 
 For more information on setting up a Go project, see the [Go documentation](https://golang.org/doc/).
@@ -58,7 +58,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -91,7 +91,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 )
 
@@ -129,7 +129,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -178,7 +178,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -232,7 +232,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -273,7 +273,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -314,7 +314,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -354,7 +354,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -436,7 +436,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -487,7 +487,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -530,7 +530,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
@@ -687,7 +687,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
@@ -818,7 +818,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -879,7 +879,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -927,7 +927,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
@@ -982,7 +982,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -1030,7 +1030,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -1110,7 +1110,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -1166,7 +1166,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -1243,7 +1243,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -1284,7 +1284,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -1329,7 +1329,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
@@ -1367,7 +1367,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/pinecone"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
 	"log"
 	"os"
 )
