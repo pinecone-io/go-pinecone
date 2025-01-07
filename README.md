@@ -7,7 +7,7 @@ This is the official Go SDK for [Pinecone](https://www.pinecone.io).
 To see the latest documentation for `main`, visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone.
 
 To see the latest versioned-release's documentation,
-visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/pinecone.
+visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v2/pinecone.
 
 ## Features
 
