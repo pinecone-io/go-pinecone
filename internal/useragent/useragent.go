@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pinecone-io/go-pinecone/internal"
+	"github.com/pinecone-io/go-pinecone/v2/internal"
 )
 
 func getPackageVersion() string {

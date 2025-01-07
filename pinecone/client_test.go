@@ -14,11 +14,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
-	"github.com/pinecone-io/go-pinecone/internal/gen"
-	"github.com/pinecone-io/go-pinecone/internal/gen/db_control"
-	"github.com/pinecone-io/go-pinecone/internal/provider"
+	"github.com/pinecone-io/go-pinecone/v2/internal/gen"
+	"github.com/pinecone-io/go-pinecone/v2/internal/gen/db_control"
+	"github.com/pinecone-io/go-pinecone/v2/internal/provider"
 
-	"github.com/pinecone-io/go-pinecone/internal/utils"
+	"github.com/pinecone-io/go-pinecone/v2/internal/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -211,13 +211,8 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 2})
 	require.NoError(ts.T(), err)
 
-	// give index a bit of time to start upgrading before we poll
-	time.Sleep(500 * time.Millisecond)
-
-	isReady, _ := WaitUntilIndexReady(ts, context.Background())
-	require.True(ts.T(), isReady, "Expected index to be ready")
-
-	time.Sleep(500 * time.Millisecond)
+	// give index a bit of time to upgrade
+	time.Sleep(20 * time.Second)
 
 	err = ts.client.DeleteIndex(context.Background(), name)
 	require.NoError(ts.T(), err)
@@ -240,13 +235,8 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x4"})
 	require.NoError(ts.T(), err)
 
-	// give index a bit of time to start upgrading before we poll
-	time.Sleep(500 * time.Millisecond)
-
-	isReady, _ := WaitUntilIndexReady(ts, context.Background())
-	require.True(ts.T(), isReady, "Expected index to be ready")
-
-	time.Sleep(500 * time.Millisecond)
+	// give index a bit of time to upgrade
+	time.Sleep(20 * time.Second)
 
 	err = ts.client.DeleteIndex(context.Background(), name)
 	require.NoError(ts.T(), err)

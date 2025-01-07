@@ -14,12 +14,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pinecone-io/go-pinecone/internal/gen"
-	"github.com/pinecone-io/go-pinecone/internal/gen/db_control"
-	db_data_rest "github.com/pinecone-io/go-pinecone/internal/gen/db_data/rest"
-	"github.com/pinecone-io/go-pinecone/internal/gen/inference"
-	"github.com/pinecone-io/go-pinecone/internal/provider"
-	"github.com/pinecone-io/go-pinecone/internal/useragent"
+	"github.com/pinecone-io/go-pinecone/v2/internal/gen"
+	"github.com/pinecone-io/go-pinecone/v2/internal/gen/db_control"
+	db_data_rest "github.com/pinecone-io/go-pinecone/v2/internal/gen/db_data/rest"
+	"github.com/pinecone-io/go-pinecone/v2/internal/gen/inference"
+	"github.com/pinecone-io/go-pinecone/v2/internal/provider"
+	"github.com/pinecone-io/go-pinecone/v2/internal/useragent"
 	"google.golang.org/grpc"
 )
 
