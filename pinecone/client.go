@@ -557,7 +557,7 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 
 	req := db_control.CreateIndexRequest{
 		Name:               in.Name,
-		Dimension:          in.Dimension,
+		Dimension:          &in.Dimension,
 		Metric:             metric,
 		DeletionProtection: deletionProtection,
 		Tags:               tags,
@@ -715,7 +715,7 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 
 	req := db_control.CreateIndexRequest{
 		Name:               in.Name,
-		Dimension:          in.Dimension,
+		Dimension:          &in.Dimension,
 		Metric:             metric,
 		DeletionProtection: deletionProtection,
 		Spec: db_control.IndexSpec{
@@ -1272,13 +1272,17 @@ type EmbedRequest struct {
 // [EmbedParameters] contains model-specific parameters that can be used for generating embeddings.
 //
 // Fields:
+//
 //   - InputType: (Optional) A common property used to distinguish between different types of data. For example, "passage", or "query".
+//
 //   - Truncate: (Optional) How to handle inputs longer than those supported by the model. if "NONE", when the input exceeds
 //     the maximum input token length, an error will be returned.
-type EmbedParameters struct {
-	InputType string
-	Truncate  string
-}
+//
+//     type EmbedParameters struct {
+//     InputType string
+//     Truncate  string
+//     }
+type EmbedParameters *map[string]interface{}
 
 // [EmbedResponse] represents holds the embeddings generated for a single input.
 //
@@ -1360,14 +1364,17 @@ func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedR
 	}
 
 	// convert embedding parameters to expected type
-	if in.Parameters.InputType != "" || in.Parameters.Truncate != "" {
-		req.Parameters = &struct {
-			InputType *string `json:"input_type,omitempty"`
-			Truncate  *string `json:"truncate,omitempty"`
-		}{
-			InputType: pointerOrNil(in.Parameters.InputType),
-			Truncate:  pointerOrNil(in.Parameters.Truncate),
-		}
+	// if in.Parameters.InputType != "" || in.Parameters.Truncate != "" {
+	// 	req.Parameters = &struct {
+	// 		InputType string `json:"input_type,omitempty"`
+	// 		Truncate  string `json:"truncate,omitempty"`
+	// 	}{
+	// 		InputType: in.Parameters.InputType,
+	// 		Truncate:  in.Parameters.Truncate,
+	// 	}
+	// }
+	if &in.Parameters != nil {
+		req.Parameters = in.Parameters
 	}
 
 	res, err := i.client.Embed(ctx, req)
@@ -1384,7 +1391,7 @@ func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedR
 }
 
 // [Document] is a map representing the document to be reranked.
-type Document map[string]string
+type Document map[string]interface{}
 
 // [RerankRequest] holds the parameters for calling [InferenceService.Rerank] and reranking documents
 // by a specified query and model.
@@ -1407,7 +1414,7 @@ type RerankRequest struct {
 	RankFields      *[]string
 	ReturnDocuments *bool
 	TopN            *int
-	Parameters      *map[string]string
+	Parameters      *map[string]interface{}
 }
 
 // Represents a ranked document with a relevance score and an index position.
@@ -1559,7 +1566,7 @@ func toIndex(idx *db_control.IndexModel) *Index {
 
 	return &Index{
 		Name:               idx.Name,
-		Dimension:          idx.Dimension,
+		Dimension:          *idx.Dimension,
 		Host:               idx.Host,
 		Metric:             IndexMetric(idx.Metric),
 		DeletionProtection: DeletionProtection(deletionProtection),

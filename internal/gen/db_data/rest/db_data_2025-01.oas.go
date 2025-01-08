@@ -44,7 +44,7 @@ type DeleteRequest struct {
 	// DeleteAll This indicates that all vectors in the index namespace should be deleted.
 	DeleteAll *bool `json:"deleteAll,omitempty"`
 
-	// Filter If specified, the metadata filter here will be used to select the vectors to delete. This is mutually exclusive with specifying ids to delete in the ids param or using delete_all=True. See [Filter with metadata](https://docs.pinecone.io/guides/data/filter-with-metadata).
+	// Filter If specified, the metadata filter here will be used to select the vectors to delete. This is mutually exclusive with specifying ids to delete in the ids param or using delete_all=True. See [Understanding metadata](https://docs.pinecone.io/guides/data/understanding-metadata).
 	// Serverless indexes do not support delete by metadata. Instead, you can use the `list` operation to fetch the vector IDs based on their common ID prefix and then delete the records by ID.
 	Filter *map[string]interface{} `json:"filter,omitempty"`
 
@@ -60,11 +60,14 @@ type DeleteResponse = map[string]interface{}
 
 // DescribeIndexStatsRequest The request for the `describe_index_stats` operation.
 type DescribeIndexStatsRequest struct {
-	// Filter If this parameter is present, the operation only returns statistics for vectors that satisfy the filter. See [Filter with metadata](https://docs.pinecone.io/guides/data/filter-with-metadata).
+	// Filter If this parameter is present, the operation only returns statistics for vectors that satisfy the filter. See [Understanding metadata](https://docs.pinecone.io/guides/data/understanding-metadata).
 	//
 	// Serverless indexes do not support filtering `describe_index_stats` by metadata.
 	Filter *map[string]interface{} `json:"filter,omitempty"`
 }
+
+// EmbedInputs defines model for EmbedInputs.
+type EmbedInputs = map[string]interface{}
 
 // FetchResponse The response for the `fetch` operation.
 type FetchResponse struct {
@@ -72,6 +75,18 @@ type FetchResponse struct {
 	Namespace *string            `json:"namespace,omitempty"`
 	Usage     *Usage             `json:"usage,omitempty"`
 	Vectors   *map[string]Vector `json:"vectors,omitempty"`
+}
+
+// Hit A record whose vector values are similar to the provided search query.
+type Hit struct {
+	// Id The record id of the search hit.
+	Id string `json:"_id"`
+
+	// Score The similarity score of the returned record.
+	Score float32 `json:"_score"`
+
+	// Fields The selected record fields associated with the search hit.
+	Fields map[string]interface{} `json:"fields"`
 }
 
 // ImportErrorMode Indicates how to respond to errors during the import process.
@@ -97,7 +112,7 @@ type ImportModel struct {
 	// Id Unique identifier for the import operation.
 	Id *string `json:"id,omitempty"`
 
-	// PercentComplete The progress made by the operation out of 100
+	// PercentComplete The progress made by the operation, as a percentage.
 	PercentComplete *float32 `json:"percentComplete,omitempty"`
 
 	// RecordsImported The number of records successfully imported.
@@ -115,21 +130,27 @@ type ImportModelStatus string
 
 // IndexDescription The response for the `describe_index_stats` operation.
 type IndexDescription struct {
-	// Dimension The dimension of the indexed vectors.
+	// Dimension The dimension of the indexed vectors. Not specified if `sparse` index.
 	Dimension *int64 `json:"dimension,omitempty"`
 
 	// IndexFullness The fullness of the index, regardless of whether a metadata filter expression was passed. The granularity of this metric is 10%.
 	//
 	// Serverless indexes scale automatically as needed, so index fullness  is relevant only for pod-based indexes.
 	//
-	// The index fullness result may be inaccurate during pod resizing; to get the status of a pod resizing process, use [`describe_index`](https://docs.pinecone.io/reference/api/control-plane/describe_index).
+	// The index fullness result may be inaccurate during pod resizing; to get the status of a pod resizing process, use [`describe_index`](https://docs.pinecone.io/reference/api/2024-10/control-plane/describe_index).
 	IndexFullness *float32 `json:"indexFullness,omitempty"`
+
+	// Metric The metric used to measure similarity.
+	Metric *string `json:"metric,omitempty"`
 
 	// Namespaces A mapping for each namespace in the index from the namespace name to a summary of its contents. If a metadata filter expression is present, the summary will reflect only vectors matching that expression.
 	Namespaces *map[string]NamespaceSummary `json:"namespaces,omitempty"`
 
 	// TotalVectorCount The total number of vectors in the index, regardless of whether a metadata filter expression was passed
 	TotalVectorCount *int64 `json:"totalVectorCount,omitempty"`
+
+	// VectorType The type of vectors stored in the index.
+	VectorType *string `json:"vectorType,omitempty"`
 }
 
 // ListImportsResponse The response for the `list_imports` operation.
@@ -165,7 +186,7 @@ type Pagination struct {
 
 // QueryRequest The request for the `query` operation.
 type QueryRequest struct {
-	// Filter The filter to apply. You can use vector metadata to limit your search. See [Filter with metadata](https://docs.pinecone.io/guides/data/filter-with-metadata).
+	// Filter The filter to apply. You can use vector metadata to limit your search. See [Understanding metadata](https://docs.pinecone.io/guides/data/understanding-metadata).
 	Filter *map[string]interface{} `json:"filter,omitempty"`
 
 	// Id The unique ID of the vector to be used as a query vector. Each `query` request can contain only one of the parameters `queries`, `vector`, or  `id`.
@@ -244,6 +265,77 @@ type ScoredVector struct {
 	Values *[]float32 `json:"values,omitempty"`
 }
 
+// SearchRecordsRequest A search request for records in a specific namespace.
+type SearchRecordsRequest struct {
+	// Fields The fields to return in the search results.
+	Fields *[]string `json:"fields,omitempty"`
+
+	// Query The query inputs to search with.
+	Query struct {
+		// Filter The filter to apply.
+		Filter *map[string]interface{} `json:"filter,omitempty"`
+
+		// Id The unique ID of the vector to be used as a query vector.
+		Id     *string      `json:"id,omitempty"`
+		Inputs *EmbedInputs `json:"inputs,omitempty"`
+
+		// TopK The number of results to return for each search.
+		TopK   int32                `json:"top_k"`
+		Vector *SearchRecordsVector `json:"vector,omitempty"`
+	} `json:"query"`
+
+	// Rerank Parameters for reranking the initial search results.
+	Rerank *struct {
+		// Model The name of the [reranking model](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) to use.
+		Model string `json:"model"`
+
+		// Parameters Additional model-specific parameters. Refer to the [model guide](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) for available model parameters.
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+		// Query The query to rerank documents against. If a specific rerank query is specified,  it overwrites the query input that was provided at the top level.
+		Query *string `json:"query,omitempty"`
+
+		// RankFields The fields to use for reranking.
+		RankFields []string `json:"rank_fields"`
+
+		// TopN The number of top results to return after reranking. Defaults to top_k.
+		TopN *int32 `json:"top_n,omitempty"`
+	} `json:"rerank,omitempty"`
+}
+
+// SearchRecordsResponse The records search response.
+type SearchRecordsResponse struct {
+	Result struct {
+		// Hits The hits for the search document request.
+		Hits []Hit `json:"hits"`
+	} `json:"result"`
+	Usage SearchUsage `json:"usage"`
+}
+
+// SearchRecordsVector defines model for SearchRecordsVector.
+type SearchRecordsVector struct {
+	// SparseIndices The sparse embedding indices.
+	SparseIndices *[]int32 `json:"sparse_indices,omitempty"`
+
+	// SparseValues The sparse embedding values.
+	SparseValues *[]float32 `json:"sparse_values,omitempty"`
+
+	// Values This is the vector data included in the request.
+	Values *VectorValues `json:"values,omitempty"`
+}
+
+// SearchUsage defines model for SearchUsage.
+type SearchUsage struct {
+	// EmbedTotalTokens The number of embedding tokens consumed by this operation.
+	EmbedTotalTokens *int32 `json:"embed_total_tokens,omitempty"`
+
+	// ReadUnits The number of read units consumed by this operation.
+	ReadUnits int32 `json:"read_units"`
+
+	// RerankUnits The number of rerank units consumed by this operation.
+	RerankUnits *int32 `json:"rerank_units,omitempty"`
+}
+
 // SingleQueryResults defines model for SingleQueryResults.
 type SingleQueryResults struct {
 	// Matches The matches for the vectors.
@@ -267,16 +359,16 @@ type StartImportRequest struct {
 	// ErrorMode Indicates how to respond to errors during the import process.
 	ErrorMode *ImportErrorMode `json:"errorMode,omitempty"`
 
-	// IntegrationId The id of the storage integration that should be used to access the data.
+	// IntegrationId The id of the [storage integration](https://docs.pinecone.io/guides/operations/integrations/manage-storage-integrations) that should be used to access the data.
 	IntegrationId *string `json:"integrationId,omitempty"`
 
-	// Uri The URI prefix under which the data to import is available. All data within this prefix will be listed then imported into the target index. Currently only `s3://` URIs are supported.
+	// Uri The [URI prefix](https://docs.pinecone.io/guides/data/understanding-imports#directory-structure) under which the data to import is available. All data within this prefix will be listed then imported into the target index. Currently only `s3://` URIs are supported.
 	Uri string `json:"uri"`
 }
 
 // StartImportResponse The response for the `start_import` operation.
 type StartImportResponse struct {
-	// Id Unique identifier for the import operations.
+	// Id Unique identifier for the import operation.
 	Id *string `json:"id,omitempty"`
 }
 
@@ -300,6 +392,12 @@ type UpdateRequest struct {
 
 // UpdateResponse The response for the `update` operation.
 type UpdateResponse = map[string]interface{}
+
+// UpsertRecord The request for the `upsert` operation.
+type UpsertRecord struct {
+	// Id The unique ID of the record to upsert.
+	Id string `json:"_id"`
+}
 
 // UpsertRequest The request for the `upsert` operation.
 type UpsertRequest struct {
@@ -336,6 +434,9 @@ type Vector struct {
 	// Values This is the vector data included in the request.
 	Values []float32 `json:"values"`
 }
+
+// VectorValues This is the vector data included in the request.
+type VectorValues = []float32
 
 // ProtobufAny defines model for protobufAny.
 type ProtobufAny struct {
@@ -387,6 +488,9 @@ type DescribeIndexStatsJSONRequestBody = DescribeIndexStatsRequest
 
 // QueryVectorsJSONRequestBody defines body for QueryVectors for application/json ContentType.
 type QueryVectorsJSONRequestBody = QueryRequest
+
+// SearchRecordsNamespaceJSONRequestBody defines body for SearchRecordsNamespace for application/json ContentType.
+type SearchRecordsNamespaceJSONRequestBody = SearchRecordsRequest
 
 // DeleteVectorsJSONRequestBody defines body for DeleteVectors for application/json ContentType.
 type DeleteVectorsJSONRequestBody = DeleteRequest
@@ -493,6 +597,14 @@ type ClientInterface interface {
 	QueryVectorsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	QueryVectors(ctx context.Context, body QueryVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SearchRecordsNamespaceWithBody request with any body
+	SearchRecordsNamespaceWithBody(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SearchRecordsNamespace(ctx context.Context, namespace string, body SearchRecordsNamespaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpsertRecordsNamespaceWithBody request with any body
+	UpsertRecordsNamespaceWithBody(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteVectorsWithBody request with any body
 	DeleteVectorsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -614,6 +726,42 @@ func (c *Client) QueryVectorsWithBody(ctx context.Context, contentType string, b
 
 func (c *Client) QueryVectors(ctx context.Context, body QueryVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryVectorsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SearchRecordsNamespaceWithBody(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchRecordsNamespaceRequestWithBody(c.Server, namespace, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SearchRecordsNamespace(ctx context.Context, namespace string, body SearchRecordsNamespaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchRecordsNamespaceRequest(c.Server, namespace, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertRecordsNamespaceWithBody(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertRecordsNamespaceRequestWithBody(c.Server, namespace, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -954,6 +1102,89 @@ func NewQueryVectorsRequestWithBody(server string, contentType string, body io.R
 	}
 
 	operationPath := fmt.Sprintf("/query")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSearchRecordsNamespaceRequest calls the generic SearchRecordsNamespace builder with application/json body
+func NewSearchRecordsNamespaceRequest(server string, namespace string, body SearchRecordsNamespaceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSearchRecordsNamespaceRequestWithBody(server, namespace, "application/json", bodyReader)
+}
+
+// NewSearchRecordsNamespaceRequestWithBody generates requests for SearchRecordsNamespace with any type of body
+func NewSearchRecordsNamespaceRequestWithBody(server string, namespace string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespace", runtime.ParamLocationPath, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/records/namespaces/%s/search", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUpsertRecordsNamespaceRequestWithBody generates requests for UpsertRecordsNamespace with any type of body
+func NewUpsertRecordsNamespaceRequestWithBody(server string, namespace string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespace", runtime.ParamLocationPath, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/records/namespaces/%s/upsert", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1318,6 +1549,14 @@ type ClientWithResponsesInterface interface {
 
 	QueryVectorsWithResponse(ctx context.Context, body QueryVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryVectorsResponse, error)
 
+	// SearchRecordsNamespaceWithBodyWithResponse request with any body
+	SearchRecordsNamespaceWithBodyWithResponse(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchRecordsNamespaceResponse, error)
+
+	SearchRecordsNamespaceWithResponse(ctx context.Context, namespace string, body SearchRecordsNamespaceJSONRequestBody, reqEditors ...RequestEditorFn) (*SearchRecordsNamespaceResponse, error)
+
+	// UpsertRecordsNamespaceWithBodyWithResponse request with any body
+	UpsertRecordsNamespaceWithBodyWithResponse(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertRecordsNamespaceResponse, error)
+
 	// DeleteVectorsWithBodyWithResponse request with any body
 	DeleteVectorsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteVectorsResponse, error)
 
@@ -1484,6 +1723,55 @@ func (r QueryVectorsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r QueryVectorsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SearchRecordsNamespaceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SearchRecordsResponse
+	JSON400      *RpcStatus
+	JSON4XX      *RpcStatus
+	JSON5XX      *RpcStatus
+}
+
+// Status returns HTTPResponse.Status
+func (r SearchRecordsNamespaceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SearchRecordsNamespaceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpsertRecordsNamespaceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *RpcStatus
+	JSON4XX      *RpcStatus
+	JSON5XX      *RpcStatus
+}
+
+// Status returns HTTPResponse.Status
+func (r UpsertRecordsNamespaceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpsertRecordsNamespaceResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1691,6 +1979,32 @@ func (c *ClientWithResponses) QueryVectorsWithResponse(ctx context.Context, body
 		return nil, err
 	}
 	return ParseQueryVectorsResponse(rsp)
+}
+
+// SearchRecordsNamespaceWithBodyWithResponse request with arbitrary body returning *SearchRecordsNamespaceResponse
+func (c *ClientWithResponses) SearchRecordsNamespaceWithBodyWithResponse(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchRecordsNamespaceResponse, error) {
+	rsp, err := c.SearchRecordsNamespaceWithBody(ctx, namespace, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSearchRecordsNamespaceResponse(rsp)
+}
+
+func (c *ClientWithResponses) SearchRecordsNamespaceWithResponse(ctx context.Context, namespace string, body SearchRecordsNamespaceJSONRequestBody, reqEditors ...RequestEditorFn) (*SearchRecordsNamespaceResponse, error) {
+	rsp, err := c.SearchRecordsNamespace(ctx, namespace, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSearchRecordsNamespaceResponse(rsp)
+}
+
+// UpsertRecordsNamespaceWithBodyWithResponse request with arbitrary body returning *UpsertRecordsNamespaceResponse
+func (c *ClientWithResponses) UpsertRecordsNamespaceWithBodyWithResponse(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertRecordsNamespaceResponse, error) {
+	rsp, err := c.UpsertRecordsNamespaceWithBody(ctx, namespace, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertRecordsNamespaceResponse(rsp)
 }
 
 // DeleteVectorsWithBodyWithResponse request with arbitrary body returning *DeleteVectorsResponse
@@ -2018,6 +2332,93 @@ func ParseQueryVectorsResponse(rsp *http.Response) (*QueryVectorsResponse, error
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSearchRecordsNamespaceResponse parses an HTTP response from a SearchRecordsNamespaceWithResponse call
+func ParseSearchRecordsNamespaceResponse(rsp *http.Response) (*SearchRecordsNamespaceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SearchRecordsNamespaceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SearchRecordsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpsertRecordsNamespaceResponse parses an HTTP response from a UpsertRecordsNamespaceWithResponse call
+func ParseUpsertRecordsNamespaceResponse(rsp *http.Response) (*UpsertRecordsNamespaceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpsertRecordsNamespaceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest RpcStatus
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

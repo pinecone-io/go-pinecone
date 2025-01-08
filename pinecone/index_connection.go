@@ -862,7 +862,7 @@ func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRe
 //   - TotalVectorCount: The total number of vectors in the [Index].
 //   - Namespaces: The namespace(s) in the [Index].
 type DescribeIndexStatsResponse struct {
-	Dimension        uint32                       `json:"dimension"`
+	Dimension        *uint32                      `json:"dimension"`
 	IndexFullness    float32                      `json:"index_fullness"`
 	TotalVectorCount uint32                       `json:"total_vector_count"`
 	Namespaces       map[string]*NamespaceSummary `json:"namespaces,omitempty"`
