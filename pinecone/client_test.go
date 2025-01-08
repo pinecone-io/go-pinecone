@@ -284,9 +284,9 @@ func (ts *IntegrationTests) TestGenerateEmbeddings() {
 			"The quick brown fox jumps over the lazy dog",
 			"Lorem ipsum",
 		},
-		Parameters: EmbedParameters{
-			InputType: "query",
-			Truncate:  "END",
+		Parameters: &map[string]interface{}{
+			"input_type": "query",
+			"truncate":   "END",
 		},
 	})
 
@@ -302,9 +302,9 @@ func (ts *IntegrationTests) TestGenerateEmbeddingsInvalidInputs() {
 	embeddingModel := "multilingual-e5-large"
 	_, err := ts.client.Inference.Embed(ctx, &EmbedRequest{
 		Model: embeddingModel,
-		Parameters: EmbedParameters{
-			InputType: "query",
-			Truncate:  "END",
+		Parameters: &map[string]interface{}{
+			"input_type": "query",
+			"truncate":   "END",
 		},
 	})
 
@@ -999,6 +999,7 @@ func TestToIndexUnit(t *testing.T) {
 	pods := 1
 	replicas := int32(1)
 	shards := int32(1)
+	dimension := int32(128)
 
 	tests := []struct {
 		name           string
@@ -1014,7 +1015,7 @@ func TestToIndexUnit(t *testing.T) {
 			name: "pod index input",
 			originalInput: &db_control.IndexModel{
 				Name:               "testIndex",
-				Dimension:          128,
+				Dimension:          &dimension,
 				Host:               "test-host",
 				Metric:             "cosine",
 				DeletionProtection: &deletionProtectionDisabled,
@@ -1067,7 +1068,7 @@ func TestToIndexUnit(t *testing.T) {
 			name: "serverless index input",
 			originalInput: &db_control.IndexModel{
 				Name:               "testIndex",
-				Dimension:          128,
+				Dimension:          &dimension,
 				Host:               "test-host",
 				Metric:             "cosine",
 				DeletionProtection: &deletionProtectionEnabled,

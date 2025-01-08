@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             v5.27.1
-// source: db_data_2024-10.proto
+// source: db_data_2025-01.proto
 
 package grpc
 
@@ -77,8 +77,6 @@ type VectorServiceClient interface {
 	// The `describe_index_stats` operation returns statistics about the contents of an index, including the vector count per namespace, the number of dimensions, and the index fullness.
 	//
 	// Serverless indexes scale automatically as needed, so index fullness is relevant only for pod-based indexes.
-	//
-	// For pod-based indexes, the index fullness result may be inaccurate during pod resizing; to get the status of a pod resizing process, use [`describe_index`](https://docs.pinecone.io/reference/api/control-plane/describe_index).
 	DescribeIndexStats(ctx context.Context, in *DescribeIndexStatsRequest, opts ...grpc.CallOption) (*DescribeIndexStatsResponse, error)
 }
 
@@ -202,8 +200,6 @@ type VectorServiceServer interface {
 	// The `describe_index_stats` operation returns statistics about the contents of an index, including the vector count per namespace, the number of dimensions, and the index fullness.
 	//
 	// Serverless indexes scale automatically as needed, so index fullness is relevant only for pod-based indexes.
-	//
-	// For pod-based indexes, the index fullness result may be inaccurate during pod resizing; to get the status of a pod resizing process, use [`describe_index`](https://docs.pinecone.io/reference/api/control-plane/describe_index).
 	DescribeIndexStats(context.Context, *DescribeIndexStatsRequest) (*DescribeIndexStatsResponse, error)
 	mustEmbedUnimplementedVectorServiceServer()
 }
@@ -409,5 +405,5 @@ var VectorService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "db_data_2024-10.proto",
+	Metadata: "db_data_2025-01.proto",
 }

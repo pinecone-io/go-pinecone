@@ -513,7 +513,7 @@ func TestMarshalDescribeIndexStatsResponseUnit(t *testing.T) {
 		{
 			name: "All fields present",
 			input: DescribeIndexStatsResponse{
-				Dimension:        3,
+				Dimension:        uint32Pointer(3),
 				IndexFullness:    0.5,
 				TotalVectorCount: 100,
 				Namespaces: map[string]*NamespaceSummary{
@@ -525,12 +525,12 @@ func TestMarshalDescribeIndexStatsResponseUnit(t *testing.T) {
 		{
 			name:  "Fields omitted",
 			input: DescribeIndexStatsResponse{},
-			want:  `{"dimension":0,"index_fullness":0,"total_vector_count":0}`,
+			want:  `{"dimension":null,"index_fullness":0,"total_vector_count":0}`,
 		},
 		{
 			name: "Fields empty",
 			input: DescribeIndexStatsResponse{
-				Dimension:        0,
+				Dimension:        uint32Pointer(0),
 				IndexFullness:    0,
 				TotalVectorCount: 0,
 				Namespaces:       nil,
@@ -1111,4 +1111,8 @@ func generateUint32Array(n int) []uint32 {
 		array[i] = uint32(i)
 	}
 	return array
+}
+
+func uint32Pointer(i uint32) *uint32 {
+	return &i
 }
