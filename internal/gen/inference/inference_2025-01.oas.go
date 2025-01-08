@@ -7,11 +7,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/oapi-codegen/runtime"
 )
 
 const (
@@ -40,8 +43,23 @@ const (
 	UNKNOWN            ErrorResponseErrorCode = "UNKNOWN"
 )
 
+// Defines values for VectorType.
+const (
+	Dense  VectorType = "dense"
+	Sparse VectorType = "sparse"
+)
+
+// DenseEmbedding A dense embedding of a single input
+type DenseEmbedding struct {
+	// Values The dense embedding values.
+	Values []float32 `json:"values"`
+
+	// VectorType Indicates whether this is a 'dense' or 'sparse' embedding.
+	VectorType VectorType `json:"vector_type"`
+}
+
 // Document Document for reranking
-type Document map[string]string
+type Document map[string]interface{}
 
 // EmbedRequest defines model for EmbedRequest.
 type EmbedRequest struct {
@@ -50,26 +68,19 @@ type EmbedRequest struct {
 		Text *string `json:"text,omitempty"`
 	} `json:"inputs"`
 
-	// Model The [model](https://docs.pinecone.io/guides/inference/understanding-inference#models) to use for embedding generation.
+	// Model The [model](https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models) to use for embedding generation.
 	Model string `json:"model"`
 
-	// Parameters Model-specific parameters.
-	Parameters *struct {
-		// InputType Common property used to distinguish between types of data.
-		InputType *string `json:"input_type,omitempty"`
-
-		// Truncate How to handle inputs longer than those supported by the model. If `"END"`, truncate the input sequence at the token limit. If `"NONE"`, return an error when the input exceeds the token limit.
-		Truncate *string `json:"truncate,omitempty"`
-	} `json:"parameters,omitempty"`
+	// Parameters Additional model-specific parameters. Refer to the [model guide](https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models) for available model parameters.
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
 }
 
 // Embedding Embedding of a single input
 type Embedding struct {
-	// Values The embedding values.
-	Values *[]float32 `json:"values,omitempty"`
+	union json.RawMessage
 }
 
-// EmbeddingsList Embeddings generated for the input
+// EmbeddingsList Embeddings generated for the input.
 type EmbeddingsList struct {
 	// Data The embeddings generated for the inputs.
 	Data []Embedding `json:"data"`
@@ -80,8 +91,11 @@ type EmbeddingsList struct {
 	// Usage Usage statistics for the model inference.
 	Usage struct {
 		// TotalTokens Total number of tokens consumed across all inputs.
-		TotalTokens *int `json:"total_tokens,omitempty"`
+		TotalTokens *int32 `json:"total_tokens,omitempty"`
 	} `json:"usage"`
+
+	// VectorType Indicates whether the response data contains 'dense' or 'sparse' embeddings.
+	VectorType string `json:"vector_type"`
 }
 
 // ErrorResponse The response shape used for all error responses.
@@ -107,37 +121,23 @@ type RankedDocument struct {
 	// Document Document for reranking
 	Document *Document `json:"document,omitempty"`
 
-	// Index The index of the document
+	// Index The index position of the document from the original request.
 	Index int `json:"index"`
 
-	// Score The relevance score of the document normalized between 0 and 1.
+	// Score The relevance of the document to the query, normalized between 0 and 1, with scores closer to 1 indicating higher relevance.
 	Score float32 `json:"score"`
 }
 
-// RerankResult The result of a reranking request.
-type RerankResult struct {
-	// Data The reranked documents.
-	Data []RankedDocument `json:"data"`
-
-	// Model The model used to rerank documents.
-	Model string `json:"model"`
-
-	// Usage Usage statistics for the model inference.
-	Usage struct {
-		RerankUnits *int `json:"rerank_units,omitempty"`
-	} `json:"usage"`
-}
-
-// RerankJSONBody defines parameters for Rerank.
-type RerankJSONBody struct {
+// RerankRequest defines model for RerankRequest.
+type RerankRequest struct {
 	// Documents The documents to rerank.
 	Documents []Document `json:"documents"`
 
-	// Model The [model](https://docs.pinecone.io/guides/inference/understanding-inference#models) to use for reranking.
+	// Model The [model](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) to use for reranking.
 	Model string `json:"model"`
 
-	// Parameters Additional model-specific parameters for the reranker.
-	Parameters *map[string]string `json:"parameters,omitempty"`
+	// Parameters Additional model-specific parameters. Refer to the [model guide](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) for available model parameters.
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 	// Query The query to rerank documents against.
 	Query string `json:"query"`
@@ -152,11 +152,133 @@ type RerankJSONBody struct {
 	TopN *int `json:"top_n,omitempty"`
 }
 
+// RerankResult The result of a reranking request.
+type RerankResult struct {
+	// Data The reranked documents.
+	Data []RankedDocument `json:"data"`
+
+	// Model The model used to rerank documents.
+	Model string `json:"model"`
+
+	// Usage Usage statistics for the model inference.
+	Usage struct {
+		// RerankUnits The number of rerank units consumed by this operation.
+		RerankUnits *int32 `json:"rerank_units,omitempty"`
+	} `json:"usage"`
+}
+
+// SparseEmbedding A sparse embedding of a single input
+type SparseEmbedding struct {
+	// SparseIndices The sparse embedding indices.
+	SparseIndices []int32 `json:"sparse_indices"`
+
+	// SparseTokens The normalized tokens used to create the sparse embedding.
+	SparseTokens *[]string `json:"sparse_tokens,omitempty"`
+
+	// SparseValues The sparse embedding values.
+	SparseValues []float32 `json:"sparse_values"`
+
+	// VectorType Indicates whether this is a 'dense' or 'sparse' embedding.
+	VectorType VectorType `json:"vector_type"`
+}
+
+// VectorType Indicates whether this is a 'dense' or 'sparse' embedding.
+type VectorType string
+
 // EmbedJSONRequestBody defines body for Embed for application/json ContentType.
 type EmbedJSONRequestBody = EmbedRequest
 
 // RerankJSONRequestBody defines body for Rerank for application/json ContentType.
-type RerankJSONRequestBody RerankJSONBody
+type RerankJSONRequestBody = RerankRequest
+
+// AsDenseEmbedding returns the union data inside the Embedding as a DenseEmbedding
+func (t Embedding) AsDenseEmbedding() (DenseEmbedding, error) {
+	var body DenseEmbedding
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDenseEmbedding overwrites any union data inside the Embedding as the provided DenseEmbedding
+func (t *Embedding) FromDenseEmbedding(v DenseEmbedding) error {
+	v.VectorType = "dense"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDenseEmbedding performs a merge with any union data inside the Embedding, using the provided DenseEmbedding
+func (t *Embedding) MergeDenseEmbedding(v DenseEmbedding) error {
+	v.VectorType = "dense"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSparseEmbedding returns the union data inside the Embedding as a SparseEmbedding
+func (t Embedding) AsSparseEmbedding() (SparseEmbedding, error) {
+	var body SparseEmbedding
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSparseEmbedding overwrites any union data inside the Embedding as the provided SparseEmbedding
+func (t *Embedding) FromSparseEmbedding(v SparseEmbedding) error {
+	v.VectorType = "sparse"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSparseEmbedding performs a merge with any union data inside the Embedding, using the provided SparseEmbedding
+func (t *Embedding) MergeSparseEmbedding(v SparseEmbedding) error {
+	v.VectorType = "sparse"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t Embedding) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"vector_type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t Embedding) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "dense":
+		return t.AsDenseEmbedding()
+	case "sparse":
+		return t.AsSparseEmbedding()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t Embedding) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *Embedding) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error

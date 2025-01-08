@@ -27,6 +27,20 @@ const (
 	CollectionModelStatusTerminating  CollectionModelStatus = "Terminating"
 )
 
+// Defines values for CreateIndexForModelRequestCloud.
+const (
+	CreateIndexForModelRequestCloudAws   CreateIndexForModelRequestCloud = "aws"
+	CreateIndexForModelRequestCloudAzure CreateIndexForModelRequestCloud = "azure"
+	CreateIndexForModelRequestCloudGcp   CreateIndexForModelRequestCloud = "gcp"
+)
+
+// Defines values for CreateIndexForModelRequestEmbedMetric.
+const (
+	CreateIndexForModelRequestEmbedMetricCosine     CreateIndexForModelRequestEmbedMetric = "cosine"
+	CreateIndexForModelRequestEmbedMetricDotproduct CreateIndexForModelRequestEmbedMetric = "dotproduct"
+	CreateIndexForModelRequestEmbedMetricEuclidean  CreateIndexForModelRequestEmbedMetric = "euclidean"
+)
+
 // Defines values for CreateIndexRequestMetric.
 const (
 	CreateIndexRequestMetricCosine     CreateIndexRequestMetric = "cosine"
@@ -83,11 +97,18 @@ const (
 	IndexModelStatusStateTerminating          IndexModelStatusState = "Terminating"
 )
 
+// Defines values for ModelIndexEmbedMetric.
+const (
+	ModelIndexEmbedMetricCosine     ModelIndexEmbedMetric = "cosine"
+	ModelIndexEmbedMetricDotproduct ModelIndexEmbedMetric = "dotproduct"
+	ModelIndexEmbedMetricEuclidean  ModelIndexEmbedMetric = "euclidean"
+)
+
 // Defines values for ServerlessSpecCloud.
 const (
-	Aws   ServerlessSpecCloud = "aws"
-	Azure ServerlessSpecCloud = "azure"
-	Gcp   ServerlessSpecCloud = "gcp"
+	ServerlessSpecCloudAws   ServerlessSpecCloud = "aws"
+	ServerlessSpecCloudAzure ServerlessSpecCloud = "azure"
+	ServerlessSpecCloudGcp   ServerlessSpecCloud = "gcp"
 )
 
 // CollectionList The list of collections that exist in the project.
@@ -121,9 +142,28 @@ type CollectionModelStatus string
 
 // ConfigureIndexRequest Configuration used to scale an index.
 type ConfigureIndexRequest struct {
-	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/prevent-index-deletion) is enabled/disabled for the index.
+	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
-	Spec               *struct {
+
+	// Embed Configure the integrated inference embedding settings for this index.
+	//
+	// You can convert an existing index to an integrated index by specifying the embedding model and field_map. The index vector type and dimension must match the model vector type and dimension, and the index similarity metric must be supported by the model. Refer to the [model guide](https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models) for available models and model details.
+	//
+	// You can later change the embedding configuration to update the field map, read parameters, or write parameters. Once set, the model cannot be changed.
+	Embed *struct {
+		// FieldMap Identifies the name of the text field from your document model that will be embedded.
+		FieldMap *map[string]interface{} `json:"field_map,omitempty"`
+
+		// Model The name of the embedding model to use with the index. The index dimension and model dimension must match, and the index similarity metric must be supported by the model. The index embedding model cannot be changed once set.
+		Model *string `json:"model,omitempty"`
+
+		// ReadParameters The read parameters for the embedding model.
+		ReadParameters *map[string]interface{} `json:"read_parameters,omitempty"`
+
+		// WriteParameters The write parameters for the embedding model.
+		WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+	} `json:"embed,omitempty"`
+	Spec *struct {
 		Pod struct {
 			// PodType The type of pod to use. One of `s1`, `p1`, or `p2` appended with `.` and one of `x1`, `x2`, `x4`, or `x8`.
 			PodType *string `json:"pod_type,omitempty"`
@@ -133,8 +173,8 @@ type ConfigureIndexRequest struct {
 		} `json:"pod"`
 	} `json:"spec,omitempty"`
 
-	// Tags Custom user tags added to an index. Keys must be alphanumeric and 80 characters or less. Values must be 120 characters or less.
-	Tags *IndexTags `json:"tags"`
+	// Tags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
+	Tags *IndexTags `json:"tags,omitempty"`
 }
 
 // CreateCollectionRequest The configuration needed to create a Pinecone collection.
@@ -146,15 +186,61 @@ type CreateCollectionRequest struct {
 	Source string `json:"source"`
 }
 
+// CreateIndexForModelRequest The desired configuration for the index and associated embedding model.
+type CreateIndexForModelRequest struct {
+	// Cloud The public cloud where you would like your index hosted.
+	Cloud CreateIndexForModelRequestCloud `json:"cloud"`
+
+	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
+
+	// Embed Specify the integrated inference embedding configuration for the index.
+	//
+	// Once set the model cannot be changed, but you can later update the embedding configuration for an integrated inference index including field map, read parameters, or write parameters.
+	//
+	// Refer to the [model guide](https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models) for available models and model details.
+	Embed struct {
+		// FieldMap Identifies the name of the text field from your document model that will be embedded.
+		FieldMap map[string]interface{} `json:"field_map"`
+
+		// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If not specified, the metric will be defaulted according to the model. Cannot be updated once set.
+		Metric *CreateIndexForModelRequestEmbedMetric `json:"metric,omitempty"`
+
+		// Model The name of the embedding model to use for the index.
+		Model string `json:"model"`
+
+		// ReadParameters The read parameters for the embedding model.
+		ReadParameters *map[string]interface{} `json:"read_parameters,omitempty"`
+
+		// WriteParameters The write parameters for the embedding model.
+		WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+	} `json:"embed"`
+
+	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
+	Name string `json:"name"`
+
+	// Region The region where you would like your index to be created.
+	Region string `json:"region"`
+
+	// Tags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
+	Tags *IndexTags `json:"tags,omitempty"`
+}
+
+// CreateIndexForModelRequestCloud The public cloud where you would like your index hosted.
+type CreateIndexForModelRequestCloud string
+
+// CreateIndexForModelRequestEmbedMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If not specified, the metric will be defaulted according to the model. Cannot be updated once set.
+type CreateIndexForModelRequestEmbedMetric string
+
 // CreateIndexRequest The configuration needed to create a Pinecone index.
 type CreateIndexRequest struct {
-	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/prevent-index-deletion) is enabled/disabled for the index.
+	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 
 	// Dimension The dimensions of the vectors to be inserted in the index.
-	Dimension int32 `json:"dimension"`
+	Dimension *int32 `json:"dimension,omitempty"`
 
-	// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
+	// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If the 'vector_type' is 'sparse', the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric defaults to 'cosine'.
 	Metric *CreateIndexRequestMetric `json:"metric,omitempty"`
 
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
@@ -162,17 +248,20 @@ type CreateIndexRequest struct {
 
 	// Spec The spec object defines how the index should be deployed.
 	//
-	// For serverless indexes, you define only the [cloud and region](http://docs.pinecone.io/guides/indexes/understanding-indexes#cloud-regions) where the index should be hosted. For pod-based indexes, you define the [environment](http://docs.pinecone.io/guides/indexes/understanding-indexes#pod-environments) where the index should be hosted, the [pod type and size](http://docs.pinecone.io/guides/indexes/understanding-indexes#pod-types) to use, and other index characteristics.
+	// For serverless indexes, you define only the [cloud and region](http://docs.pinecone.io/guides/indexes/understanding-indexes#cloud-regions) where the index should be hosted. For pod-based indexes, you define the [environment](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-environments) where the index should be hosted, the [pod type and size](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-types) to use, and other index characteristics.
 	Spec IndexSpec `json:"spec"`
 
-	// Tags Custom user tags added to an index. Keys must be alphanumeric and 80 characters or less. Values must be 120 characters or less.
-	Tags *IndexTags `json:"tags"`
+	// Tags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
+	Tags *IndexTags `json:"tags,omitempty"`
+
+	// VectorType The index vector type. You can use 'dense' or 'sparse'. If 'dense', the vector dimension must be specified.  If 'sparse', the vector dimension should not be specified.
+	VectorType *string `json:"vector_type,omitempty"`
 }
 
-// CreateIndexRequestMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
+// CreateIndexRequestMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If the 'vector_type' is 'sparse', the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric defaults to 'cosine'.
 type CreateIndexRequestMetric string
 
-// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/prevent-index-deletion) is enabled/disabled for the index.
+// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
 type DeletionProtection string
 
 // ErrorResponse The response shape used for all error responses.
@@ -200,16 +289,19 @@ type IndexList struct {
 
 // IndexModel The IndexModel describes the configuration and status of a Pinecone index.
 type IndexModel struct {
-	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/prevent-index-deletion) is enabled/disabled for the index.
+	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 
 	// Dimension The dimensions of the vectors to be inserted in the index.
-	Dimension int32 `json:"dimension"`
+	Dimension *int32 `json:"dimension,omitempty"`
+
+	// Embed The embedding model and document fields mapped to embedding inputs.
+	Embed *ModelIndexEmbed `json:"embed,omitempty"`
 
 	// Host The URL address where the index is hosted.
 	Host string `json:"host"`
 
-	// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
+	// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If the 'vector_type' is 'sparse', the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric defaults to 'cosine'.
 	Metric IndexModelMetric `json:"metric"`
 
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
@@ -226,11 +318,14 @@ type IndexModel struct {
 		State IndexModelStatusState `json:"state"`
 	} `json:"status"`
 
-	// Tags Custom user tags added to an index. Keys must be alphanumeric and 80 characters or less. Values must be 120 characters or less.
-	Tags *IndexTags `json:"tags"`
+	// Tags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
+	Tags *IndexTags `json:"tags,omitempty"`
+
+	// VectorType The index vector type. You can use 'dense' or 'sparse'. If 'dense', the vector dimension must be specified.  If 'sparse', the vector dimension should not be specified.
+	VectorType string `json:"vector_type"`
 }
 
-// IndexModelMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
+// IndexModelMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If the 'vector_type' is 'sparse', the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric defaults to 'cosine'.
 type IndexModelMetric string
 
 // IndexModelStatusState defines model for IndexModel.Status.State.
@@ -238,7 +333,7 @@ type IndexModelStatusState string
 
 // IndexSpec The spec object defines how the index should be deployed.
 //
-// For serverless indexes, you define only the [cloud and region](http://docs.pinecone.io/guides/indexes/understanding-indexes#cloud-regions) where the index should be hosted. For pod-based indexes, you define the [environment](http://docs.pinecone.io/guides/indexes/understanding-indexes#pod-environments) where the index should be hosted, the [pod type and size](http://docs.pinecone.io/guides/indexes/understanding-indexes#pod-types) to use, and other index characteristics.
+// For serverless indexes, you define only the [cloud and region](http://docs.pinecone.io/guides/indexes/understanding-indexes#cloud-regions) where the index should be hosted. For pod-based indexes, you define the [environment](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-environments) where the index should be hosted, the [pod type and size](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-types) to use, and other index characteristics.
 type IndexSpec struct {
 	// Pod Configuration needed to deploy a pod-based index.
 	Pod *PodSpec `json:"pod,omitempty"`
@@ -254,8 +349,35 @@ type IndexSpec0 = interface{}
 // IndexSpec1 defines model for .
 type IndexSpec1 = interface{}
 
-// IndexTags Custom user tags added to an index. Keys must be alphanumeric and 80 characters or less. Values must be 120 characters or less.
+// IndexTags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
 type IndexTags map[string]string
+
+// ModelIndexEmbed The embedding model and document fields mapped to embedding inputs.
+type ModelIndexEmbed struct {
+	// Dimension The dimensions of the vectors to be inserted in the index.
+	Dimension *int32 `json:"dimension,omitempty"`
+
+	// FieldMap Identifies the name of the text field from your document model that is embedded.
+	FieldMap *map[string]interface{} `json:"field_map,omitempty"`
+
+	// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If not specified, the metric will be defaulted according to the model. Cannot be updated once set.
+	Metric *ModelIndexEmbedMetric `json:"metric,omitempty"`
+
+	// Model The name of the embedding model used to create the index.
+	Model string `json:"model"`
+
+	// ReadParameters The read parameters for the embedding model.
+	ReadParameters *map[string]interface{} `json:"read_parameters,omitempty"`
+
+	// VectorType The index vector type. You can use 'dense' or 'sparse'. If 'dense', the vector dimension must be specified.  If 'sparse', the vector dimension should not be specified.
+	VectorType *string `json:"vector_type,omitempty"`
+
+	// WriteParameters The write parameters for the embedding model.
+	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+}
+
+// ModelIndexEmbedMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If not specified, the metric will be defaulted according to the model. Cannot be updated once set.
+type ModelIndexEmbedMetric string
 
 // PodSpec Configuration needed to deploy a pod-based index.
 type PodSpec struct {
@@ -301,6 +423,9 @@ type CreateCollectionJSONRequestBody = CreateCollectionRequest
 
 // CreateIndexJSONRequestBody defines body for CreateIndex for application/json ContentType.
 type CreateIndexJSONRequestBody = CreateIndexRequest
+
+// CreateIndexForModelJSONRequestBody defines body for CreateIndexForModel for application/json ContentType.
+type CreateIndexForModelJSONRequestBody = CreateIndexForModelRequest
 
 // ConfigureIndexJSONRequestBody defines body for ConfigureIndex for application/json ContentType.
 type ConfigureIndexJSONRequestBody = ConfigureIndexRequest
@@ -510,6 +635,11 @@ type ClientInterface interface {
 
 	CreateIndex(ctx context.Context, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateIndexForModelWithBody request with any body
+	CreateIndexForModelWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateIndexForModel(ctx context.Context, body CreateIndexForModelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteIndex request
 	DeleteIndex(ctx context.Context, indexName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -608,6 +738,30 @@ func (c *Client) CreateIndexWithBody(ctx context.Context, contentType string, bo
 
 func (c *Client) CreateIndex(ctx context.Context, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateIndexRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateIndexForModelWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIndexForModelRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateIndexForModel(ctx context.Context, body CreateIndexForModelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIndexForModelRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -868,6 +1022,46 @@ func NewCreateIndexRequestWithBody(server string, contentType string, body io.Re
 	return req, nil
 }
 
+// NewCreateIndexForModelRequest calls the generic CreateIndexForModel builder with application/json body
+func NewCreateIndexForModelRequest(server string, body CreateIndexForModelJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateIndexForModelRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateIndexForModelRequestWithBody generates requests for CreateIndexForModel with any type of body
+func NewCreateIndexForModelRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/indexes/create-for-model")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeleteIndexRequest generates requests for DeleteIndex
 func NewDeleteIndexRequest(server string, indexName string) (*http.Request, error) {
 	var err error
@@ -1048,6 +1242,11 @@ type ClientWithResponsesInterface interface {
 
 	CreateIndexWithResponse(ctx context.Context, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error)
 
+	// CreateIndexForModelWithBodyWithResponse request with any body
+	CreateIndexForModelWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexForModelResponse, error)
+
+	CreateIndexForModelWithResponse(ctx context.Context, body CreateIndexForModelJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexForModelResponse, error)
+
 	// DeleteIndexWithResponse request
 	DeleteIndexWithResponse(ctx context.Context, indexName string, reqEditors ...RequestEditorFn) (*DeleteIndexResponse, error)
 
@@ -1216,6 +1415,34 @@ func (r CreateIndexResponse) StatusCode() int {
 	return 0
 }
 
+type CreateIndexForModelResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *IndexModel
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON409      *ErrorResponse
+	JSON422      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateIndexForModelResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateIndexForModelResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeleteIndexResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1364,6 +1591,23 @@ func (c *ClientWithResponses) CreateIndexWithResponse(ctx context.Context, body 
 		return nil, err
 	}
 	return ParseCreateIndexResponse(rsp)
+}
+
+// CreateIndexForModelWithBodyWithResponse request with arbitrary body returning *CreateIndexForModelResponse
+func (c *ClientWithResponses) CreateIndexForModelWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexForModelResponse, error) {
+	rsp, err := c.CreateIndexForModelWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateIndexForModelResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateIndexForModelWithResponse(ctx context.Context, body CreateIndexForModelJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexForModelResponse, error) {
+	rsp, err := c.CreateIndexForModel(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateIndexForModelResponse(rsp)
 }
 
 // DeleteIndexWithResponse request returning *DeleteIndexResponse
@@ -1691,6 +1935,74 @@ func ParseCreateIndexResponse(rsp *http.Response) (*CreateIndexResponse, error) 
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateIndexForModelResponse parses an HTTP response from a CreateIndexForModelWithResponse call
+func ParseCreateIndexForModelResponse(rsp *http.Response) (*CreateIndexForModelResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateIndexForModelResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest IndexModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorResponse
