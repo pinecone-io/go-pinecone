@@ -17,7 +17,7 @@ type IntegrationTests struct {
 	apiKey         string
 	client         *Client
 	host           string
-	dimension      int32
+	dimension      *int32
 	indexType      string
 	vectorIds      []string
 	idxName        string
@@ -44,9 +44,13 @@ func (ts *IntegrationTests) SetupSuite() {
 	require.NotNil(ts.T(), idxConn, "Failed to create idxConn")
 
 	ts.idxConn = idxConn
+	dim := int32(0)
+	if ts.dimension != nil {
+		dim = *ts.dimension
+	}
 
 	// Deterministically create vectors
-	vectors := GenerateVectors(10, ts.dimension, false, nil)
+	vectors := GenerateVectors(10, dim, false, nil)
 
 	// Add vector ids to the suite
 	vectorIds := make([]string, len(vectors))

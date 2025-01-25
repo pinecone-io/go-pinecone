@@ -65,19 +65,32 @@ type IndexSpec struct {
 	Serverless *ServerlessSpec `json:"serverless,omitempty"`
 }
 
+// [IndexEmbed] is the embedding model configured for an index, including document fields mapped to embedding inputs.
+type IndexEmbed struct {
+	Model           string                  `json:"model"`
+	Dimension       *int32                  `json:"dimension,omitempty"`
+	Metric          *IndexMetric            `json:"metric,omitempty"`
+	VectorType      *string                 `json:"vector_type,omitempty"`
+	FieldMap        *map[string]interface{} `json:"field_map,omitempty"`
+	ReadParameters  *map[string]interface{} `json:"read_parameters,omitempty"`
+	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+}
+
 // [IndexTags] is a set of key-value pairs that can be attached to a Pinecone [Index].
 type IndexTags map[string]string
 
 // [Index] is a Pinecone [Index] object. Can be either a pod-based or a serverless [Index], depending on the [IndexSpec].
 type Index struct {
 	Name               string             `json:"name"`
-	Dimension          int32              `json:"dimension"`
 	Host               string             `json:"host"`
 	Metric             IndexMetric        `json:"metric"`
+	VectorType         string             `json:"vector_type"`
 	DeletionProtection DeletionProtection `json:"deletion_protection,omitempty"`
+	Dimension          *int32             `json:"dimension"`
 	Spec               *IndexSpec         `json:"spec,omitempty"`
 	Status             *IndexStatus       `json:"status,omitempty"`
 	Tags               *IndexTags         `json:"tags,omitempty"`
+	Embed              *IndexEmbed        `json:"embed,omitempty"`
 }
 
 // [Collection] is a Pinecone [collection entity]. Only available for pod-based Indexes.

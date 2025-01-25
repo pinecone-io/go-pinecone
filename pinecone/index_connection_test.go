@@ -27,7 +27,7 @@ func (ts *IntegrationTests) TestFetchVectors() {
 }
 
 func (ts *IntegrationTests) TestQueryByVector() {
-	vec := make([]float32, ts.dimension)
+	vec := make([]float32, derefOrDefault(ts.dimension, 0))
 	for i := range vec {
 		vec[i] = 0.01
 	}
@@ -61,7 +61,7 @@ func (ts *IntegrationTests) TestDeleteVectorsById() {
 	assert.NoError(ts.T(), err)
 	ts.vectorIds = []string{}
 
-	vectors := GenerateVectors(5, ts.dimension, true, nil)
+	vectors := GenerateVectors(5, derefOrDefault(ts.dimension, 0), true, nil)
 
 	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
@@ -95,7 +95,7 @@ func (ts *IntegrationTests) TestDeleteVectorsByFilter() {
 	}
 	ts.vectorIds = []string{}
 
-	vectors := GenerateVectors(5, ts.dimension, true, nil)
+	vectors := GenerateVectors(5, derefOrDefault(ts.dimension, 0), true, nil)
 
 	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
@@ -116,7 +116,7 @@ func (ts *IntegrationTests) TestDeleteAllVectorsInNamespace() {
 	assert.NoError(ts.T(), err)
 	ts.vectorIds = []string{}
 
-	vectors := GenerateVectors(5, ts.dimension, true, nil)
+	vectors := GenerateVectors(5, derefOrDefault(ts.dimension, 0), true, nil)
 
 	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
@@ -244,9 +244,9 @@ func (ts *IntegrationTests) TestUpdateVectorMetadata() {
 func (ts *IntegrationTests) TestUpdateVectorSparseValues() {
 	ctx := context.Background()
 
-	dims := int(ts.dimension)
-	indices := generateUint32Array(dims)
-	vals := generateFloat32Array(dims)
+	dims := int32(derefOrDefault(ts.dimension, 0))
+	indices := generateUint32Array(int(dims))
+	vals := generateFloat32Array(int(dims))
 	expectedSparseValues := SparseValues{
 		Indices: indices,
 		Values:  vals,

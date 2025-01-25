@@ -1044,7 +1044,7 @@ func TestToIndexUnit(t *testing.T) {
 			},
 			expectedOutput: &Index{
 				Name:               "testIndex",
-				Dimension:          128,
+				Dimension:          &dimension,
 				Host:               "test-host",
 				Metric:             "cosine",
 				DeletionProtection: "disabled",
@@ -1092,7 +1092,7 @@ func TestToIndexUnit(t *testing.T) {
 			},
 			expectedOutput: &Index{
 				Name:               "testIndex",
-				Dimension:          128,
+				Dimension:          &dimension,
 				Host:               "test-host",
 				Metric:             "cosine",
 				DeletionProtection: "enabled",
