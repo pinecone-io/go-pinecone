@@ -710,7 +710,10 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 		return nil, fmt.Errorf("fields Name, Metric, Cloud, and Region must be included in CreateServerlessIndexRequest")
 	}
 
-	// validate VectorType
+	// default to "dense" if VectorType is not specified
+	vectorType := "dense"
+
+	// validate VectorType options
 	if in.VectorType != nil {
 		switch *in.VectorType {
 		case "sparse":
@@ -719,11 +722,13 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 			} else if in.Metric != Dotproduct {
 				return nil, fmt.Errorf("metric should be 'dotproduct' when VectorType is 'sparse'")
 			}
+			vectorType = "sparse"
 		case "dense":
-			if in.Dimension == nil {
-				return nil, fmt.Errorf("dimension should be specified when VectorType is 'dense'")
-			}
+			vectorType = "dense"
 		}
+	}
+	if in.Dimension == nil && vectorType == "dense" {
+		return nil, fmt.Errorf("dimension should be specified when VectorType is 'dense'")
 	}
 
 	deletionProtection := pointerOrNil(db_control.DeletionProtection(in.DeletionProtection))
@@ -739,7 +744,7 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 		Dimension:          in.Dimension,
 		Metric:             metric,
 		DeletionProtection: deletionProtection,
-		VectorType:         in.VectorType,
+		VectorType:         &vectorType,
 		Spec: db_control.IndexSpec{
 			Serverless: &db_control.ServerlessSpec{
 				Cloud:  db_control.ServerlessSpecCloud(in.Cloud),

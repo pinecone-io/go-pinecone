@@ -820,11 +820,48 @@ func TestCreateServerlessIndexMissingReqdFieldsUnit(t *testing.T) {
 	require.ErrorContainsf(t, err, "fields Name, Metric, Cloud, and Region must be included in CreateServerlessIndexRequest", err.Error())
 }
 
-func TestCreateCollectionMissingReqdFieldsUnit(t *testing.T) {
+func TestCreateServerlessIndexInvalidSparseDimensionUnit(t *testing.T) {
+	vectorType := "sparse"
+	dimension := int32(1)
 	client := &Client{}
-	_, err := client.CreateCollection(context.Background(), &CreateCollectionRequest{})
+	_, err := client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
+		Name:       "test-invalid-dimension",
+		Metric:     Dotproduct,
+		Cloud:      "aws",
+		Region:     "us-east-1",
+		Dimension:  &dimension,
+		VectorType: &vectorType,
+	})
 	require.Error(t, err)
-	require.ErrorContains(t, err, "fields Name and Source must be included in CreateCollectionRequest")
+	require.ErrorContains(t, err, "dimension should not be specified when VectorType is 'sparse'")
+}
+
+func TestCreateServerlessIndexInvalidSparseMetricUnit(t *testing.T) {
+	vectorType := "sparse"
+	client := &Client{}
+	_, err := client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
+		Name:       "test-invalid-dimension",
+		Metric:     Cosine,
+		Cloud:      "aws",
+		Region:     "us-east-1",
+		VectorType: &vectorType,
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "metric should be 'dotproduct' when VectorType is 'sparse'")
+}
+
+func TestCreateServerlessIndexInvalidDenseDimensionUnit(t *testing.T) {
+	vectorType := "dense"
+	client := &Client{}
+	_, err := client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
+		Name:       "test-invalid-dimension",
+		Metric:     Cosine,
+		Cloud:      "aws",
+		Region:     "us-east-1",
+		VectorType: &vectorType,
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "dimension should be specified when VectorType is 'dense'")
 }
 
 func TestCreatePodIndexInvalidDimensionUnit(t *testing.T) {
@@ -838,6 +875,13 @@ func TestCreatePodIndexInvalidDimensionUnit(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "fields Name, Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest")
+}
+
+func TestCreateCollectionMissingReqdFieldsUnit(t *testing.T) {
+	client := &Client{}
+	_, err := client.CreateCollection(context.Background(), &CreateCollectionRequest{})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "fields Name and Source must be included in CreateCollectionRequest")
 }
 
 func TestHandleErrorResponseBodyUnit(t *testing.T) {
