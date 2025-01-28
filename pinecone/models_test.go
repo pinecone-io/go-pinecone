@@ -528,7 +528,7 @@ func TestMarshalNamespaceSummaryUnit(t *testing.T) {
 	}
 }
 
-func TestMarshalUsage(t *testing.T) {
+func TestMarshalUsageUnit(t *testing.T) {
 	tests := []struct {
 		name  string
 		input Usage
@@ -563,5 +563,69 @@ func TestMarshalUsage(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestMarshalIndexEmbedUnit(t *testing.T) {
+	dimension := int32(128)
+	metric := IndexMetric("cosine")
+	vectorType := "sparse"
+	fieldMap := map[string]interface{}{
+		"text-field": "my-text-field",
+	}
+	readParameters := map[string]interface{}{
+		"readParam": "readParamValue",
+	}
+	writeParameters := map[string]interface{}{
+		"writeParam": "writeParamValue",
+	}
+
+	tests := []struct {
+		name  string
+		input IndexEmbed
+		want  string
+	}{
+		{
+			name: "All fields present",
+			input: IndexEmbed{
+				Model:           "multilingual-e5-large",
+				Dimension:       &dimension,
+				Metric:          &metric,
+				VectorType:      &vectorType,
+				FieldMap:        &fieldMap,
+				ReadParameters:  &readParameters,
+				WriteParameters: &writeParameters,
+			},
+			want: `{"model":"multilingual-e5-large","dimension":128,"metric":"cosine","vector_type":"sparse","field_map":{"text-field":"my-text-field"},"read_parameters":{"readParam":"readParamValue"},"write_parameters":{"writeParam":"writeParamValue"}}`,
+		},
+		{
+			name:  "Fields omitted",
+			input: IndexEmbed{},
+			want:  `{"model":""}`,
+		},
+		{
+			name: "Fields empty",
+			input: IndexEmbed{
+				Model:           "",
+				Dimension:       nil,
+				Metric:          nil,
+				VectorType:      nil,
+				FieldMap:        nil,
+				ReadParameters:  nil,
+				WriteParameters: nil,
+			},
+			want: `{"model":""}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(c *testing.T) {
+			got, err := json.Marshal(tt.input)
+			if err != nil {
+				c.Errorf("Failed to marshal IndexEmbed: %v", err)
+			}
+			if string(got) != tt.want {
+				c.Errorf("Marshal IndexEmbed got = %s, want = %s", string(got), tt.want)
+			}
+		})
+	}
 }
