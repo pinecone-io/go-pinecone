@@ -119,7 +119,7 @@ func main() {
 
 **Create a serverless index**
 
-The following example creates a serverless index in the `us-east-1`
+The following example creates a `dense` serverless index in the `us-east-1`
 region of AWS. For more information on serverless and regional availability,
 see [Understanding indexes](https://docs.pinecone.io/guides/indexes/understanding-indexes#serverless-indexes).
 
@@ -157,6 +157,53 @@ func main() {
 		Cloud:     pinecone.Aws,
 		Region:    "us-east-1",
 		Tags:      &pinecone.IndexTags{"environment": "development"},
+	})
+
+	if err != nil {
+		log.Fatalf("Failed to create serverless index: %v", err)
+	} else {
+		fmt.Printf("Successfully created serverless index: %s", idx.Name)
+	}
+}
+```
+
+You can also create `sparse` only serverless indexes. These indexes enable direct indexing and retrieval of sparse vectors, supporting traditional methods like BM25 and learned sparse models such as [pinecone-sparse-english-v0](https://docs.pinecone.io/models/pinecone-sparse-english-v0). A `sparse` index must have a distance metric of `dotproduct` and does not require a specified dimension:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
+	ctx := context.Background()
+
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
+
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
+
+	indexName := "my-serverless-index"
+	vectorType := "dense"
+
+	idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+		Name:       indexName,
+		Metric:     pinecone.Dotproduct,
+		VectorType: &vectorType,
+		Cloud:      pinecone.Aws,
+		Region:     "us-east-1",
+		Tags:       &pinecone.IndexTags{"environment": "development"},
 	})
 
 	if err != nil {
