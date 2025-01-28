@@ -214,11 +214,12 @@ func generateVectorValues(dimension int32) []float32 {
 
 func BuildServerlessTestIndex(in *Client, idxName string, tags IndexTags) *Index {
 	ctx := context.Background()
+	dimension := int32(setDimensionsForTestIndexes())
 
 	fmt.Printf("Creating Serverless index: %s\n", idxName)
 	serverlessIdx, err := in.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
 		Name:      idxName,
-		Dimension: int32(setDimensionsForTestIndexes()),
+		Dimension: &dimension,
 		Metric:    Cosine,
 		Region:    "us-east-1",
 		Cloud:     "aws",

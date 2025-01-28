@@ -31,7 +31,11 @@ func (ts *IntegrationTests) TestListIndexes() {
 	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
 }
 
-func (ts *IntegrationTests) TestCreatePodIndex() {
+func (ts *IntegrationTests) TestCreatePodIndexDense() {
+	if ts.indexType == "serverless" {
+		ts.T().Skip("Skipping pod index tests for serverless suite")
+	}
+
 	name := uuid.New().String()
 
 	defer func(ts *IntegrationTests, name string) {
@@ -48,38 +52,17 @@ func (ts *IntegrationTests) TestCreatePodIndex() {
 	})
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
+	// create index should default to "dense" if no VectorType is specified
+	require.Equal(ts.T(), "dense", idx.VectorType, "Index vector type does not match")
 }
 
-func (ts *IntegrationTests) TestCreatePodIndexInvalidDimension() {
+func (ts *IntegrationTests) TestCreateServerlessIndexDense() {
+	if ts.indexType == "pod" {
+		ts.T().Skip("Skipping serverless index tests for pod suite")
+	}
+
 	name := uuid.New().String()
-
-	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
-		Name:        name,
-		Dimension:   -1,
-		Metric:      Cosine,
-		Environment: "us-east1-gcp",
-		PodType:     "p1.x1",
-	})
-	require.Error(ts.T(), err)
-	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
-}
-
-func (ts *IntegrationTests) TestCreateServerlessIndexInvalidDimension() {
-	name := uuid.New().String()
-
-	_, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
-		Name:      name,
-		Dimension: -1,
-		Metric:    Cosine,
-		Cloud:     Aws,
-		Region:    "us-west-2",
-	})
-	require.Error(ts.T(), err)
-	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
-}
-
-func (ts *IntegrationTests) TestCreateServerlessIndex() {
-	name := uuid.New().String()
+	dimension := int32(10)
 
 	defer func(ts *IntegrationTests, name string) {
 		err := ts.deleteIndex(name)
@@ -88,13 +71,59 @@ func (ts *IntegrationTests) TestCreateServerlessIndex() {
 
 	idx, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
 		Name:      name,
-		Dimension: 10,
+		Dimension: &dimension,
 		Metric:    Cosine,
 		Cloud:     Aws,
 		Region:    "us-west-2",
 	})
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
+	// create index should default to "dense" if no VectorType is specified
+	require.Equal(ts.T(), "dense", idx.VectorType, "Index vector type does not match")
+}
+
+func (ts *IntegrationTests) TestCreateServerlessIndexSparse() {
+	if ts.indexType == "pod" {
+		ts.T().Skip("Skipping serverless index tests for pod suite")
+	}
+
+	name := uuid.New().String()
+	vectorType := "sparse"
+
+	defer func(ts *IntegrationTests, name string) {
+		err := ts.deleteIndex(name)
+		require.NoError(ts.T(), err)
+	}(ts, name)
+
+	idx, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
+		Name:       name,
+		Metric:     Dotproduct,
+		Cloud:      Aws,
+		Region:     "us-west-2",
+		VectorType: &vectorType,
+	})
+	require.NoError(ts.T(), err)
+	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
+	require.Equal(ts.T(), vectorType, idx.VectorType, "Index vector type does not match")
+}
+
+func (ts *IntegrationTests) TestCreateServerlessIndexInvalidDimension() {
+	if ts.indexType == "pod" {
+		ts.T().Skip("Skipping serverless index tests for pod suite")
+	}
+
+	name := uuid.New().String()
+	dimension := int32(-1)
+
+	_, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
+		Name:      name,
+		Dimension: &dimension,
+		Metric:    Cosine,
+		Cloud:     Aws,
+		Region:    "us-west-2",
+	})
+	require.Error(ts.T(), err)
+	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
 }
 
 func (ts *IntegrationTests) TestDescribeIndex() {
@@ -781,14 +810,14 @@ func TestCreatePodIndexMissingReqdFieldsUnit(t *testing.T) {
 	client := &Client{}
 	_, err := client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{})
 	require.Error(t, err)
-	require.ErrorContainsf(t, err, "fields Name, Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest", err.Error()) //_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{})
+	require.ErrorContainsf(t, err, "fields Name, Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest", err.Error())
 }
 
 func TestCreateServerlessIndexMissingReqdFieldsUnit(t *testing.T) {
 	client := &Client{}
 	_, err := client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{})
 	require.Error(t, err)
-	require.ErrorContainsf(t, err, "fields Name, Dimension, Metric, Cloud, and Region must be included in CreateServerlessIndexRequest", err.Error())
+	require.ErrorContainsf(t, err, "fields Name, Metric, Cloud, and Region must be included in CreateServerlessIndexRequest", err.Error())
 }
 
 func TestCreateCollectionMissingReqdFieldsUnit(t *testing.T) {
@@ -796,6 +825,19 @@ func TestCreateCollectionMissingReqdFieldsUnit(t *testing.T) {
 	_, err := client.CreateCollection(context.Background(), &CreateCollectionRequest{})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "fields Name and Source must be included in CreateCollectionRequest")
+}
+
+func TestCreatePodIndexInvalidDimensionUnit(t *testing.T) {
+	client := &Client{}
+	_, err := client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
+		Name:        "test-invalid-dimension",
+		Dimension:   -1,
+		Metric:      Cosine,
+		Environment: "us-east1-gcp",
+		PodType:     "p1.x1",
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "fields Name, Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest")
 }
 
 func TestHandleErrorResponseBodyUnit(t *testing.T) {
