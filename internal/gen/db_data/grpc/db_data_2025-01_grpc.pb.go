@@ -34,47 +34,47 @@ const (
 type VectorServiceClient interface {
 	// Upsert vectors
 	//
-	// The `upsert` operation writes vectors into a namespace. If a new value is upserted for an existing vector ID, it will overwrite the previous value.
+	// Writes vectors into a namespace. If a new value is upserted for an existing vector ID, it will overwrite the previous value.
 	//
 	// For guidance and examples, see [Upsert data](https://docs.pinecone.io/guides/data/upsert-data).
 	Upsert(ctx context.Context, in *UpsertRequest, opts ...grpc.CallOption) (*UpsertResponse, error)
 	// Delete vectors
 	//
-	// The `delete` operation deletes vectors, by id, from a single namespace.
+	// Delete vectors by id from a single namespace.
 	//
 	// For guidance and examples, see [Delete data](https://docs.pinecone.io/guides/data/delete-data).
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 	// Fetch vectors
 	//
-	// The `fetch` operation looks up and returns vectors, by ID, from a single namespace. The returned vectors include the vector data and/or metadata.
+	// Look up and returns vectors by ID from a single namespace. The returned vectors include the vector data and/or metadata.
 	//
 	// For guidance and examples, see [Fetch data](https://docs.pinecone.io/guides/data/fetch-data).
 	Fetch(ctx context.Context, in *FetchRequest, opts ...grpc.CallOption) (*FetchResponse, error)
 	// List vector IDs
 	//
-	// The `list` operation lists the IDs of vectors in a single namespace of a serverless index. An optional prefix can be passed to limit the results to IDs with a common prefix.
+	// List the IDs of vectors in a single namespace of a serverless index. An optional prefix can be passed to limit the results to IDs with a common prefix.
 	//
-	// `list` returns up to 100 IDs at a time by default in sorted order (bitwise/"C" collation). If the `limit` parameter is set, `list` returns up to that number of IDs instead. Whenever there are additional IDs to return, the response also includes a `pagination_token` that you can use to get the next batch of IDs. When the response does not include a `pagination_token`, there are no more IDs to return.
+	// This returns up to 100 IDs at a time by default in sorted order (bitwise/"C" collation). If the `limit` parameter is set, `list` returns up to that number of IDs instead. Whenever there are additional IDs to return, the response also includes a `pagination_token` that you can use to get the next batch of IDs. When the response does not include a `pagination_token`, there are no more IDs to return.
 	//
 	// For guidance and examples, see [List record IDs](https://docs.pinecone.io/guides/data/list-record-ids).
 	//
-	// **Note:** `list` is supported only for serverless indexes.
+	// **Note:** This is supported only for serverless indexes.
 	List(ctx context.Context, in *ListRequest, opts ...grpc.CallOption) (*ListResponse, error)
 	// Query vectors
 	//
-	// The `query` operation searches a namespace, using a query vector. It retrieves the ids of the most similar items in a namespace, along with their similarity scores.
+	// Searches a namespace, using a query vector. It retrieves the ids of the most similar items in a namespace, along with their similarity scores.
 	//
 	// For guidance and examples, see [Query data](https://docs.pinecone.io/guides/data/query-data).
 	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 	// Update a vector
 	//
-	// The `update` operation updates a vector in a namespace. If a value is included, it will overwrite the previous value. If a `set_metadata` is included, the values of the fields specified in it will be added or overwrite the previous value.
+	// Update a vector in a namespace. If a value is included, it will overwrite the previous value. If a `set_metadata` is included, the values of the fields specified in it will be added or overwrite the previous value.
 	//
 	// For guidance and examples, see [Update data](https://docs.pinecone.io/guides/data/update-data).
 	Update(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 	// Get index stats
 	//
-	// The `describe_index_stats` operation returns statistics about the contents of an index, including the vector count per namespace, the number of dimensions, and the index fullness.
+	// Return statistics about the contents of an index, including the vector count per namespace, the number of dimensions, and the index fullness.
 	//
 	// Serverless indexes scale automatically as needed, so index fullness is relevant only for pod-based indexes.
 	DescribeIndexStats(ctx context.Context, in *DescribeIndexStatsRequest, opts ...grpc.CallOption) (*DescribeIndexStatsResponse, error)
@@ -157,47 +157,47 @@ func (c *vectorServiceClient) DescribeIndexStats(ctx context.Context, in *Descri
 type VectorServiceServer interface {
 	// Upsert vectors
 	//
-	// The `upsert` operation writes vectors into a namespace. If a new value is upserted for an existing vector ID, it will overwrite the previous value.
+	// Writes vectors into a namespace. If a new value is upserted for an existing vector ID, it will overwrite the previous value.
 	//
 	// For guidance and examples, see [Upsert data](https://docs.pinecone.io/guides/data/upsert-data).
 	Upsert(context.Context, *UpsertRequest) (*UpsertResponse, error)
 	// Delete vectors
 	//
-	// The `delete` operation deletes vectors, by id, from a single namespace.
+	// Delete vectors by id from a single namespace.
 	//
 	// For guidance and examples, see [Delete data](https://docs.pinecone.io/guides/data/delete-data).
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
 	// Fetch vectors
 	//
-	// The `fetch` operation looks up and returns vectors, by ID, from a single namespace. The returned vectors include the vector data and/or metadata.
+	// Look up and returns vectors by ID from a single namespace. The returned vectors include the vector data and/or metadata.
 	//
 	// For guidance and examples, see [Fetch data](https://docs.pinecone.io/guides/data/fetch-data).
 	Fetch(context.Context, *FetchRequest) (*FetchResponse, error)
 	// List vector IDs
 	//
-	// The `list` operation lists the IDs of vectors in a single namespace of a serverless index. An optional prefix can be passed to limit the results to IDs with a common prefix.
+	// List the IDs of vectors in a single namespace of a serverless index. An optional prefix can be passed to limit the results to IDs with a common prefix.
 	//
-	// `list` returns up to 100 IDs at a time by default in sorted order (bitwise/"C" collation). If the `limit` parameter is set, `list` returns up to that number of IDs instead. Whenever there are additional IDs to return, the response also includes a `pagination_token` that you can use to get the next batch of IDs. When the response does not include a `pagination_token`, there are no more IDs to return.
+	// This returns up to 100 IDs at a time by default in sorted order (bitwise/"C" collation). If the `limit` parameter is set, `list` returns up to that number of IDs instead. Whenever there are additional IDs to return, the response also includes a `pagination_token` that you can use to get the next batch of IDs. When the response does not include a `pagination_token`, there are no more IDs to return.
 	//
 	// For guidance and examples, see [List record IDs](https://docs.pinecone.io/guides/data/list-record-ids).
 	//
-	// **Note:** `list` is supported only for serverless indexes.
+	// **Note:** This is supported only for serverless indexes.
 	List(context.Context, *ListRequest) (*ListResponse, error)
 	// Query vectors
 	//
-	// The `query` operation searches a namespace, using a query vector. It retrieves the ids of the most similar items in a namespace, along with their similarity scores.
+	// Searches a namespace, using a query vector. It retrieves the ids of the most similar items in a namespace, along with their similarity scores.
 	//
 	// For guidance and examples, see [Query data](https://docs.pinecone.io/guides/data/query-data).
 	Query(context.Context, *QueryRequest) (*QueryResponse, error)
 	// Update a vector
 	//
-	// The `update` operation updates a vector in a namespace. If a value is included, it will overwrite the previous value. If a `set_metadata` is included, the values of the fields specified in it will be added or overwrite the previous value.
+	// Update a vector in a namespace. If a value is included, it will overwrite the previous value. If a `set_metadata` is included, the values of the fields specified in it will be added or overwrite the previous value.
 	//
 	// For guidance and examples, see [Update data](https://docs.pinecone.io/guides/data/update-data).
 	Update(context.Context, *UpdateRequest) (*UpdateResponse, error)
 	// Get index stats
 	//
-	// The `describe_index_stats` operation returns statistics about the contents of an index, including the vector count per namespace, the number of dimensions, and the index fullness.
+	// Return statistics about the contents of an index, including the vector count per namespace, the number of dimensions, and the index fullness.
 	//
 	// Serverless indexes scale automatically as needed, so index fullness is relevant only for pod-based indexes.
 	DescribeIndexStats(context.Context, *DescribeIndexStatsRequest) (*DescribeIndexStatsResponse, error)

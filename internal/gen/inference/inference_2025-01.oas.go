@@ -142,7 +142,9 @@ type RerankRequest struct {
 	// Query The query to rerank documents against.
 	Query string `json:"query"`
 
-	// RankFields The fields to rank the documents by. If not provided, the default is `"text"`.
+	// RankFields The field(s) to consider for reranking. If not provided, the default is `["text"]`.
+	//
+	// The number of fields supported is [model-specific](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models).
 	RankFields *[]string `json:"rank_fields,omitempty"`
 
 	// ReturnDocuments Whether to return the documents in the response.
