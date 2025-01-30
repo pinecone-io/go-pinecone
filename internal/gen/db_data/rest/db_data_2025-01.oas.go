@@ -434,7 +434,7 @@ type Vector struct {
 	SparseValues *SparseValues `json:"sparseValues,omitempty"`
 
 	// Values This is the vector data included in the request.
-	Values []float32 `json:"values"`
+	Values *[]float32 `json:"values,omitempty"`
 }
 
 // VectorValues This is the vector data included in the request.
