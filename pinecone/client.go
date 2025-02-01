@@ -541,7 +541,7 @@ func (req CreatePodIndexRequest) TotalCount() int {
 //		}
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
 	if in.Name == "" || in.Dimension <= 0 || in.Metric == "" || in.Environment == "" || in.PodType == "" {
-		return nil, fmt.Errorf("fields Name, Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest")
+		return nil, fmt.Errorf("fields Name, positive Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest")
 	}
 
 	deletionProtection := pointerOrNil(db_control.DeletionProtection(in.DeletionProtection))

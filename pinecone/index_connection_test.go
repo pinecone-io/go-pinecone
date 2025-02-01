@@ -363,6 +363,9 @@ func TestNewIndexConnectionNamespace(t *testing.T) {
 }
 
 func TestMarshalFetchVectorsResponseUnit(t *testing.T) {
+	vec1Values := []float32{0.01, 0.01, 0.01}
+	vec2Values := []float32{0.02, 0.02, 0.02}
+
 	tests := []struct {
 		name  string
 		input FetchVectorsResponse
@@ -372,8 +375,8 @@ func TestMarshalFetchVectorsResponseUnit(t *testing.T) {
 			name: "All fields present",
 			input: FetchVectorsResponse{
 				Vectors: map[string]*Vector{
-					"vec-1": {Id: "vec-1", Values: []float32{0.01, 0.01, 0.01}},
-					"vec-2": {Id: "vec-2", Values: []float32{0.02, 0.02, 0.02}},
+					"vec-1": {Id: "vec-1", Values: &vec1Values},
+					"vec-2": {Id: "vec-2", Values: &vec2Values},
 				},
 				Usage:     &Usage{ReadUnits: 5},
 				Namespace: "test-namespace",
@@ -461,6 +464,8 @@ func TestMarshalListVectorsResponseUnit(t *testing.T) {
 }
 
 func TestMarshalQueryVectorsResponseUnit(t *testing.T) {
+	vec1Values := []float32{0.01, 0.01, 0.01}
+	vec2Values := []float32{0.02, 0.02, 0.02}
 	tests := []struct {
 		name  string
 		input QueryVectorsResponse
@@ -470,8 +475,8 @@ func TestMarshalQueryVectorsResponseUnit(t *testing.T) {
 			name: "All fields present",
 			input: QueryVectorsResponse{
 				Matches: []*ScoredVector{
-					{Vector: &Vector{Id: "vec-1", Values: []float32{0.01, 0.01, 0.01}}, Score: 0.1},
-					{Vector: &Vector{Id: "vec-2", Values: []float32{0.02, 0.02, 0.02}}, Score: 0.2},
+					{Vector: &Vector{Id: "vec-1", Values: &vec1Values}, Score: 0.1},
+					{Vector: &Vector{Id: "vec-2", Values: &vec2Values}, Score: 0.2},
 				},
 				Usage:     &Usage{ReadUnits: 5},
 				Namespace: "test-namespace",
@@ -554,6 +559,8 @@ func TestMarshalDescribeIndexStatsResponseUnit(t *testing.T) {
 }
 
 func TestToVectorUnit(t *testing.T) {
+	vecValues := []float32{0.01, 0.02, 0.03}
+
 	tests := []struct {
 		name     string
 		vector   *db_data_grpc.Vector
@@ -572,7 +579,7 @@ func TestToVectorUnit(t *testing.T) {
 			},
 			expected: &Vector{
 				Id:     "dense-1",
-				Values: []float32{0.01, 0.02, 0.03},
+				Values: &vecValues,
 			},
 		},
 		{
@@ -607,7 +614,7 @@ func TestToVectorUnit(t *testing.T) {
 
 			expected: &Vector{
 				Id:     "hybrid-1",
-				Values: []float32{0.01, 0.02, 0.03},
+				Values: &vecValues,
 				SparseValues: &SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
@@ -630,7 +637,7 @@ func TestToVectorUnit(t *testing.T) {
 			},
 			expected: &Vector{
 				Id:     "hybrid-metadata-1",
-				Values: []float32{0.01, 0.02, 0.03},
+				Values: &vecValues,
 				SparseValues: &SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
@@ -683,6 +690,8 @@ func TestToSparseValuesUnit(t *testing.T) {
 }
 
 func TestToScoredVectorUnit(t *testing.T) {
+	vecValues := []float32{0.01, 0.02, 0.03}
+
 	tests := []struct {
 		name         string
 		scoredVector *db_data_grpc.ScoredVector
@@ -697,13 +706,13 @@ func TestToScoredVectorUnit(t *testing.T) {
 			name: "Pass scored dense vector",
 			scoredVector: &db_data_grpc.ScoredVector{
 				Id:     "dense-1",
-				Values: []float32{0.01, 0.01, 0.01},
+				Values: []float32{0.01, 0.02, 0.03},
 				Score:  0.1,
 			},
 			expected: &ScoredVector{
 				Vector: &Vector{
 					Id:     "dense-1",
-					Values: []float32{0.01, 0.01, 0.01},
+					Values: &vecValues,
 				},
 				Score: 0.1,
 			},
@@ -743,7 +752,7 @@ func TestToScoredVectorUnit(t *testing.T) {
 			expected: &ScoredVector{
 				Vector: &Vector{
 					Id:     "hybrid-1",
-					Values: []float32{0.01, 0.02, 0.03},
+					Values: &vecValues,
 					SparseValues: &SparseValues{
 						Indices: []uint32{0, 2},
 						Values:  []float32{0.01, 0.03},
@@ -771,7 +780,7 @@ func TestToScoredVectorUnit(t *testing.T) {
 			expected: &ScoredVector{
 				Vector: &Vector{
 					Id:     "hybrid-metadata-1",
-					Values: []float32{0.01, 0.02, 0.03},
+					Values: &vecValues,
 					SparseValues: &SparseValues{
 						Indices: []uint32{0, 2},
 						Values:  []float32{0.01, 0.03},
@@ -795,6 +804,8 @@ func TestToScoredVectorUnit(t *testing.T) {
 }
 
 func TestVecToGrpcUnit(t *testing.T) {
+	vecValues := []float32{0.01, 0.02, 0.03}
+
 	tests := []struct {
 		name     string
 		vector   *Vector
@@ -809,7 +820,7 @@ func TestVecToGrpcUnit(t *testing.T) {
 			name: "Pass dense vector",
 			vector: &Vector{
 				Id:     "dense-1",
-				Values: []float32{0.01, 0.02, 0.03},
+				Values: &vecValues,
 			},
 			expected: &db_data_grpc.Vector{
 				Id:     "dense-1",
@@ -838,7 +849,7 @@ func TestVecToGrpcUnit(t *testing.T) {
 			name: "Pass hybrid vector",
 			vector: &Vector{
 				Id:     "hybrid-1",
-				Values: []float32{0.01, 0.02, 0.03},
+				Values: &vecValues,
 				SparseValues: &SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
@@ -857,7 +868,7 @@ func TestVecToGrpcUnit(t *testing.T) {
 			name: "Pass hybrid vector with metadata",
 			vector: &Vector{
 				Id:     "hybrid-metadata-1",
-				Values: []float32{0.01, 0.02, 0.03},
+				Values: &vecValues,
 				SparseValues: &SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},

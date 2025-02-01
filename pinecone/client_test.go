@@ -810,7 +810,7 @@ func TestCreatePodIndexMissingReqdFieldsUnit(t *testing.T) {
 	client := &Client{}
 	_, err := client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{})
 	require.Error(t, err)
-	require.ErrorContainsf(t, err, "fields Name, Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest", err.Error())
+	require.ErrorContainsf(t, err, "fields Name, positive Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest", err.Error())
 }
 
 func TestCreateServerlessIndexMissingReqdFieldsUnit(t *testing.T) {
@@ -874,7 +874,7 @@ func TestCreatePodIndexInvalidDimensionUnit(t *testing.T) {
 		PodType:     "p1.x1",
 	})
 	require.Error(t, err)
-	require.ErrorContains(t, err, "fields Name, Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest")
+	require.ErrorContains(t, err, "fields Name, positive Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest")
 }
 
 func TestCreateCollectionMissingReqdFieldsUnit(t *testing.T) {

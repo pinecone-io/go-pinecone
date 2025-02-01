@@ -353,6 +353,7 @@ func TestMarshalVectorUnit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create metadata: %v", err)
 	}
+	vecValues := []float32{0.1, 0.2, 0.3}
 
 	tests := []struct {
 		name  string
@@ -363,7 +364,7 @@ func TestMarshalVectorUnit(t *testing.T) {
 			name: "All fields present",
 			input: Vector{
 				Id:       "vector-1",
-				Values:   []float32{0.1, 0.2, 0.3},
+				Values:   &vecValues,
 				Metadata: metadata,
 				SparseValues: &SparseValues{
 					Indices: []uint32{1, 2, 3},
@@ -403,6 +404,7 @@ func TestMarshalScoredVectorUnit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create metadata: %v", err)
 	}
+	vecValues := []float32{0.1, 0.2, 0.3}
 
 	tests := []struct {
 		name  string
@@ -414,7 +416,7 @@ func TestMarshalScoredVectorUnit(t *testing.T) {
 			input: ScoredVector{
 				Vector: &Vector{
 					Id:       "vector-1",
-					Values:   []float32{0.1, 0.2, 0.3},
+					Values:   &vecValues,
 					Metadata: metadata,
 					SparseValues: &SparseValues{
 						Indices: []uint32{1, 2, 3},

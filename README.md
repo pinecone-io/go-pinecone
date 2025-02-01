@@ -195,7 +195,7 @@ func main() {
 	}
 
 	indexName := "my-serverless-index"
-	vectorType := "dense"
+	vectorType := "sparse"
 
 	idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
 		Name:       indexName,

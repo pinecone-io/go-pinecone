@@ -185,7 +185,7 @@ func (ts *LocalIntegrationTests) TestQueryVectors() {
 		assert.Equal(ts.T(), queryVectorId, queryVectorsByIdResponse.Matches[0].Vector.Id, "Top QueryByVectorId result's vector id should match queryVectorId")
 
 		queryByVectorValuesResponse, err := idxConn.QueryByVectorValues(context.Background(), &QueryByVectorValuesRequest{
-			Vector:          queryVectorsByIdResponse.Matches[0].Vector.Values,
+			Vector:          *queryVectorsByIdResponse.Matches[0].Vector.Values,
 			TopK:            uint32(topK),
 			MetadataFilter:  ts.metadata,
 			IncludeValues:   true,
@@ -210,7 +210,7 @@ func (ts *LocalIntegrationTests) TestUpdateVectors() {
 	newValues := generateVectorValues(ts.dimension)
 
 	for _, idxConn := range ts.idxConns {
-		err := idxConn.UpdateVector(context.Background(), &UpdateVectorRequest{Id: updateVectorId, Values: newValues})
+		err := idxConn.UpdateVector(context.Background(), &UpdateVectorRequest{Id: updateVectorId, Values: *newValues})
 		require.NoError(ts.T(), err)
 
 		fetchVectorsResponse, err := idxConn.FetchVectors(context.Background(), []string{updateVectorId})

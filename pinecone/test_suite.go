@@ -188,7 +188,8 @@ func GenerateVectors(numOfVectors int, dimension int32, isSparse bool, metadata 
 			for j := 0; j < int(dimension); j++ {
 				sparseValues.Indices = append(sparseValues.Indices, uint32(j))
 			}
-			sparseValues.Values = generateVectorValues(dimension)
+			values := generateVectorValues(dimension)
+			sparseValues.Values = *values
 			vectors[i].SparseValues = &sparseValues
 		}
 
@@ -200,7 +201,7 @@ func GenerateVectors(numOfVectors int, dimension int32, isSparse bool, metadata 
 	return vectors
 }
 
-func generateVectorValues(dimension int32) []float32 {
+func generateVectorValues(dimension int32) *[]float32 {
 	maxInt := 1000000 // A large integer to normalize the float values
 	values := make([]float32, dimension)
 
@@ -209,7 +210,7 @@ func generateVectorValues(dimension int32) []float32 {
 		values[i] = float32(rand.Intn(maxInt)) / float32(maxInt)
 	}
 
-	return values
+	return &values
 }
 
 func BuildServerlessTestIndex(in *Client, idxName string, tags IndexTags) *Index {
