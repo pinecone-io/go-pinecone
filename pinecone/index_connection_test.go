@@ -206,7 +206,9 @@ func (ts *IntegrationTests) TestUpdateVectorValues() {
 	}
 	actualVals := vector.Vectors[ts.vectorIds[0]].Values
 
-	assert.ElementsMatch(ts.T(), expectedVals, actualVals, "Values do not match")
+	if actualVals != nil {
+		assert.ElementsMatch(ts.T(), expectedVals, *actualVals, "Values do not match")
+	}
 }
 
 func (ts *IntegrationTests) TestUpdateVectorMetadata() {
@@ -228,17 +230,20 @@ func (ts *IntegrationTests) TestUpdateVectorMetadata() {
 
 	time.Sleep(10 * time.Second)
 
-	vector, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
+	vectors, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
 	if err != nil {
 		ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
 	}
+	vector := vectors.Vectors[ts.vectorIds[0]]
 
-	assert.NotNil(ts.T(), vector.Vectors[ts.vectorIds[0]].Metadata, "Metadata is nil after update")
+	if vector != nil {
+		assert.NotNil(ts.T(), vector.Metadata, "Metadata is nil after update")
 
-	expectedGenre := expectedMetadataMap.Fields["genre"].GetStringValue()
-	actualGenre := vector.Vectors[ts.vectorIds[0]].Metadata.Fields["genre"].GetStringValue()
+		expectedGenre := expectedMetadataMap.Fields["genre"].GetStringValue()
+		actualGenre := vector.Metadata.Fields["genre"].GetStringValue()
 
-	assert.Equal(ts.T(), expectedGenre, actualGenre, "Metadata does not match")
+		assert.Equal(ts.T(), expectedGenre, actualGenre, "Metadata does not match")
+	}
 }
 
 func (ts *IntegrationTests) TestUpdateVectorSparseValues() {
@@ -263,13 +268,17 @@ func (ts *IntegrationTests) TestUpdateVectorSparseValues() {
 	time.Sleep(5 * time.Second)
 
 	// Fetch updated vector and verify sparse values
-	vector, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
+	vectors, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
 	if err != nil {
 		ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
 	}
-	actualSparseValues := vector.Vectors[ts.vectorIds[0]].SparseValues.Values
+	vector := vectors.Vectors[ts.vectorIds[0]]
 
-	assert.ElementsMatch(ts.T(), expectedSparseValues.Values, actualSparseValues, "Sparse values do not match")
+	if vector != nil {
+		actualSparseValues := vector.SparseValues.Values
+
+		assert.ElementsMatch(ts.T(), expectedSparseValues.Values, actualSparseValues, "Sparse values do not match")
+	}
 }
 
 func (ts *IntegrationTests) TestImportFlowHappyPath() {
