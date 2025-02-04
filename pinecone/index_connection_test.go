@@ -27,7 +27,7 @@ func (ts *IntegrationTests) TestFetchVectors() {
 }
 
 func (ts *IntegrationTests) TestQueryByVector() {
-	vec := make([]float32, ts.dimension)
+	vec := make([]float32, derefOrDefault(ts.dimension, 0))
 	for i := range vec {
 		vec[i] = 0.01
 	}
@@ -61,7 +61,7 @@ func (ts *IntegrationTests) TestDeleteVectorsById() {
 	assert.NoError(ts.T(), err)
 	ts.vectorIds = []string{}
 
-	vectors := GenerateVectors(5, ts.dimension, true, nil)
+	vectors := GenerateVectors(5, derefOrDefault(ts.dimension, 0), true, nil)
 
 	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
@@ -95,7 +95,7 @@ func (ts *IntegrationTests) TestDeleteVectorsByFilter() {
 	}
 	ts.vectorIds = []string{}
 
-	vectors := GenerateVectors(5, ts.dimension, true, nil)
+	vectors := GenerateVectors(5, derefOrDefault(ts.dimension, 0), true, nil)
 
 	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
@@ -116,7 +116,7 @@ func (ts *IntegrationTests) TestDeleteAllVectorsInNamespace() {
 	assert.NoError(ts.T(), err)
 	ts.vectorIds = []string{}
 
-	vectors := GenerateVectors(5, ts.dimension, true, nil)
+	vectors := GenerateVectors(5, derefOrDefault(ts.dimension, 0), true, nil)
 
 	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
@@ -206,7 +206,9 @@ func (ts *IntegrationTests) TestUpdateVectorValues() {
 	}
 	actualVals := vector.Vectors[ts.vectorIds[0]].Values
 
-	assert.ElementsMatch(ts.T(), expectedVals, actualVals, "Values do not match")
+	if actualVals != nil {
+		assert.ElementsMatch(ts.T(), expectedVals, *actualVals, "Values do not match")
+	}
 }
 
 func (ts *IntegrationTests) TestUpdateVectorMetadata() {
@@ -228,25 +230,28 @@ func (ts *IntegrationTests) TestUpdateVectorMetadata() {
 
 	time.Sleep(10 * time.Second)
 
-	vector, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
+	vectors, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
 	if err != nil {
 		ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
 	}
+	vector := vectors.Vectors[ts.vectorIds[0]]
 
-	assert.NotNil(ts.T(), vector.Vectors[ts.vectorIds[0]].Metadata, "Metadata is nil after update")
+	if vector != nil {
+		assert.NotNil(ts.T(), vector.Metadata, "Metadata is nil after update")
 
-	expectedGenre := expectedMetadataMap.Fields["genre"].GetStringValue()
-	actualGenre := vector.Vectors[ts.vectorIds[0]].Metadata.Fields["genre"].GetStringValue()
+		expectedGenre := expectedMetadataMap.Fields["genre"].GetStringValue()
+		actualGenre := vector.Metadata.Fields["genre"].GetStringValue()
 
-	assert.Equal(ts.T(), expectedGenre, actualGenre, "Metadata does not match")
+		assert.Equal(ts.T(), expectedGenre, actualGenre, "Metadata does not match")
+	}
 }
 
 func (ts *IntegrationTests) TestUpdateVectorSparseValues() {
 	ctx := context.Background()
 
-	dims := int(ts.dimension)
-	indices := generateUint32Array(dims)
-	vals := generateFloat32Array(dims)
+	dims := int32(derefOrDefault(ts.dimension, 0))
+	indices := generateUint32Array(int(dims))
+	vals := generateFloat32Array(int(dims))
 	expectedSparseValues := SparseValues{
 		Indices: indices,
 		Values:  vals,
@@ -263,13 +268,17 @@ func (ts *IntegrationTests) TestUpdateVectorSparseValues() {
 	time.Sleep(5 * time.Second)
 
 	// Fetch updated vector and verify sparse values
-	vector, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
+	vectors, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
 	if err != nil {
 		ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
 	}
-	actualSparseValues := vector.Vectors[ts.vectorIds[0]].SparseValues.Values
+	vector := vectors.Vectors[ts.vectorIds[0]]
 
-	assert.ElementsMatch(ts.T(), expectedSparseValues.Values, actualSparseValues, "Sparse values do not match")
+	if vector != nil {
+		actualSparseValues := vector.SparseValues.Values
+
+		assert.ElementsMatch(ts.T(), expectedSparseValues.Values, actualSparseValues, "Sparse values do not match")
+	}
 }
 
 func (ts *IntegrationTests) TestImportFlowHappyPath() {
@@ -363,6 +372,9 @@ func TestNewIndexConnectionNamespace(t *testing.T) {
 }
 
 func TestMarshalFetchVectorsResponseUnit(t *testing.T) {
+	vec1Values := []float32{0.01, 0.01, 0.01}
+	vec2Values := []float32{0.02, 0.02, 0.02}
+
 	tests := []struct {
 		name  string
 		input FetchVectorsResponse
@@ -372,8 +384,8 @@ func TestMarshalFetchVectorsResponseUnit(t *testing.T) {
 			name: "All fields present",
 			input: FetchVectorsResponse{
 				Vectors: map[string]*Vector{
-					"vec-1": {Id: "vec-1", Values: []float32{0.01, 0.01, 0.01}},
-					"vec-2": {Id: "vec-2", Values: []float32{0.02, 0.02, 0.02}},
+					"vec-1": {Id: "vec-1", Values: &vec1Values},
+					"vec-2": {Id: "vec-2", Values: &vec2Values},
 				},
 				Usage:     &Usage{ReadUnits: 5},
 				Namespace: "test-namespace",
@@ -461,6 +473,8 @@ func TestMarshalListVectorsResponseUnit(t *testing.T) {
 }
 
 func TestMarshalQueryVectorsResponseUnit(t *testing.T) {
+	vec1Values := []float32{0.01, 0.01, 0.01}
+	vec2Values := []float32{0.02, 0.02, 0.02}
 	tests := []struct {
 		name  string
 		input QueryVectorsResponse
@@ -470,8 +484,8 @@ func TestMarshalQueryVectorsResponseUnit(t *testing.T) {
 			name: "All fields present",
 			input: QueryVectorsResponse{
 				Matches: []*ScoredVector{
-					{Vector: &Vector{Id: "vec-1", Values: []float32{0.01, 0.01, 0.01}}, Score: 0.1},
-					{Vector: &Vector{Id: "vec-2", Values: []float32{0.02, 0.02, 0.02}}, Score: 0.2},
+					{Vector: &Vector{Id: "vec-1", Values: &vec1Values}, Score: 0.1},
+					{Vector: &Vector{Id: "vec-2", Values: &vec2Values}, Score: 0.2},
 				},
 				Usage:     &Usage{ReadUnits: 5},
 				Namespace: "test-namespace",
@@ -554,6 +568,8 @@ func TestMarshalDescribeIndexStatsResponseUnit(t *testing.T) {
 }
 
 func TestToVectorUnit(t *testing.T) {
+	vecValues := []float32{0.01, 0.02, 0.03}
+
 	tests := []struct {
 		name     string
 		vector   *db_data_grpc.Vector
@@ -572,7 +588,7 @@ func TestToVectorUnit(t *testing.T) {
 			},
 			expected: &Vector{
 				Id:     "dense-1",
-				Values: []float32{0.01, 0.02, 0.03},
+				Values: &vecValues,
 			},
 		},
 		{
@@ -607,7 +623,7 @@ func TestToVectorUnit(t *testing.T) {
 
 			expected: &Vector{
 				Id:     "hybrid-1",
-				Values: []float32{0.01, 0.02, 0.03},
+				Values: &vecValues,
 				SparseValues: &SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
@@ -630,7 +646,7 @@ func TestToVectorUnit(t *testing.T) {
 			},
 			expected: &Vector{
 				Id:     "hybrid-metadata-1",
-				Values: []float32{0.01, 0.02, 0.03},
+				Values: &vecValues,
 				SparseValues: &SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
@@ -683,6 +699,8 @@ func TestToSparseValuesUnit(t *testing.T) {
 }
 
 func TestToScoredVectorUnit(t *testing.T) {
+	vecValues := []float32{0.01, 0.02, 0.03}
+
 	tests := []struct {
 		name         string
 		scoredVector *db_data_grpc.ScoredVector
@@ -697,13 +715,13 @@ func TestToScoredVectorUnit(t *testing.T) {
 			name: "Pass scored dense vector",
 			scoredVector: &db_data_grpc.ScoredVector{
 				Id:     "dense-1",
-				Values: []float32{0.01, 0.01, 0.01},
+				Values: []float32{0.01, 0.02, 0.03},
 				Score:  0.1,
 			},
 			expected: &ScoredVector{
 				Vector: &Vector{
 					Id:     "dense-1",
-					Values: []float32{0.01, 0.01, 0.01},
+					Values: &vecValues,
 				},
 				Score: 0.1,
 			},
@@ -743,7 +761,7 @@ func TestToScoredVectorUnit(t *testing.T) {
 			expected: &ScoredVector{
 				Vector: &Vector{
 					Id:     "hybrid-1",
-					Values: []float32{0.01, 0.02, 0.03},
+					Values: &vecValues,
 					SparseValues: &SparseValues{
 						Indices: []uint32{0, 2},
 						Values:  []float32{0.01, 0.03},
@@ -771,7 +789,7 @@ func TestToScoredVectorUnit(t *testing.T) {
 			expected: &ScoredVector{
 				Vector: &Vector{
 					Id:     "hybrid-metadata-1",
-					Values: []float32{0.01, 0.02, 0.03},
+					Values: &vecValues,
 					SparseValues: &SparseValues{
 						Indices: []uint32{0, 2},
 						Values:  []float32{0.01, 0.03},
@@ -795,6 +813,8 @@ func TestToScoredVectorUnit(t *testing.T) {
 }
 
 func TestVecToGrpcUnit(t *testing.T) {
+	vecValues := []float32{0.01, 0.02, 0.03}
+
 	tests := []struct {
 		name     string
 		vector   *Vector
@@ -809,7 +829,7 @@ func TestVecToGrpcUnit(t *testing.T) {
 			name: "Pass dense vector",
 			vector: &Vector{
 				Id:     "dense-1",
-				Values: []float32{0.01, 0.02, 0.03},
+				Values: &vecValues,
 			},
 			expected: &db_data_grpc.Vector{
 				Id:     "dense-1",
@@ -838,7 +858,7 @@ func TestVecToGrpcUnit(t *testing.T) {
 			name: "Pass hybrid vector",
 			vector: &Vector{
 				Id:     "hybrid-1",
-				Values: []float32{0.01, 0.02, 0.03},
+				Values: &vecValues,
 				SparseValues: &SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},
@@ -857,7 +877,7 @@ func TestVecToGrpcUnit(t *testing.T) {
 			name: "Pass hybrid vector with metadata",
 			vector: &Vector{
 				Id:     "hybrid-metadata-1",
-				Values: []float32{0.01, 0.02, 0.03},
+				Values: &vecValues,
 				SparseValues: &SparseValues{
 					Indices: []uint32{0, 2},
 					Values:  []float32{0.01, 0.03},

@@ -1333,9 +1333,14 @@ func toVector(vector *db_data_grpc.Vector) *Vector {
 	if vector == nil {
 		return nil
 	}
+	var vectorValues *[]float32
+	if vector.Values != nil {
+		vectorValues = &vector.Values
+	}
+
 	return &Vector{
 		Id:           vector.Id,
-		Values:       vector.Values,
+		Values:       vectorValues,
 		Metadata:     vector.Metadata,
 		SparseValues: toSparseValues(vector.SparseValues),
 	}
@@ -1435,9 +1440,14 @@ func vecToGrpc(v *Vector) *db_data_grpc.Vector {
 	if v == nil {
 		return nil
 	}
+	var vecValues []float32
+	if v.Values != nil {
+		vecValues = *v.Values
+	}
+
 	return &db_data_grpc.Vector{
 		Id:           v.Id,
-		Values:       v.Values,
+		Values:       vecValues,
 		Metadata:     v.Metadata,
 		SparseValues: sparseValToGrpc(v.SparseValues),
 	}
