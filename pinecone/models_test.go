@@ -7,7 +7,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-func TestMarshalIndexStatus(t *testing.T) {
+func TestMarshalIndexStatusUnit(t *testing.T) {
 	tests := []struct {
 		name  string
 		input IndexStatus
@@ -44,7 +44,7 @@ func TestMarshalIndexStatus(t *testing.T) {
 	}
 }
 
-func TestMarshalServerlessSpec(t *testing.T) {
+func TestMarshalServerlessSpecUnit(t *testing.T) {
 	tests := []struct {
 		name  string
 		input ServerlessSpec
@@ -82,7 +82,7 @@ func TestMarshalServerlessSpec(t *testing.T) {
 	}
 }
 
-func TestMarshalPodSpec(t *testing.T) {
+func TestMarshalPodSpecUnit(t *testing.T) {
 	sourceCollection := "source-collection"
 	tests := []struct {
 		name  string
@@ -138,7 +138,7 @@ func TestMarshalPodSpec(t *testing.T) {
 	}
 }
 
-func TestMarshalIndexSpec(t *testing.T) {
+func TestMarshalIndexSpecUnit(t *testing.T) {
 	sourceCollection := "source-collection"
 	tests := []struct {
 		name  string
@@ -191,7 +191,9 @@ func TestMarshalIndexSpec(t *testing.T) {
 	}
 }
 
-func TestMarshalIndex(t *testing.T) {
+func TestMarshalIndexUnit(t *testing.T) {
+	dimension := int32(128)
+
 	tests := []struct {
 		name  string
 		input Index
@@ -200,10 +202,15 @@ func TestMarshalIndex(t *testing.T) {
 		{
 			name: "All fields present",
 			input: Index{
-				Name:      "test-index",
-				Dimension: 128,
-				Host:      "index-host-1.io",
-				Metric:    "cosine",
+				Name:               "test-index",
+				Dimension:          &dimension,
+				Host:               "index-host-1.io",
+				Metric:             "cosine",
+				VectorType:         "sparse",
+				DeletionProtection: "enabled",
+				Embed: &IndexEmbed{
+					Model: "multilingual-e5-large",
+				},
 				Spec: &IndexSpec{
 					Serverless: &ServerlessSpec{
 						Cloud:  "aws",
@@ -214,25 +221,28 @@ func TestMarshalIndex(t *testing.T) {
 					Ready: true,
 					State: "Ready",
 				},
+				Tags: &IndexTags{
+					"test1": "test-tag-1",
+				},
 			},
-			want: `{"name":"test-index","dimension":128,"host":"index-host-1.io","metric":"cosine","spec":{"serverless":{"cloud":"aws","region":"us-west-2"}},"status":{"ready":true,"state":"Ready"}}`,
+			want: `{"name":"test-index","host":"index-host-1.io","metric":"cosine","vector_type":"sparse","deletion_protection":"enabled","dimension":128,"spec":{"serverless":{"cloud":"aws","region":"us-west-2"}},"status":{"ready":true,"state":"Ready"},"tags":{"test1":"test-tag-1"},"embed":{"model":"multilingual-e5-large"}}`,
 		},
 		{
 			name:  "Fields omitted",
 			input: Index{},
-			want:  `{"name":"","dimension":0,"host":"","metric":""}`,
+			want:  `{"name":"","host":"","metric":"","vector_type":"","dimension":null}`,
 		},
 		{
 			name: "Fields empty",
 			input: Index{
 				Name:      "",
-				Dimension: 0,
+				Dimension: nil,
 				Host:      "",
 				Metric:    "",
 				Spec:      nil,
 				Status:    nil,
 			},
-			want: `{"name":"","dimension":0,"host":"","metric":""}`,
+			want: `{"name":"","host":"","metric":"","vector_type":"","dimension":null}`,
 		},
 	}
 
@@ -250,7 +260,7 @@ func TestMarshalIndex(t *testing.T) {
 	}
 }
 
-func TestMarshalCollection(t *testing.T) {
+func TestMarshalCollectionUnit(t *testing.T) {
 	tests := []struct {
 		name  string
 		input Collection
@@ -301,7 +311,7 @@ func TestMarshalCollection(t *testing.T) {
 	}
 }
 
-func TestMarshalPodSpecMetadataConfig(t *testing.T) {
+func TestMarshalPodSpecMetadataConfigUnit(t *testing.T) {
 	tests := []struct {
 		name  string
 		input PodSpecMetadataConfig
@@ -338,11 +348,12 @@ func TestMarshalPodSpecMetadataConfig(t *testing.T) {
 	}
 }
 
-func TestMarshalVector(t *testing.T) {
+func TestMarshalVectorUnit(t *testing.T) {
 	metadata, err := structpb.NewStruct(map[string]interface{}{"genre": "rock"})
 	if err != nil {
 		t.Fatalf("Failed to create metadata: %v", err)
 	}
+	vecValues := []float32{0.1, 0.2, 0.3}
 
 	tests := []struct {
 		name  string
@@ -353,7 +364,7 @@ func TestMarshalVector(t *testing.T) {
 			name: "All fields present",
 			input: Vector{
 				Id:       "vector-1",
-				Values:   []float32{0.1, 0.2, 0.3},
+				Values:   &vecValues,
 				Metadata: metadata,
 				SparseValues: &SparseValues{
 					Indices: []uint32{1, 2, 3},
@@ -388,11 +399,12 @@ func TestMarshalVector(t *testing.T) {
 	}
 }
 
-func TestMarshalScoredVector(t *testing.T) {
+func TestMarshalScoredVectorUnit(t *testing.T) {
 	metadata, err := structpb.NewStruct(map[string]interface{}{"genre": "rock"})
 	if err != nil {
 		t.Fatalf("Failed to create metadata: %v", err)
 	}
+	vecValues := []float32{0.1, 0.2, 0.3}
 
 	tests := []struct {
 		name  string
@@ -404,7 +416,7 @@ func TestMarshalScoredVector(t *testing.T) {
 			input: ScoredVector{
 				Vector: &Vector{
 					Id:       "vector-1",
-					Values:   []float32{0.1, 0.2, 0.3},
+					Values:   &vecValues,
 					Metadata: metadata,
 					SparseValues: &SparseValues{
 						Indices: []uint32{1, 2, 3},
@@ -441,7 +453,7 @@ func TestMarshalScoredVector(t *testing.T) {
 	}
 }
 
-func TestMarshalSparseValues(t *testing.T) {
+func TestMarshalSparseValuesUnit(t *testing.T) {
 	tests := []struct {
 		name  string
 		input SparseValues
@@ -481,7 +493,7 @@ func TestMarshalSparseValues(t *testing.T) {
 	}
 }
 
-func TestMarshalNamespaceSummary(t *testing.T) {
+func TestMarshalNamespaceSummaryUnit(t *testing.T) {
 	tests := []struct {
 		name  string
 		input NamespaceSummary
@@ -518,7 +530,7 @@ func TestMarshalNamespaceSummary(t *testing.T) {
 	}
 }
 
-func TestMarshalUsage(t *testing.T) {
+func TestMarshalUsageUnit(t *testing.T) {
 	tests := []struct {
 		name  string
 		input Usage
@@ -553,5 +565,69 @@ func TestMarshalUsage(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestMarshalIndexEmbedUnit(t *testing.T) {
+	dimension := int32(128)
+	metric := IndexMetric("cosine")
+	vectorType := "sparse"
+	fieldMap := map[string]interface{}{
+		"text-field": "my-text-field",
+	}
+	readParameters := map[string]interface{}{
+		"readParam": "readParamValue",
+	}
+	writeParameters := map[string]interface{}{
+		"writeParam": "writeParamValue",
+	}
+
+	tests := []struct {
+		name  string
+		input IndexEmbed
+		want  string
+	}{
+		{
+			name: "All fields present",
+			input: IndexEmbed{
+				Model:           "multilingual-e5-large",
+				Dimension:       &dimension,
+				Metric:          &metric,
+				VectorType:      &vectorType,
+				FieldMap:        &fieldMap,
+				ReadParameters:  &readParameters,
+				WriteParameters: &writeParameters,
+			},
+			want: `{"model":"multilingual-e5-large","dimension":128,"metric":"cosine","vector_type":"sparse","field_map":{"text-field":"my-text-field"},"read_parameters":{"readParam":"readParamValue"},"write_parameters":{"writeParam":"writeParamValue"}}`,
+		},
+		{
+			name:  "Fields omitted",
+			input: IndexEmbed{},
+			want:  `{"model":""}`,
+		},
+		{
+			name: "Fields empty",
+			input: IndexEmbed{
+				Model:           "",
+				Dimension:       nil,
+				Metric:          nil,
+				VectorType:      nil,
+				FieldMap:        nil,
+				ReadParameters:  nil,
+				WriteParameters: nil,
+			},
+			want: `{"model":""}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(c *testing.T) {
+			got, err := json.Marshal(tt.input)
+			if err != nil {
+				c.Errorf("Failed to marshal IndexEmbed: %v", err)
+			}
+			if string(got) != tt.want {
+				c.Errorf("Marshal IndexEmbed got = %s, want = %s", string(got), tt.want)
+			}
+		})
+	}
 }

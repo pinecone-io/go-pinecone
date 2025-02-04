@@ -295,7 +295,9 @@ type SearchRecordsRequest struct {
 		// Query The query to rerank documents against. If a specific rerank query is specified,  it overwrites the query input that was provided at the top level.
 		Query *string `json:"query,omitempty"`
 
-		// RankFields The fields to use for reranking.
+		// RankFields The field(s) to consider for reranking. If not provided, the default is `["text"]`.
+		//
+		// The number of fields supported is [model-specific](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models).
 		RankFields []string `json:"rank_fields"`
 
 		// TopN The number of top results to return after reranking. Defaults to top_k.
@@ -395,7 +397,7 @@ type UpdateResponse = map[string]interface{}
 
 // UpsertRecord The request for the `upsert` operation.
 type UpsertRecord struct {
-	// Id The unique ID of the record to upsert.
+	// Id The unique ID of the record to upsert. Note that `id` can be used as an alias for `_id`.
 	Id string `json:"_id"`
 }
 
@@ -432,7 +434,7 @@ type Vector struct {
 	SparseValues *SparseValues `json:"sparseValues,omitempty"`
 
 	// Values This is the vector data included in the request.
-	Values []float32 `json:"values"`
+	Values *[]float32 `json:"values,omitempty"`
 }
 
 // VectorValues This is the vector data included in the request.

@@ -17,7 +17,7 @@ type IntegrationTests struct {
 	apiKey         string
 	client         *Client
 	host           string
-	dimension      int32
+	dimension      *int32
 	indexType      string
 	vectorIds      []string
 	idxName        string
@@ -44,9 +44,13 @@ func (ts *IntegrationTests) SetupSuite() {
 	require.NotNil(ts.T(), idxConn, "Failed to create idxConn")
 
 	ts.idxConn = idxConn
+	dim := int32(0)
+	if ts.dimension != nil {
+		dim = *ts.dimension
+	}
 
 	// Deterministically create vectors
-	vectors := GenerateVectors(10, ts.dimension, false, nil)
+	vectors := GenerateVectors(10, dim, false, nil)
 
 	// Add vector ids to the suite
 	vectorIds := make([]string, len(vectors))
@@ -184,7 +188,8 @@ func GenerateVectors(numOfVectors int, dimension int32, isSparse bool, metadata 
 			for j := 0; j < int(dimension); j++ {
 				sparseValues.Indices = append(sparseValues.Indices, uint32(j))
 			}
-			sparseValues.Values = generateVectorValues(dimension)
+			values := generateVectorValues(dimension)
+			sparseValues.Values = *values
 			vectors[i].SparseValues = &sparseValues
 		}
 
@@ -196,7 +201,7 @@ func GenerateVectors(numOfVectors int, dimension int32, isSparse bool, metadata 
 	return vectors
 }
 
-func generateVectorValues(dimension int32) []float32 {
+func generateVectorValues(dimension int32) *[]float32 {
 	maxInt := 1000000 // A large integer to normalize the float values
 	values := make([]float32, dimension)
 
@@ -205,16 +210,17 @@ func generateVectorValues(dimension int32) []float32 {
 		values[i] = float32(rand.Intn(maxInt)) / float32(maxInt)
 	}
 
-	return values
+	return &values
 }
 
 func BuildServerlessTestIndex(in *Client, idxName string, tags IndexTags) *Index {
 	ctx := context.Background()
+	dimension := int32(setDimensionsForTestIndexes())
 
 	fmt.Printf("Creating Serverless index: %s\n", idxName)
 	serverlessIdx, err := in.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
 		Name:      idxName,
-		Dimension: int32(setDimensionsForTestIndexes()),
+		Dimension: &dimension,
 		Metric:    Cosine,
 		Region:    "us-east-1",
 		Cloud:     "aws",

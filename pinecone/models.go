@@ -65,19 +65,45 @@ type IndexSpec struct {
 	Serverless *ServerlessSpec `json:"serverless,omitempty"`
 }
 
+// [IndexEmbed] represents the embedding model configured for an index,
+// including document fields mapped to embedding inputs.
+//
+// Fields:
+//   - Model: The name of the embedding model used to create the index (e.g., "multilingual-e5-large").
+//   - Dimension: The dimension of the embedding model, specifying the size of the output vector.
+//   - Metric: The distance metric used by the embedding model. If the 'vector_type' is 'sparse',
+//     the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric
+//     defaults to 'cosine'.
+//   - VectorType:  The index vector type associated with the model. If 'dense', the vector dimension must be specified.
+//     If 'sparse', the vector dimension will be nil.
+//   - FieldMap: Identifies the name of the text field from your document model that is embedded.
+//   - ReadParameters: The read parameters for the embedding model.
+//   - WriteParameters: The write parameters for the embedding model.
+type IndexEmbed struct {
+	Model           string                  `json:"model"`
+	Dimension       *int32                  `json:"dimension,omitempty"`
+	Metric          *IndexMetric            `json:"metric,omitempty"`
+	VectorType      *string                 `json:"vector_type,omitempty"`
+	FieldMap        *map[string]interface{} `json:"field_map,omitempty"`
+	ReadParameters  *map[string]interface{} `json:"read_parameters,omitempty"`
+	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+}
+
 // [IndexTags] is a set of key-value pairs that can be attached to a Pinecone [Index].
 type IndexTags map[string]string
 
 // [Index] is a Pinecone [Index] object. Can be either a pod-based or a serverless [Index], depending on the [IndexSpec].
 type Index struct {
 	Name               string             `json:"name"`
-	Dimension          int32              `json:"dimension"`
 	Host               string             `json:"host"`
 	Metric             IndexMetric        `json:"metric"`
+	VectorType         string             `json:"vector_type"`
 	DeletionProtection DeletionProtection `json:"deletion_protection,omitempty"`
+	Dimension          *int32             `json:"dimension"`
 	Spec               *IndexSpec         `json:"spec,omitempty"`
 	Status             *IndexStatus       `json:"status,omitempty"`
 	Tags               *IndexTags         `json:"tags,omitempty"`
+	Embed              *IndexEmbed        `json:"embed,omitempty"`
 }
 
 // [Collection] is a Pinecone [collection entity]. Only available for pod-based Indexes.
@@ -128,7 +154,7 @@ type ServerlessSpec struct {
 // [dense or sparse vector object]: https://docs.pinecone.io/guides/get-started/key-concepts#dense-vector
 type Vector struct {
 	Id           string        `json:"id"`
-	Values       []float32     `json:"values,omitempty"`
+	Values       *[]float32    `json:"values,omitempty"`
 	SparseValues *SparseValues `json:"sparse_values,omitempty"`
 	Metadata     *Metadata     `json:"metadata,omitempty"`
 }
