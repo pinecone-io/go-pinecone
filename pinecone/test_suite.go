@@ -89,8 +89,6 @@ func (ts *IntegrationTests) TearDownSuite() {
 	}
 
 	// Delete test index
-	_, err = WaitUntilIndexReady(ts, ctx)
-	require.NoError(ts.T(), err)
 	err = ts.client.DeleteIndex(ctx, ts.idxName)
 
 	// If the index failed to delete, wait a bit and retry cleaning up
@@ -216,12 +214,13 @@ func generateVectorValues(dimension int32) *[]float32 {
 func BuildServerlessTestIndex(in *Client, idxName string, tags IndexTags) *Index {
 	ctx := context.Background()
 	dimension := int32(setDimensionsForTestIndexes())
+	metric := Cosine
 
 	fmt.Printf("Creating Serverless index: %s\n", idxName)
 	serverlessIdx, err := in.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
 		Name:      idxName,
 		Dimension: &dimension,
-		Metric:    Cosine,
+		Metric:    &metric,
 		Region:    "us-east-1",
 		Cloud:     "aws",
 		Tags:      &tags,
@@ -236,12 +235,13 @@ func BuildServerlessTestIndex(in *Client, idxName string, tags IndexTags) *Index
 
 func BuildPodTestIndex(in *Client, name string, tags IndexTags) *Index {
 	ctx := context.Background()
+	metric := Cosine
 
 	fmt.Printf("Creating pod index: %s\n", name)
 	podIdx, err := in.CreatePodIndex(ctx, &CreatePodIndexRequest{
 		Name:        name,
 		Dimension:   int32(setDimensionsForTestIndexes()),
-		Metric:      Cosine,
+		Metric:      &metric,
 		Environment: "us-east-1-aws",
 		PodType:     "p1",
 		Tags:        &tags,
