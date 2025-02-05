@@ -89,8 +89,6 @@ func (ts *IntegrationTests) TearDownSuite() {
 	}
 
 	// Delete test index
-	_, err = WaitUntilIndexReady(ts, ctx)
-	require.NoError(ts.T(), err)
 	err = ts.client.DeleteIndex(ctx, ts.idxName)
 
 	// If the index failed to delete, wait a bit and retry cleaning up
