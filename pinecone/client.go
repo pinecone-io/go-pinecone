@@ -400,7 +400,7 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //     and consist only of lower case alphanumeric characters or '-'.
 //   - Dimension: (Required) The [dimensionality] of the vectors to be inserted in the Index.
 //   - Metric: (Required) The distance metric to be used for [similarity] search. You can use
-//     'euclidean', 'cosine', or 'dotproduct'.
+//     'euclidean', 'cosine', or 'dotproduct'. Defaults to 'cosine'.
 //   - DeletionProtection: (Optional) determines whether [deletion protection] is "enabled" or "disabled" for the index.
 //     When "enabled", the index cannot be deleted. Defaults to "disabled".
 //   - Environment: (Required) The [cloud environment] where the Index will be hosted.
@@ -466,12 +466,12 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 type CreatePodIndexRequest struct {
 	Name               string
 	Dimension          int32
-	Metric             IndexMetric
-	DeletionProtection DeletionProtection
 	Environment        string
 	PodType            string
 	Shards             int32
 	Replicas           int32
+	Metric             *IndexMetric
+	DeletionProtection *DeletionProtection
 	SourceCollection   *string
 	MetadataConfig     *PodSpecMetadataConfig
 	Tags               *IndexTags
@@ -540,12 +540,20 @@ func (req CreatePodIndexRequest) TotalCount() int {
 //			   fmt.Printf("Successfully created pod index: %s", idx.Name)
 //		}
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
-	if in.Name == "" || in.Dimension <= 0 || in.Metric == "" || in.Environment == "" || in.PodType == "" {
-		return nil, fmt.Errorf("fields Name, positive Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest")
+	if in.Name == "" || in.Dimension <= 0 || in.Environment == "" || in.PodType == "" {
+		return nil, fmt.Errorf("fields Name, positive Dimension, Environment, and Podtype must be included in CreatePodIndexRequest")
 	}
 
-	deletionProtection := pointerOrNil(db_control.DeletionProtection(in.DeletionProtection))
-	metric := pointerOrNil(db_control.CreateIndexRequestMetric(in.Metric))
+	var deletionProtection *db_control.DeletionProtection
+	if in.DeletionProtection != nil {
+		deletionProtection = pointerOrNil(db_control.DeletionProtection(*in.DeletionProtection))
+	}
+
+	var metric *db_control.CreateIndexRequestMetric
+	if in.Metric != nil {
+		metric = pointerOrNil(db_control.CreateIndexRequestMetric(*in.Metric))
+	}
+
 	pods := in.TotalCount()
 	replicas := in.ReplicaCount()
 	shards := in.ShardCount()
@@ -603,12 +611,13 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //   - Name: (Required) The name of the [Index]. Resource name must be 1-45 characters long,
 //     start and end with an alphanumeric character,
 //     and consist only of lower case alphanumeric characters or '-'.
-//   - Metric: (Required) The metric used to measure the [similarity] between vectors ('euclidean', 'cosine', or 'dotproduct').
-//   - DeletionProtection: (Optional) Determines whether [deletion protection] is "enabled" or "disabled" for the index.
-//     When "enabled", the index cannot be deleted. Defaults to "disabled".
 //   - Cloud: (Required) The public [cloud provider] where you would like your [Index] hosted.
 //     For serverless Indexes, you define only the cloud and region where the [Index] should be hosted.
 //   - Region: (Required) The [region] where you would like your [Index] to be created.
+//   - Metric: (Optional) The metric used to measure the [similarity] between vectors ('euclidean', 'cosine', or 'dotproduct'). Defaults
+//     to `cosine` or `dotproduct` depending on the VectorType.
+//   - DeletionProtection: (Optional) Determines whether [deletion protection] is "enabled" or "disabled" for the index.
+//     When "enabled", the index cannot be deleted. Defaults to "disabled".
 //   - Dimension: (Optional) The [dimensionality] of the vectors to be inserted in the [Index].
 //   - VectorType: (Optional) The index vector type. You can use `dense` or `sparse`. If `dense`, the vector dimension must be specified.
 //     If `sparse`, the vector dimension should not be specified, and the Metric must be set to `dotproduct`. Defaults to `dense`.
@@ -656,10 +665,10 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 // [deletion protection]: https://docs.pinecone.io/guides/indexes/prevent-index-deletion#enable-deletion-protection
 type CreateServerlessIndexRequest struct {
 	Name               string
-	Metric             IndexMetric
-	DeletionProtection DeletionProtection
 	Cloud              Cloud
 	Region             string
+	Metric             *IndexMetric
+	DeletionProtection *DeletionProtection
 	Dimension          *int32
 	VectorType         *string
 	Tags               *IndexTags
@@ -706,37 +715,44 @@ type CreateServerlessIndexRequest struct {
 //		    fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //		}
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
-	if in.Name == "" || in.Metric == "" || in.Cloud == "" || in.Region == "" {
-		return nil, fmt.Errorf("fields Name, Metric, Cloud, and Region must be included in CreateServerlessIndexRequest")
+	if in.Name == "" || in.Cloud == "" || in.Region == "" {
+		return nil, fmt.Errorf("fields Name, Cloud, and Region must be included in CreateServerlessIndexRequest")
 	}
 
 	// default to "dense" if VectorType is not specified
-	vectorType := "dense"
+	vectorType := in.VectorType
 
 	// validate VectorType options
 	if in.VectorType != nil {
 		switch *in.VectorType {
 		case "sparse":
 			if in.Dimension != nil {
-				return nil, fmt.Errorf("dimension should not be specified when VectorType is 'sparse'")
-			} else if in.Metric != Dotproduct {
-				return nil, fmt.Errorf("metric should be 'dotproduct' when VectorType is 'sparse'")
+				return nil, fmt.Errorf("Dimension should not be specified when VectorType is 'sparse'")
+			} else if in.Metric != nil && *in.Metric != Dotproduct {
+				return nil, fmt.Errorf("Metric should be 'dotproduct' when VectorType is 'sparse'")
 			}
-			vectorType = "sparse"
 		case "dense":
-			vectorType = "dense"
+			if in.Dimension == nil {
+				return nil, fmt.Errorf("Dimension should be specified when VectorType is 'dense'")
+			}
+		default:
+			return nil, fmt.Errorf("unsupported VectorType: %s", *in.VectorType)
 		}
 	}
-	if in.Dimension == nil && vectorType == "dense" {
-		return nil, fmt.Errorf("dimension should be specified when VectorType is 'dense'")
-	}
 
-	deletionProtection := pointerOrNil(db_control.DeletionProtection(in.DeletionProtection))
-	metric := pointerOrNil(db_control.CreateIndexRequestMetric(in.Metric))
+	var deletionProtection *db_control.DeletionProtection
+	if in.DeletionProtection != nil {
+		deletionProtection = pointerOrNil(db_control.DeletionProtection(*in.DeletionProtection))
+	}
 
 	var tags *db_control.IndexTags
 	if in.Tags != nil {
 		tags = (*db_control.IndexTags)(in.Tags)
+	}
+
+	var metric *db_control.CreateIndexRequestMetric
+	if in.Metric != nil {
+		metric = pointerOrNil(db_control.CreateIndexRequestMetric(*in.Metric))
 	}
 
 	req := db_control.CreateIndexRequest{
@@ -744,7 +760,7 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 		Dimension:          in.Dimension,
 		Metric:             metric,
 		DeletionProtection: deletionProtection,
-		VectorType:         &vectorType,
+		VectorType:         vectorType,
 		Spec: db_control.IndexSpec{
 			Serverless: &db_control.ServerlessSpec{
 				Cloud:  db_control.ServerlessSpecCloud(in.Cloud),
