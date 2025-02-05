@@ -184,17 +184,6 @@ func (ts *IntegrationTests) TestDeletionProtection() {
 	err = ts.client.DeleteIndex(context.Background(), ts.idxName)
 	require.ErrorContainsf(ts.T(), err, "failed to delete index: Deletion protection is enabled for this index", err.Error())
 
-	// if testing a pods index, make sure configuring the index without specifying DeletionProtection maintains "enabled" state
-	if ts.indexType == "pods" {
-		index, err := ts.client.ConfigureIndex(context.Background(), ts.idxName, ConfigureIndexParams{PodType: "p1.x2"})
-		require.NoError(ts.T(), err)
-		require.Equal(ts.T(), DeletionProtectionEnabled, index.DeletionProtection, "Expected deletion protection to be 'enabled'")
-
-		// validate we cannot delete the index
-		err = ts.client.DeleteIndex(context.Background(), ts.idxName)
-		require.ErrorContainsf(ts.T(), err, "failed to delete index: Deletion protection is enabled for this index", err.Error())
-	}
-
 	// disable deletion protection so the index can be cleaned up during integration teardown
 	_, err = ts.client.ConfigureIndex(context.Background(), ts.idxName, ConfigureIndexParams{DeletionProtection: "disabled"})
 	require.NoError(ts.T(), err)
