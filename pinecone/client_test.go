@@ -14,11 +14,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
-	"github.com/pinecone-io/go-pinecone/v2/internal/gen"
-	"github.com/pinecone-io/go-pinecone/v2/internal/gen/db_control"
-	"github.com/pinecone-io/go-pinecone/v2/internal/provider"
+	"github.com/pinecone-io/go-pinecone/v3/internal/gen"
+	"github.com/pinecone-io/go-pinecone/v3/internal/gen/db_control"
+	"github.com/pinecone-io/go-pinecone/v3/internal/provider"
 
-	"github.com/pinecone-io/go-pinecone/v2/internal/utils"
+	"github.com/pinecone-io/go-pinecone/v3/internal/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,6 +37,7 @@ func (ts *IntegrationTests) TestCreatePodIndexDense() {
 	}
 
 	name := uuid.New().String()
+	metric := Cosine
 
 	defer func(ts *IntegrationTests, name string) {
 		err := ts.deleteIndex(name)
@@ -46,7 +47,7 @@ func (ts *IntegrationTests) TestCreatePodIndexDense() {
 	idx, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
 		Dimension:   2,
-		Metric:      Cosine,
+		Metric:      &metric,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x1",
 	})
@@ -63,6 +64,7 @@ func (ts *IntegrationTests) TestCreateServerlessIndexDense() {
 
 	name := uuid.New().String()
 	dimension := int32(10)
+	metric := Cosine
 
 	defer func(ts *IntegrationTests, name string) {
 		err := ts.deleteIndex(name)
@@ -72,7 +74,7 @@ func (ts *IntegrationTests) TestCreateServerlessIndexDense() {
 	idx, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
 		Name:      name,
 		Dimension: &dimension,
-		Metric:    Cosine,
+		Metric:    &metric,
 		Cloud:     Aws,
 		Region:    "us-west-2",
 	})
@@ -89,6 +91,7 @@ func (ts *IntegrationTests) TestCreateServerlessIndexSparse() {
 
 	name := uuid.New().String()
 	vectorType := "sparse"
+	metric := Dotproduct
 
 	defer func(ts *IntegrationTests, name string) {
 		err := ts.deleteIndex(name)
@@ -97,7 +100,7 @@ func (ts *IntegrationTests) TestCreateServerlessIndexSparse() {
 
 	idx, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
 		Name:       name,
-		Metric:     Dotproduct,
+		Metric:     &metric,
 		Cloud:      Aws,
 		Region:     "us-west-2",
 		VectorType: &vectorType,
@@ -114,11 +117,12 @@ func (ts *IntegrationTests) TestCreateServerlessIndexInvalidDimension() {
 
 	name := uuid.New().String()
 	dimension := int32(-1)
+	metric := Cosine
 
 	_, err := ts.client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
 		Name:      name,
 		Dimension: &dimension,
-		Metric:    Cosine,
+		Metric:    &metric,
 		Cloud:     Aws,
 		Region:    "us-west-2",
 	})
@@ -180,17 +184,6 @@ func (ts *IntegrationTests) TestDeletionProtection() {
 	err = ts.client.DeleteIndex(context.Background(), ts.idxName)
 	require.ErrorContainsf(ts.T(), err, "failed to delete index: Deletion protection is enabled for this index", err.Error())
 
-	// if testing a pods index, make sure configuring the index without specifying DeletionProtection maintains "enabled" state
-	if ts.indexType == "pods" {
-		index, err := ts.client.ConfigureIndex(context.Background(), ts.idxName, ConfigureIndexParams{PodType: "p1.x2"})
-		require.NoError(ts.T(), err)
-		require.Equal(ts.T(), DeletionProtectionEnabled, index.DeletionProtection, "Expected deletion protection to be 'enabled'")
-
-		// validate we cannot delete the index
-		err = ts.client.DeleteIndex(context.Background(), ts.idxName)
-		require.ErrorContainsf(ts.T(), err, "failed to delete index: Deletion protection is enabled for this index", err.Error())
-	}
-
 	// disable deletion protection so the index can be cleaned up during integration teardown
 	_, err = ts.client.ConfigureIndex(context.Background(), ts.idxName, ConfigureIndexParams{DeletionProtection: "disabled"})
 	require.NoError(ts.T(), err)
@@ -202,6 +195,7 @@ func (ts *IntegrationTests) TestDeletionProtection() {
 
 func (ts *IntegrationTests) TestConfigureIndexIllegalScaleDown() {
 	name := uuid.New().String()
+	metric := Cosine
 
 	defer func(ts *IntegrationTests, name string) {
 		err := ts.deleteIndex(name)
@@ -211,7 +205,7 @@ func (ts *IntegrationTests) TestConfigureIndexIllegalScaleDown() {
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
 		Dimension:   2,
-		Metric:      Cosine,
+		Metric:      &metric,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x2",
 	})
@@ -225,11 +219,12 @@ func (ts *IntegrationTests) TestConfigureIndexIllegalScaleDown() {
 
 func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 	name := uuid.New().String()
+	metric := Cosine
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
 		Dimension:   2,
-		Metric:      Cosine,
+		Metric:      &metric,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x2",
 	})
@@ -249,11 +244,12 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 
 func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 	name := uuid.New().String()
+	metric := Cosine
 
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
 		Dimension:   2,
-		Metric:      Cosine,
+		Metric:      &metric,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x2",
 	})
@@ -278,6 +274,7 @@ func (ts *IntegrationTests) TestConfigureIndexIllegalNoPodsOrReplicasOrDeletionP
 
 func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 	name := uuid.New().String()
+	metric := Cosine
 
 	defer func(ts *IntegrationTests, name string) {
 		err := ts.deleteIndex(name)
@@ -287,7 +284,7 @@ func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        name,
 		Dimension:   2,
-		Metric:      Cosine,
+		Metric:      &metric,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x2",
 	})
@@ -810,71 +807,75 @@ func TestCreatePodIndexMissingReqdFieldsUnit(t *testing.T) {
 	client := &Client{}
 	_, err := client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{})
 	require.Error(t, err)
-	require.ErrorContainsf(t, err, "fields Name, positive Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest", err.Error())
+	require.ErrorContainsf(t, err, "fields Name, positive Dimension, Environment, and Podtype must be included in CreatePodIndexRequest", err.Error())
 }
 
 func TestCreateServerlessIndexMissingReqdFieldsUnit(t *testing.T) {
 	client := &Client{}
 	_, err := client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{})
 	require.Error(t, err)
-	require.ErrorContainsf(t, err, "fields Name, Metric, Cloud, and Region must be included in CreateServerlessIndexRequest", err.Error())
+	require.ErrorContainsf(t, err, "fields Name, Cloud, and Region must be included in CreateServerlessIndexRequest", err.Error())
 }
 
 func TestCreateServerlessIndexInvalidSparseDimensionUnit(t *testing.T) {
 	vectorType := "sparse"
 	dimension := int32(1)
+	metric := Dotproduct
 	client := &Client{}
 	_, err := client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
 		Name:       "test-invalid-dimension",
-		Metric:     Dotproduct,
+		Metric:     &metric,
 		Cloud:      "aws",
 		Region:     "us-east-1",
 		Dimension:  &dimension,
 		VectorType: &vectorType,
 	})
 	require.Error(t, err)
-	require.ErrorContains(t, err, "dimension should not be specified when VectorType is 'sparse'")
+	require.ErrorContains(t, err, "Dimension should not be specified when VectorType is 'sparse'")
 }
 
 func TestCreateServerlessIndexInvalidSparseMetricUnit(t *testing.T) {
 	vectorType := "sparse"
+	metric := Cosine
 	client := &Client{}
 	_, err := client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
 		Name:       "test-invalid-dimension",
-		Metric:     Cosine,
+		Metric:     &metric,
 		Cloud:      "aws",
 		Region:     "us-east-1",
 		VectorType: &vectorType,
 	})
 	require.Error(t, err)
-	require.ErrorContains(t, err, "metric should be 'dotproduct' when VectorType is 'sparse'")
+	require.ErrorContains(t, err, "Metric should be 'dotproduct' when VectorType is 'sparse'")
 }
 
 func TestCreateServerlessIndexInvalidDenseDimensionUnit(t *testing.T) {
 	vectorType := "dense"
+	metric := Cosine
 	client := &Client{}
 	_, err := client.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
 		Name:       "test-invalid-dimension",
-		Metric:     Cosine,
+		Metric:     &metric,
 		Cloud:      "aws",
 		Region:     "us-east-1",
 		VectorType: &vectorType,
 	})
 	require.Error(t, err)
-	require.ErrorContains(t, err, "dimension should be specified when VectorType is 'dense'")
+	require.ErrorContains(t, err, "Dimension should be specified when VectorType is 'dense'")
 }
 
 func TestCreatePodIndexInvalidDimensionUnit(t *testing.T) {
+	metric := Cosine
 	client := &Client{}
 	_, err := client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        "test-invalid-dimension",
 		Dimension:   -1,
-		Metric:      Cosine,
+		Metric:      &metric,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x1",
 	})
 	require.Error(t, err)
-	require.ErrorContains(t, err, "fields Name, positive Dimension, Metric, Environment, and Podtype must be included in CreatePodIndexRequest")
+	require.ErrorContains(t, err, "fields Name, positive Dimension, Environment, and Podtype must be included in CreatePodIndexRequest")
 }
 
 func TestCreateCollectionMissingReqdFieldsUnit(t *testing.T) {

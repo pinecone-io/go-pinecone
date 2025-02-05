@@ -7,7 +7,7 @@ This is the official Go SDK for [Pinecone](https://www.pinecone.io).
 To see the latest documentation for `main`, visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone.
 
 To see the latest versioned-release's documentation,
-visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v2/pinecone.
+visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v3/pinecone.
 
 ## Features
 
@@ -24,7 +24,7 @@ See the [Pinecone API Docs](https://docs.pinecone.io/reference/) for more inform
 To upgrade the SDK to the latest version, run:
 
 ```shell
-go get -u github.com/pinecone-io/go-pinecone/v2/pinecone@latest
+go get -u github.com/pinecone-io/go-pinecone/v3/pinecone@latest
 ```
 
 ## Prerequisites
@@ -36,7 +36,7 @@ go get -u github.com/pinecone-io/go-pinecone/v2/pinecone@latest
 To install the Pinecone Go SDK, run the following in your terminal:
 
 ```shell
-go get github.com/pinecone-io/go-pinecone/v2/pinecone
+go get github.com/pinecone-io/go-pinecone/v3/pinecone
 ```
 
 For more information on setting up a Go project, see the [Go documentation](https://golang.org/doc/).
@@ -58,7 +58,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -91,7 +91,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 )
 
@@ -129,7 +129,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -149,13 +149,15 @@ func main() {
 	}
 
 	indexName := "my-serverless-index"
+	metric := pinecone.Cosine
+	dimension := int32(3)
 
 	idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
 		Name:      indexName,
-		Dimension: 3,
-		Metric:    pinecone.Cosine,
 		Cloud:     pinecone.Aws,
 		Region:    "us-east-1",
+		Metric:    &metric,
+		Dimension: &dimension,
 		Tags:      &pinecone.IndexTags{"environment": "development"},
 	})
 
@@ -167,7 +169,8 @@ func main() {
 }
 ```
 
-You can also create `sparse` only serverless indexes. These indexes enable direct indexing and retrieval of sparse vectors, supporting traditional methods like BM25 and learned sparse models such as [pinecone-sparse-english-v0](https://docs.pinecone.io/models/pinecone-sparse-english-v0). A `sparse` index must have a distance metric of `dotproduct` and does not require a specified dimension:
+You can also create `sparse` only serverless indexes. These indexes enable direct indexing and retrieval of sparse vectors, supporting traditional methods like BM25 and learned sparse models such as [pinecone-sparse-english-v0](https://docs.pinecone.io/models/pinecone-sparse-english-v0). A `sparse` index must have a distance metric of `dotproduct` and does not require a specified dimension. `dotproduct` will be defaulted for sparse indexes when
+a Metric is not provided:
 
 ```go
 package main
@@ -175,7 +178,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -196,13 +199,14 @@ func main() {
 
 	indexName := "my-serverless-index"
 	vectorType := "sparse"
+	metric := pinecone.Dotproduct
 
 	idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
 		Name:       indexName,
-		Metric:     pinecone.Dotproduct,
-		VectorType: &vectorType,
 		Cloud:      pinecone.Aws,
 		Region:     "us-east-1",
+		Metric:     &metric,
+		VectorType: &vectorType,
 		Tags:       &pinecone.IndexTags{"environment": "development"},
 	})
 
@@ -225,7 +229,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -245,6 +249,7 @@ func main() {
 	}
 
 	indexName := "my-pod-index"
+	metric := pinecone.Cosine
 
 	podIndexMetadata := &pinecone.PodSpecMetadataConfig{
 		Indexed: &[]string{"title", "description"},
@@ -253,10 +258,10 @@ func main() {
 	idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
 		Name:           indexName,
 		Dimension:      3,
-		Metric:         pinecone.Cosine,
 		Environment:    "us-west1-gcp",
 		PodType:        "s1",
 		MetadataConfig: podIndexMetadata,
+		Metric:         &metric,
 		Tags:           &pinecone.IndexTags{"environment": "development"},
 	})
 
@@ -279,7 +284,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -320,7 +325,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -361,7 +366,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -401,7 +406,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -483,7 +488,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -534,7 +539,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -577,7 +582,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
@@ -734,7 +739,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
@@ -865,7 +870,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -926,7 +931,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -974,7 +979,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
@@ -1029,7 +1034,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -1077,7 +1082,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -1157,7 +1162,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -1213,7 +1218,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -1290,7 +1295,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -1331,7 +1336,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -1376,7 +1381,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
@@ -1414,7 +1419,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v2/pinecone"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 	"log"
 	"os"
 )
