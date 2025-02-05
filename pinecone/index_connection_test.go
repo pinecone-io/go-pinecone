@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	db_data_grpc "github.com/pinecone-io/go-pinecone/v2/internal/gen/db_data/grpc"
-	"github.com/pinecone-io/go-pinecone/v2/internal/utils"
+	db_data_grpc "github.com/pinecone-io/go-pinecone/v3/internal/gen/db_data/grpc"
+	"github.com/pinecone-io/go-pinecone/v3/internal/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
