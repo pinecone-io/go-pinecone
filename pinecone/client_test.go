@@ -310,7 +310,7 @@ func (ts *IntegrationTests) TestGenerateEmbeddings() {
 			"The quick brown fox jumps over the lazy dog",
 			"Lorem ipsum",
 		},
-		Parameters: &map[string]interface{}{
+		Parameters: map[string]interface{}{
 			"input_type": "query",
 			"truncate":   "END",
 		},
@@ -328,7 +328,7 @@ func (ts *IntegrationTests) TestGenerateEmbeddingsInvalidInputs() {
 	embeddingModel := "multilingual-e5-large"
 	_, err := ts.client.Inference.Embed(ctx, &EmbedRequest{
 		Model: embeddingModel,
-		Parameters: &map[string]interface{}{
+		Parameters: map[string]interface{}{
 			"input_type": "query",
 			"truncate":   "END",
 		},

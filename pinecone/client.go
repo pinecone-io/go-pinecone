@@ -1325,7 +1325,7 @@ type EmbedRequest struct {
 //     InputType string
 //     Truncate  string
 //     }
-type EmbedParameters *map[string]interface{}
+type EmbedParameters map[string]interface{}
 
 // [EmbedResponse] represents holds the embeddings generated for a single input.
 //
@@ -1407,17 +1407,9 @@ func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedR
 	}
 
 	// convert embedding parameters to expected type
-	// if in.Parameters.InputType != "" || in.Parameters.Truncate != "" {
-	// 	req.Parameters = &struct {
-	// 		InputType string `json:"input_type,omitempty"`
-	// 		Truncate  string `json:"truncate,omitempty"`
-	// 	}{
-	// 		InputType: in.Parameters.InputType,
-	// 		Truncate:  in.Parameters.Truncate,
-	// 	}
-	// }
 	if &in.Parameters != nil {
-		req.Parameters = in.Parameters
+		params := map[string]interface{}(in.Parameters)
+		req.Parameters = &params
 	}
 
 	res, err := i.client.Embed(ctx, req)
