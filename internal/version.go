@@ -2,4 +2,4 @@ package internal
 
 // Version is the current version of the Pinecone client and is set during the release process.
 // DO NOT EDIT
-var Version = "v2.2.0"
+var Version = "v3.0.0"
