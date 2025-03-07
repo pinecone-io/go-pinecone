@@ -61,7 +61,7 @@ func (ts *IntegrationTests) TestDeleteVectorsById() {
 	assert.NoError(ts.T(), err)
 	ts.vectorIds = []string{}
 
-	vectors := GenerateVectors(5, derefOrDefault(ts.dimension, 0), true, nil)
+	vectors := GenerateVectors(5, derefOrDefault(ts.dimension, 0), false, nil)
 
 	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
