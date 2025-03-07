@@ -175,10 +175,8 @@ func GenerateVectors(numOfVectors int, dimension int32, isSparse bool, metadata 
 	vectors := make([]*Vector, numOfVectors)
 
 	for i := 0; i < int(numOfVectors); i++ {
-		randomFloats := generateVectorValues(dimension)
 		vectors[i] = &Vector{
-			Id:     fmt.Sprintf("vector-%d", i),
-			Values: randomFloats,
+			Id: fmt.Sprintf("vector-%d", i),
 		}
 
 		if isSparse {
@@ -189,6 +187,9 @@ func GenerateVectors(numOfVectors int, dimension int32, isSparse bool, metadata 
 			values := generateVectorValues(dimension)
 			sparseValues.Values = *values
 			vectors[i].SparseValues = &sparseValues
+		} else {
+			values := generateVectorValues(dimension)
+			vectors[i].Values = values
 		}
 
 		if metadata != nil {
