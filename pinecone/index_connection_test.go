@@ -86,20 +86,21 @@ func (ts *IntegrationTests) TestDeleteVectorsByFilter() {
 	}
 
 	ctx := context.Background()
-	err = ts.idxConn.DeleteVectorsByFilter(ctx, filter)
+	_ = ts.idxConn.DeleteVectorsByFilter(ctx, filter)
 
 	// if ts.indexType == "serverless" {
 	// 	assert.Error(ts.T(), err)
 	// } else {
 	// 	assert.NoError(ts.T(), err)
 	// }
+
 	ts.vectorIds = []string{}
 
-	vectors := GenerateVectors(5, derefOrDefault(ts.dimension, 0), true, nil)
+	vectors := GenerateVectors(5, derefOrDefault(ts.dimension, 0), false, nil)
 
 	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
-		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
+		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsByFilter test. Error: %v", err)
 	}
 
 	vectorIds := make([]string, len(vectors))
