@@ -116,11 +116,11 @@ func (ts *IntegrationTests) TestDeleteAllVectorsInNamespace() {
 	assert.NoError(ts.T(), err)
 	ts.vectorIds = []string{}
 
-	vectors := GenerateVectors(5, derefOrDefault(ts.dimension, 0), true, nil)
+	vectors := GenerateVectors(5, derefOrDefault(ts.dimension, 0), false, nil)
 
 	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
-		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
+		log.Fatalf("Failed to upsert vectors in TestDeleteAllVectorsInNamespace test. Error: %v", err)
 	}
 
 	vectorIds := make([]string, len(vectors))
