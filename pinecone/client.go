@@ -783,6 +783,131 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 	return decodeIndex(res.Body)
 }
 
+// [CreateIndexForModelRequest] defines the desired configuration for creating an index with an associated embedding model.
+//
+// Fields:
+//   - Name: (Required) The name of the [Index]. Resource name must be 1-45 characters long,
+//     start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
+//   - Cloud: (Required) The public [cloud provider] where you would like your [Index] hosted.
+//   - Region: (Required) The [region] where you would like your [Index] to be created.
+//   - DeletionProtection: (Optional) Whether [deletion protection] is enabled or disabled for the index.
+//     When enabled, the index cannot be deleted. Defaults to disabled.
+//   - Embed: (Required) The integrated inference embedding configuration for the index.
+//     Once set, the model cannot be changed, but embedding configurations such as field map, read parameters,
+//     or write parameters can be updated.
+//   - FieldMap: Identifies the name of the text field from your document model that will be embedded.
+//   - Metric: The [distance metric] to be used for similarity search. Options: 'euclidean', 'cosine', or 'dotproduct'.
+//     If not specified, the metric will default according to the model and cannot be updated once set.
+//   - Model: The name of the embedding model to use for the index.
+//   - ReadParameters: The read parameters for the embedding model.
+//   - WriteParameters: The write parameters for the embedding model.
+//   - Tags: (Optional) Custom user tags added to an index.
+//     Keys must be 80 characters or less, values must be 120 characters or less.
+//     Keys must be alphanumeric, '_', or '-'. Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '.
+//     To unset a key, set the value to be an empty string.
+//
+// To create an index with an associated embedding model, use the [Client.CreateIndexForModel] method.
+//
+// Example:
+//
+//	ctx := context.Background()
+//
+//	clientParams := pinecone.NewClientParams{
+//	     ApiKey:    "YOUR_API_KEY",
+//	     SourceTag: "your_source_identifier", // optional
+//	}
+//
+//	pc, err := pinecone.NewClient(clientParams)
+//	if err != nil {
+//	     log.Fatalf("Failed to create Client: %v", err)
+//	}
+//
+//	request := &pinecone.CreateIndexForModelRequest{
+//	     Name:   "my-index",
+//	     Cloud:  pinecone.Aws,
+//	     Region: "us-east-1",
+//	     Embed: {
+//	       Model: "text-embedding-model",
+//	       FieldMap: map[string]interface{}{
+//	         "content": "text_field",
+//	       },
+//	     },
+//	}
+//
+//	idx, err := pc.CreateIndexForModel(ctx, request)
+//	if err != nil {
+//	     log.Fatalf("Failed to create index: %v", err)
+//	} else {
+//	     fmt.Printf("Successfully created index: %s", idx.Name)
+//	}
+//
+// [Index]: https://docs.pinecone.io/guides/indexes/understanding-indexes
+// [region]: https://docs.pinecone.io/troubleshooting/available-cloud-regions
+// [cloud provider]: https://docs.pinecone.io/troubleshooting/available-cloud-regions#regions-available-for-serverless-indexes
+// [deletion protection]: https://docs.pinecone.io/guides/indexes/manage-indexes#enable-deletion-protection
+// [distance metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#distance-metrics
+type CreateIndexForModelRequest struct {
+	Name               string              `json:"name"`
+	Cloud              Cloud               `json:"cloud"`
+	Region             string              `json:"region"`
+	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
+	Embed              struct {
+		FieldMap        map[string]interface{}  `json:"field_map"`
+		Metric          *IndexMetric            `json:"metric,omitempty"`
+		Model           string                  `json:"model"`
+		ReadParameters  *map[string]interface{} `json:"read_parameters,omitempty"`
+		WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+	} `json:"embed"`
+	Tags *IndexTags `json:"tags,omitempty"`
+}
+
+func (c *Client) CreateIndexForModel(ctx context.Context, in CreateIndexForModelRequest) (*Index, error) {
+	if in.Name == "" || in.Cloud == "" || in.Region == "" || in.Embed.Model == "" {
+		return nil, fmt.Errorf("fields Name, Cloud, and Region, and Embed.Model must be included in CreateServerlessIndexRequest")
+	}
+
+	metric := derefOrDefault(in.Embed.Metric, "")
+	deletionProtection := derefOrDefault(in.DeletionProtection, "disabled")
+
+	var tags *db_control.IndexTags
+	if in.Tags != nil {
+		tags = (*db_control.IndexTags)(in.Tags)
+	}
+
+	req := db_control.CreateIndexForModelRequest{
+		Name:   in.Name,
+		Region: in.Region,
+		Cloud:  db_control.CreateIndexForModelRequestCloud(in.Cloud),
+		Embed: struct {
+			FieldMap        map[string]interface{}                            `json:"field_map"`
+			Metric          *db_control.CreateIndexForModelRequestEmbedMetric `json:"metric,omitempty"`
+			Model           string                                            `json:"model"`
+			ReadParameters  *map[string]interface{}                           `json:"read_parameters,omitempty"`
+			WriteParameters *map[string]interface{}                           `json:"write_parameters,omitempty"`
+		}{
+			FieldMap:        in.Embed.FieldMap,
+			Metric:          (*db_control.CreateIndexForModelRequestEmbedMetric)(&metric),
+			Model:           in.Embed.Model,
+			ReadParameters:  in.Embed.ReadParameters,
+			WriteParameters: in.Embed.WriteParameters,
+		},
+		DeletionProtection: (*db_control.DeletionProtection)(&deletionProtection),
+		Tags:               tags,
+	}
+
+	res, err := c.restClient.CreateIndexForModel(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		return nil, handleErrorResponseBody(res, "failed to create index: ")
+	}
+
+	return decodeIndex(res.Body)
+}
+
 // [Client.DescribeIndex] retrieves information about a specific [Index]. See [Index] for more information.
 //
 // Parameters:
