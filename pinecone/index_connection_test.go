@@ -60,7 +60,7 @@ func (ts *IntegrationTests) TestDeleteVectorsById() {
 	assert.NoError(ts.T(), err)
 	ts.vectorIds = []string{}
 
-	vectors := GenerateVectors(5, derefOrDefault(ts.dimension, 0), false, nil)
+	vectors := generateVectors(5, derefOrDefault(ts.dimension, 0), false, nil)
 
 	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
@@ -89,7 +89,7 @@ func (ts *IntegrationTests) TestDeleteVectorsByFilter() {
 
 	ts.vectorIds = []string{}
 
-	vectors := GenerateVectors(5, derefOrDefault(ts.dimension, 0), false, nil)
+	vectors := generateVectors(5, derefOrDefault(ts.dimension, 0), false, nil)
 
 	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
@@ -110,7 +110,7 @@ func (ts *IntegrationTests) TestDeleteAllVectorsInNamespace() {
 	assert.NoError(ts.T(), err)
 	ts.vectorIds = []string{}
 
-	vectors := GenerateVectors(5, derefOrDefault(ts.dimension, 0), false, nil)
+	vectors := generateVectors(5, derefOrDefault(ts.dimension, 0), false, nil)
 
 	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
 	if err != nil {
@@ -192,21 +192,21 @@ func (ts *IntegrationTests) TestUpdateVectorValues() {
 	})
 	assert.NoError(ts.T(), err)
 
-	// TODO - add fetch and assertions back
-	// time.Sleep(30 * time.Second)
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		vector, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
+		if err != nil {
+			ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
+		}
+		fmt.Printf("Vector: %+v\n", vector)
 
-	// vector, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
-	// if err != nil {
-	// 	ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
-	// }
-	// fmt.Printf("Vector: %+v\n", vector)
-
-	// if len(vector.Vectors) > 0 {
-	// 	actualVals := vector.Vectors[ts.vectorIds[0]].Values
-	// 	if actualVals != nil {
-	// 		assert.ElementsMatch(ts.T(), expectedVals, *actualVals, "Values do not match")
-	// 	}
-	// }
+		if len(vector.Vectors) > 0 {
+			actualVals := vector.Vectors[ts.vectorIds[0]].Values
+			if actualVals != nil {
+				assert.ElementsMatch(ts.T(), expectedVals, *actualVals, "Values do not match")
+			}
+		}
+		return nil
+	})
 }
 
 func (ts *IntegrationTests) TestUpdateVectorMetadata() {
@@ -226,22 +226,23 @@ func (ts *IntegrationTests) TestUpdateVectorMetadata() {
 	})
 	assert.NoError(ts.T(), err)
 
-	// time.Sleep(30 * time.Second)
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		vectors, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
+		if err != nil {
+			ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
+		}
 
-	// vectors, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
-	// if err != nil {
-	// 	ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
-	// }
-	// vector := vectors.Vectors[ts.vectorIds[0]]
+		if vectors != nil && len(vectors.Vectors) > 0 {
+			vector := vectors.Vectors[ts.vectorIds[0]]
+			assert.NotNil(ts.T(), vector.Metadata, "Metadata is nil after update")
 
-	// if vector != nil {
-	// 	assert.NotNil(ts.T(), vector.Metadata, "Metadata is nil after update")
+			expectedGenre := expectedMetadataMap.Fields["genre"].GetStringValue()
+			actualGenre := vector.Metadata.Fields["genre"].GetStringValue()
 
-	// 	expectedGenre := expectedMetadataMap.Fields["genre"].GetStringValue()
-	// 	actualGenre := vector.Metadata.Fields["genre"].GetStringValue()
-
-	// 	assert.Equal(ts.T(), expectedGenre, actualGenre, "Metadata does not match")
-	// }
+			assert.Equal(ts.T(), expectedGenre, actualGenre, "Metadata does not match")
+		}
+		return nil // Test passed
+	})
 }
 
 func (ts *IntegrationTests) TestUpdateVectorSparseValues() {
@@ -262,21 +263,21 @@ func (ts *IntegrationTests) TestUpdateVectorSparseValues() {
 	})
 	require.NoError(ts.T(), err)
 
-	// Wait for updates to propagate
-	// time.Sleep(30 * time.Second)
+	// Fetch updated vector and verify sparse values
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		vectors, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
+		if err != nil {
+			ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
+		}
+		vector := vectors.Vectors[ts.vectorIds[0]]
 
-	// // Fetch updated vector and verify sparse values
-	// vectors, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
-	// if err != nil {
-	// 	ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
-	// }
-	// vector := vectors.Vectors[ts.vectorIds[0]]
+		if vector != nil && vector.SparseValues != nil && len(vector.SparseValues.Values) > 0 {
+			actualSparseValues := vector.SparseValues.Values
 
-	// if vector != nil && vector.SparseValues != nil && len(vector.SparseValues.Values) > 0 {
-	// 	actualSparseValues := vector.SparseValues.Values
-
-	// 	assert.ElementsMatch(ts.T(), expectedSparseValues.Values, actualSparseValues, "Sparse values do not match")
-	// }
+			assert.ElementsMatch(ts.T(), expectedSparseValues.Values, actualSparseValues, "Sparse values do not match")
+		}
+		return nil
+	})
 }
 
 func (ts *IntegrationTests) TestImportFlowHappyPath() {

@@ -26,8 +26,8 @@ func RunSuites(t *testing.T) {
 	require.NoError(t, err)
 	indexTags := IndexTags{"test1": "test-tag-1", "test2": "test-tag-2"}
 
-	serverlessIdx := BuildServerlessTestIndex(client, "serverless-"+GenerateTestIndexName(), indexTags)
-	podIdx := BuildPodTestIndex(client, "pods-"+GenerateTestIndexName(), indexTags)
+	serverlessIdx := buildServerlessTestIndex(client, "serverless-"+generateTestIndexName(), indexTags)
+	podIdx := buildPodTestIndex(client, "pods-"+generateTestIndexName(), indexTags)
 
 	podTestSuite := &IntegrationTests{
 		apiKey:    apiKey,

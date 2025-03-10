@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"testing"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,7 +31,7 @@ type IntegrationTests struct {
 func (ts *IntegrationTests) SetupSuite() {
 	ctx := context.Background()
 
-	_, err := WaitUntilIndexReady(ts, ctx)
+	_, err := waitUntilIndexReady(ts, ctx)
 	require.NoError(ts.T(), err)
 
 	namespace := uuid.New().String()
@@ -50,7 +51,7 @@ func (ts *IntegrationTests) SetupSuite() {
 	}
 
 	// Deterministically create vectors
-	vectors := GenerateVectors(10, dim, false, nil)
+	vectors := generateVectors(10, dim, false, nil)
 
 	// Add vector ids to the suite
 	vectorIds := make([]string, len(vectors))
@@ -109,12 +110,12 @@ func (ts *IntegrationTests) TearDownSuite() {
 }
 
 // Helper funcs
-func GenerateTestIndexName() string {
+func generateTestIndexName() string {
 	return fmt.Sprintf("index-%d", time.Now().UnixMilli())
 }
 
 func upsertVectors(ts *IntegrationTests, ctx context.Context, vectors []*Vector) error {
-	_, err := WaitUntilIndexReady(ts, ctx)
+	_, err := waitUntilIndexReady(ts, ctx)
 	require.NoError(ts.T(), err)
 
 	ids := make([]string, len(vectors))
@@ -146,7 +147,7 @@ func createCollection(ts *IntegrationTests, ctx context.Context) {
 	require.Equal(ts.T(), name, collection.Name)
 }
 
-func WaitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error) {
+func waitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error) {
 	start := time.Now()
 	delay := 5 * time.Second
 	maxWaitTimeSeconds := 280 * time.Second
@@ -171,7 +172,7 @@ func WaitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error
 	}
 }
 
-func GenerateVectors(numOfVectors int, dimension int32, isSparse bool, metadata *Metadata) []*Vector {
+func generateVectors(numOfVectors int, dimension int32, isSparse bool, metadata *Metadata) []*Vector {
 	vectors := make([]*Vector, numOfVectors)
 
 	for i := 0; i < int(numOfVectors); i++ {
@@ -212,7 +213,7 @@ func generateVectorValues(dimension int32) *[]float32 {
 	return &values
 }
 
-func BuildServerlessTestIndex(in *Client, idxName string, tags IndexTags) *Index {
+func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags) *Index {
 	ctx := context.Background()
 	dimension := int32(setDimensionsForTestIndexes())
 	metric := Cosine
@@ -234,7 +235,7 @@ func BuildServerlessTestIndex(in *Client, idxName string, tags IndexTags) *Index
 	return serverlessIdx
 }
 
-func BuildPodTestIndex(in *Client, name string, tags IndexTags) *Index {
+func buildPodTestIndex(in *Client, name string, tags IndexTags) *Index {
 	ctx := context.Background()
 	metric := Cosine
 
@@ -253,6 +254,24 @@ func BuildPodTestIndex(in *Client, name string, tags IndexTags) *Index {
 		fmt.Printf("Successfully created a new pod index: %s!\n", name)
 	}
 	return podIdx
+}
+
+func retryAssertions(t *testing.T, maxRetries int, delay time.Duration, fn func() error) {
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// function call passed, we return
+		if err := fn(); err == nil {
+			return
+		} else if attempt < maxRetries {
+			t.Logf("Attempt %d/%d failed: %+v. Retrying in %d...", attempt, maxRetries, err, delay)
+			time.Sleep(delay)
+		} else {
+			t.Fatalf("Test failed after %d attempts: %+v", maxRetries, err)
+		}
+	}
+}
+
+func retryAssertionsWithDefaults(t *testing.T, fn func() error) {
+	retryAssertions(t, 10, 7*time.Second, fn)
 }
 
 func setDimensionsForTestIndexes() uint32 {

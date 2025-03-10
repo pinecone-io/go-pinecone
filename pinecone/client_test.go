@@ -189,7 +189,7 @@ func (ts *IntegrationTests) TestDeletionProtection() {
 	require.NoError(ts.T(), err)
 
 	// Before moving on to another test, wait for the index to be done upgrading
-	_, err = WaitUntilIndexReady(ts, context.Background())
+	_, err = waitUntilIndexReady(ts, context.Background())
 	require.NoError(ts.T(), err)
 }
 
@@ -1479,7 +1479,7 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 
 // Helper functions:
 func (ts *IntegrationTests) deleteIndex(name string) error {
-	_, err := WaitUntilIndexReady(ts, context.Background())
+	_, err := waitUntilIndexReady(ts, context.Background())
 	require.NoError(ts.T(), err)
 
 	return ts.client.DeleteIndex(context.Background(), name)

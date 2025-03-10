@@ -34,7 +34,7 @@ func (ts *LocalIntegrationTests) SetupSuite() {
 	ctx := context.Background()
 
 	// Deterministically create vectors
-	vectors := GenerateVectors(100, ts.dimension, false, ts.metadata)
+	vectors := generateVectors(100, ts.dimension, false, ts.metadata)
 
 	// Get vector ids for the suite
 	vectorIds := make([]string, len(vectors))
