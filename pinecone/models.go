@@ -265,3 +265,90 @@ type Import struct {
 	FinishedAt      *time.Time   `json:"finished_at,omitempty"`
 	Error           *string      `json:"error,omitempty"`
 }
+
+type IntegratedRecord map[string]interface{}
+
+// SearchRecordsRequest A search request for records in a specific namespace.
+type SearchRecordsRequest struct {
+	// Fields The fields to return in the search results.
+	Fields *[]string `json:"fields,omitempty"`
+
+	// Query The query inputs to search with.
+	Query struct {
+		// Filter The filter to apply.
+		Filter *map[string]interface{} `json:"filter,omitempty"`
+
+		// Id The unique ID of the vector to be used as a query vector.
+		Id     *string                 `json:"id,omitempty"`
+		Inputs *map[string]interface{} `json:"inputs,omitempty"`
+
+		// TopK The number of results to return for each search.
+		TopK   int32                `json:"top_k"`
+		Vector *SearchRecordsVector `json:"vector,omitempty"`
+	} `json:"query"`
+
+	// Rerank Parameters for reranking the initial search results.
+	Rerank *struct {
+		// Model The name of the [reranking model](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) to use.
+		Model string `json:"model"`
+
+		// Parameters Additional model-specific parameters. Refer to the [model guide](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) for available model parameters.
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+		// Query The query to rerank documents against. If a specific rerank query is specified,  it overwrites the query input that was provided at the top level.
+		Query *string `json:"query,omitempty"`
+
+		// RankFields The field(s) to consider for reranking. If not provided, the default is `["text"]`.
+		//
+		// The number of fields supported is [model-specific](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models).
+		RankFields []string `json:"rank_fields"`
+
+		// TopN The number of top results to return after reranking. Defaults to top_k.
+		TopN *int32 `json:"top_n,omitempty"`
+	} `json:"rerank,omitempty"`
+}
+
+// Hit A record whose vector values are similar to the provided search query.
+type Hit struct {
+	// Id The record id of the search hit.
+	Id string `json:"_id"`
+
+	// Score The similarity score of the returned record.
+	Score float32 `json:"_score"`
+
+	// Fields The selected record fields associated with the search hit.
+	Fields map[string]interface{} `json:"fields"`
+}
+
+// SearchRecordsResponse The records search response.
+type SearchRecordsResponse struct {
+	Result struct {
+		// Hits The hits for the search document request.
+		Hits []Hit `json:"hits"`
+	} `json:"result"`
+	Usage SearchUsage `json:"usage"`
+}
+
+// SearchRecordsVector defines model for SearchRecordsVector.
+type SearchRecordsVector struct {
+	// SparseIndices The sparse embedding indices.
+	SparseIndices *[]int32 `json:"sparse_indices,omitempty"`
+
+	// SparseValues The sparse embedding values.
+	SparseValues *[]float32 `json:"sparse_values,omitempty"`
+
+	// Values This is the vector data included in the request.
+	Values *[]float32 `json:"values,omitempty"`
+}
+
+// SearchUsage defines model for SearchUsage.
+type SearchUsage struct {
+	// EmbedTotalTokens The number of embedding tokens consumed by this operation.
+	EmbedTotalTokens *int32 `json:"embed_total_tokens,omitempty"`
+
+	// ReadUnits The number of read units consumed by this operation.
+	ReadUnits int32 `json:"read_units"`
+
+	// RerankUnits The number of rerank units consumed by this operation.
+	RerankUnits *int32 `json:"rerank_units,omitempty"`
+}

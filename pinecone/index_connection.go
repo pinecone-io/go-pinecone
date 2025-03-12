@@ -1,6 +1,7 @@
 package pinecone
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -208,6 +209,83 @@ func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (ui
 		return 0, err
 	}
 	return res.UpsertedCount, nil
+}
+
+// [UpdateVectorRequest] holds the parameters for the [IndexConnection.UpdateVector] method.
+//
+// Fields:
+//   - Id: (Required) The unique ID of the vector to update.
+//   - Values: The values with which you want to update the vector.
+//   - SparseValues: The sparse values with which you want to update the vector.
+//   - Metadata: The metadata with which you want to update the vector.
+type UpdateVectorRequest struct {
+	Id           string
+	Values       []float32
+	SparseValues *SparseValues
+	Metadata     *Metadata
+}
+
+// [IndexConnection.UpdateVector] updates a vector in a Pinecone [Index] by ID.
+//
+// Returns an error if the request fails, returns nil otherwise.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - in: An [UpdateVectorRequest] object with the parameters for the request.
+//
+// Example:
+//
+//	    ctx := context.Background()
+//
+//	    clientParams := pinecone.NewClientParams{
+//		       ApiKey:    "YOUR_API_KEY",
+//		       SourceTag: "your_source_identifier", // optional
+//	    }
+//
+//	    pc, err := pinecone.NewClient(clientParams)
+//
+//	    if err != nil {
+//		       log.Fatalf("Failed to create Client: %v", err)
+//	    }
+//
+//	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//
+//	    if err != nil {
+//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	    }
+//
+//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
+//
+//	    if err != nil {
+//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	    }
+//
+//	    id := "abc-1"
+//
+//	    err = idxConnection.UpdateVector(ctx, &pinecone.UpdateVectorRequest{
+//		       Id:     id,
+//		       Values: []float32{7.0, 8.0},
+//	    })
+//
+//	    if err != nil {
+//		       log.Fatalf("Failed to update vector with ID %s. Error: %s", id, err)
+//	    }
+func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRequest) error {
+	if in.Id == "" {
+		return fmt.Errorf("a vector ID plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
+	}
+
+	req := &db_data_grpc.UpdateRequest{
+		Id:           in.Id,
+		Values:       in.Values,
+		SparseValues: sparseValToGrpc(in.SparseValues),
+		SetMetadata:  in.Metadata,
+		Namespace:    idx.Namespace,
+	}
+
+	_, err := (*idx.grpcClient).Update(idx.akCtx(ctx), req)
+	return err
 }
 
 // [FetchVectorsResponse] is returned by the [IndexConnection.FetchVectors] method.
@@ -606,6 +684,66 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 	return idx.query(ctx, req)
 }
 
+func (idx *IndexConnection) UpsertRecords(ctx context.Context, records *[]IntegratedRecord) error {
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+
+	for _, record := range *records {
+		_, hasUnderscoreId := record["_id"]
+		_, hasId := record["id"]
+
+		if !hasUnderscoreId && !hasId {
+			return fmt.Errorf("record must have an 'id' or '_id' field")
+		}
+		if err := encoder.Encode(record); err != nil {
+			return fmt.Errorf("failed to encode record: %v", err)
+		}
+	}
+
+	_, err := idx.restClient.UpsertRecordsNamespaceWithBody(ctx, idx.Namespace, "application/x-ndjson", &buffer)
+	if err != nil {
+		return fmt.Errorf("failed to upsert records: %v", err)
+	}
+	return nil
+}
+
+func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecordsRequest) error {
+	var convertedVector *db_data_rest.SearchRecordsVector
+	if in.Query.Vector != nil {
+		convertedVector = &db_data_rest.SearchRecordsVector{
+			Values:        in.Query.Vector.Values,
+			SparseIndices: in.Query.Vector.SparseIndices,
+			SparseValues:  in.Query.Vector.SparseValues,
+		}
+	}
+
+	req := db_data_rest.SearchRecordsRequest{
+		Fields: in.Fields,
+		Query: struct {
+			Filter *map[string]interface{}           `json:"filter,omitempty"`
+			Id     *string                           `json:"id,omitempty"`
+			Inputs *map[string]interface{}           `json:"inputs,omitempty"`
+			TopK   int32                             `json:"top_k"`
+			Vector *db_data_rest.SearchRecordsVector `json:"vector,omitempty"`
+		}(struct {
+			Filter *map[string]interface{}
+			Id     *string
+			Inputs *map[string]interface{}
+			TopK   int32
+			Vector *db_data_rest.SearchRecordsVector
+		}{
+			Filter: in.Query.Filter,
+			Id:     in.Query.Id,
+			Inputs: in.Query.Inputs,
+			TopK:   in.Query.TopK,
+			Vector: convertedVector}),
+		Rerank: in.Rerank,
+	}
+
+	_, err := (*idx.restClient).SearchRecordsNamespace(idx.akCtx(ctx), idx.Namespace, req)
+	return err
+}
+
 // [IndexConnection.DeleteVectorsById] deletes vectors by ID from a Pinecone [Index].
 //
 // Returns an error if the request fails, otherwise returns nil. This method will also return
@@ -775,83 +913,6 @@ func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx context.Context) err
 	}
 
 	return idx.delete(ctx, &req)
-}
-
-// [UpdateVectorRequest] holds the parameters for the [IndexConnection.UpdateVector] method.
-//
-// Fields:
-//   - Id: (Required) The unique ID of the vector to update.
-//   - Values: The values with which you want to update the vector.
-//   - SparseValues: The sparse values with which you want to update the vector.
-//   - Metadata: The metadata with which you want to update the vector.
-type UpdateVectorRequest struct {
-	Id           string
-	Values       []float32
-	SparseValues *SparseValues
-	Metadata     *Metadata
-}
-
-// [IndexConnection.UpdateVector] updates a vector in a Pinecone [Index] by ID.
-//
-// Returns an error if the request fails, returns nil otherwise.
-//
-// Parameters:
-//   - ctx: A context.Context object controls the request's lifetime,
-//     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - in: An [UpdateVectorRequest] object with the parameters for the request.
-//
-// Example:
-//
-//	    ctx := context.Background()
-//
-//	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
-//	    }
-//
-//	    pc, err := pinecone.NewClient(clientParams)
-//
-//	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
-//
-//	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//
-//	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//	    }
-//
-//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-//
-//	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	    }
-//
-//	    id := "abc-1"
-//
-//	    err = idxConnection.UpdateVector(ctx, &pinecone.UpdateVectorRequest{
-//		       Id:     id,
-//		       Values: []float32{7.0, 8.0},
-//	    })
-//
-//	    if err != nil {
-//		       log.Fatalf("Failed to update vector with ID %s. Error: %s", id, err)
-//	    }
-func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRequest) error {
-	if in.Id == "" {
-		return fmt.Errorf("a vector ID plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
-	}
-
-	req := &db_data_grpc.UpdateRequest{
-		Id:           in.Id,
-		Values:       in.Values,
-		SparseValues: sparseValToGrpc(in.SparseValues),
-		SetMetadata:  in.Metadata,
-		Namespace:    idx.Namespace,
-	}
-
-	_, err := (*idx.grpcClient).Update(idx.akCtx(ctx), req)
-	return err
 }
 
 // [DescribeIndexStatsResponse] is returned by the [IndexConnection.DescribeIndexStats] method.

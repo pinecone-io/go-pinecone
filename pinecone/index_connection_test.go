@@ -32,8 +32,10 @@ func (ts *IntegrationTests) TestQueryByVector() {
 	}
 
 	req := &QueryByVectorValuesRequest{
-		Vector: vec,
-		TopK:   5,
+		Vector:          vec,
+		TopK:            5,
+		IncludeValues:   true,
+		IncludeMetadata: true,
 	}
 
 	ctx := context.Background()
