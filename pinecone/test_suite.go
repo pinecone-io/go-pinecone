@@ -65,12 +65,20 @@ func (ts *IntegrationTests) SetupSuite() {
 		log.Fatalf("Failed to upsert vectors in SetupSuite: %v", err)
 	}
 
+	// Wait for vector freshness
+	err = pollIndexForFreshness(ts, ctx, namespace, len(vectors))
+	if err != nil {
+		log.Fatalf("Vector freshness failed in SetupSuite: %v", err)
+	}
+
 	// Create collection for pod index suite
 	if ts.indexType == "pods" {
 		createCollection(ts, ctx)
 	}
 
 	fmt.Printf("\n %s set up suite completed successfully\n", ts.indexType)
+
+	// Poll for data freshness
 }
 
 func (ts *IntegrationTests) TearDownSuite() {
@@ -271,7 +279,31 @@ func retryAssertions(t *testing.T, maxRetries int, delay time.Duration, fn func(
 }
 
 func retryAssertionsWithDefaults(t *testing.T, fn func() error) {
-	retryAssertions(t, 10, 7*time.Second, fn)
+	retryAssertions(t, 20, 5*time.Second, fn)
+}
+
+func pollIndexForFreshness(ts *IntegrationTests, ctx context.Context, namespace string, expectedCount int) error {
+	maxSleep := 60 * time.Second
+	delay := 5 * time.Second
+	totalWait := 0 * time.Second
+
+	idxDesc, _ := ts.idxConn.DescribeIndexStats(ctx)
+	for idxDesc.TotalVectorCount < uint32(expectedCount) {
+		fmt.Printf("Waiting for namespace \"%s\" to have %d vectors. Total time waited: %d\n", namespace, expectedCount, totalWait)
+		idxDesc, _ = ts.idxConn.DescribeIndexStats(ctx)
+
+		if len(idxDesc.Namespaces) > 0 &&
+			idxDesc.Namespaces[namespace] != nil &&
+			idxDesc.Namespaces[namespace].VectorCount >= uint32(expectedCount) {
+			return nil
+
+		} else if totalWait >= maxSleep {
+			return fmt.Errorf("timed out waiting for namespace \"%s\" to have %d vectors", namespace, expectedCount)
+		}
+		time.Sleep(delay)
+		totalWait += delay
+	}
+	return nil
 }
 
 func setDimensionsForTestIndexes() uint32 {

@@ -847,18 +847,20 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 // [deletion protection]: https://docs.pinecone.io/guides/indexes/manage-indexes#enable-deletion-protection
 // [distance metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#distance-metrics
 type CreateIndexForModelRequest struct {
-	Name               string              `json:"name"`
-	Cloud              Cloud               `json:"cloud"`
-	Region             string              `json:"region"`
-	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
-	Embed              struct {
-		FieldMap        map[string]interface{}  `json:"field_map"`
-		Metric          *IndexMetric            `json:"metric,omitempty"`
-		Model           string                  `json:"model"`
-		ReadParameters  *map[string]interface{} `json:"read_parameters,omitempty"`
-		WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
-	} `json:"embed"`
-	Tags *IndexTags `json:"tags,omitempty"`
+	Name               string                   `json:"name"`
+	Cloud              Cloud                    `json:"cloud"`
+	Region             string                   `json:"region"`
+	DeletionProtection *DeletionProtection      `json:"deletion_protection,omitempty"`
+	Embed              CreateIndexForModelEmbed `json:"embed"`
+	Tags               *IndexTags               `json:"tags,omitempty"`
+}
+
+type CreateIndexForModelEmbed struct {
+	FieldMap        map[string]interface{}  `json:"field_map"`
+	Metric          *IndexMetric            `json:"metric,omitempty"`
+	Model           string                  `json:"model"`
+	ReadParameters  *map[string]interface{} `json:"read_parameters,omitempty"`
+	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
 }
 
 func (c *Client) CreateIndexForModel(ctx context.Context, in CreateIndexForModelRequest) (*Index, error) {
@@ -866,7 +868,6 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in CreateIndexForModel
 		return nil, fmt.Errorf("fields Name, Cloud, and Region, and Embed.Model must be included in CreateServerlessIndexRequest")
 	}
 
-	metric := derefOrDefault(in.Embed.Metric, "")
 	deletionProtection := derefOrDefault(in.DeletionProtection, "disabled")
 
 	var tags *db_control.IndexTags
@@ -886,7 +887,7 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in CreateIndexForModel
 			WriteParameters *map[string]interface{}                           `json:"write_parameters,omitempty"`
 		}{
 			FieldMap:        in.Embed.FieldMap,
-			Metric:          (*db_control.CreateIndexForModelRequestEmbedMetric)(&metric),
+			Metric:          (*db_control.CreateIndexForModelRequestEmbedMetric)(in.Embed.Metric),
 			Model:           in.Embed.Model,
 			ReadParameters:  in.Embed.ReadParameters,
 			WriteParameters: in.Embed.WriteParameters,

@@ -707,7 +707,7 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records *[]Integr
 	return nil
 }
 
-func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecordsRequest) error {
+func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecordsRequest) (*SearchRecordsResponse, error) {
 	var convertedVector *db_data_rest.SearchRecordsVector
 	if in.Query.Vector != nil {
 		convertedVector = &db_data_rest.SearchRecordsVector{
@@ -725,23 +725,35 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 			Inputs *map[string]interface{}           `json:"inputs,omitempty"`
 			TopK   int32                             `json:"top_k"`
 			Vector *db_data_rest.SearchRecordsVector `json:"vector,omitempty"`
-		}(struct {
-			Filter *map[string]interface{}
-			Id     *string
-			Inputs *map[string]interface{}
-			TopK   int32
-			Vector *db_data_rest.SearchRecordsVector
 		}{
 			Filter: in.Query.Filter,
 			Id:     in.Query.Id,
 			Inputs: in.Query.Inputs,
 			TopK:   in.Query.TopK,
-			Vector: convertedVector}),
-		Rerank: in.Rerank,
+			Vector: convertedVector},
 	}
 
-	_, err := (*idx.restClient).SearchRecordsNamespace(idx.akCtx(ctx), idx.Namespace, req)
-	return err
+	if in.Rerank != nil {
+		req.Rerank = &struct {
+			Model      string                  `json:"model"`
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
+			Query      *string                 `json:"query,omitempty"`
+			RankFields []string                `json:"rank_fields"`
+			TopN       *int32                  `json:"top_n,omitempty"`
+		}{
+			Model:      in.Rerank.Model,
+			Parameters: in.Rerank.Parameters,
+			Query:      in.Rerank.Query,
+			RankFields: in.Rerank.RankFields,
+			TopN:       in.Rerank.TopN,
+		}
+	}
+
+	res, err := (*idx.restClient).SearchRecordsNamespace(idx.akCtx(ctx), idx.Namespace, req)
+	if err != nil {
+		return nil, err
+	}
+	return decodeSearchRecordsResponse(res.Body)
 }
 
 // [IndexConnection.DeleteVectorsById] deletes vectors by ID from a Pinecone [Index].
@@ -1330,6 +1342,15 @@ func (idx *IndexConnection) CancelImport(ctx context.Context, id string) error {
 	return nil
 }
 
+func decodeSearchRecordsResponse(body io.ReadCloser) (*SearchRecordsResponse, error) {
+	var searchRecordsResponse *db_data_rest.SearchRecordsResponse
+	if err := json.NewDecoder(body).Decode(&searchRecordsResponse); err != nil {
+		return nil, err
+	}
+
+	return toSearchRecordsResponse(searchRecordsResponse), nil
+}
+
 func decodeListImportsResponse(body io.ReadCloser) (*ListImportsResponse, error) {
 	var listImportsResponse *db_data_rest.ListImportsResponse
 	if err := json.NewDecoder(body).Decode(&listImportsResponse); err != nil {
@@ -1494,6 +1515,28 @@ func toListImportsResponse(listImportsResponse *db_data_rest.ListImportsResponse
 	return &ListImportsResponse{
 		Imports:             imports,
 		NextPaginationToken: toPaginationTokenRest(listImportsResponse.Pagination),
+	}
+}
+
+func toSearchRecordsResponse(searchRecordsResponse *db_data_rest.SearchRecordsResponse) *SearchRecordsResponse {
+	if searchRecordsResponse == nil {
+		return nil
+	}
+
+	hits := make([]Hit, len(searchRecordsResponse.Result.Hits))
+	for i, hit := range searchRecordsResponse.Result.Hits {
+		hits[i] = Hit{
+			Id:     hit.Id,
+			Score:  hit.Score,
+			Fields: hit.Fields,
+		}
+	}
+
+	return &SearchRecordsResponse{
+		Result: struct {
+			Hits []Hit "json:\"hits\""
+		}{Hits: hits},
+		Usage: SearchUsage(searchRecordsResponse.Usage),
 	}
 }
 

@@ -38,10 +38,20 @@ func (ts *IntegrationTests) TestQueryByVector() {
 		IncludeMetadata: true,
 	}
 
-	ctx := context.Background()
-	res, err := ts.idxConn.QueryByVectorValues(ctx, req)
-	assert.NoError(ts.T(), err)
-	assert.NotNil(ts.T(), res)
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		ctx := context.Background()
+		res, err := ts.idxConn.QueryByVectorValues(ctx, req)
+		if err != nil {
+			return fmt.Errorf("QueryByVectorValues failed: %v", err)
+		}
+		if res == nil {
+			return fmt.Errorf("QueryByVectorValues response is nil")
+		}
+
+		assert.NoError(ts.T(), err)
+		assert.NotNil(ts.T(), res)
+		return nil
+	})
 }
 
 func (ts *IntegrationTests) TestQueryById() {
@@ -197,17 +207,23 @@ func (ts *IntegrationTests) TestUpdateVectorValues() {
 	retryAssertionsWithDefaults(ts.T(), func() error {
 		vector, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
 		if err != nil {
-			ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
+			return fmt.Errorf(fmt.Sprintf("Failed to fetch vector: %v", err))
 		}
-		fmt.Printf("Vector: %+v\n", vector)
 
 		if len(vector.Vectors) > 0 {
 			actualVals := vector.Vectors[ts.vectorIds[0]].Values
 			if actualVals != nil {
-				assert.ElementsMatch(ts.T(), expectedVals, *actualVals, "Values do not match")
+				if !slicesEqual[float32](expectedVals, *actualVals) {
+					return fmt.Errorf("Values do not match")
+				} else {
+					return nil // Test passed
+				}
+			} else {
+				return fmt.Errorf("Values are nil after UpdateVector->FetchVector")
 			}
+		} else {
+			return fmt.Errorf("No vectors found after UpdateVector->FetchVector")
 		}
-		return nil
 	})
 }
 
@@ -231,17 +247,26 @@ func (ts *IntegrationTests) TestUpdateVectorMetadata() {
 	retryAssertionsWithDefaults(ts.T(), func() error {
 		vectors, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
 		if err != nil {
-			ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
+			return fmt.Errorf("Failed to fetch vector: %v", err)
 		}
 
 		if vectors != nil && len(vectors.Vectors) > 0 {
 			vector := vectors.Vectors[ts.vectorIds[0]]
-			assert.NotNil(ts.T(), vector.Metadata, "Metadata is nil after update")
+			if vector == nil {
+				return fmt.Errorf("Fetched vector is nil after UpdateVector->FetchVector")
+			}
+			if vector.Metadata == nil {
+				return fmt.Errorf("Metadata is nil after update")
+			}
 
 			expectedGenre := expectedMetadataMap.Fields["genre"].GetStringValue()
 			actualGenre := vector.Metadata.Fields["genre"].GetStringValue()
 
-			assert.Equal(ts.T(), expectedGenre, actualGenre, "Metadata does not match")
+			if expectedGenre != actualGenre {
+				return fmt.Errorf("Metadata does not match")
+			}
+		} else {
+			return fmt.Errorf("No vectors found after update")
 		}
 		return nil // Test passed
 	})
@@ -269,16 +294,23 @@ func (ts *IntegrationTests) TestUpdateVectorSparseValues() {
 	retryAssertionsWithDefaults(ts.T(), func() error {
 		vectors, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
 		if err != nil {
-			ts.FailNow(fmt.Sprintf("Failed to fetch vector: %v", err))
+			return fmt.Errorf("Failed to fetch vector: %v", err)
 		}
+
 		vector := vectors.Vectors[ts.vectorIds[0]]
 
-		if vector != nil && vector.SparseValues != nil && len(vector.SparseValues.Values) > 0 {
-			actualSparseValues := vector.SparseValues.Values
-
-			assert.ElementsMatch(ts.T(), expectedSparseValues.Values, actualSparseValues, "Sparse values do not match")
+		if vector == nil {
+			return fmt.Errorf("Fetched vector is nil after UpdateVector->FetchVector")
 		}
-		return nil
+		if vector.SparseValues == nil {
+			return fmt.Errorf("Sparse values are nil after UpdateVector->FetchVector")
+		}
+		actualSparseValues := vector.SparseValues.Values
+
+		if !slicesEqual[float32](expectedSparseValues.Values, actualSparseValues) {
+			return fmt.Errorf("Sparse values do not match")
+		}
+		return nil // Test passed
 	})
 }
 
@@ -319,6 +351,97 @@ func (ts *IntegrationTests) TestImportFlowNoUriError() {
 	_, err := ts.idxConn.StartImport(ctx, "", nil, nil)
 	assert.Error(ts.T(), err)
 	assert.Contains(ts.T(), err.Error(), "must specify a uri")
+}
+
+func (ts *IntegrationTests) TestIntegratedInference() {
+	if ts.indexType != "serverless" {
+		ts.T().Skip("Running TestIntegratedInference once")
+	}
+	indexName := "test-integrated-" + generateTestIndexName()
+
+	// create integrated index
+	ctx := context.Background()
+	index, err := ts.client.CreateIndexForModel(ctx, CreateIndexForModelRequest{
+		Name:   indexName,
+		Cloud:  "aws",
+		Region: "us-east-1",
+		Embed: CreateIndexForModelEmbed{
+			Model:    "multilingual-e5-large",
+			FieldMap: map[string]interface{}{"text": "chunk_text"},
+		},
+	})
+	assert.NoError(ts.T(), err)
+	assert.NotNil(ts.T(), index)
+
+	defer func(ts *IntegrationTests, name string) {
+		err := ts.deleteIndex(name)
+
+		require.NoError(ts.T(), err)
+	}(ts, indexName)
+
+	// upsert records/documents
+	records := []IntegratedRecord{
+		{
+			"_id":        "rec1",
+			"chunk_text": "Apple's first product, the Apple I, was released in 1976 and was hand-built by co-founder Steve Wozniak.",
+			"category":   "product",
+		},
+		{
+			"_id":        "rec2",
+			"chunk_text": "Apples are a great source of dietary fiber, which supports digestion and helps maintain a healthy gut.",
+			"category":   "nutrition",
+		},
+		{
+			"_id":        "rec3",
+			"chunk_text": "Apples originated in Central Asia and have been cultivated for thousands of years, with over 7,500 varieties available today.",
+			"category":   "cultivation",
+		},
+		{
+			"_id":        "rec4",
+			"chunk_text": "In 2001, Apple released the iPod, which transformed the music industry by making portable music widely accessible.",
+			"category":   "product",
+		},
+		{
+			"_id":        "rec5",
+			"chunk_text": "Apple went public in 1980, making history with one of the largest IPOs at that time.",
+			"category":   "milestone",
+		},
+		{
+			"_id":        "rec6",
+			"chunk_text": "Rich in vitamin C and other antioxidants, apples contribute to immune health and may reduce the risk of chronic diseases.",
+			"category":   "nutrition",
+		},
+		{
+			"_id":        "rec7",
+			"chunk_text": "Known for its design-forward products, Apple's branding and market strategy have greatly influenced the technology sector and popularized minimalist design worldwide.",
+			"category":   "influence",
+		},
+		{
+			"_id":        "rec8",
+			"chunk_text": "The high fiber content in apples can also help regulate blood sugar levels, making them a favorable snack for people with diabetes.",
+			"category":   "nutrition",
+		},
+	}
+	err = ts.idxConn.UpsertRecords(ctx, &records)
+	assert.NoError(ts.T(), err)
+
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		res, err := ts.idxConn.SearchRecords(ctx, &SearchRecordsRequest{
+			Query: SearchRecordsQuery{
+				TopK: 5,
+				Inputs: &map[string]interface{}{
+					"text": "Disease prevention",
+				},
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to search records: %v", err)
+		}
+		if res == nil {
+			return fmt.Errorf("result is nil")
+		}
+		return nil
+	})
 }
 
 // Unit tests:
@@ -1136,4 +1259,17 @@ func generateUint32Array(n int) []uint32 {
 
 func uint32Pointer(i uint32) *uint32 {
 	return &i
+}
+
+func slicesEqual[T comparable](a, b []float32) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

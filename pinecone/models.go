@@ -274,38 +274,42 @@ type SearchRecordsRequest struct {
 	Fields *[]string `json:"fields,omitempty"`
 
 	// Query The query inputs to search with.
-	Query struct {
-		// Filter The filter to apply.
-		Filter *map[string]interface{} `json:"filter,omitempty"`
-
-		// Id The unique ID of the vector to be used as a query vector.
-		Id     *string                 `json:"id,omitempty"`
-		Inputs *map[string]interface{} `json:"inputs,omitempty"`
-
-		// TopK The number of results to return for each search.
-		TopK   int32                `json:"top_k"`
-		Vector *SearchRecordsVector `json:"vector,omitempty"`
-	} `json:"query"`
+	Query SearchRecordsQuery `json:"query"`
 
 	// Rerank Parameters for reranking the initial search results.
-	Rerank *struct {
-		// Model The name of the [reranking model](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) to use.
-		Model string `json:"model"`
+	Rerank *SearchRecordsRerank `json:"rerank,omitempty"`
+}
 
-		// Parameters Additional model-specific parameters. Refer to the [model guide](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) for available model parameters.
-		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+type SearchRecordsQuery struct {
+	// Filter The filter to apply.
+	Filter *map[string]interface{} `json:"filter,omitempty"`
 
-		// Query The query to rerank documents against. If a specific rerank query is specified,  it overwrites the query input that was provided at the top level.
-		Query *string `json:"query,omitempty"`
+	// Id The unique ID of the vector to be used as a query vector.
+	Id     *string                 `json:"id,omitempty"`
+	Inputs *map[string]interface{} `json:"inputs,omitempty"`
 
-		// RankFields The field(s) to consider for reranking. If not provided, the default is `["text"]`.
-		//
-		// The number of fields supported is [model-specific](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models).
-		RankFields []string `json:"rank_fields"`
+	// TopK The number of results to return for each search.
+	TopK   int32                `json:"top_k"`
+	Vector *SearchRecordsVector `json:"vector,omitempty"`
+}
 
-		// TopN The number of top results to return after reranking. Defaults to top_k.
-		TopN *int32 `json:"top_n,omitempty"`
-	} `json:"rerank,omitempty"`
+type SearchRecordsRerank struct {
+	// Model The name of the [reranking model](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) to use.
+	Model string `json:"model"`
+
+	// Parameters Additional model-specific parameters. Refer to the [model guide](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) for available model parameters.
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+	// Query The query to rerank documents against. If a specific rerank query is specified,  it overwrites the query input that was provided at the top level.
+	Query *string `json:"query,omitempty"`
+
+	// RankFields The field(s) to consider for reranking. If not provided, the default is `["text"]`.
+	//
+	// The number of fields supported is [model-specific](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models).
+	RankFields []string `json:"rank_fields"`
+
+	// TopN The number of top results to return after reranking. Defaults to top_k.
+	TopN *int32 `json:"top_n,omitempty"`
 }
 
 // Hit A record whose vector values are similar to the provided search query.
