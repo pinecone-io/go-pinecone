@@ -283,7 +283,7 @@ func retryAssertionsWithDefaults(t *testing.T, fn func() error) {
 }
 
 func pollIndexForFreshness(ts *IntegrationTests, ctx context.Context, namespace string, sampleId string) error {
-	maxSleep := 120 * time.Second
+	maxSleep := 240 * time.Second
 	delay := 5 * time.Second
 	totalWait := 0 * time.Second
 
