@@ -66,7 +66,7 @@ func (ts *IntegrationTests) SetupSuite() {
 	}
 
 	// Wait for vector freshness
-	err = pollIndexForFreshness(ts, ctx, namespace, vectorIds[0])
+	err = pollIndexForFreshness(ts, ctx, vectorIds[0])
 	if err != nil {
 		log.Fatalf("Vector freshness failed in SetupSuite: %v", err)
 	}
@@ -282,20 +282,23 @@ func retryAssertionsWithDefaults(t *testing.T, fn func() error) {
 	retryAssertions(t, 20, 5*time.Second, fn)
 }
 
-func pollIndexForFreshness(ts *IntegrationTests, ctx context.Context, namespace string, sampleId string) error {
+func pollIndexForFreshness(ts *IntegrationTests, ctx context.Context, sampleId string) error {
 	maxSleep := 240 * time.Second
 	delay := 5 * time.Second
 	totalWait := 0 * time.Second
 
 	fetchResp, _ := ts.idxConn.FetchVectors(ctx, []string{sampleId})
-	for fetchResp.Vectors != nil {
+	queryResp, _ := ts.idxConn.QueryByVectorId(ctx, &QueryByVectorIdRequest{VectorId: sampleId, TopK: 1})
+	for len(fetchResp.Vectors) == 0 && len(queryResp.Matches) == 0 {
 		if totalWait >= maxSleep {
 			return fmt.Errorf("timed out waiting for vector freshness")
 		}
+		fmt.Printf("Vector not fresh for id: %s, waiting %+v seconds...\n", sampleId, delay.Seconds())
 		time.Sleep(delay)
 		totalWait += delay
 
 		fetchResp, _ = ts.idxConn.FetchVectors(ctx, []string{sampleId})
+		queryResp, _ = ts.idxConn.QueryByVectorId(ctx, &QueryByVectorIdRequest{VectorId: sampleId, TopK: 1})
 	}
 	return nil
 }
