@@ -66,7 +66,7 @@ func (ts *IntegrationTests) SetupSuite() {
 	}
 
 	// Wait for vector freshness
-	err = pollIndexForFreshness(ts, ctx, namespace, len(vectors))
+	err = pollIndexForFreshness(ts, ctx, namespace, vectorIds[0])
 	if err != nil {
 		log.Fatalf("Vector freshness failed in SetupSuite: %v", err)
 	}
@@ -282,26 +282,20 @@ func retryAssertionsWithDefaults(t *testing.T, fn func() error) {
 	retryAssertions(t, 20, 5*time.Second, fn)
 }
 
-func pollIndexForFreshness(ts *IntegrationTests, ctx context.Context, namespace string, expectedCount int) error {
+func pollIndexForFreshness(ts *IntegrationTests, ctx context.Context, namespace string, sampleId string) error {
 	maxSleep := 60 * time.Second
 	delay := 5 * time.Second
 	totalWait := 0 * time.Second
 
-	idxDesc, _ := ts.idxConn.DescribeIndexStats(ctx)
-	for idxDesc.TotalVectorCount < uint32(expectedCount) {
-		fmt.Printf("Waiting for namespace \"%s\" to have %d vectors. Total time waited: %d\n", namespace, expectedCount, totalWait)
-		idxDesc, _ = ts.idxConn.DescribeIndexStats(ctx)
-
-		if len(idxDesc.Namespaces) > 0 &&
-			idxDesc.Namespaces[namespace] != nil &&
-			idxDesc.Namespaces[namespace].VectorCount >= uint32(expectedCount) {
-			return nil
-
-		} else if totalWait >= maxSleep {
-			return fmt.Errorf("timed out waiting for namespace \"%s\" to have %d vectors", namespace, expectedCount)
+	fetchResp, _ := ts.idxConn.FetchVectors(ctx, []string{sampleId})
+	for fetchResp.Vectors != nil {
+		if totalWait >= maxSleep {
+			return fmt.Errorf("timed out waiting for vector freshness")
 		}
 		time.Sleep(delay)
 		totalWait += delay
+
+		fetchResp, _ = ts.idxConn.FetchVectors(ctx, []string{sampleId})
 	}
 	return nil
 }
