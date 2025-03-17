@@ -6,9 +6,9 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// [IndexMetric] is the [distance metric] to be used by similarity search against a Pinecone [Index].
+// [IndexMetric] is the [similarity metric] to be used by similarity search against a Pinecone [Index].
 //
-// [distance metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#distance-metrics
+// [similarity metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#similarity-metrics
 type IndexMetric string
 
 const (

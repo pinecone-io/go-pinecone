@@ -792,11 +792,11 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 //   - Region: (Required) The [region] where you would like your [Index] to be created.
 //   - DeletionProtection: (Optional) Whether [deletion protection] is enabled or disabled for the index.
 //     When enabled, the index cannot be deleted. Defaults to disabled.
-//   - Embed: (Required) The integrated inference embedding configuration for the index.
+//   - Embed: (Required) The [CreateIndexForModelEmbed] object for embedding model configuration.
 //     Once set, the model cannot be changed, but embedding configurations such as field map, read parameters,
 //     or write parameters can be updated.
 //   - FieldMap: Identifies the name of the text field from your document model that will be embedded.
-//   - Metric: The [distance metric] to be used for similarity search. Options: 'euclidean', 'cosine', or 'dotproduct'.
+//   - Metric: The [similarity metric] to be used for similarity search. Options: 'euclidean', 'cosine', or 'dotproduct'.
 //     If not specified, the metric will default according to the model and cannot be updated once set.
 //   - Model: The name of the embedding model to use for the index.
 //   - ReadParameters: The read parameters for the embedding model.
@@ -826,12 +826,10 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 //	     Name:   "my-index",
 //	     Cloud:  pinecone.Aws,
 //	     Region: "us-east-1",
-//	     Embed: {
-//	       Model: "text-embedding-model",
-//	       FieldMap: map[string]interface{}{
-//	         "content": "text_field",
-//	       },
-//	     },
+//	     Embed: CreateIndexForModelEmbed{
+//			Model:    "multilingual-e5-large",
+//			FieldMap: map[string]interface{}{"text": "chunk_text"},
+//		 },
 //	}
 //
 //	idx, err := pc.CreateIndexForModel(ctx, request)
@@ -845,7 +843,7 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 // [region]: https://docs.pinecone.io/troubleshooting/available-cloud-regions
 // [cloud provider]: https://docs.pinecone.io/troubleshooting/available-cloud-regions#regions-available-for-serverless-indexes
 // [deletion protection]: https://docs.pinecone.io/guides/indexes/manage-indexes#enable-deletion-protection
-// [distance metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#distance-metrics
+// [similarity metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#similarity-metrics
 type CreateIndexForModelRequest struct {
 	Name               string                   `json:"name"`
 	Cloud              Cloud                    `json:"cloud"`
@@ -855,10 +853,25 @@ type CreateIndexForModelRequest struct {
 	Tags               *IndexTags               `json:"tags,omitempty"`
 }
 
+// [CreateIndexForModelEmbed] defines the embedding model configuration for an index.
+//
+// Fields:
+//   - Model: (Required) The name of the embedding model to use for the index.
+//   - FieldMap: (Required) Identifies the name of the text field from your document model that will be embedded.
+//   - Metric: (Optional) The [similarity metric] to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
+//     If not specified, the metric will be defaulted according to the model. Cannot be updated once set.
+//   - ReadParameters: (Optional) Read parameters for the embedding model.
+//   - WriteParameters: (Optional) Write parameters for the embedding model.
+//
+// The `CreateIndexForModelEmbed` struct is used as part of the [CreateIndexForModelRequest] when creating an index
+// with an associated embedding model. Once an index is created, the `model` field cannot be changed, but other
+// configurations such as `field_map`, `read_parameters`, and `write_parameters` can be updated.
+//
+// [similarity metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#similarity-metrics
 type CreateIndexForModelEmbed struct {
+	Model           string                  `json:"model"`
 	FieldMap        map[string]interface{}  `json:"field_map"`
 	Metric          *IndexMetric            `json:"metric,omitempty"`
-	Model           string                  `json:"model"`
 	ReadParameters  *map[string]interface{} `json:"read_parameters,omitempty"`
 	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
 }
