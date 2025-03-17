@@ -279,7 +279,7 @@ func retryAssertions(t *testing.T, maxRetries int, delay time.Duration, fn func(
 }
 
 func retryAssertionsWithDefaults(t *testing.T, fn func() error) {
-	retryAssertions(t, 20, 5*time.Second, fn)
+	retryAssertions(t, 30, 5*time.Second, fn)
 }
 
 func pollIndexForFreshness(ts *IntegrationTests, ctx context.Context, sampleId string) error {
