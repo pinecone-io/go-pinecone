@@ -876,7 +876,49 @@ type CreateIndexForModelEmbed struct {
 	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
 }
 
-func (c *Client) CreateIndexForModel(ctx context.Context, in CreateIndexForModelRequest) (*Index, error) {
+// [Client.CreateIndexForModel] creates and initializes a new serverless Index via the specified [Client] that is configured
+// for use with one of Pinecone's integrated inference models. After the index is created, you can upsert and search for records
+// using the [IndexConnection.UpsertRecords] and [IndexConnection.SearchRecords] methods.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime, allowing for the request
+//     to be canceled or to timeout according to the context's deadline.
+//   - in: A pointer to a [CreateIndexForModelRequest] object. See [CreateIndexForModelRequest] for more information.
+//
+// Returns a pointer to an [Index] object or an error.
+//
+// Example:
+//
+//	    ctx := context.Background()
+//
+//	    clientParams := pinecone.NewClientParams{
+//		       ApiKey:    "YOUR_API_KEY",
+//		       SourceTag: "your_source_identifier", // optional
+//	    }
+//
+//	    pc, err := pinecone.NewClient(clientParams)
+//	    if err != nil {
+//	        log.Fatalf("Failed to create Client: %v", err)
+//	    } else {
+//		       fmt.Println("Successfully created a new Client object!")
+//	    }
+//
+//	    indexName := "my-serverless-index"
+//
+//	    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+//		    Name:    indexName,
+//		    Dimension: 3,
+//		    Metric:  pinecone.Cosine,
+//		    Cloud:   pinecone.Aws,
+//		    Region:  "us-east-1",
+//		})
+//
+//		if err != nil {
+//		    log.Fatalf("Failed to create serverless index: %s", indexName)
+//		} else {
+//		    fmt.Printf("Successfully created serverless index: %s", idx.Name)
+//		}
+func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForModelRequest) (*Index, error) {
 	if in.Name == "" || in.Cloud == "" || in.Region == "" || in.Embed.Model == "" {
 		return nil, fmt.Errorf("fields Name, Cloud, and Region, and Embed.Model must be included in CreateServerlessIndexRequest")
 	}
@@ -1525,7 +1567,6 @@ type EmbedResponse struct {
 //		       fmt.Printf("Successfull generated embeddings: %+v", res)
 //	    }
 func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedResponse, error) {
-
 	if len(in.TextInputs) == 0 {
 		return nil, fmt.Errorf("TextInputs must contain at least one value")
 	}

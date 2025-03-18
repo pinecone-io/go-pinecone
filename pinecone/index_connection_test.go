@@ -361,7 +361,7 @@ func (ts *IntegrationTests) TestIntegratedInference() {
 
 	// create integrated index
 	ctx := context.Background()
-	index, err := ts.client.CreateIndexForModel(ctx, CreateIndexForModelRequest{
+	index, err := ts.client.CreateIndexForModel(ctx, &CreateIndexForModelRequest{
 		Name:   indexName,
 		Cloud:  "aws",
 		Region: "us-east-1",
@@ -380,7 +380,7 @@ func (ts *IntegrationTests) TestIntegratedInference() {
 	}(ts, indexName)
 
 	// upsert records/documents
-	records := []IntegratedRecord{
+	records := []*IntegratedRecord{
 		{
 			"_id":        "rec1",
 			"chunk_text": "Apple's first product, the Apple I, was released in 1976 and was hand-built by co-founder Steve Wozniak.",
@@ -422,7 +422,7 @@ func (ts *IntegrationTests) TestIntegratedInference() {
 			"category":   "nutrition",
 		},
 	}
-	err = ts.idxConn.UpsertRecords(ctx, &records)
+	err = ts.idxConn.UpsertRecords(ctx, records)
 	assert.NoError(ts.T(), err)
 
 	retryAssertionsWithDefaults(ts.T(), func() error {
