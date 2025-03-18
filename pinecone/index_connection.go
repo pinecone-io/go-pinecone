@@ -1716,7 +1716,15 @@ func toSearchRecordsResponse(searchRecordsResponse *db_data_rest.SearchRecordsRe
 		Result: struct {
 			Hits []Hit "json:\"hits\""
 		}{Hits: hits},
-		Usage: SearchUsage(searchRecordsResponse.Usage),
+		Usage: toSearchUsage(searchRecordsResponse.Usage),
+	}
+}
+
+func toSearchUsage(searchUsage db_data_rest.SearchUsage) SearchUsage {
+	return SearchUsage{
+		ReadUnits:        searchUsage.ReadUnits,
+		EmbedTotalTokens: searchUsage.EmbedTotalTokens,
+		RerankUnits:      searchUsage.RerankUnits,
 	}
 }
 
