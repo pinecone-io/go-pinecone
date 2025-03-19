@@ -220,7 +220,7 @@ func main() {
 
 **Create a serverless integrated index**
 
-Integrated inference requires a serverless index configured for a specific embedding model. You can either create a new index for a model, or configure an existing index for a model. To create an index that accepts source text and converts it to vectors automatically using an embedding model hosted by Pinecone.
+Integrated inference requires a serverless index configured for a specific embedding model. You can either create a new index for a model, or configure an existing index for a model. To create an index that accepts source text and converts it to vectors automatically using an embedding model hosted by Pinecone, use the `Client.CreateIndexForModel` method:
 
 ```go
 package main

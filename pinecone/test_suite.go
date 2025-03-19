@@ -270,7 +270,7 @@ func retryAssertions(t *testing.T, maxRetries int, delay time.Duration, fn func(
 		if err := fn(); err == nil {
 			return
 		} else if attempt < maxRetries {
-			t.Logf("Attempt %d/%d failed: %+v. Retrying in %d...", attempt, maxRetries, err, delay)
+			t.Logf("Attempt %d/%d failed: %+v. Retrying in %f...", attempt, maxRetries, err, delay.Seconds())
 			time.Sleep(delay)
 		} else {
 			t.Fatalf("Test failed after %d attempts: %+v", maxRetries, err)
