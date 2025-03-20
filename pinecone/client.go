@@ -845,12 +845,12 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 // [deletion protection]: https://docs.pinecone.io/guides/indexes/manage-indexes#enable-deletion-protection
 // [similarity metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#similarity-metrics
 type CreateIndexForModelRequest struct {
-	Name               string                   `json:"name"`
-	Cloud              Cloud                    `json:"cloud"`
-	Region             string                   `json:"region"`
-	DeletionProtection *DeletionProtection      `json:"deletion_protection,omitempty"`
-	Embed              CreateIndexForModelEmbed `json:"embed"`
-	Tags               *IndexTags               `json:"tags,omitempty"`
+	Name               string
+	Cloud              Cloud
+	Region             string
+	DeletionProtection *DeletionProtection
+	Embed              CreateIndexForModelEmbed
+	Tags               *IndexTags
 }
 
 // [CreateIndexForModelEmbed] defines the embedding model configuration for an index.
@@ -869,11 +869,11 @@ type CreateIndexForModelRequest struct {
 //
 // [similarity metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#similarity-metrics
 type CreateIndexForModelEmbed struct {
-	Model           string                  `json:"model"`
-	FieldMap        map[string]interface{}  `json:"field_map"`
-	Metric          *IndexMetric            `json:"metric,omitempty"`
-	ReadParameters  *map[string]interface{} `json:"read_parameters,omitempty"`
-	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+	Model           string
+	FieldMap        map[string]interface{}
+	Metric          *IndexMetric
+	ReadParameters  *map[string]interface{}
+	WriteParameters *map[string]interface{}
 }
 
 // [Client.CreateIndexForModel] creates and initializes a new serverless Index via the specified [Client] that is configured
@@ -1079,6 +1079,7 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //   - DeletionProtection: (Optional) DeletionProtection determines whether [deletion protection]
 //     is "enabled" or "disabled" for the index. When "enabled", the index cannot be deleted. Defaults to "disabled".
 //   - Tags: (Optional) A map of tags to associate with the Index.
+//   - Embed: (Optional) The [ConfigureIndexEmbed] object for integrated index configuration.
 //
 // Example:
 //
@@ -1106,6 +1107,26 @@ type ConfigureIndexParams struct {
 	Replicas           int32
 	DeletionProtection DeletionProtection
 	Tags               IndexTags
+	Embed              *ConfigureIndexEmbed
+}
+
+// [ConfigureIndexEmbed] contains parameters for configuring the integrated inference embedding settings for an [Index].
+// You can convert an existing serverless index to an integrated index by specifying the Model and FieldMap.
+// The index vector type and dimension must match the model vector type and dimension, and the index similarity metric must be supported by the model.
+// Refer to the [model guide](https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models) for available models and model details.
+//
+// You can later change the embedding configuration to update the field map, read parameters, or write parameters. Once set, the model cannot be changed.
+//
+// Fields:
+//   - FieldMap: (Optional) Identifies the name of the text field from your document model that will be embedded.
+//   - Model: (Optional) The name of the embedding model to use with the index.
+//   - ReadParameters: (Optional) The read parameters for the embedding model.
+//   - WriteParameters: (Optional) The write parameters for the embedding model.
+type ConfigureIndexEmbed struct {
+	FieldMap        *map[string]interface{}
+	Model           *string
+	ReadParameters  *map[string]interface{}
+	WriteParameters *map[string]interface{}
 }
 
 // [Client.ConfigureIndex] is used to [scale a pods-based index] up or down by changing the size of the pods or the number of
@@ -1183,6 +1204,21 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 				},
 			}
 	}
+	if in.Embed != nil {
+		request.Embed =
+			&struct {
+				FieldMap        *map[string]interface{} `json:"field_map,omitempty"`
+				Model           *string                 `json:"model,omitempty"`
+				ReadParameters  *map[string]interface{} `json:"read_parameters,omitempty"`
+				WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+			}{
+				FieldMap:        in.Embed.FieldMap,
+				Model:           in.Embed.Model,
+				ReadParameters:  in.Embed.ReadParameters,
+				WriteParameters: in.Embed.WriteParameters,
+			}
+	}
+
 	request.DeletionProtection = (*db_control.DeletionProtection)(deletionProtection)
 	request.Tags = (*db_control.IndexTags)(mergeIndexTags(existingTags, in.Tags))
 
