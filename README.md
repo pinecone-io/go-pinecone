@@ -522,6 +522,17 @@ func main() {
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
+
+	// To convert an existing serverless index into an integrated index
+	model := "multilingual-e5-large"
+	_, err := pc.ConfigureIndex(ctx, "my-serverless-index", pinecone.ConfigureIndexParams{
+		Embed: &pinecone.ConfigureIndexEmbed{
+			FieldMap: &map[string]interface{}{
+				"text": "my-text-field",
+			},
+			Model: &model,
+		},
+	})
 }
 ```
 
