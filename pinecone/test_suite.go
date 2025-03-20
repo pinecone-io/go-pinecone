@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"testing"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,7 +31,7 @@ type IntegrationTests struct {
 func (ts *IntegrationTests) SetupSuite() {
 	ctx := context.Background()
 
-	_, err := WaitUntilIndexReady(ts, ctx)
+	_, err := waitUntilIndexReady(ts, ctx)
 	require.NoError(ts.T(), err)
 
 	namespace := uuid.New().String()
@@ -50,7 +51,7 @@ func (ts *IntegrationTests) SetupSuite() {
 	}
 
 	// Deterministically create vectors
-	vectors := GenerateVectors(10, dim, false, nil)
+	vectors := generateVectors(10, dim, false, nil)
 
 	// Add vector ids to the suite
 	vectorIds := make([]string, len(vectors))
@@ -64,12 +65,20 @@ func (ts *IntegrationTests) SetupSuite() {
 		log.Fatalf("Failed to upsert vectors in SetupSuite: %v", err)
 	}
 
+	// Wait for vector freshness
+	err = pollIndexForFreshness(ts, ctx, vectorIds[0])
+	if err != nil {
+		log.Fatalf("Vector freshness failed in SetupSuite: %v", err)
+	}
+
 	// Create collection for pod index suite
 	if ts.indexType == "pods" {
 		createCollection(ts, ctx)
 	}
 
 	fmt.Printf("\n %s set up suite completed successfully\n", ts.indexType)
+
+	// Poll for data freshness
 }
 
 func (ts *IntegrationTests) TearDownSuite() {
@@ -109,12 +118,12 @@ func (ts *IntegrationTests) TearDownSuite() {
 }
 
 // Helper funcs
-func GenerateTestIndexName() string {
+func generateTestIndexName() string {
 	return fmt.Sprintf("index-%d", time.Now().UnixMilli())
 }
 
 func upsertVectors(ts *IntegrationTests, ctx context.Context, vectors []*Vector) error {
-	_, err := WaitUntilIndexReady(ts, ctx)
+	_, err := waitUntilIndexReady(ts, ctx)
 	require.NoError(ts.T(), err)
 
 	ids := make([]string, len(vectors))
@@ -146,7 +155,7 @@ func createCollection(ts *IntegrationTests, ctx context.Context) {
 	require.Equal(ts.T(), name, collection.Name)
 }
 
-func WaitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error) {
+func waitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error) {
 	start := time.Now()
 	delay := 5 * time.Second
 	maxWaitTimeSeconds := 280 * time.Second
@@ -171,14 +180,12 @@ func WaitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error
 	}
 }
 
-func GenerateVectors(numOfVectors int, dimension int32, isSparse bool, metadata *Metadata) []*Vector {
+func generateVectors(numOfVectors int, dimension int32, isSparse bool, metadata *Metadata) []*Vector {
 	vectors := make([]*Vector, numOfVectors)
 
 	for i := 0; i < int(numOfVectors); i++ {
-		randomFloats := generateVectorValues(dimension)
 		vectors[i] = &Vector{
-			Id:     fmt.Sprintf("vector-%d", i),
-			Values: randomFloats,
+			Id: fmt.Sprintf("vector-%d", i),
 		}
 
 		if isSparse {
@@ -189,6 +196,9 @@ func GenerateVectors(numOfVectors int, dimension int32, isSparse bool, metadata 
 			values := generateVectorValues(dimension)
 			sparseValues.Values = *values
 			vectors[i].SparseValues = &sparseValues
+		} else {
+			values := generateVectorValues(dimension)
+			vectors[i].Values = values
 		}
 
 		if metadata != nil {
@@ -211,7 +221,7 @@ func generateVectorValues(dimension int32) *[]float32 {
 	return &values
 }
 
-func BuildServerlessTestIndex(in *Client, idxName string, tags IndexTags) *Index {
+func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags) *Index {
 	ctx := context.Background()
 	dimension := int32(setDimensionsForTestIndexes())
 	metric := Cosine
@@ -233,7 +243,7 @@ func BuildServerlessTestIndex(in *Client, idxName string, tags IndexTags) *Index
 	return serverlessIdx
 }
 
-func BuildPodTestIndex(in *Client, name string, tags IndexTags) *Index {
+func buildPodTestIndex(in *Client, name string, tags IndexTags) *Index {
 	ctx := context.Background()
 	metric := Cosine
 
@@ -252,6 +262,45 @@ func BuildPodTestIndex(in *Client, name string, tags IndexTags) *Index {
 		fmt.Printf("Successfully created a new pod index: %s!\n", name)
 	}
 	return podIdx
+}
+
+func retryAssertions(t *testing.T, maxRetries int, delay time.Duration, fn func() error) {
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// function call passed, we return
+		if err := fn(); err == nil {
+			return
+		} else if attempt < maxRetries {
+			t.Logf("Attempt %d/%d failed: %+v. Retrying in %f...", attempt, maxRetries, err, delay.Seconds())
+			time.Sleep(delay)
+		} else {
+			t.Fatalf("Test failed after %d attempts: %+v", maxRetries, err)
+		}
+	}
+}
+
+func retryAssertionsWithDefaults(t *testing.T, fn func() error) {
+	retryAssertions(t, 30, 5*time.Second, fn)
+}
+
+func pollIndexForFreshness(ts *IntegrationTests, ctx context.Context, sampleId string) error {
+	maxSleep := 240 * time.Second
+	delay := 5 * time.Second
+	totalWait := 0 * time.Second
+
+	fetchResp, _ := ts.idxConn.FetchVectors(ctx, []string{sampleId})
+	queryResp, _ := ts.idxConn.QueryByVectorId(ctx, &QueryByVectorIdRequest{VectorId: sampleId, TopK: 1})
+	for len(fetchResp.Vectors) == 0 && len(queryResp.Matches) == 0 {
+		if totalWait >= maxSleep {
+			return fmt.Errorf("timed out waiting for vector freshness")
+		}
+		fmt.Printf("Vector not fresh for id: %s, waiting %+v seconds...\n", sampleId, delay.Seconds())
+		time.Sleep(delay)
+		totalWait += delay
+
+		fetchResp, _ = ts.idxConn.FetchVectors(ctx, []string{sampleId})
+		queryResp, _ = ts.idxConn.QueryByVectorId(ctx, &QueryByVectorIdRequest{VectorId: sampleId, TopK: 1})
+	}
+	return nil
 }
 
 func setDimensionsForTestIndexes() uint32 {

@@ -6,9 +6,9 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// [IndexMetric] is the [distance metric] to be used by similarity search against a Pinecone [Index].
+// [IndexMetric] is the [similarity metric] to be used by similarity search against a Pinecone [Index].
 //
-// [distance metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#distance-metrics
+// [similarity metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#similarity-metrics
 type IndexMetric string
 
 const (
@@ -264,4 +264,98 @@ type Import struct {
 	CreatedAt       *time.Time   `json:"created_at,omitempty"`
 	FinishedAt      *time.Time   `json:"finished_at,omitempty"`
 	Error           *string      `json:"error,omitempty"`
+}
+
+type IntegratedRecord map[string]interface{}
+
+// SearchRecordsRequest represents a search request for records in a specific namespace.
+//
+// Fields:
+//   - Query: The query inputs to search with.
+//   - Fields: The fields to return in the search results.
+//   - Rerank: Parameters for reranking the initial search results.
+type SearchRecordsRequest struct {
+	Query  SearchRecordsQuery   `json:"query"`
+	Fields *[]string            `json:"fields,omitempty"`
+	Rerank *SearchRecordsRerank `json:"rerank,omitempty"`
+}
+
+// SearchRecordsQuery represents the query parameters for searching records.
+//
+// Fields:
+//   - TopK: The number of results to return for each search.
+//   - Filter: The filter to apply.
+//   - Id: The unique ID of the vector to be used as a query vector.
+//   - Inputs: Additional input parameters for the query.
+//   - Vector: The vector representation of the query.
+type SearchRecordsQuery struct {
+	TopK   int32                   `json:"top_k"`
+	Filter *map[string]interface{} `json:"filter,omitempty"`
+	Id     *string                 `json:"id,omitempty"`
+	Inputs *map[string]interface{} `json:"inputs,omitempty"`
+	Vector *SearchRecordsVector    `json:"vector,omitempty"`
+}
+
+// SearchRecordsRerank represents the parameters for reranking search results.
+//
+// Fields:
+//   - Model: The name of the [reranking model](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) to use.
+//   - RankFields: The field(s) to consider for reranking. Defaults to `["text"]`. The number of fields supported is [model-specific](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models).
+//   - Parameters: Additional model-specific parameters. Refer to the [model guide](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) for available model parameters.
+//   - Query: The query to rerank documents against. If a specific rerank query is specified,  it overwrites the query input that was provided at the top level.
+//   - TopN: The number of top results to return after reranking. Defaults to top_k.
+type SearchRecordsRerank struct {
+	Model      string                  `json:"model"`
+	RankFields []string                `json:"rank_fields"`
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+	Query      *string                 `json:"query,omitempty"`
+	TopN       *int32                  `json:"top_n,omitempty"`
+}
+
+// Hit represents a record whose vector values are similar to the provided search query.
+//
+// Fields:
+//   - Id: The record ID of the search hit.
+//   - Score: The similarity score of the returned record.
+//   - Fields: The selected record fields associated with the search hit.
+type Hit struct {
+	Id     string                 `json:"_id"`
+	Score  float32                `json:"_score"`
+	Fields map[string]interface{} `json:"fields"`
+}
+
+// SearchRecordsResponse represents the response of a records search.
+//
+// Fields:
+//   - Result: The result object containing the [Hit] responses for the search.
+//   - Usage: The resource usage details for the search operation.
+type SearchRecordsResponse struct {
+	Result struct {
+		Hits []Hit `json:"hits"`
+	} `json:"result"`
+	Usage SearchUsage `json:"usage"`
+}
+
+// SearchRecordsVector represents the vector data used in a search request.
+//
+// Fields:
+//   - SparseIndices: The sparse embedding indices.
+//   - SparseValues: The sparse embedding values.
+//   - Values: The dense vector data included in the request.
+type SearchRecordsVector struct {
+	SparseIndices *[]int32   `json:"sparse_indices,omitempty"`
+	SparseValues  *[]float32 `json:"sparse_values,omitempty"`
+	Values        *[]float32 `json:"values,omitempty"`
+}
+
+// SearchUsage represents the resource usage details of a search operation.
+//
+// Fields:
+//   - ReadUnits: The number of read units consumed by this operation.
+//   - EmbedTotalTokens: The number of embedding tokens consumed by this operation.
+//   - RerankUnits: The number of rerank units consumed by this operation.
+type SearchUsage struct {
+	ReadUnits        int32  `json:"read_units"`
+	EmbedTotalTokens *int32 `json:"embed_total_tokens,omitempty"`
+	RerankUnits      *int32 `json:"rerank_units,omitempty"`
 }

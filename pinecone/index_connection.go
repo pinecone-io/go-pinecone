@@ -1,6 +1,7 @@
 package pinecone
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -208,6 +209,83 @@ func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (ui
 		return 0, err
 	}
 	return res.UpsertedCount, nil
+}
+
+// [UpdateVectorRequest] holds the parameters for the [IndexConnection.UpdateVector] method.
+//
+// Fields:
+//   - Id: (Required) The unique ID of the vector to update.
+//   - Values: The values with which you want to update the vector.
+//   - SparseValues: The sparse values with which you want to update the vector.
+//   - Metadata: The metadata with which you want to update the vector.
+type UpdateVectorRequest struct {
+	Id           string
+	Values       []float32
+	SparseValues *SparseValues
+	Metadata     *Metadata
+}
+
+// [IndexConnection.UpdateVector] updates a vector in a Pinecone [Index] by ID.
+//
+// Returns an error if the request fails, returns nil otherwise.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - in: An [UpdateVectorRequest] object with the parameters for the request.
+//
+// Example:
+//
+//	    ctx := context.Background()
+//
+//	    clientParams := pinecone.NewClientParams{
+//		       ApiKey:    "YOUR_API_KEY",
+//		       SourceTag: "your_source_identifier", // optional
+//	    }
+//
+//	    pc, err := pinecone.NewClient(clientParams)
+//
+//	    if err != nil {
+//		       log.Fatalf("Failed to create Client: %v", err)
+//	    }
+//
+//	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//
+//	    if err != nil {
+//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	    }
+//
+//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
+//
+//	    if err != nil {
+//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	    }
+//
+//	    id := "abc-1"
+//
+//	    err = idxConnection.UpdateVector(ctx, &pinecone.UpdateVectorRequest{
+//		       Id:     id,
+//		       Values: []float32{7.0, 8.0},
+//	    })
+//
+//	    if err != nil {
+//		       log.Fatalf("Failed to update vector with ID %s. Error: %s", id, err)
+//	    }
+func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRequest) error {
+	if in.Id == "" {
+		return fmt.Errorf("a vector ID plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
+	}
+
+	req := &db_data_grpc.UpdateRequest{
+		Id:           in.Id,
+		Values:       in.Values,
+		SparseValues: sparseValToGrpc(in.SparseValues),
+		SetMetadata:  in.Metadata,
+		Namespace:    idx.Namespace,
+	}
+
+	_, err := (*idx.grpcClient).Update(idx.akCtx(ctx), req)
+	return err
 }
 
 // [FetchVectorsResponse] is returned by the [IndexConnection.FetchVectors] method.
@@ -606,6 +684,258 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 	return idx.query(ctx, req)
 }
 
+// [IndexConnection.UpsertRecords] upserts records into an integrated [Pinecone Index].
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - in: The [IntegratedRecord] objects to upsert.
+//
+// Returns an error if the request fails.
+//
+// Example:
+//
+//	     ctx := context.Background()
+//
+//	     clientParams := pinecone.NewClientParams{
+//		     ApiKey:    "YOUR_API_KEY",
+//		     SourceTag: "your_source_identifier", // optional
+//	     }
+//
+//	     pc, err := pinecone.NewClient(clientParams)
+//
+//	     if err != nil {
+//		     log.Fatalf("Failed to create Client: %v", err)
+//	     }
+//
+//	     idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//
+//	     if err != nil {
+//		     log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	     }
+//
+//	     idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "my-namespace"})
+//
+//	     records := []*IntegratedRecord{
+//		     {
+//			     "_id":        "rec1",
+//			     "chunk_text": "Apple's first product, the Apple I, was released in 1976 and was hand-built by co-founder Steve Wozniak.",
+//			     "category":   "product",
+//		     },
+//		     {
+//			     "_id":        "rec2",
+//			     "chunk_text": "Apples are a great source of dietary fiber, which supports digestion and helps maintain a healthy gut.",
+//			     "category":   "nutrition",
+//		     },
+//		     {
+//			     "_id":        "rec3",
+//			     "chunk_text": "Apples originated in Central Asia and have been cultivated for thousands of years, with over 7,500 varieties available today.",
+//			     "category":   "cultivation",
+//		     },
+//		     {
+//			     "_id":        "rec4",
+//			     "chunk_text": "In 2001, Apple released the iPod, which transformed the music industry by making portable music widely accessible.",
+//			     "category":   "product",
+//		     },
+//		     {
+//			     "_id":        "rec5",
+//			     "chunk_text": "Apple went public in 1980, making history with one of the largest IPOs at that time.",
+//			     "category":   "milestone",
+//		     },
+//		     {
+//			     "_id":        "rec6",
+//			     "chunk_text": "Rich in vitamin C and other antioxidants, apples contribute to immune health and may reduce the risk of chronic diseases.",
+//			     "category":   "nutrition",
+//		     },
+//		     {
+//			     "_id":        "rec7",
+//			     "chunk_text": "Known for its design-forward products, Apple's branding and market strategy have greatly influenced the technology sector and popularized minimalist design worldwide.",
+//			     "category":   "influence",
+//		     },
+//		     {
+//			     "_id":        "rec8",
+//			     "chunk_text": "The high fiber content in apples can also help regulate blood sugar levels, making them a favorable snack for people with diabetes.",
+//			     "category":   "nutrition",
+//		     },
+//	     }
+//
+//	     err = idxConnection.UpsertRecords(ctx, &records)
+//	     if err != nil {
+//		     log.Fatalf("Failed to upsert vectors. Error: %v", err)
+//	     } else {
+//		     log.Fatalf("Successfully upserted %d vector(s)!\n", count)
+//	     }
+//
+// [Pinecone Index]: https://docs.pinecone.io/reference/api/2025-01/control-plane/create_for_model
+func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*IntegratedRecord) error {
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+
+	for _, record := range records {
+		if record != nil {
+			_, hasUnderscoreId := (*record)["_id"]
+			_, hasId := (*record)["id"]
+
+			if !hasUnderscoreId && !hasId {
+				return fmt.Errorf("record must have an 'id' or '_id' field")
+			}
+		}
+		if err := encoder.Encode(record); err != nil {
+			return fmt.Errorf("failed to encode record: %v", err)
+		}
+	}
+
+	_, err := idx.restClient.UpsertRecordsNamespaceWithBody(ctx, idx.Namespace, "application/x-ndjson", &buffer)
+	if err != nil {
+		return fmt.Errorf("failed to upsert records: %v", err)
+	}
+	return nil
+}
+
+// [IndexConnection.SearchRecords] converts a query to a vector embedding and then searches a namespace in an integrated index.
+// You can optionally provide a reranking operation as part of the search.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - in: The [IntegratedRecord] objects to upsert.
+//
+// Returns an error if the request fails.
+//
+// Example:
+//
+//		   ctx := context.Background()
+//
+//		   clientParams := pinecone.NewClientParams{
+//			   ApiKey:    "YOUR_API_KEY",
+//			   SourceTag: "your_source_identifier", // optional
+//		   }
+//
+//		   pc, err := pinecone.NewClient(clientParams)
+//
+//		   if err != nil {
+//			   log.Fatalf("Failed to create Client: %v", err)
+//		   }
+//
+//		   idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//
+//		   if err != nil {
+//			   log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//		   }
+//
+//		   idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "my-namespace"})
+//
+//		   records := []*IntegratedRecord{
+//			     {
+//				     "_id":        "rec1",
+//				     "chunk_text": "Apple's first product, the Apple I, was released in 1976 and was hand-built by co-founder Steve Wozniak.",
+//				     "category":   "product",
+//			     },
+//			     {
+//				     "_id":        "rec2",
+//				     "chunk_text": "Apples are a great source of dietary fiber, which supports digestion and helps maintain a healthy gut.",
+//				     "category":   "nutrition",
+//			     },
+//			     {
+//				     "_id":        "rec3",
+//				     "chunk_text": "Apples originated in Central Asia and have been cultivated for thousands of years, with over 7,500 varieties available today.",
+//				     "category":   "cultivation",
+//			     },
+//			     {
+//				     "_id":        "rec4",
+//				     "chunk_text": "In 2001, Apple released the iPod, which transformed the music industry by making portable music widely accessible.",
+//				     "category":   "product",
+//			     },
+//			     {
+//				     "_id":        "rec5",
+//				     "chunk_text": "Apple went public in 1980, making history with one of the largest IPOs at that time.",
+//				     "category":   "milestone",
+//			     },
+//			     {
+//				     "_id":        "rec6",
+//				     "chunk_text": "Rich in vitamin C and other antioxidants, apples contribute to immune health and may reduce the risk of chronic diseases.",
+//				     "category":   "nutrition",
+//			     },
+//			     {
+//				     "_id":        "rec7",
+//				     "chunk_text": "Known for its design-forward products, Apple's branding and market strategy have greatly influenced the technology sector and popularized minimalist design worldwide.",
+//				     "category":   "influence",
+//			     },
+//			     {
+//				     "_id":        "rec8",
+//				     "chunk_text": "The high fiber content in apples can also help regulate blood sugar levels, making them a favorable snack for people with diabetes.",
+//				     "category":   "nutrition",
+//			     },
+//		     }
+//
+//	      err = idxConnection.UpsertRecords(ctx, records)
+//	      if err != nil {
+//		         log.Fatalf("Failed to upsert vectors. Error: %v", err)
+//	      }
+//
+//	      res, err := idxConnection.SearchRecords(ctx, &SearchRecordsRequest{
+//		         Query: SearchRecordsQuery{
+//			         TopK: 5,
+//			         Inputs: &map[string]interface{}{
+//			 	         "text": "Disease prevention",
+//			         },
+//		         },
+//	      })
+//	      if err != nil {
+//		         log.Fatalf("Failed to search records: %v", err)
+//	      }
+//	      fmt.Printf("Search results: %+v\n", res)
+//
+// [Pinecone Index]: https://docs.pinecone.io/reference/api/2025-01/control-plane/create_for_model
+func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecordsRequest) (*SearchRecordsResponse, error) {
+	var convertedVector *db_data_rest.SearchRecordsVector
+	if in.Query.Vector != nil {
+		convertedVector = &db_data_rest.SearchRecordsVector{
+			Values:        in.Query.Vector.Values,
+			SparseIndices: in.Query.Vector.SparseIndices,
+			SparseValues:  in.Query.Vector.SparseValues,
+		}
+	}
+
+	req := db_data_rest.SearchRecordsRequest{
+		Fields: in.Fields,
+		Query: struct {
+			Filter *map[string]interface{}           `json:"filter,omitempty"`
+			Id     *string                           `json:"id,omitempty"`
+			Inputs *map[string]interface{}           `json:"inputs,omitempty"`
+			TopK   int32                             `json:"top_k"`
+			Vector *db_data_rest.SearchRecordsVector `json:"vector,omitempty"`
+		}{
+			Filter: in.Query.Filter,
+			Id:     in.Query.Id,
+			Inputs: in.Query.Inputs,
+			TopK:   in.Query.TopK,
+			Vector: convertedVector},
+	}
+
+	if in.Rerank != nil {
+		req.Rerank = &struct {
+			Model      string                  `json:"model"`
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
+			Query      *string                 `json:"query,omitempty"`
+			RankFields []string                `json:"rank_fields"`
+			TopN       *int32                  `json:"top_n,omitempty"`
+		}{
+			Model:      in.Rerank.Model,
+			Parameters: in.Rerank.Parameters,
+			Query:      in.Rerank.Query,
+			RankFields: in.Rerank.RankFields,
+			TopN:       in.Rerank.TopN,
+		}
+	}
+
+	res, err := (*idx.restClient).SearchRecordsNamespace(idx.akCtx(ctx), idx.Namespace, req)
+	if err != nil {
+		return nil, err
+	}
+	return decodeSearchRecordsResponse(res.Body)
+}
+
 // [IndexConnection.DeleteVectorsById] deletes vectors by ID from a Pinecone [Index].
 //
 // Returns an error if the request fails, otherwise returns nil. This method will also return
@@ -775,83 +1105,6 @@ func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx context.Context) err
 	}
 
 	return idx.delete(ctx, &req)
-}
-
-// [UpdateVectorRequest] holds the parameters for the [IndexConnection.UpdateVector] method.
-//
-// Fields:
-//   - Id: (Required) The unique ID of the vector to update.
-//   - Values: The values with which you want to update the vector.
-//   - SparseValues: The sparse values with which you want to update the vector.
-//   - Metadata: The metadata with which you want to update the vector.
-type UpdateVectorRequest struct {
-	Id           string
-	Values       []float32
-	SparseValues *SparseValues
-	Metadata     *Metadata
-}
-
-// [IndexConnection.UpdateVector] updates a vector in a Pinecone [Index] by ID.
-//
-// Returns an error if the request fails, returns nil otherwise.
-//
-// Parameters:
-//   - ctx: A context.Context object controls the request's lifetime,
-//     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - in: An [UpdateVectorRequest] object with the parameters for the request.
-//
-// Example:
-//
-//	    ctx := context.Background()
-//
-//	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
-//	    }
-//
-//	    pc, err := pinecone.NewClient(clientParams)
-//
-//	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
-//
-//	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//
-//	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//	    }
-//
-//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-//
-//	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	    }
-//
-//	    id := "abc-1"
-//
-//	    err = idxConnection.UpdateVector(ctx, &pinecone.UpdateVectorRequest{
-//		       Id:     id,
-//		       Values: []float32{7.0, 8.0},
-//	    })
-//
-//	    if err != nil {
-//		       log.Fatalf("Failed to update vector with ID %s. Error: %s", id, err)
-//	    }
-func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRequest) error {
-	if in.Id == "" {
-		return fmt.Errorf("a vector ID plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
-	}
-
-	req := &db_data_grpc.UpdateRequest{
-		Id:           in.Id,
-		Values:       in.Values,
-		SparseValues: sparseValToGrpc(in.SparseValues),
-		SetMetadata:  in.Metadata,
-		Namespace:    idx.Namespace,
-	}
-
-	_, err := (*idx.grpcClient).Update(idx.akCtx(ctx), req)
-	return err
 }
 
 // [DescribeIndexStatsResponse] is returned by the [IndexConnection.DescribeIndexStats] method.
@@ -1269,6 +1522,15 @@ func (idx *IndexConnection) CancelImport(ctx context.Context, id string) error {
 	return nil
 }
 
+func decodeSearchRecordsResponse(body io.ReadCloser) (*SearchRecordsResponse, error) {
+	var searchRecordsResponse *db_data_rest.SearchRecordsResponse
+	if err := json.NewDecoder(body).Decode(&searchRecordsResponse); err != nil {
+		return nil, err
+	}
+
+	return toSearchRecordsResponse(searchRecordsResponse), nil
+}
+
 func decodeListImportsResponse(body io.ReadCloser) (*ListImportsResponse, error) {
 	var listImportsResponse *db_data_rest.ListImportsResponse
 	if err := json.NewDecoder(body).Decode(&listImportsResponse); err != nil {
@@ -1433,6 +1695,36 @@ func toListImportsResponse(listImportsResponse *db_data_rest.ListImportsResponse
 	return &ListImportsResponse{
 		Imports:             imports,
 		NextPaginationToken: toPaginationTokenRest(listImportsResponse.Pagination),
+	}
+}
+
+func toSearchRecordsResponse(searchRecordsResponse *db_data_rest.SearchRecordsResponse) *SearchRecordsResponse {
+	if searchRecordsResponse == nil {
+		return nil
+	}
+
+	hits := make([]Hit, len(searchRecordsResponse.Result.Hits))
+	for i, hit := range searchRecordsResponse.Result.Hits {
+		hits[i] = Hit{
+			Id:     hit.Id,
+			Score:  hit.Score,
+			Fields: hit.Fields,
+		}
+	}
+
+	return &SearchRecordsResponse{
+		Result: struct {
+			Hits []Hit "json:\"hits\""
+		}{Hits: hits},
+		Usage: toSearchUsage(searchRecordsResponse.Usage),
+	}
+}
+
+func toSearchUsage(searchUsage db_data_rest.SearchUsage) SearchUsage {
+	return SearchUsage{
+		ReadUnits:        searchUsage.ReadUnits,
+		EmbedTotalTokens: searchUsage.EmbedTotalTokens,
+		RerankUnits:      searchUsage.RerankUnits,
 	}
 }
 

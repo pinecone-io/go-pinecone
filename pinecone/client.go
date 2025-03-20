@@ -783,6 +783,187 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 	return decodeIndex(res.Body)
 }
 
+// [CreateIndexForModelRequest] defines the desired configuration for creating an index with an associated embedding model.
+//
+// Fields:
+//   - Name: (Required) The name of the [Index]. Resource name must be 1-45 characters long,
+//     start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
+//   - Cloud: (Required) The public [cloud provider] where you would like your [Index] hosted.
+//   - Region: (Required) The [region] where you would like your [Index] to be created.
+//   - DeletionProtection: (Optional) Whether [deletion protection] is enabled or disabled for the index.
+//     When enabled, the index cannot be deleted. Defaults to disabled.
+//   - Embed: (Required) The [CreateIndexForModelEmbed] object for embedding model configuration.
+//     Once set, the model cannot be changed, but embedding configurations such as field map, read parameters,
+//     or write parameters can be updated.
+//   - FieldMap: Identifies the name of the text field from your document model that will be embedded.
+//   - Metric: The [similarity metric] to be used for similarity search. Options: 'euclidean', 'cosine', or 'dotproduct'.
+//     If not specified, the metric will default according to the model and cannot be updated once set.
+//   - Model: The name of the embedding model to use for the index.
+//   - ReadParameters: The read parameters for the embedding model.
+//   - WriteParameters: The write parameters for the embedding model.
+//   - Tags: (Optional) Custom user tags added to an index.
+//     Keys must be 80 characters or less, values must be 120 characters or less.
+//     Keys must be alphanumeric, '_', or '-'. Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '.
+//     To unset a key, set the value to be an empty string.
+//
+// To create an index with an associated embedding model, use the [Client.CreateIndexForModel] method.
+//
+// Example:
+//
+//	ctx := context.Background()
+//
+//	clientParams := pinecone.NewClientParams{
+//	     ApiKey:    "YOUR_API_KEY",
+//	     SourceTag: "your_source_identifier", // optional
+//	}
+//
+//	pc, err := pinecone.NewClient(clientParams)
+//	if err != nil {
+//	     log.Fatalf("Failed to create Client: %v", err)
+//	}
+//
+//	request := &pinecone.CreateIndexForModelRequest{
+//	     Name:   "my-index",
+//	     Cloud:  pinecone.Aws,
+//	     Region: "us-east-1",
+//	     Embed: CreateIndexForModelEmbed{
+//			Model:    "multilingual-e5-large",
+//			FieldMap: map[string]interface{}{"text": "chunk_text"},
+//		 },
+//	}
+//
+//	idx, err := pc.CreateIndexForModel(ctx, request)
+//	if err != nil {
+//	     log.Fatalf("Failed to create index: %v", err)
+//	} else {
+//	     fmt.Printf("Successfully created index: %s", idx.Name)
+//	}
+//
+// [Index]: https://docs.pinecone.io/guides/indexes/understanding-indexes
+// [region]: https://docs.pinecone.io/troubleshooting/available-cloud-regions
+// [cloud provider]: https://docs.pinecone.io/troubleshooting/available-cloud-regions#regions-available-for-serverless-indexes
+// [deletion protection]: https://docs.pinecone.io/guides/indexes/manage-indexes#enable-deletion-protection
+// [similarity metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#similarity-metrics
+type CreateIndexForModelRequest struct {
+	Name               string
+	Cloud              Cloud
+	Region             string
+	DeletionProtection *DeletionProtection
+	Embed              CreateIndexForModelEmbed
+	Tags               *IndexTags
+}
+
+// [CreateIndexForModelEmbed] defines the embedding model configuration for an index.
+//
+// Fields:
+//   - Model: (Required) The name of the embedding model to use for the index.
+//   - FieldMap: (Required) Identifies the name of the text field from your document model that will be embedded.
+//   - Metric: (Optional) The [similarity metric] to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
+//     If not specified, the metric will be defaulted according to the model. Cannot be updated once set.
+//   - ReadParameters: (Optional) Read parameters for the embedding model.
+//   - WriteParameters: (Optional) Write parameters for the embedding model.
+//
+// The `CreateIndexForModelEmbed` struct is used as part of the [CreateIndexForModelRequest] when creating an index
+// with an associated embedding model. Once an index is created, the `model` field cannot be changed, but other
+// configurations such as `field_map`, `read_parameters`, and `write_parameters` can be updated.
+//
+// [similarity metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#similarity-metrics
+type CreateIndexForModelEmbed struct {
+	Model           string
+	FieldMap        map[string]interface{}
+	Metric          *IndexMetric
+	ReadParameters  *map[string]interface{}
+	WriteParameters *map[string]interface{}
+}
+
+// [Client.CreateIndexForModel] creates and initializes a new serverless Index via the specified [Client] that is configured
+// for use with one of Pinecone's integrated inference models. After the index is created, you can upsert and search for records
+// using the [IndexConnection.UpsertRecords] and [IndexConnection.SearchRecords] methods.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime, allowing for the request
+//     to be canceled or to timeout according to the context's deadline.
+//   - in: A pointer to a [CreateIndexForModelRequest] object. See [CreateIndexForModelRequest] for more information.
+//
+// Returns a pointer to an [Index] object or an error.
+//
+// Example:
+//
+//	    ctx := context.Background()
+//
+//	    clientParams := pinecone.NewClientParams{
+//		       ApiKey:    "YOUR_API_KEY",
+//		       SourceTag: "your_source_identifier", // optional
+//	    }
+//
+//	    pc, err := pinecone.NewClient(clientParams)
+//	    if err != nil {
+//	        log.Fatalf("Failed to create Client: %v", err)
+//	    } else {
+//		       fmt.Println("Successfully created a new Client object!")
+//	    }
+//
+//	    indexName := "my-serverless-index"
+//
+//	    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+//		    Name:    indexName,
+//		    Dimension: 3,
+//		    Metric:  pinecone.Cosine,
+//		    Cloud:   pinecone.Aws,
+//		    Region:  "us-east-1",
+//		})
+//
+//		if err != nil {
+//		    log.Fatalf("Failed to create serverless index: %s", indexName)
+//		} else {
+//		    fmt.Printf("Successfully created serverless index: %s", idx.Name)
+//		}
+func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForModelRequest) (*Index, error) {
+	if in.Name == "" || in.Cloud == "" || in.Region == "" || in.Embed.Model == "" {
+		return nil, fmt.Errorf("fields Name, Cloud, and Region, and Embed.Model must be included in CreateServerlessIndexRequest")
+	}
+
+	deletionProtection := derefOrDefault(in.DeletionProtection, "disabled")
+
+	var tags *db_control.IndexTags
+	if in.Tags != nil {
+		tags = (*db_control.IndexTags)(in.Tags)
+	}
+
+	req := db_control.CreateIndexForModelRequest{
+		Name:   in.Name,
+		Region: in.Region,
+		Cloud:  db_control.CreateIndexForModelRequestCloud(in.Cloud),
+		Embed: struct {
+			FieldMap        map[string]interface{}                            `json:"field_map"`
+			Metric          *db_control.CreateIndexForModelRequestEmbedMetric `json:"metric,omitempty"`
+			Model           string                                            `json:"model"`
+			ReadParameters  *map[string]interface{}                           `json:"read_parameters,omitempty"`
+			WriteParameters *map[string]interface{}                           `json:"write_parameters,omitempty"`
+		}{
+			FieldMap:        in.Embed.FieldMap,
+			Metric:          (*db_control.CreateIndexForModelRequestEmbedMetric)(in.Embed.Metric),
+			Model:           in.Embed.Model,
+			ReadParameters:  in.Embed.ReadParameters,
+			WriteParameters: in.Embed.WriteParameters,
+		},
+		DeletionProtection: (*db_control.DeletionProtection)(&deletionProtection),
+		Tags:               tags,
+	}
+
+	res, err := c.restClient.CreateIndexForModel(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		return nil, handleErrorResponseBody(res, "failed to create index: ")
+	}
+
+	return decodeIndex(res.Body)
+}
+
 // [Client.DescribeIndex] retrieves information about a specific [Index]. See [Index] for more information.
 //
 // Parameters:
@@ -898,6 +1079,7 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //   - DeletionProtection: (Optional) DeletionProtection determines whether [deletion protection]
 //     is "enabled" or "disabled" for the index. When "enabled", the index cannot be deleted. Defaults to "disabled".
 //   - Tags: (Optional) A map of tags to associate with the Index.
+//   - Embed: (Optional) The [ConfigureIndexEmbed] object for integrated index configuration.
 //
 // Example:
 //
@@ -925,6 +1107,26 @@ type ConfigureIndexParams struct {
 	Replicas           int32
 	DeletionProtection DeletionProtection
 	Tags               IndexTags
+	Embed              *ConfigureIndexEmbed
+}
+
+// [ConfigureIndexEmbed] contains parameters for configuring the integrated inference embedding settings for an [Index].
+// You can convert an existing serverless index to an integrated index by specifying the Model and FieldMap.
+// The index vector type and dimension must match the model vector type and dimension, and the index similarity metric must be supported by the model.
+// Refer to the [model guide](https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models) for available models and model details.
+//
+// You can later change the embedding configuration to update the field map, read parameters, or write parameters. Once set, the model cannot be changed.
+//
+// Fields:
+//   - FieldMap: (Optional) Identifies the name of the text field from your document model that will be embedded.
+//   - Model: (Optional) The name of the embedding model to use with the index.
+//   - ReadParameters: (Optional) The read parameters for the embedding model.
+//   - WriteParameters: (Optional) The write parameters for the embedding model.
+type ConfigureIndexEmbed struct {
+	FieldMap        *map[string]interface{}
+	Model           *string
+	ReadParameters  *map[string]interface{}
+	WriteParameters *map[string]interface{}
 }
 
 // [Client.ConfigureIndex] is used to [scale a pods-based index] up or down by changing the size of the pods or the number of
@@ -1002,6 +1204,21 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 				},
 			}
 	}
+	if in.Embed != nil {
+		request.Embed =
+			&struct {
+				FieldMap        *map[string]interface{} `json:"field_map,omitempty"`
+				Model           *string                 `json:"model,omitempty"`
+				ReadParameters  *map[string]interface{} `json:"read_parameters,omitempty"`
+				WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+			}{
+				FieldMap:        in.Embed.FieldMap,
+				Model:           in.Embed.Model,
+				ReadParameters:  in.Embed.ReadParameters,
+				WriteParameters: in.Embed.WriteParameters,
+			}
+	}
+
 	request.DeletionProtection = (*db_control.DeletionProtection)(deletionProtection)
 	request.Tags = (*db_control.IndexTags)(mergeIndexTags(existingTags, in.Tags))
 
@@ -1386,7 +1603,6 @@ type EmbedResponse struct {
 //		       fmt.Printf("Successfull generated embeddings: %+v", res)
 //	    }
 func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedResponse, error) {
-
 	if len(in.TextInputs) == 0 {
 		return nil, fmt.Errorf("TextInputs must contain at least one value")
 	}

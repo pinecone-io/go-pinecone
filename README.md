@@ -218,6 +218,53 @@ func main() {
 }
 ```
 
+**Create a serverless integrated index**
+
+Integrated inference requires a serverless index configured for a specific embedding model. You can either create a new index for a model, or configure an existing index for a model. To create an index that accepts source text and converts it to vectors automatically using an embedding model hosted by Pinecone, use the `Client.CreateIndexForModel` method:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
+	ctx := context.Background()
+
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
+
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
+
+	index, err := pc.CreateIndexForModel(ctx, &CreateIndexForModelRequest{
+		Name:   "my-integrated-index",
+		Cloud:  "aws",
+		Region: "us-east-1",
+		Embed: CreateIndexForModelEmbed{
+			Model:    "multilingual-e5-large",
+			FieldMap: map[string]interface{}{"text": "chunk_text"},
+		},
+	})
+
+	if err != nil {
+		log.Fatalf("Failed to create serverless integrated index: %v", err)
+	} else {
+		fmt.Printf("Successfully created serverless integrated index: %s", idx.Name)
+	}
+}
+```
+
 **Create a pod-based index**
 
 The following example creates a pod-based index with a metadata configuration. If no metadata configuration is
@@ -475,6 +522,17 @@ func main() {
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
+
+	// To convert an existing serverless index into an integrated index
+	model := "multilingual-e5-large"
+	_, err := pc.ConfigureIndex(ctx, "my-serverless-index", pinecone.ConfigureIndexParams{
+		Embed: &pinecone.ConfigureIndexEmbed{
+			FieldMap: &map[string]interface{}{
+				"text": "my-text-field",
+			},
+			Model: &model,
+		},
+	})
 }
 ```
 
@@ -572,9 +630,7 @@ func main() {
 
 ### Upsert vectors
 
-The following example upserts
-vectors ([both dense and sparse](https://docs.pinecone.io/guides/data/upsert-sparse-dense-vectors)) and metadata
-to `example-index`.
+The following example upserts dense vectors and metadata to `example-index`.
 
 ```go
 package main
@@ -617,35 +673,113 @@ func main() {
 	}
 	metadata, err := structpb.NewStruct(metadataMap)
 
-	sparseValues := pinecone.SparseValues{
-		Indices: []uint32{0, 1, 2, 3, 4, 5, 6, 7},
-		Values:  []float32{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0},
-	}
-
 	vectors := []*pinecone.Vector{
 		{
 			Id:           "A",
 			Values:       []float32{0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
 			Metadata:     metadata,
-			SparseValues: &sparseValues,
 		},
 		{
 			Id:           "B",
 			Values:       []float32{0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2},
 			Metadata:     metadata,
-			SparseValues: &sparseValues,
 		},
 		{
 			Id:           "C",
 			Values:       []float32{0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3},
 			Metadata:     metadata,
-			SparseValues: &sparseValues,
 		},
 		{
 			Id:           "D",
 			Values:       []float32{0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4},
 			Metadata:     metadata,
-			SparseValues: &sparseValues,
+		},
+	}
+
+	count, err := idxConnection.UpsertVectors(ctx, vectors)
+	if err != nil {
+		log.Fatalf("Failed to upsert vectors: %v", err)
+	} else {
+		fmt.Printf("Successfully upserted %d vector(s)", count)
+	}
+}
+```
+
+The following example upserts sparse vectors and metadata to `example-sparse-index`.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/pinecone-io/go-pinecone/v3/pinecone"
+	"google.golang.org/protobuf/types/known/structpb"
+	"log"
+	"os"
+)
+
+func main() {
+	ctx := context.Background()
+
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
+
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	} else {
+		fmt.Println("Successfully created a new Client object!")
+	}
+
+	idx, err := pc.DescribeIndex(ctx, "example-sparse-index")
+	if err != nil {
+		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+	}
+
+	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
+	if err != nil {
+		log.Fatalf("Failed to create IndexConnection for Host: %v: %v", idx.Host, err)
+	}
+
+	metadataMap := map[string]interface{}{
+		"genre": "classical",
+	}
+	metadata, err := structpb.NewStruct(metadataMap)
+
+	vectors := []*pinecone.Vector{
+		{
+			Id:           "A",
+			Metadata:     metadata,
+			SparseValues: &pinecone.SparseValues{
+				Indices: []uint32{0, 1, 2, 3, 4, 5, 6, 7},
+				Values:  []float32{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0},
+			},
+		},
+		{
+			Id:           "B",
+			Metadata:     metadata,
+			SparseValues: &pinecone.SparseValues{
+				Indices: []uint32{0, 1, 2, 3, 4, 5, 6, 7},
+				Values:  []float32{3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 8.0},
+			},
+		},
+		{
+			Id:           "C",
+			Metadata:     metadata,
+			SparseValues: &pinecone.SparseValues{
+				Indices: []uint32{0, 1, 2, 3, 4, 5, 6, 7},
+				Values:  []float32{4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 8.0, 7.0},
+			},
+		},
+		{
+			Id:           "D",
+			Metadata:     metadata,
+			SparseValues: &pinecone.SparseValues{
+				Indices: []uint32{0, 1, 2, 3, 4, 5, 6, 7},
+				Values:  []float32{5.0, 6.0, 7.0, 8.0, 9.0, 8.0, 7.0, 6.0},
+			},
 		},
 	}
 
@@ -727,10 +861,7 @@ You can [start, cancel, and check the status](https://docs.pinecone.io/guides/da
 
 #### Query by vector values
 
-The following example queries the index `example-index` with vector values and metadata filtering. Note: you can
-also query by sparse values;
-see [sparse-dense documentation](https://docs.pinecone.io/guides/data/query-sparse-dense-vectors)
-for examples.
+The following example queries the index `example-index` with dense vector values and metadata filtering.
 
 ```go
 package main
@@ -1452,16 +1583,9 @@ func main() {
 ## Inference
 
 The `Client` object has an `Inference` namespace which allows interacting with
-Pinecone's [Inference API](https://docs.pinecone.io/reference/api/2024-07/inference/generate-embeddings). The Inference
+Pinecone's [Inference API](https://docs.pinecone.io/guides/inference/generate-embeddings). The Inference
 API is a service that gives you access to embedding models hosted on Pinecone's infrastructure. Read more
 at [Understanding Pinecone Inference](https://docs.pinecone.io/guides/inference/understanding-inference).
-
-**Notes:**
-
-Models currently supported:
-
-- Embedding: [multilingual-e5-large](https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models)
-- Reranking: [bge-reranker-v2-m3](https://docs.pinecone.io/models/bge-reranker-v2-m3)
 
 ### Create Embeddings
 
@@ -1573,6 +1697,137 @@ indicating higher relevance.
     }
 
     fmt.Printf("rerank response: %+v", rerankResponse)
+```
+
+### Integrated Inference
+
+When using an index with integrated inference, embedding and reranking operations are tied to index operations and do not require extra steps. This allows working with an index that accepts source text and converts it to vectors automatically using an embedding model hosted by Pinecone.
+
+Integrated inference requires a serverless index configured for a specific embedding model. You can either create a new index for a model or configure an existing index for a model. See **Create a serverless integrated index** above for specifics on creating these indexes.
+
+Once you have an index configured for a specific embedding model, use the `IndexConnection.UpsertRecords` method to convert your source data to embeddings and upsert them into a namespace.
+
+**Upsert integrated records**
+
+Note the following requirements for each record:
+
+- Each record must contain a unique `_id`, which will serve as the record identifier in the index namespace.
+- Each record must contain a field with the data for embedding. This field must match the `FieldMap` specified when creating the index.
+- Any additional fields in the record will be stored in the index and can be returned in search results or used to filter search results.
+
+```go
+	ctx := context.Background()
+
+	clientParams := pinecone.NewClientParams{
+		ApiKey:    "YOUR_API_KEY",
+	}
+
+	pc, err := pinecone.NewClient(clientParams)
+
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	}
+
+	idx, err := pc.DescribeIndex(ctx, "your-index-name")
+
+	if err != nil {
+		log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+	}
+
+	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "my-namespace"})
+
+	records := []*IntegratedRecord{
+			{
+				"_id":        "rec1",
+				"chunk_text": "Apple's first product, the Apple I, was released in 1976 and was hand-built by co-founder Steve Wozniak.",
+				"category":   "product",
+			},
+			{
+				"_id":        "rec2",
+				"chunk_text": "Apples are a great source of dietary fiber, which supports digestion and helps maintain a healthy gut.",
+				"category":   "nutrition",
+			},
+			{
+				"_id":        "rec3",
+				"chunk_text": "Apples originated in Central Asia and have been cultivated for thousands of years, with over 7,500 varieties available today.",
+				"category":   "cultivation",
+			},
+			{
+				"_id":        "rec4",
+				"chunk_text": "In 2001, Apple released the iPod, which transformed the music industry by making portable music widely accessible.",
+				"category":   "product",
+			},
+			{
+				"_id":        "rec5",
+				"chunk_text": "Apple went public in 1980, making history with one of the largest IPOs at that time.",
+				"category":   "milestone",
+			},
+			{
+				"_id":        "rec6",
+				"chunk_text": "Rich in vitamin C and other antioxidants, apples contribute to immune health and may reduce the risk of chronic diseases.",
+				"category":   "nutrition",
+			},
+			{
+				"_id":        "rec7",
+				"chunk_text": "Known for its design-forward products, Apple's branding and market strategy have greatly influenced the technology sector and popularized minimalist design worldwide.",
+				"category":   "influence",
+			},
+			{
+				"_id":        "rec8",
+				"chunk_text": "The high fiber content in apples can also help regulate blood sugar levels, making them a favorable snack for people with diabetes.",
+				"category":   "nutrition",
+			},
+		}
+
+	err = idxConnection.UpsertRecords(ctx, records)
+	if err != nil {
+			log.Fatalf("Failed to upsert vectors. Error: %v", err)
+	}
+```
+
+**Search integrated records**
+
+Use the `IndexConnection.SearchRecords` method to convert a query to a vector embedding and then search your namespace for the most semantically similar records, along with their similarity scores.
+
+```go
+	res, err := idxConnection.SearchRecords(ctx, &SearchRecordsRequest{
+			Query: SearchRecordsQuery{
+				TopK: 5,
+				Inputs: &map[string]interface{}{
+					"text": "Disease prevention",
+				},
+			},
+	})
+	if err != nil {
+			log.Fatalf("Failed to search records: %v", err)
+	}
+	fmt.Printf("Search results: %+v\n", res)
+```
+
+To rerank initial search results based on relevance to the query, add the rerank parameter, including the [reranking model](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) you want to use, the number of reranked results to return, and the fields to use for reranking, if different than the main query.
+
+For example, repeat the search for the 4 documents most semantically related to the query, “Disease prevention”, but this time rerank the results and return only the 2 most relevant documents:
+
+```go
+	topN := int32(2)
+	res, err := idxConnection.SearchRecords(ctx, &SearchRecordsRequest{
+			Query: SearchRecordsQuery{
+				TopK: 5,
+				Inputs: &map[string]interface{}{
+					"text": "Disease prevention",
+				},
+			},
+			Rerank: &SearchRecordsRerank{
+				Model:      "bge-reranker-v2-m3",
+				TopN:       &topN,
+				RankFields: []string{"chunk_text"},
+			},
+			Fields: &[]string{"chunk_text", "category"},
+		})
+	if err != nil {
+			log.Fatalf("Failed to search records: %v", err)
+	}
+	fmt.Printf("Search results: %+v\n", res)
 ```
 
 ## Support
