@@ -247,11 +247,11 @@ func main() {
 		fmt.Println("Successfully created a new Client object!")
 	}
 
-	index, err := pc.CreateIndexForModel(ctx, &CreateIndexForModelRequest{
+	index, err := pc.CreateIndexForModel(ctx, &pinecone.CreateIndexForModelRequest{
 		Name:   "my-integrated-index",
 		Cloud:  "aws",
 		Region: "us-east-1",
-		Embed: CreateIndexForModelEmbed{
+		Embed: pinecone.CreateIndexForModelEmbed{
 			Model:    "multilingual-e5-large",
 			FieldMap: map[string]interface{}{"text": "chunk_text"},
 		},
@@ -1736,7 +1736,7 @@ Note the following requirements for each record:
 
 	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "my-namespace"})
 
-	records := []*IntegratedRecord{
+	records := []*pinecone.IntegratedRecord{
 			{
 				"_id":        "rec1",
 				"chunk_text": "Apple's first product, the Apple I, was released in 1976 and was hand-built by co-founder Steve Wozniak.",
@@ -1790,8 +1790,8 @@ Note the following requirements for each record:
 Use the `IndexConnection.SearchRecords` method to convert a query to a vector embedding and then search your namespace for the most semantically similar records, along with their similarity scores.
 
 ```go
-	res, err := idxConnection.SearchRecords(ctx, &SearchRecordsRequest{
-			Query: SearchRecordsQuery{
+	res, err := idxConnection.SearchRecords(ctx, &pinecone.SearchRecordsRequest{
+			Query: pinecone.SearchRecordsQuery{
 				TopK: 5,
 				Inputs: &map[string]interface{}{
 					"text": "Disease prevention",
@@ -1810,14 +1810,14 @@ For example, repeat the search for the 4 documents most semantically related to 
 
 ```go
 	topN := int32(2)
-	res, err := idxConnection.SearchRecords(ctx, &SearchRecordsRequest{
-			Query: SearchRecordsQuery{
+	res, err := idxConnection.SearchRecords(ctx, &pinecone.SearchRecordsRequest{
+			Query: pinecone.SearchRecordsQuery{
 				TopK: 5,
 				Inputs: &map[string]interface{}{
 					"text": "Disease prevention",
 				},
 			},
-			Rerank: &SearchRecordsRerank{
+			Rerank: &pinecone.SearchRecordsRerank{
 				Model:      "bge-reranker-v2-m3",
 				TopN:       &topN,
 				RankFields: []string{"chunk_text"},
