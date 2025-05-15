@@ -44,7 +44,7 @@ type DeleteRequest struct {
 	// DeleteAll This indicates that all vectors in the index namespace should be deleted.
 	DeleteAll *bool `json:"deleteAll,omitempty"`
 
-	// Filter If specified, the metadata filter here will be used to select the vectors to delete. This is mutually exclusive with specifying ids to delete in the ids param or using delete_all=True. See [Understanding metadata](https://docs.pinecone.io/guides/data/understanding-metadata).
+	// Filter If specified, the metadata filter here will be used to select the vectors to delete. This is mutually exclusive with specifying ids to delete in the ids param or using delete_all=True. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata).
 	// Serverless indexes do not support delete by metadata. Instead, you can use the `list` operation to fetch the vector IDs based on their common ID prefix and then delete the records by ID.
 	Filter *map[string]interface{} `json:"filter,omitempty"`
 
@@ -60,7 +60,7 @@ type DeleteResponse = map[string]interface{}
 
 // DescribeIndexStatsRequest The request for the `describe_index_stats` operation.
 type DescribeIndexStatsRequest struct {
-	// Filter If this parameter is present, the operation only returns statistics for vectors that satisfy the filter. See [Understanding metadata](https://docs.pinecone.io/guides/data/understanding-metadata).
+	// Filter If this parameter is present, the operation only returns statistics for vectors that satisfy the filter. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata).
 	//
 	// Serverless indexes do not support filtering `describe_index_stats` by metadata.
 	Filter *map[string]interface{} `json:"filter,omitempty"`
@@ -164,6 +164,13 @@ type ListItem struct {
 	Id *string `json:"id,omitempty"`
 }
 
+// ListNamespacesResponse defines model for ListNamespacesResponse.
+type ListNamespacesResponse struct {
+	// Namespaces The list of namespaces belonging to this index.
+	Namespaces *[]NamespaceDescription `json:"namespaces,omitempty"`
+	Pagination *Pagination             `json:"pagination,omitempty"`
+}
+
 // ListResponse The response for the `list` operation.
 type ListResponse struct {
 	// Namespace The namespace of the vectors.
@@ -171,6 +178,15 @@ type ListResponse struct {
 	Pagination *Pagination `json:"pagination,omitempty"`
 	Usage      *Usage      `json:"usage,omitempty"`
 	Vectors    *[]ListItem `json:"vectors,omitempty"`
+}
+
+// NamespaceDescription A description of a namespace, including the name and record count.
+type NamespaceDescription struct {
+	// Name The name of the namespace.
+	Name *string `json:"name,omitempty"`
+
+	// RecordCount The total amount of records within the namespace.
+	RecordCount *int64 `json:"record_count,omitempty"`
 }
 
 // NamespaceSummary A summary of the contents of a namespace.
@@ -186,10 +202,10 @@ type Pagination struct {
 
 // QueryRequest The request for the `query` operation.
 type QueryRequest struct {
-	// Filter The filter to apply. You can use vector metadata to limit your search. See [Understanding metadata](https://docs.pinecone.io/guides/data/understanding-metadata).
+	// Filter The filter to apply. You can use vector metadata to limit your search. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata). You can use vector metadata to limit your search. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata).
 	Filter *map[string]interface{} `json:"filter,omitempty"`
 
-	// Id The unique ID of the vector to be used as a query vector. Each `query` request can contain only one of the parameters `queries`, `vector`, or  `id`.
+	// Id The unique ID of the vector to be used as a query vector. Each request  can contain either the `vector` or `id` parameter.
 	Id *string `json:"id,omitempty"`
 
 	// IncludeMetadata Indicates whether metadata is included in the response as well as the ids.
@@ -201,7 +217,7 @@ type QueryRequest struct {
 	// Namespace The namespace to query.
 	Namespace *string `json:"namespace,omitempty"`
 
-	// Queries DEPRECATED. The query vectors. Each `query()` request can contain only one of the parameters `queries`, `vector`, or  `id`.
+	// Queries DEPRECATED. Use `vector` or `id` instead.
 	// Deprecated:
 	Queries *[]QueryVector `json:"queries,omitempty"`
 
@@ -267,29 +283,29 @@ type ScoredVector struct {
 
 // SearchRecordsRequest A search request for records in a specific namespace.
 type SearchRecordsRequest struct {
-	// Fields The fields to return in the search results.
+	// Fields The fields to return in the search results. If not specified, the response will include all fields.
 	Fields *[]string `json:"fields,omitempty"`
 
-	// Query The query inputs to search with.
+	// Query .
 	Query struct {
-		// Filter The filter to apply.
+		// Filter The filter to apply. You can use vector metadata to limit your search. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata).
 		Filter *map[string]interface{} `json:"filter,omitempty"`
 
 		// Id The unique ID of the vector to be used as a query vector.
 		Id     *string      `json:"id,omitempty"`
 		Inputs *EmbedInputs `json:"inputs,omitempty"`
 
-		// TopK The number of results to return for each search.
+		// TopK The number of similar records to return.
 		TopK   int32                `json:"top_k"`
 		Vector *SearchRecordsVector `json:"vector,omitempty"`
 	} `json:"query"`
 
 	// Rerank Parameters for reranking the initial search results.
 	Rerank *struct {
-		// Model The name of the [reranking model](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) to use.
+		// Model The name of the [reranking model](https://docs.pinecone.io/guides/search/rerank-results#reranking-models) to use.
 		Model string `json:"model"`
 
-		// Parameters Additional model-specific parameters. Refer to the [model guide](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) for available model parameters.
+		// Parameters Additional model-specific parameters. Refer to the [model guide](https://docs.pinecone.io/guides/search/rerank-results#reranking-models) for available model parameters.
 		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 		// Query The query to rerank documents against. If a specific rerank query is specified,  it overwrites the query input that was provided at the top level.
@@ -297,7 +313,7 @@ type SearchRecordsRequest struct {
 
 		// RankFields The field(s) to consider for reranking. If not provided, the default is `["text"]`.
 		//
-		// The number of fields supported is [model-specific](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models).
+		// The number of fields supported is [model-specific](https://docs.pinecone.io/guides/search/rerank-results#reranking-models).
 		RankFields []string `json:"rank_fields"`
 
 		// TopN The number of top results to return after reranking. Defaults to top_k.
@@ -364,7 +380,7 @@ type StartImportRequest struct {
 	// IntegrationId The id of the [storage integration](https://docs.pinecone.io/guides/operations/integrations/manage-storage-integrations) that should be used to access the data.
 	IntegrationId *string `json:"integrationId,omitempty"`
 
-	// Uri The [URI prefix](https://docs.pinecone.io/guides/data/understanding-imports#directory-structure) under which the data to import is available. All data within this prefix will be listed then imported into the target index. Currently only `s3://` URIs are supported.
+	// Uri The [URI prefix](https://docs.pinecone.io/guides/index-data/import-data#prepare-your-data) under which the data to import is available. All data within this prefix will be listed then imported into the target index. Currently only `s3://` URIs are supported.
 	Uri string `json:"uri"`
 }
 
@@ -456,6 +472,15 @@ type RpcStatus struct {
 // ListBulkImportsParams defines parameters for ListBulkImports.
 type ListBulkImportsParams struct {
 	// Limit Max number of operations to return per page.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// PaginationToken Pagination token to continue a previous listing operation.
+	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
+}
+
+// ListNamespacesOperationParams defines parameters for ListNamespacesOperation.
+type ListNamespacesOperationParams struct {
+	// Limit Max number namespaces to return per page.
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// PaginationToken Pagination token to continue a previous listing operation.
@@ -595,6 +620,15 @@ type ClientInterface interface {
 
 	DescribeIndexStats(ctx context.Context, body DescribeIndexStatsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListNamespacesOperation request
+	ListNamespacesOperation(ctx context.Context, params *ListNamespacesOperationParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteNamespace request
+	DeleteNamespace(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DescribeNamespace request
+	DescribeNamespace(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// QueryVectorsWithBody request with any body
 	QueryVectorsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -704,6 +738,42 @@ func (c *Client) DescribeIndexStatsWithBody(ctx context.Context, contentType str
 
 func (c *Client) DescribeIndexStats(ctx context.Context, body DescribeIndexStatsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDescribeIndexStatsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListNamespacesOperation(ctx context.Context, params *ListNamespacesOperationParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListNamespacesOperationRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteNamespace(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteNamespaceRequest(c.Server, namespace)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DescribeNamespace(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDescribeNamespaceRequest(c.Server, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -1079,6 +1149,139 @@ func NewDescribeIndexStatsRequestWithBody(server string, contentType string, bod
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListNamespacesOperationRequest generates requests for ListNamespacesOperation
+func NewListNamespacesOperationRequest(server string, params *ListNamespacesOperationParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/namespaces")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PaginationToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "paginationToken", runtime.ParamLocationQuery, *params.PaginationToken); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteNamespaceRequest generates requests for DeleteNamespace
+func NewDeleteNamespaceRequest(server string, namespace string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespace", runtime.ParamLocationPath, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/namespaces/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDescribeNamespaceRequest generates requests for DescribeNamespace
+func NewDescribeNamespaceRequest(server string, namespace string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespace", runtime.ParamLocationPath, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/namespaces/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -1546,6 +1749,15 @@ type ClientWithResponsesInterface interface {
 
 	DescribeIndexStatsWithResponse(ctx context.Context, body DescribeIndexStatsJSONRequestBody, reqEditors ...RequestEditorFn) (*DescribeIndexStatsResponse, error)
 
+	// ListNamespacesOperationWithResponse request
+	ListNamespacesOperationWithResponse(ctx context.Context, params *ListNamespacesOperationParams, reqEditors ...RequestEditorFn) (*ListNamespacesOperationResponse, error)
+
+	// DeleteNamespaceWithResponse request
+	DeleteNamespaceWithResponse(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*DeleteNamespaceResponse, error)
+
+	// DescribeNamespaceWithResponse request
+	DescribeNamespaceWithResponse(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*DescribeNamespaceResponse, error)
+
 	// QueryVectorsWithBodyWithResponse request with any body
 	QueryVectorsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryVectorsResponse, error)
 
@@ -1700,6 +1912,80 @@ func (r DescribeIndexStatsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r DescribeIndexStatsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListNamespacesOperationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ListNamespacesResponse
+	JSON4XX      *RpcStatus
+	JSON5XX      *RpcStatus
+}
+
+// Status returns HTTPResponse.Status
+func (r ListNamespacesOperationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListNamespacesOperationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteNamespaceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeleteResponse
+	JSON400      *RpcStatus
+	JSON4XX      *RpcStatus
+	JSON5XX      *RpcStatus
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteNamespaceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteNamespaceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DescribeNamespaceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *NamespaceDescription
+	JSON400      *RpcStatus
+	JSON4XX      *RpcStatus
+	JSON5XX      *RpcStatus
+}
+
+// Status returns HTTPResponse.Status
+func (r DescribeNamespaceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DescribeNamespaceResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1964,6 +2250,33 @@ func (c *ClientWithResponses) DescribeIndexStatsWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseDescribeIndexStatsResponse(rsp)
+}
+
+// ListNamespacesOperationWithResponse request returning *ListNamespacesOperationResponse
+func (c *ClientWithResponses) ListNamespacesOperationWithResponse(ctx context.Context, params *ListNamespacesOperationParams, reqEditors ...RequestEditorFn) (*ListNamespacesOperationResponse, error) {
+	rsp, err := c.ListNamespacesOperation(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListNamespacesOperationResponse(rsp)
+}
+
+// DeleteNamespaceWithResponse request returning *DeleteNamespaceResponse
+func (c *ClientWithResponses) DeleteNamespaceWithResponse(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*DeleteNamespaceResponse, error) {
+	rsp, err := c.DeleteNamespace(ctx, namespace, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteNamespaceResponse(rsp)
+}
+
+// DescribeNamespaceWithResponse request returning *DescribeNamespaceResponse
+func (c *ClientWithResponses) DescribeNamespaceWithResponse(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*DescribeNamespaceResponse, error) {
+	rsp, err := c.DescribeNamespace(ctx, namespace, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDescribeNamespaceResponse(rsp)
 }
 
 // QueryVectorsWithBodyWithResponse request with arbitrary body returning *QueryVectorsResponse
@@ -2282,6 +2595,140 @@ func ParseDescribeIndexStatsResponse(rsp *http.Response) (*DescribeIndexStatsRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest IndexDescription
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListNamespacesOperationResponse parses an HTTP response from a ListNamespacesOperationWithResponse call
+func ParseListNamespacesOperationResponse(rsp *http.Response) (*ListNamespacesOperationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListNamespacesOperationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListNamespacesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteNamespaceResponse parses an HTTP response from a DeleteNamespaceWithResponse call
+func ParseDeleteNamespaceResponse(rsp *http.Response) (*DeleteNamespaceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteNamespaceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeleteResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDescribeNamespaceResponse parses an HTTP response from a DescribeNamespaceWithResponse call
+func ParseDescribeNamespaceResponse(rsp *http.Response) (*DescribeNamespaceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DescribeNamespaceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest NamespaceDescription
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
