@@ -1,4 +1,4 @@
-api_version := "2025-01"
+api_version := "2025-04"
 
 test:
   #!/usr/bin/env bash

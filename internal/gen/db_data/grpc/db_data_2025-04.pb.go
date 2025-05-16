@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.32.0
 // 	protoc        v5.27.1
-// source: db_data_2025-01.proto
+// source: db_data_2025-04.proto
 
 package grpc
 
@@ -34,7 +34,7 @@ type SparseValues struct {
 func (x *SparseValues) Reset() {
 	*x = SparseValues{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[0]
+		mi := &file_db_data_2025_04_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -47,7 +47,7 @@ func (x *SparseValues) String() string {
 func (*SparseValues) ProtoMessage() {}
 
 func (x *SparseValues) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[0]
+	mi := &file_db_data_2025_04_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -60,7 +60,7 @@ func (x *SparseValues) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SparseValues.ProtoReflect.Descriptor instead.
 func (*SparseValues) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{0}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *SparseValues) GetIndices() []uint32 {
@@ -95,7 +95,7 @@ type Vector struct {
 func (x *Vector) Reset() {
 	*x = Vector{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[1]
+		mi := &file_db_data_2025_04_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -108,7 +108,7 @@ func (x *Vector) String() string {
 func (*Vector) ProtoMessage() {}
 
 func (x *Vector) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[1]
+	mi := &file_db_data_2025_04_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -121,7 +121,7 @@ func (x *Vector) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Vector.ProtoReflect.Descriptor instead.
 func (*Vector) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{1}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Vector) GetId() string {
@@ -172,7 +172,7 @@ type ScoredVector struct {
 func (x *ScoredVector) Reset() {
 	*x = ScoredVector{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[2]
+		mi := &file_db_data_2025_04_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -185,7 +185,7 @@ func (x *ScoredVector) String() string {
 func (*ScoredVector) ProtoMessage() {}
 
 func (x *ScoredVector) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[2]
+	mi := &file_db_data_2025_04_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -198,7 +198,7 @@ func (x *ScoredVector) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScoredVector.ProtoReflect.Descriptor instead.
 func (*ScoredVector) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{2}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ScoredVector) GetId() string {
@@ -254,7 +254,7 @@ type RequestUnion struct {
 func (x *RequestUnion) Reset() {
 	*x = RequestUnion{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[3]
+		mi := &file_db_data_2025_04_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -267,7 +267,7 @@ func (x *RequestUnion) String() string {
 func (*RequestUnion) ProtoMessage() {}
 
 func (x *RequestUnion) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[3]
+	mi := &file_db_data_2025_04_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -280,7 +280,7 @@ func (x *RequestUnion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestUnion.ProtoReflect.Descriptor instead.
 func (*RequestUnion) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{3}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{3}
 }
 
 func (m *RequestUnion) GetRequestUnionInner() isRequestUnion_RequestUnionInner {
@@ -348,7 +348,7 @@ type UpsertRequest struct {
 func (x *UpsertRequest) Reset() {
 	*x = UpsertRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[4]
+		mi := &file_db_data_2025_04_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -361,7 +361,7 @@ func (x *UpsertRequest) String() string {
 func (*UpsertRequest) ProtoMessage() {}
 
 func (x *UpsertRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[4]
+	mi := &file_db_data_2025_04_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -374,7 +374,7 @@ func (x *UpsertRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertRequest.ProtoReflect.Descriptor instead.
 func (*UpsertRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{4}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *UpsertRequest) GetVectors() []*Vector {
@@ -404,7 +404,7 @@ type UpsertResponse struct {
 func (x *UpsertResponse) Reset() {
 	*x = UpsertResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[5]
+		mi := &file_db_data_2025_04_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -417,7 +417,7 @@ func (x *UpsertResponse) String() string {
 func (*UpsertResponse) ProtoMessage() {}
 
 func (x *UpsertResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[5]
+	mi := &file_db_data_2025_04_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -430,7 +430,7 @@ func (x *UpsertResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertResponse.ProtoReflect.Descriptor instead.
 func (*UpsertResponse) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{5}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *UpsertResponse) GetUpsertedCount() uint32 {
@@ -454,7 +454,7 @@ type DeleteRequest struct {
 	Namespace string `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// If specified, the metadata filter here will be used to select the vectors to delete. This is mutually exclusive
 	// with specifying ids to delete in the ids param or using `delete_all=True`.
-	// For guidance and examples, see [Understanding metadata](https://docs.pinecone.io/guides/data/understanding-metadata).
+	// For guidance and examples, see [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata).
 	// Serverless indexes do not support delete by metadata. Instead, you can use the `list` operation to fetch the vector IDs based on their common ID prefix and then delete the records by ID.
 	Filter *structpb.Struct `protobuf:"bytes,4,opt,name=filter,proto3" json:"filter,omitempty"`
 }
@@ -462,7 +462,7 @@ type DeleteRequest struct {
 func (x *DeleteRequest) Reset() {
 	*x = DeleteRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[6]
+		mi := &file_db_data_2025_04_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -475,7 +475,7 @@ func (x *DeleteRequest) String() string {
 func (*DeleteRequest) ProtoMessage() {}
 
 func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[6]
+	mi := &file_db_data_2025_04_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -488,7 +488,7 @@ func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{6}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DeleteRequest) GetIds() []string {
@@ -529,7 +529,7 @@ type DeleteResponse struct {
 func (x *DeleteResponse) Reset() {
 	*x = DeleteResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[7]
+		mi := &file_db_data_2025_04_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -542,7 +542,7 @@ func (x *DeleteResponse) String() string {
 func (*DeleteResponse) ProtoMessage() {}
 
 func (x *DeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[7]
+	mi := &file_db_data_2025_04_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -555,7 +555,7 @@ func (x *DeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteResponse.ProtoReflect.Descriptor instead.
 func (*DeleteResponse) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{7}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{7}
 }
 
 // The request for the `fetch` operation.
@@ -572,7 +572,7 @@ type FetchRequest struct {
 func (x *FetchRequest) Reset() {
 	*x = FetchRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[8]
+		mi := &file_db_data_2025_04_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -585,7 +585,7 @@ func (x *FetchRequest) String() string {
 func (*FetchRequest) ProtoMessage() {}
 
 func (x *FetchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[8]
+	mi := &file_db_data_2025_04_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -598,7 +598,7 @@ func (x *FetchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FetchRequest.ProtoReflect.Descriptor instead.
 func (*FetchRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{8}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *FetchRequest) GetIds() []string {
@@ -632,7 +632,7 @@ type FetchResponse struct {
 func (x *FetchResponse) Reset() {
 	*x = FetchResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[9]
+		mi := &file_db_data_2025_04_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -645,7 +645,7 @@ func (x *FetchResponse) String() string {
 func (*FetchResponse) ProtoMessage() {}
 
 func (x *FetchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[9]
+	mi := &file_db_data_2025_04_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -658,7 +658,7 @@ func (x *FetchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FetchResponse.ProtoReflect.Descriptor instead.
 func (*FetchResponse) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{9}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *FetchResponse) GetVectors() map[string]*Vector {
@@ -700,7 +700,7 @@ type ListRequest struct {
 func (x *ListRequest) Reset() {
 	*x = ListRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[10]
+		mi := &file_db_data_2025_04_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -713,7 +713,7 @@ func (x *ListRequest) String() string {
 func (*ListRequest) ProtoMessage() {}
 
 func (x *ListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[10]
+	mi := &file_db_data_2025_04_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -726,7 +726,7 @@ func (x *ListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRequest.ProtoReflect.Descriptor instead.
 func (*ListRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{10}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListRequest) GetPrefix() string {
@@ -768,7 +768,7 @@ type Pagination struct {
 func (x *Pagination) Reset() {
 	*x = Pagination{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[11]
+		mi := &file_db_data_2025_04_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -781,7 +781,7 @@ func (x *Pagination) String() string {
 func (*Pagination) ProtoMessage() {}
 
 func (x *Pagination) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[11]
+	mi := &file_db_data_2025_04_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -794,7 +794,7 @@ func (x *Pagination) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pagination.ProtoReflect.Descriptor instead.
 func (*Pagination) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{11}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Pagination) GetNext() string {
@@ -815,7 +815,7 @@ type ListItem struct {
 func (x *ListItem) Reset() {
 	*x = ListItem{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[12]
+		mi := &file_db_data_2025_04_proto_msgTypes[12]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -828,7 +828,7 @@ func (x *ListItem) String() string {
 func (*ListItem) ProtoMessage() {}
 
 func (x *ListItem) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[12]
+	mi := &file_db_data_2025_04_proto_msgTypes[12]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -841,7 +841,7 @@ func (x *ListItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListItem.ProtoReflect.Descriptor instead.
 func (*ListItem) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{12}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListItem) GetId() string {
@@ -870,7 +870,7 @@ type ListResponse struct {
 func (x *ListResponse) Reset() {
 	*x = ListResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[13]
+		mi := &file_db_data_2025_04_proto_msgTypes[13]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -883,7 +883,7 @@ func (x *ListResponse) String() string {
 func (*ListResponse) ProtoMessage() {}
 
 func (x *ListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[13]
+	mi := &file_db_data_2025_04_proto_msgTypes[13]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -896,7 +896,7 @@ func (x *ListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListResponse.ProtoReflect.Descriptor instead.
 func (*ListResponse) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{13}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListResponse) GetVectors() []*ListItem {
@@ -933,7 +933,7 @@ type QueryVector struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// The query vector. This should be the same length as the dimension of the index being queried. Each `query()` request can contain only one of the parameters `id` or `vector`.
+	// The query vector. This should be the same length as the dimension of the index being queried. Each request can contain either the `id` or `vector` parameter.
 	Values []float32 `protobuf:"fixed32,1,rep,packed,name=values,proto3" json:"values,omitempty"`
 	// The query sparse values.
 	SparseValues *SparseValues `protobuf:"bytes,5,opt,name=sparse_values,json=sparseValues,proto3" json:"sparse_values,omitempty"`
@@ -948,7 +948,7 @@ type QueryVector struct {
 func (x *QueryVector) Reset() {
 	*x = QueryVector{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[14]
+		mi := &file_db_data_2025_04_proto_msgTypes[14]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -961,7 +961,7 @@ func (x *QueryVector) String() string {
 func (*QueryVector) ProtoMessage() {}
 
 func (x *QueryVector) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[14]
+	mi := &file_db_data_2025_04_proto_msgTypes[14]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -974,7 +974,7 @@ func (x *QueryVector) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryVector.ProtoReflect.Descriptor instead.
 func (*QueryVector) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{14}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *QueryVector) GetValues() []float32 {
@@ -1022,28 +1022,28 @@ type QueryRequest struct {
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// The number of results to return for each query.
 	TopK uint32 `protobuf:"varint,2,opt,name=top_k,json=topK,proto3" json:"top_k,omitempty"`
-	// The filter to apply. You can use vector metadata to limit your search. See [Understanding metadata](https://docs.pinecone.io/guides/data/understanding-metadata).
+	// The filter to apply. You can use vector metadata to limit your search. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata). You can use vector metadata to limit your search. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata).
 	Filter *structpb.Struct `protobuf:"bytes,3,opt,name=filter,proto3" json:"filter,omitempty"`
 	// Indicates whether vector values are included in the response.
 	IncludeValues bool `protobuf:"varint,4,opt,name=include_values,json=includeValues,proto3" json:"include_values,omitempty"`
 	// Indicates whether metadata is included in the response as well as the ids.
 	IncludeMetadata bool `protobuf:"varint,5,opt,name=include_metadata,json=includeMetadata,proto3" json:"include_metadata,omitempty"`
-	// DEPRECATED. The query vectors. Each `query()` request can contain only one of the parameters `queries`, `vector`, or  `id`.
+	// DEPRECATED. Use `vector` or `id` instead.
 	//
-	// Deprecated: Marked as deprecated in db_data_2025-01.proto.
+	// Deprecated: Marked as deprecated in db_data_2025-04.proto.
 	Queries []*QueryVector `protobuf:"bytes,6,rep,name=queries,proto3" json:"queries,omitempty"`
-	// The query vector. This should be the same length as the dimension of the index being queried. Each `query()` request can contain only one of the parameters `id` or `vector`.
+	// The query vector. This should be the same length as the dimension of the index being queried. Each request can contain either the `id` or `vector` parameter.
 	Vector []float32 `protobuf:"fixed32,7,rep,packed,name=vector,proto3" json:"vector,omitempty"`
 	// The query sparse values.
 	SparseVector *SparseValues `protobuf:"bytes,9,opt,name=sparse_vector,json=sparseVector,proto3" json:"sparse_vector,omitempty"`
-	// The unique ID of the vector to be used as a query vector. Each `query()` request can contain only one of the parameters `queries`, `vector`, or  `id`.
+	// The unique ID of the vector to be used as a query vector. Each request can contain either the `vector` or `id` parameter.
 	Id string `protobuf:"bytes,8,opt,name=id,proto3" json:"id,omitempty"`
 }
 
 func (x *QueryRequest) Reset() {
 	*x = QueryRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[15]
+		mi := &file_db_data_2025_04_proto_msgTypes[15]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1056,7 +1056,7 @@ func (x *QueryRequest) String() string {
 func (*QueryRequest) ProtoMessage() {}
 
 func (x *QueryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[15]
+	mi := &file_db_data_2025_04_proto_msgTypes[15]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1069,7 +1069,7 @@ func (x *QueryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryRequest.ProtoReflect.Descriptor instead.
 func (*QueryRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{15}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *QueryRequest) GetNamespace() string {
@@ -1107,7 +1107,7 @@ func (x *QueryRequest) GetIncludeMetadata() bool {
 	return false
 }
 
-// Deprecated: Marked as deprecated in db_data_2025-01.proto.
+// Deprecated: Marked as deprecated in db_data_2025-04.proto.
 func (x *QueryRequest) GetQueries() []*QueryVector {
 	if x != nil {
 		return x.Queries
@@ -1151,7 +1151,7 @@ type SingleQueryResults struct {
 func (x *SingleQueryResults) Reset() {
 	*x = SingleQueryResults{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[16]
+		mi := &file_db_data_2025_04_proto_msgTypes[16]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1164,7 +1164,7 @@ func (x *SingleQueryResults) String() string {
 func (*SingleQueryResults) ProtoMessage() {}
 
 func (x *SingleQueryResults) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[16]
+	mi := &file_db_data_2025_04_proto_msgTypes[16]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1177,7 +1177,7 @@ func (x *SingleQueryResults) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SingleQueryResults.ProtoReflect.Descriptor instead.
 func (*SingleQueryResults) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{16}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *SingleQueryResults) GetMatches() []*ScoredVector {
@@ -1202,7 +1202,7 @@ type QueryResponse struct {
 
 	// DEPRECATED. The results of each query. The order is the same as `QueryRequest.queries`.
 	//
-	// Deprecated: Marked as deprecated in db_data_2025-01.proto.
+	// Deprecated: Marked as deprecated in db_data_2025-04.proto.
 	Results []*SingleQueryResults `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
 	// The matches for the vectors.
 	Matches []*ScoredVector `protobuf:"bytes,2,rep,name=matches,proto3" json:"matches,omitempty"`
@@ -1215,7 +1215,7 @@ type QueryResponse struct {
 func (x *QueryResponse) Reset() {
 	*x = QueryResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[17]
+		mi := &file_db_data_2025_04_proto_msgTypes[17]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1228,7 +1228,7 @@ func (x *QueryResponse) String() string {
 func (*QueryResponse) ProtoMessage() {}
 
 func (x *QueryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[17]
+	mi := &file_db_data_2025_04_proto_msgTypes[17]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1241,10 +1241,10 @@ func (x *QueryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryResponse.ProtoReflect.Descriptor instead.
 func (*QueryResponse) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{17}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{17}
 }
 
-// Deprecated: Marked as deprecated in db_data_2025-01.proto.
+// Deprecated: Marked as deprecated in db_data_2025-04.proto.
 func (x *QueryResponse) GetResults() []*SingleQueryResults {
 	if x != nil {
 		return x.Results
@@ -1285,7 +1285,7 @@ type Usage struct {
 func (x *Usage) Reset() {
 	*x = Usage{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[18]
+		mi := &file_db_data_2025_04_proto_msgTypes[18]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1298,7 +1298,7 @@ func (x *Usage) String() string {
 func (*Usage) ProtoMessage() {}
 
 func (x *Usage) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[18]
+	mi := &file_db_data_2025_04_proto_msgTypes[18]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1311,7 +1311,7 @@ func (x *Usage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Usage.ProtoReflect.Descriptor instead.
 func (*Usage) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{18}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *Usage) GetReadUnits() uint32 {
@@ -1342,7 +1342,7 @@ type UpdateRequest struct {
 func (x *UpdateRequest) Reset() {
 	*x = UpdateRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[19]
+		mi := &file_db_data_2025_04_proto_msgTypes[19]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1355,7 +1355,7 @@ func (x *UpdateRequest) String() string {
 func (*UpdateRequest) ProtoMessage() {}
 
 func (x *UpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[19]
+	mi := &file_db_data_2025_04_proto_msgTypes[19]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1368,7 +1368,7 @@ func (x *UpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRequest.ProtoReflect.Descriptor instead.
 func (*UpdateRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{19}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *UpdateRequest) GetId() string {
@@ -1416,7 +1416,7 @@ type UpdateResponse struct {
 func (x *UpdateResponse) Reset() {
 	*x = UpdateResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[20]
+		mi := &file_db_data_2025_04_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1429,7 +1429,7 @@ func (x *UpdateResponse) String() string {
 func (*UpdateResponse) ProtoMessage() {}
 
 func (x *UpdateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[20]
+	mi := &file_db_data_2025_04_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1442,7 +1442,7 @@ func (x *UpdateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateResponse.ProtoReflect.Descriptor instead.
 func (*UpdateResponse) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{20}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{20}
 }
 
 // The request for the `describe_index_stats` operation.
@@ -1460,7 +1460,7 @@ type DescribeIndexStatsRequest struct {
 func (x *DescribeIndexStatsRequest) Reset() {
 	*x = DescribeIndexStatsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[21]
+		mi := &file_db_data_2025_04_proto_msgTypes[21]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1473,7 +1473,7 @@ func (x *DescribeIndexStatsRequest) String() string {
 func (*DescribeIndexStatsRequest) ProtoMessage() {}
 
 func (x *DescribeIndexStatsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[21]
+	mi := &file_db_data_2025_04_proto_msgTypes[21]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1486,7 +1486,7 @@ func (x *DescribeIndexStatsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeIndexStatsRequest.ProtoReflect.Descriptor instead.
 func (*DescribeIndexStatsRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{21}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *DescribeIndexStatsRequest) GetFilter() *structpb.Struct {
@@ -1510,7 +1510,7 @@ type NamespaceSummary struct {
 func (x *NamespaceSummary) Reset() {
 	*x = NamespaceSummary{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[22]
+		mi := &file_db_data_2025_04_proto_msgTypes[22]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1523,7 +1523,7 @@ func (x *NamespaceSummary) String() string {
 func (*NamespaceSummary) ProtoMessage() {}
 
 func (x *NamespaceSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[22]
+	mi := &file_db_data_2025_04_proto_msgTypes[22]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1536,7 +1536,7 @@ func (x *NamespaceSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NamespaceSummary.ProtoReflect.Descriptor instead.
 func (*NamespaceSummary) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{22}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *NamespaceSummary) GetVectorCount() uint32 {
@@ -1544,6 +1544,274 @@ func (x *NamespaceSummary) GetVectorCount() uint32 {
 		return x.VectorCount
 	}
 	return 0
+}
+
+// The request for the list namespaces operation.
+type ListNamespacesRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Pagination token to continue a previous listing operation
+	PaginationToken *string `protobuf:"bytes,1,opt,name=pagination_token,json=paginationToken,proto3,oneof" json:"pagination_token,omitempty"`
+	// Max number of namespaces to return
+	Limit *uint32 `protobuf:"varint,2,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+}
+
+func (x *ListNamespacesRequest) Reset() {
+	*x = ListNamespacesRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_db_data_2025_04_proto_msgTypes[23]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ListNamespacesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNamespacesRequest) ProtoMessage() {}
+
+func (x *ListNamespacesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_db_data_2025_04_proto_msgTypes[23]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNamespacesRequest.ProtoReflect.Descriptor instead.
+func (*ListNamespacesRequest) Descriptor() ([]byte, []int) {
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *ListNamespacesRequest) GetPaginationToken() string {
+	if x != nil && x.PaginationToken != nil {
+		return *x.PaginationToken
+	}
+	return ""
+}
+
+func (x *ListNamespacesRequest) GetLimit() uint32 {
+	if x != nil && x.Limit != nil {
+		return *x.Limit
+	}
+	return 0
+}
+
+// The response for the list namespace operation.
+type ListNamespacesResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// The list of namespaces belonging to this index.
+	Namespaces []*NamespaceDescription `protobuf:"bytes,1,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
+	// Pagination token to continue past this listing
+	Pagination *Pagination `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+}
+
+func (x *ListNamespacesResponse) Reset() {
+	*x = ListNamespacesResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_db_data_2025_04_proto_msgTypes[24]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ListNamespacesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNamespacesResponse) ProtoMessage() {}
+
+func (x *ListNamespacesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_db_data_2025_04_proto_msgTypes[24]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNamespacesResponse.ProtoReflect.Descriptor instead.
+func (*ListNamespacesResponse) Descriptor() ([]byte, []int) {
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *ListNamespacesResponse) GetNamespaces() []*NamespaceDescription {
+	if x != nil {
+		return x.Namespaces
+	}
+	return nil
+}
+
+func (x *ListNamespacesResponse) GetPagination() *Pagination {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// The request for the describe namespace operation.
+type DescribeNamespaceRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// The namespace to describe
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+}
+
+func (x *DescribeNamespaceRequest) Reset() {
+	*x = DescribeNamespaceRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_db_data_2025_04_proto_msgTypes[25]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DescribeNamespaceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DescribeNamespaceRequest) ProtoMessage() {}
+
+func (x *DescribeNamespaceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_db_data_2025_04_proto_msgTypes[25]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DescribeNamespaceRequest.ProtoReflect.Descriptor instead.
+func (*DescribeNamespaceRequest) Descriptor() ([]byte, []int) {
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *DescribeNamespaceRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+type NamespaceDescription struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Name        string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	RecordCount uint64 `protobuf:"varint,2,opt,name=record_count,json=recordCount,proto3" json:"record_count,omitempty"`
+}
+
+func (x *NamespaceDescription) Reset() {
+	*x = NamespaceDescription{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_db_data_2025_04_proto_msgTypes[26]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *NamespaceDescription) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NamespaceDescription) ProtoMessage() {}
+
+func (x *NamespaceDescription) ProtoReflect() protoreflect.Message {
+	mi := &file_db_data_2025_04_proto_msgTypes[26]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NamespaceDescription.ProtoReflect.Descriptor instead.
+func (*NamespaceDescription) Descriptor() ([]byte, []int) {
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *NamespaceDescription) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *NamespaceDescription) GetRecordCount() uint64 {
+	if x != nil {
+		return x.RecordCount
+	}
+	return 0
+}
+
+type DeleteNamespaceRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// The namespace to delete
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+}
+
+func (x *DeleteNamespaceRequest) Reset() {
+	*x = DeleteNamespaceRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_db_data_2025_04_proto_msgTypes[27]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DeleteNamespaceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteNamespaceRequest) ProtoMessage() {}
+
+func (x *DeleteNamespaceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_db_data_2025_04_proto_msgTypes[27]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteNamespaceRequest.ProtoReflect.Descriptor instead.
+func (*DeleteNamespaceRequest) Descriptor() ([]byte, []int) {
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *DeleteNamespaceRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
 }
 
 // The response for the `describe_index_stats` operation.
@@ -1575,7 +1843,7 @@ type DescribeIndexStatsResponse struct {
 func (x *DescribeIndexStatsResponse) Reset() {
 	*x = DescribeIndexStatsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_01_proto_msgTypes[23]
+		mi := &file_db_data_2025_04_proto_msgTypes[28]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1588,7 +1856,7 @@ func (x *DescribeIndexStatsResponse) String() string {
 func (*DescribeIndexStatsResponse) ProtoMessage() {}
 
 func (x *DescribeIndexStatsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_01_proto_msgTypes[23]
+	mi := &file_db_data_2025_04_proto_msgTypes[28]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1601,7 +1869,7 @@ func (x *DescribeIndexStatsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeIndexStatsResponse.ProtoReflect.Descriptor instead.
 func (*DescribeIndexStatsResponse) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_01_proto_rawDescGZIP(), []int{23}
+	return file_db_data_2025_04_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *DescribeIndexStatsResponse) GetNamespaces() map[string]*NamespaceSummary {
@@ -1646,11 +1914,11 @@ func (x *DescribeIndexStatsResponse) GetVectorType() string {
 	return ""
 }
 
-var File_db_data_2025_01_proto protoreflect.FileDescriptor
+var File_db_data_2025_04_proto protoreflect.FileDescriptor
 
-var file_db_data_2025_01_proto_rawDesc = []byte{
+var file_db_data_2025_04_proto_rawDesc = []byte{
 	0x0a, 0x15, 0x64, 0x62, 0x5f, 0x64, 0x61, 0x74, 0x61, 0x5f, 0x32, 0x30, 0x32, 0x35, 0x2d, 0x30,
-	0x31, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x1c, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f,
+	0x34, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x1c, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2f, 0x73, 0x74, 0x72, 0x75, 0x63, 0x74, 0x2e,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x1c, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x61, 0x70,
 	0x69, 0x2f, 0x61, 0x6e, 0x6e, 0x6f, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x2e, 0x70, 0x72,
@@ -1834,91 +2102,138 @@ var file_db_data_2025_01_proto_rawDesc = []byte{
 	0x06, 0x66, 0x69, 0x6c, 0x74, 0x65, 0x72, 0x22, 0x35, 0x0a, 0x10, 0x4e, 0x61, 0x6d, 0x65, 0x73,
 	0x70, 0x61, 0x63, 0x65, 0x53, 0x75, 0x6d, 0x6d, 0x61, 0x72, 0x79, 0x12, 0x21, 0x0a, 0x0c, 0x76,
 	0x65, 0x63, 0x74, 0x6f, 0x72, 0x5f, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x0d, 0x52, 0x0b, 0x76, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x22, 0x9f,
-	0x03, 0x0a, 0x1a, 0x44, 0x65, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65, 0x49, 0x6e, 0x64, 0x65, 0x78,
-	0x53, 0x74, 0x61, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4b, 0x0a,
+	0x0d, 0x52, 0x0b, 0x76, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x22, 0x81,
+	0x01, 0x0a, 0x15, 0x4c, 0x69, 0x73, 0x74, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65,
+	0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x2e, 0x0a, 0x10, 0x70, 0x61, 0x67, 0x69,
+	0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x09, 0x48, 0x00, 0x52, 0x0f, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x88, 0x01, 0x01, 0x12, 0x19, 0x0a, 0x05, 0x6c, 0x69, 0x6d, 0x69,
+	0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0d, 0x48, 0x01, 0x52, 0x05, 0x6c, 0x69, 0x6d, 0x69, 0x74,
+	0x88, 0x01, 0x01, 0x42, 0x13, 0x0a, 0x11, 0x5f, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69,
+	0x6f, 0x6e, 0x5f, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x42, 0x08, 0x0a, 0x06, 0x5f, 0x6c, 0x69, 0x6d,
+	0x69, 0x74, 0x22, 0x90, 0x01, 0x0a, 0x16, 0x4c, 0x69, 0x73, 0x74, 0x4e, 0x61, 0x6d, 0x65, 0x73,
+	0x70, 0x61, 0x63, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x35, 0x0a,
 	0x0a, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28,
-	0x0b, 0x32, 0x2b, 0x2e, 0x44, 0x65, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65, 0x49, 0x6e, 0x64, 0x65,
-	0x78, 0x53, 0x74, 0x61, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x4e,
-	0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x0a,
-	0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x73, 0x12, 0x21, 0x0a, 0x09, 0x64, 0x69,
-	0x6d, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0d, 0x48, 0x00, 0x52,
-	0x09, 0x64, 0x69, 0x6d, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x88, 0x01, 0x01, 0x12, 0x25, 0x0a,
-	0x0e, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x5f, 0x66, 0x75, 0x6c, 0x6c, 0x6e, 0x65, 0x73, 0x73, 0x18,
-	0x03, 0x20, 0x01, 0x28, 0x02, 0x52, 0x0d, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x46, 0x75, 0x6c, 0x6c,
-	0x6e, 0x65, 0x73, 0x73, 0x12, 0x2c, 0x0a, 0x12, 0x74, 0x6f, 0x74, 0x61, 0x6c, 0x5f, 0x76, 0x65,
-	0x63, 0x74, 0x6f, 0x72, 0x5f, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0d,
-	0x52, 0x10, 0x74, 0x6f, 0x74, 0x61, 0x6c, 0x56, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x43, 0x6f, 0x75,
-	0x6e, 0x74, 0x12, 0x1b, 0x0a, 0x06, 0x6d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x18, 0x05, 0x20, 0x01,
-	0x28, 0x09, 0x48, 0x01, 0x52, 0x06, 0x6d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x88, 0x01, 0x01, 0x12,
-	0x24, 0x0a, 0x0b, 0x76, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x06,
-	0x20, 0x01, 0x28, 0x09, 0x48, 0x02, 0x52, 0x0a, 0x76, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x54, 0x79,
-	0x70, 0x65, 0x88, 0x01, 0x01, 0x1a, 0x50, 0x0a, 0x0f, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61,
-	0x63, 0x65, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x27, 0x0a, 0x05, 0x76, 0x61,
-	0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x4e, 0x61, 0x6d, 0x65,
-	0x73, 0x70, 0x61, 0x63, 0x65, 0x53, 0x75, 0x6d, 0x6d, 0x61, 0x72, 0x79, 0x52, 0x05, 0x76, 0x61,
-	0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x42, 0x0c, 0x0a, 0x0a, 0x5f, 0x64, 0x69, 0x6d, 0x65,
-	0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x42, 0x09, 0x0a, 0x07, 0x5f, 0x6d, 0x65, 0x74, 0x72, 0x69, 0x63,
-	0x42, 0x0e, 0x0a, 0x0c, 0x5f, 0x76, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x5f, 0x74, 0x79, 0x70, 0x65,
-	0x32, 0xb9, 0x04, 0x0a, 0x0d, 0x56, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69,
-	0x63, 0x65, 0x12, 0x45, 0x0a, 0x06, 0x55, 0x70, 0x73, 0x65, 0x72, 0x74, 0x12, 0x0e, 0x2e, 0x55,
-	0x70, 0x73, 0x65, 0x72, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0f, 0x2e, 0x55,
-	0x70, 0x73, 0x65, 0x72, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1a, 0x82,
-	0xd3, 0xe4, 0x93, 0x02, 0x14, 0x3a, 0x01, 0x2a, 0x22, 0x0f, 0x2f, 0x76, 0x65, 0x63, 0x74, 0x6f,
-	0x72, 0x73, 0x2f, 0x75, 0x70, 0x73, 0x65, 0x72, 0x74, 0x12, 0x58, 0x0a, 0x06, 0x44, 0x65, 0x6c,
-	0x65, 0x74, 0x65, 0x12, 0x0e, 0x2e, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x1a, 0x0f, 0x2e, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2d, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x27, 0x3a, 0x01, 0x2a, 0x5a,
-	0x11, 0x2a, 0x0f, 0x2f, 0x76, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x73, 0x2f, 0x64, 0x65, 0x6c, 0x65,
-	0x74, 0x65, 0x22, 0x0f, 0x2f, 0x76, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x73, 0x2f, 0x64, 0x65, 0x6c,
-	0x65, 0x74, 0x65, 0x12, 0x3e, 0x0a, 0x05, 0x46, 0x65, 0x74, 0x63, 0x68, 0x12, 0x0d, 0x2e, 0x46,
-	0x65, 0x74, 0x63, 0x68, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0e, 0x2e, 0x46, 0x65,
-	0x74, 0x63, 0x68, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x16, 0x82, 0xd3, 0xe4,
-	0x93, 0x02, 0x10, 0x12, 0x0e, 0x2f, 0x76, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x73, 0x2f, 0x66, 0x65,
-	0x74, 0x63, 0x68, 0x12, 0x3a, 0x0a, 0x04, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x0c, 0x2e, 0x4c, 0x69,
-	0x73, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0d, 0x2e, 0x4c, 0x69, 0x73, 0x74,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x15, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x0f,
-	0x12, 0x0d, 0x2f, 0x76, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x73, 0x2f, 0x6c, 0x69, 0x73, 0x74, 0x12,
-	0x39, 0x0a, 0x05, 0x51, 0x75, 0x65, 0x72, 0x79, 0x12, 0x0d, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0e, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x11, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x0b, 0x3a,
-	0x01, 0x2a, 0x22, 0x06, 0x2f, 0x71, 0x75, 0x65, 0x72, 0x79, 0x12, 0x45, 0x0a, 0x06, 0x55, 0x70,
-	0x64, 0x61, 0x74, 0x65, 0x12, 0x0e, 0x2e, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x52, 0x65, 0x71,
-	0x75, 0x65, 0x73, 0x74, 0x1a, 0x0f, 0x2e, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x52, 0x65, 0x73,
+	0x0b, 0x32, 0x15, 0x2e, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x44, 0x65, 0x73,
+	0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x0a, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70,
+	0x61, 0x63, 0x65, 0x73, 0x12, 0x30, 0x0a, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74, 0x69,
+	0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0b, 0x2e, 0x50, 0x61, 0x67, 0x69, 0x6e,
+	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x48, 0x00, 0x52, 0x0a, 0x70, 0x61, 0x67, 0x69, 0x6e, 0x61, 0x74,
+	0x69, 0x6f, 0x6e, 0x88, 0x01, 0x01, 0x42, 0x0d, 0x0a, 0x0b, 0x5f, 0x70, 0x61, 0x67, 0x69, 0x6e,
+	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x38, 0x0a, 0x18, 0x44, 0x65, 0x73, 0x63, 0x72, 0x69, 0x62,
+	0x65, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x12, 0x1c, 0x0a, 0x09, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x22,
+	0x4d, 0x0a, 0x14, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x44, 0x65, 0x73, 0x63,
+	0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x21, 0x0a, 0x0c, 0x72,
+	0x65, 0x63, 0x6f, 0x72, 0x64, 0x5f, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x04, 0x52, 0x0b, 0x72, 0x65, 0x63, 0x6f, 0x72, 0x64, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x22, 0x36,
+	0x0a, 0x16, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63,
+	0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1c, 0x0a, 0x09, 0x6e, 0x61, 0x6d, 0x65,
+	0x73, 0x70, 0x61, 0x63, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x6e, 0x61, 0x6d,
+	0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x22, 0x9f, 0x03, 0x0a, 0x1a, 0x44, 0x65, 0x73, 0x63, 0x72,
+	0x69, 0x62, 0x65, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x53, 0x74, 0x61, 0x74, 0x73, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4b, 0x0a, 0x0a, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61,
+	0x63, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x2b, 0x2e, 0x44, 0x65, 0x73, 0x63,
+	0x72, 0x69, 0x62, 0x65, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x53, 0x74, 0x61, 0x74, 0x73, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65,
+	0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x0a, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63,
+	0x65, 0x73, 0x12, 0x21, 0x0a, 0x09, 0x64, 0x69, 0x6d, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x0d, 0x48, 0x00, 0x52, 0x09, 0x64, 0x69, 0x6d, 0x65, 0x6e, 0x73, 0x69,
+	0x6f, 0x6e, 0x88, 0x01, 0x01, 0x12, 0x25, 0x0a, 0x0e, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x5f, 0x66,
+	0x75, 0x6c, 0x6c, 0x6e, 0x65, 0x73, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x02, 0x52, 0x0d, 0x69,
+	0x6e, 0x64, 0x65, 0x78, 0x46, 0x75, 0x6c, 0x6c, 0x6e, 0x65, 0x73, 0x73, 0x12, 0x2c, 0x0a, 0x12,
+	0x74, 0x6f, 0x74, 0x61, 0x6c, 0x5f, 0x76, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x5f, 0x63, 0x6f, 0x75,
+	0x6e, 0x74, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x10, 0x74, 0x6f, 0x74, 0x61, 0x6c, 0x56,
+	0x65, 0x63, 0x74, 0x6f, 0x72, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x1b, 0x0a, 0x06, 0x6d, 0x65,
+	0x74, 0x72, 0x69, 0x63, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x48, 0x01, 0x52, 0x06, 0x6d, 0x65,
+	0x74, 0x72, 0x69, 0x63, 0x88, 0x01, 0x01, 0x12, 0x24, 0x0a, 0x0b, 0x76, 0x65, 0x63, 0x74, 0x6f,
+	0x72, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x06, 0x20, 0x01, 0x28, 0x09, 0x48, 0x02, 0x52, 0x0a,
+	0x76, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x54, 0x79, 0x70, 0x65, 0x88, 0x01, 0x01, 0x1a, 0x50, 0x0a,
+	0x0f, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79,
+	0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b,
+	0x65, 0x79, 0x12, 0x27, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x11, 0x2e, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x53, 0x75, 0x6d,
+	0x6d, 0x61, 0x72, 0x79, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x42,
+	0x0c, 0x0a, 0x0a, 0x5f, 0x64, 0x69, 0x6d, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x42, 0x09, 0x0a,
+	0x07, 0x5f, 0x6d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x42, 0x0e, 0x0a, 0x0c, 0x5f, 0x76, 0x65, 0x63,
+	0x74, 0x6f, 0x72, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x32, 0xd7, 0x06, 0x0a, 0x0d, 0x56, 0x65, 0x63,
+	0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x45, 0x0a, 0x06, 0x55, 0x70,
+	0x73, 0x65, 0x72, 0x74, 0x12, 0x0e, 0x2e, 0x55, 0x70, 0x73, 0x65, 0x72, 0x74, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x0f, 0x2e, 0x55, 0x70, 0x73, 0x65, 0x72, 0x74, 0x52, 0x65, 0x73,
 	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1a, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x14, 0x3a, 0x01, 0x2a,
-	0x22, 0x0f, 0x2f, 0x76, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x73, 0x2f, 0x75, 0x70, 0x64, 0x61, 0x74,
-	0x65, 0x12, 0x88, 0x01, 0x0a, 0x12, 0x44, 0x65, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65, 0x49, 0x6e,
-	0x64, 0x65, 0x78, 0x53, 0x74, 0x61, 0x74, 0x73, 0x12, 0x1a, 0x2e, 0x44, 0x65, 0x73, 0x63, 0x72,
-	0x69, 0x62, 0x65, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x53, 0x74, 0x61, 0x74, 0x73, 0x52, 0x65, 0x71,
-	0x75, 0x65, 0x73, 0x74, 0x1a, 0x1b, 0x2e, 0x44, 0x65, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65, 0x49,
-	0x6e, 0x64, 0x65, 0x78, 0x53, 0x74, 0x61, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x22, 0x39, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x33, 0x3a, 0x01, 0x2a, 0x5a, 0x17, 0x12, 0x15,
-	0x2f, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x5f,
-	0x73, 0x74, 0x61, 0x74, 0x73, 0x22, 0x15, 0x2f, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65,
-	0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x5f, 0x73, 0x74, 0x61, 0x74, 0x73, 0x42, 0x53, 0x0a, 0x11,
-	0x69, 0x6f, 0x2e, 0x70, 0x69, 0x6e, 0x65, 0x63, 0x6f, 0x6e, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x50, 0x01, 0x5a, 0x3c, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f,
-	0x70, 0x69, 0x6e, 0x65, 0x63, 0x6f, 0x6e, 0x65, 0x2d, 0x69, 0x6f, 0x2f, 0x67, 0x6f, 0x2d, 0x70,
-	0x69, 0x6e, 0x65, 0x63, 0x6f, 0x6e, 0x65, 0x2f, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c,
-	0x2f, 0x67, 0x65, 0x6e, 0x2f, 0x64, 0x62, 0x5f, 0x64, 0x61, 0x74, 0x61, 0x2f, 0x67, 0x72, 0x70,
-	0x63, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x22, 0x0f, 0x2f, 0x76, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x73, 0x2f, 0x75, 0x70, 0x73, 0x65, 0x72,
+	0x74, 0x12, 0x58, 0x0a, 0x06, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x12, 0x0e, 0x2e, 0x44, 0x65,
+	0x6c, 0x65, 0x74, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0f, 0x2e, 0x44, 0x65,
+	0x6c, 0x65, 0x74, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2d, 0x82, 0xd3,
+	0xe4, 0x93, 0x02, 0x27, 0x3a, 0x01, 0x2a, 0x5a, 0x11, 0x2a, 0x0f, 0x2f, 0x76, 0x65, 0x63, 0x74,
+	0x6f, 0x72, 0x73, 0x2f, 0x64, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x22, 0x0f, 0x2f, 0x76, 0x65, 0x63,
+	0x74, 0x6f, 0x72, 0x73, 0x2f, 0x64, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x12, 0x3e, 0x0a, 0x05, 0x46,
+	0x65, 0x74, 0x63, 0x68, 0x12, 0x0d, 0x2e, 0x46, 0x65, 0x74, 0x63, 0x68, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x1a, 0x0e, 0x2e, 0x46, 0x65, 0x74, 0x63, 0x68, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x16, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x10, 0x12, 0x0e, 0x2f, 0x76, 0x65,
+	0x63, 0x74, 0x6f, 0x72, 0x73, 0x2f, 0x66, 0x65, 0x74, 0x63, 0x68, 0x12, 0x3a, 0x0a, 0x04, 0x4c,
+	0x69, 0x73, 0x74, 0x12, 0x0c, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x0d, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x22, 0x15, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x0f, 0x12, 0x0d, 0x2f, 0x76, 0x65, 0x63, 0x74, 0x6f,
+	0x72, 0x73, 0x2f, 0x6c, 0x69, 0x73, 0x74, 0x12, 0x39, 0x0a, 0x05, 0x51, 0x75, 0x65, 0x72, 0x79,
+	0x12, 0x0d, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x0e, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
+	0x11, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x0b, 0x3a, 0x01, 0x2a, 0x22, 0x06, 0x2f, 0x71, 0x75, 0x65,
+	0x72, 0x79, 0x12, 0x45, 0x0a, 0x06, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x12, 0x0e, 0x2e, 0x55,
+	0x70, 0x64, 0x61, 0x74, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0f, 0x2e, 0x55,
+	0x70, 0x64, 0x61, 0x74, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1a, 0x82,
+	0xd3, 0xe4, 0x93, 0x02, 0x14, 0x3a, 0x01, 0x2a, 0x22, 0x0f, 0x2f, 0x76, 0x65, 0x63, 0x74, 0x6f,
+	0x72, 0x73, 0x2f, 0x75, 0x70, 0x64, 0x61, 0x74, 0x65, 0x12, 0x88, 0x01, 0x0a, 0x12, 0x44, 0x65,
+	0x73, 0x63, 0x72, 0x69, 0x62, 0x65, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x53, 0x74, 0x61, 0x74, 0x73,
+	0x12, 0x1a, 0x2e, 0x44, 0x65, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65, 0x49, 0x6e, 0x64, 0x65, 0x78,
+	0x53, 0x74, 0x61, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1b, 0x2e, 0x44,
+	0x65, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x53, 0x74, 0x61, 0x74,
+	0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x39, 0x82, 0xd3, 0xe4, 0x93, 0x02,
+	0x33, 0x3a, 0x01, 0x2a, 0x5a, 0x17, 0x12, 0x15, 0x2f, 0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x62,
+	0x65, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x5f, 0x73, 0x74, 0x61, 0x74, 0x73, 0x22, 0x15, 0x2f,
+	0x64, 0x65, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x5f, 0x73,
+	0x74, 0x61, 0x74, 0x73, 0x12, 0x56, 0x0a, 0x0e, 0x4c, 0x69, 0x73, 0x74, 0x4e, 0x61, 0x6d, 0x65,
+	0x73, 0x70, 0x61, 0x63, 0x65, 0x73, 0x12, 0x16, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x4e, 0x61, 0x6d,
+	0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x17,
+	0x2e, 0x4c, 0x69, 0x73, 0x74, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x73, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x13, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x0d, 0x12,
+	0x0b, 0x2f, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x73, 0x12, 0x66, 0x0a, 0x11,
+	0x44, 0x65, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63,
+	0x65, 0x12, 0x19, 0x2e, 0x44, 0x65, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65, 0x4e, 0x61, 0x6d, 0x65,
+	0x73, 0x70, 0x61, 0x63, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x15, 0x2e, 0x4e,
+	0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x44, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74,
+	0x69, 0x6f, 0x6e, 0x22, 0x1f, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x19, 0x12, 0x17, 0x2f, 0x6e, 0x61,
+	0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x73, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70,
+	0x61, 0x63, 0x65, 0x7d, 0x12, 0x5c, 0x0a, 0x0f, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x4e, 0x61,
+	0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x12, 0x17, 0x2e, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65,
+	0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x1a, 0x0f, 0x2e, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x1f, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x19, 0x2a, 0x17, 0x2f, 0x6e, 0x61, 0x6d, 0x65,
+	0x73, 0x70, 0x61, 0x63, 0x65, 0x73, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63,
+	0x65, 0x7d, 0x42, 0x53, 0x0a, 0x11, 0x69, 0x6f, 0x2e, 0x70, 0x69, 0x6e, 0x65, 0x63, 0x6f, 0x6e,
+	0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x3c, 0x67, 0x69, 0x74, 0x68, 0x75,
+	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x69, 0x6e, 0x65, 0x63, 0x6f, 0x6e, 0x65, 0x2d, 0x69,
+	0x6f, 0x2f, 0x67, 0x6f, 0x2d, 0x70, 0x69, 0x6e, 0x65, 0x63, 0x6f, 0x6e, 0x65, 0x2f, 0x69, 0x6e,
+	0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x2f, 0x67, 0x65, 0x6e, 0x2f, 0x64, 0x62, 0x5f, 0x64, 0x61,
+	0x74, 0x61, 0x2f, 0x67, 0x72, 0x70, 0x63, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
-	file_db_data_2025_01_proto_rawDescOnce sync.Once
-	file_db_data_2025_01_proto_rawDescData = file_db_data_2025_01_proto_rawDesc
+	file_db_data_2025_04_proto_rawDescOnce sync.Once
+	file_db_data_2025_04_proto_rawDescData = file_db_data_2025_04_proto_rawDesc
 )
 
-func file_db_data_2025_01_proto_rawDescGZIP() []byte {
-	file_db_data_2025_01_proto_rawDescOnce.Do(func() {
-		file_db_data_2025_01_proto_rawDescData = protoimpl.X.CompressGZIP(file_db_data_2025_01_proto_rawDescData)
+func file_db_data_2025_04_proto_rawDescGZIP() []byte {
+	file_db_data_2025_04_proto_rawDescOnce.Do(func() {
+		file_db_data_2025_04_proto_rawDescData = protoimpl.X.CompressGZIP(file_db_data_2025_04_proto_rawDescData)
 	})
-	return file_db_data_2025_01_proto_rawDescData
+	return file_db_data_2025_04_proto_rawDescData
 }
 
-var file_db_data_2025_01_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
-var file_db_data_2025_01_proto_goTypes = []interface{}{
+var file_db_data_2025_04_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
+var file_db_data_2025_04_proto_goTypes = []interface{}{
 	(*SparseValues)(nil),               // 0: SparseValues
 	(*Vector)(nil),                     // 1: Vector
 	(*ScoredVector)(nil),               // 2: ScoredVector
@@ -1942,29 +2257,34 @@ var file_db_data_2025_01_proto_goTypes = []interface{}{
 	(*UpdateResponse)(nil),             // 20: UpdateResponse
 	(*DescribeIndexStatsRequest)(nil),  // 21: DescribeIndexStatsRequest
 	(*NamespaceSummary)(nil),           // 22: NamespaceSummary
-	(*DescribeIndexStatsResponse)(nil), // 23: DescribeIndexStatsResponse
-	nil,                                // 24: FetchResponse.VectorsEntry
-	nil,                                // 25: DescribeIndexStatsResponse.NamespacesEntry
-	(*structpb.Struct)(nil),            // 26: google.protobuf.Struct
+	(*ListNamespacesRequest)(nil),      // 23: ListNamespacesRequest
+	(*ListNamespacesResponse)(nil),     // 24: ListNamespacesResponse
+	(*DescribeNamespaceRequest)(nil),   // 25: DescribeNamespaceRequest
+	(*NamespaceDescription)(nil),       // 26: NamespaceDescription
+	(*DeleteNamespaceRequest)(nil),     // 27: DeleteNamespaceRequest
+	(*DescribeIndexStatsResponse)(nil), // 28: DescribeIndexStatsResponse
+	nil,                                // 29: FetchResponse.VectorsEntry
+	nil,                                // 30: DescribeIndexStatsResponse.NamespacesEntry
+	(*structpb.Struct)(nil),            // 31: google.protobuf.Struct
 }
-var file_db_data_2025_01_proto_depIdxs = []int32{
+var file_db_data_2025_04_proto_depIdxs = []int32{
 	0,  // 0: Vector.sparse_values:type_name -> SparseValues
-	26, // 1: Vector.metadata:type_name -> google.protobuf.Struct
+	31, // 1: Vector.metadata:type_name -> google.protobuf.Struct
 	0,  // 2: ScoredVector.sparse_values:type_name -> SparseValues
-	26, // 3: ScoredVector.metadata:type_name -> google.protobuf.Struct
+	31, // 3: ScoredVector.metadata:type_name -> google.protobuf.Struct
 	4,  // 4: RequestUnion.upsert:type_name -> UpsertRequest
 	6,  // 5: RequestUnion.delete:type_name -> DeleteRequest
 	19, // 6: RequestUnion.update:type_name -> UpdateRequest
 	1,  // 7: UpsertRequest.vectors:type_name -> Vector
-	26, // 8: DeleteRequest.filter:type_name -> google.protobuf.Struct
-	24, // 9: FetchResponse.vectors:type_name -> FetchResponse.VectorsEntry
+	31, // 8: DeleteRequest.filter:type_name -> google.protobuf.Struct
+	29, // 9: FetchResponse.vectors:type_name -> FetchResponse.VectorsEntry
 	18, // 10: FetchResponse.usage:type_name -> Usage
 	12, // 11: ListResponse.vectors:type_name -> ListItem
 	11, // 12: ListResponse.pagination:type_name -> Pagination
 	18, // 13: ListResponse.usage:type_name -> Usage
 	0,  // 14: QueryVector.sparse_values:type_name -> SparseValues
-	26, // 15: QueryVector.filter:type_name -> google.protobuf.Struct
-	26, // 16: QueryRequest.filter:type_name -> google.protobuf.Struct
+	31, // 15: QueryVector.filter:type_name -> google.protobuf.Struct
+	31, // 16: QueryRequest.filter:type_name -> google.protobuf.Struct
 	14, // 17: QueryRequest.queries:type_name -> QueryVector
 	0,  // 18: QueryRequest.sparse_vector:type_name -> SparseValues
 	2,  // 19: SingleQueryResults.matches:type_name -> ScoredVector
@@ -1972,39 +2292,47 @@ var file_db_data_2025_01_proto_depIdxs = []int32{
 	2,  // 21: QueryResponse.matches:type_name -> ScoredVector
 	18, // 22: QueryResponse.usage:type_name -> Usage
 	0,  // 23: UpdateRequest.sparse_values:type_name -> SparseValues
-	26, // 24: UpdateRequest.set_metadata:type_name -> google.protobuf.Struct
-	26, // 25: DescribeIndexStatsRequest.filter:type_name -> google.protobuf.Struct
-	25, // 26: DescribeIndexStatsResponse.namespaces:type_name -> DescribeIndexStatsResponse.NamespacesEntry
-	1,  // 27: FetchResponse.VectorsEntry.value:type_name -> Vector
-	22, // 28: DescribeIndexStatsResponse.NamespacesEntry.value:type_name -> NamespaceSummary
-	4,  // 29: VectorService.Upsert:input_type -> UpsertRequest
-	6,  // 30: VectorService.Delete:input_type -> DeleteRequest
-	8,  // 31: VectorService.Fetch:input_type -> FetchRequest
-	10, // 32: VectorService.List:input_type -> ListRequest
-	15, // 33: VectorService.Query:input_type -> QueryRequest
-	19, // 34: VectorService.Update:input_type -> UpdateRequest
-	21, // 35: VectorService.DescribeIndexStats:input_type -> DescribeIndexStatsRequest
-	5,  // 36: VectorService.Upsert:output_type -> UpsertResponse
-	7,  // 37: VectorService.Delete:output_type -> DeleteResponse
-	9,  // 38: VectorService.Fetch:output_type -> FetchResponse
-	13, // 39: VectorService.List:output_type -> ListResponse
-	17, // 40: VectorService.Query:output_type -> QueryResponse
-	20, // 41: VectorService.Update:output_type -> UpdateResponse
-	23, // 42: VectorService.DescribeIndexStats:output_type -> DescribeIndexStatsResponse
-	36, // [36:43] is the sub-list for method output_type
-	29, // [29:36] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	31, // 24: UpdateRequest.set_metadata:type_name -> google.protobuf.Struct
+	31, // 25: DescribeIndexStatsRequest.filter:type_name -> google.protobuf.Struct
+	26, // 26: ListNamespacesResponse.namespaces:type_name -> NamespaceDescription
+	11, // 27: ListNamespacesResponse.pagination:type_name -> Pagination
+	30, // 28: DescribeIndexStatsResponse.namespaces:type_name -> DescribeIndexStatsResponse.NamespacesEntry
+	1,  // 29: FetchResponse.VectorsEntry.value:type_name -> Vector
+	22, // 30: DescribeIndexStatsResponse.NamespacesEntry.value:type_name -> NamespaceSummary
+	4,  // 31: VectorService.Upsert:input_type -> UpsertRequest
+	6,  // 32: VectorService.Delete:input_type -> DeleteRequest
+	8,  // 33: VectorService.Fetch:input_type -> FetchRequest
+	10, // 34: VectorService.List:input_type -> ListRequest
+	15, // 35: VectorService.Query:input_type -> QueryRequest
+	19, // 36: VectorService.Update:input_type -> UpdateRequest
+	21, // 37: VectorService.DescribeIndexStats:input_type -> DescribeIndexStatsRequest
+	23, // 38: VectorService.ListNamespaces:input_type -> ListNamespacesRequest
+	25, // 39: VectorService.DescribeNamespace:input_type -> DescribeNamespaceRequest
+	27, // 40: VectorService.DeleteNamespace:input_type -> DeleteNamespaceRequest
+	5,  // 41: VectorService.Upsert:output_type -> UpsertResponse
+	7,  // 42: VectorService.Delete:output_type -> DeleteResponse
+	9,  // 43: VectorService.Fetch:output_type -> FetchResponse
+	13, // 44: VectorService.List:output_type -> ListResponse
+	17, // 45: VectorService.Query:output_type -> QueryResponse
+	20, // 46: VectorService.Update:output_type -> UpdateResponse
+	28, // 47: VectorService.DescribeIndexStats:output_type -> DescribeIndexStatsResponse
+	24, // 48: VectorService.ListNamespaces:output_type -> ListNamespacesResponse
+	26, // 49: VectorService.DescribeNamespace:output_type -> NamespaceDescription
+	7,  // 50: VectorService.DeleteNamespace:output_type -> DeleteResponse
+	41, // [41:51] is the sub-list for method output_type
+	31, // [31:41] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
-func init() { file_db_data_2025_01_proto_init() }
-func file_db_data_2025_01_proto_init() {
-	if File_db_data_2025_01_proto != nil {
+func init() { file_db_data_2025_04_proto_init() }
+func file_db_data_2025_04_proto_init() {
+	if File_db_data_2025_04_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_db_data_2025_01_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*SparseValues); i {
 			case 0:
 				return &v.state
@@ -2016,7 +2344,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Vector); i {
 			case 0:
 				return &v.state
@@ -2028,7 +2356,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ScoredVector); i {
 			case 0:
 				return &v.state
@@ -2040,7 +2368,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*RequestUnion); i {
 			case 0:
 				return &v.state
@@ -2052,7 +2380,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*UpsertRequest); i {
 			case 0:
 				return &v.state
@@ -2064,7 +2392,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*UpsertResponse); i {
 			case 0:
 				return &v.state
@@ -2076,7 +2404,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DeleteRequest); i {
 			case 0:
 				return &v.state
@@ -2088,7 +2416,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DeleteResponse); i {
 			case 0:
 				return &v.state
@@ -2100,7 +2428,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FetchRequest); i {
 			case 0:
 				return &v.state
@@ -2112,7 +2440,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FetchResponse); i {
 			case 0:
 				return &v.state
@@ -2124,7 +2452,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListRequest); i {
 			case 0:
 				return &v.state
@@ -2136,7 +2464,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Pagination); i {
 			case 0:
 				return &v.state
@@ -2148,7 +2476,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListItem); i {
 			case 0:
 				return &v.state
@@ -2160,7 +2488,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListResponse); i {
 			case 0:
 				return &v.state
@@ -2172,7 +2500,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryVector); i {
 			case 0:
 				return &v.state
@@ -2184,7 +2512,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryRequest); i {
 			case 0:
 				return &v.state
@@ -2196,7 +2524,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*SingleQueryResults); i {
 			case 0:
 				return &v.state
@@ -2208,7 +2536,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryResponse); i {
 			case 0:
 				return &v.state
@@ -2220,7 +2548,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Usage); i {
 			case 0:
 				return &v.state
@@ -2232,7 +2560,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*UpdateRequest); i {
 			case 0:
 				return &v.state
@@ -2244,7 +2572,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*UpdateResponse); i {
 			case 0:
 				return &v.state
@@ -2256,7 +2584,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DescribeIndexStatsRequest); i {
 			case 0:
 				return &v.state
@@ -2268,7 +2596,7 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*NamespaceSummary); i {
 			case 0:
 				return &v.state
@@ -2280,7 +2608,67 @@ func file_db_data_2025_01_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_01_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2025_04_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ListNamespacesRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_db_data_2025_04_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ListNamespacesResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_db_data_2025_04_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*DescribeNamespaceRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_db_data_2025_04_proto_msgTypes[26].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*NamespaceDescription); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_db_data_2025_04_proto_msgTypes[27].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*DeleteNamespaceRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_db_data_2025_04_proto_msgTypes[28].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DescribeIndexStatsResponse); i {
 			case 0:
 				return &v.state
@@ -2293,33 +2681,35 @@ func file_db_data_2025_01_proto_init() {
 			}
 		}
 	}
-	file_db_data_2025_01_proto_msgTypes[3].OneofWrappers = []interface{}{
+	file_db_data_2025_04_proto_msgTypes[3].OneofWrappers = []interface{}{
 		(*RequestUnion_Upsert)(nil),
 		(*RequestUnion_Delete)(nil),
 		(*RequestUnion_Update)(nil),
 	}
-	file_db_data_2025_01_proto_msgTypes[9].OneofWrappers = []interface{}{}
-	file_db_data_2025_01_proto_msgTypes[10].OneofWrappers = []interface{}{}
-	file_db_data_2025_01_proto_msgTypes[13].OneofWrappers = []interface{}{}
-	file_db_data_2025_01_proto_msgTypes[17].OneofWrappers = []interface{}{}
-	file_db_data_2025_01_proto_msgTypes[18].OneofWrappers = []interface{}{}
-	file_db_data_2025_01_proto_msgTypes[23].OneofWrappers = []interface{}{}
+	file_db_data_2025_04_proto_msgTypes[9].OneofWrappers = []interface{}{}
+	file_db_data_2025_04_proto_msgTypes[10].OneofWrappers = []interface{}{}
+	file_db_data_2025_04_proto_msgTypes[13].OneofWrappers = []interface{}{}
+	file_db_data_2025_04_proto_msgTypes[17].OneofWrappers = []interface{}{}
+	file_db_data_2025_04_proto_msgTypes[18].OneofWrappers = []interface{}{}
+	file_db_data_2025_04_proto_msgTypes[23].OneofWrappers = []interface{}{}
+	file_db_data_2025_04_proto_msgTypes[24].OneofWrappers = []interface{}{}
+	file_db_data_2025_04_proto_msgTypes[28].OneofWrappers = []interface{}{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: file_db_data_2025_01_proto_rawDesc,
+			RawDescriptor: file_db_data_2025_04_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   26,
+			NumMessages:   31,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_db_data_2025_01_proto_goTypes,
-		DependencyIndexes: file_db_data_2025_01_proto_depIdxs,
-		MessageInfos:      file_db_data_2025_01_proto_msgTypes,
+		GoTypes:           file_db_data_2025_04_proto_goTypes,
+		DependencyIndexes: file_db_data_2025_04_proto_depIdxs,
+		MessageInfos:      file_db_data_2025_04_proto_msgTypes,
 	}.Build()
-	File_db_data_2025_01_proto = out.File
-	file_db_data_2025_01_proto_rawDesc = nil
-	file_db_data_2025_01_proto_goTypes = nil
-	file_db_data_2025_01_proto_depIdxs = nil
+	File_db_data_2025_04_proto = out.File
+	file_db_data_2025_04_proto_rawDesc = nil
+	file_db_data_2025_04_proto_goTypes = nil
+	file_db_data_2025_04_proto_depIdxs = nil
 }
