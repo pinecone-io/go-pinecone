@@ -12,12 +12,20 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/oapi-codegen/runtime"
 )
 
 const (
 	ApiKeyAuthScopes = "ApiKeyAuth.Scopes"
+)
+
+// Defines values for BackupModelMetric.
+const (
+	BackupModelMetricCosine     BackupModelMetric = "cosine"
+	BackupModelMetricDotproduct BackupModelMetric = "dotproduct"
+	BackupModelMetricEuclidean  BackupModelMetric = "euclidean"
 )
 
 // Defines values for CollectionModelStatus.
@@ -87,6 +95,7 @@ const (
 
 // Defines values for IndexModelStatusState.
 const (
+	IndexModelStatusStateDisabled             IndexModelStatusState = "Disabled"
 	IndexModelStatusStateInitializationFailed IndexModelStatusState = "InitializationFailed"
 	IndexModelStatusStateInitializing         IndexModelStatusState = "Initializing"
 	IndexModelStatusStateReady                IndexModelStatusState = "Ready"
@@ -99,9 +108,9 @@ const (
 
 // Defines values for ModelIndexEmbedMetric.
 const (
-	ModelIndexEmbedMetricCosine     ModelIndexEmbedMetric = "cosine"
-	ModelIndexEmbedMetricDotproduct ModelIndexEmbedMetric = "dotproduct"
-	ModelIndexEmbedMetricEuclidean  ModelIndexEmbedMetric = "euclidean"
+	Cosine     ModelIndexEmbedMetric = "cosine"
+	Dotproduct ModelIndexEmbedMetric = "dotproduct"
+	Euclidean  ModelIndexEmbedMetric = "euclidean"
 )
 
 // Defines values for ServerlessSpecCloud.
@@ -110,6 +119,71 @@ const (
 	ServerlessSpecCloudAzure ServerlessSpecCloud = "azure"
 	ServerlessSpecCloudGcp   ServerlessSpecCloud = "gcp"
 )
+
+// BackupList The list of backups that exist in the project.
+type BackupList struct {
+	Data *[]BackupModel `json:"data,omitempty"`
+
+	// Pagination The pagination object that is returned with paginated responses.
+	Pagination *PaginationResponse `json:"pagination,omitempty"`
+}
+
+// BackupModel The BackupModel describes the configuration and status of a Pinecone backup.
+type BackupModel struct {
+	// BackupId Unique identifier for the backup.
+	BackupId string `json:"backup_id"`
+
+	// Cloud Cloud provider where the backup is stored.
+	Cloud string `json:"cloud"`
+
+	// CreatedAt Timestamp when the backup was created.
+	CreatedAt *string `json:"created_at,omitempty"`
+
+	// Description Optional description providing context for the backup.
+	Description *string `json:"description,omitempty"`
+
+	// Dimension The dimensions of the vectors to be inserted in the index.
+	Dimension *int32 `json:"dimension,omitempty"`
+
+	// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If the 'vector_type' is 'sparse', the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric defaults to 'cosine'.
+	Metric *BackupModelMetric `json:"metric,omitempty"`
+
+	// Name Optional user-defined name for the backup.
+	Name *string `json:"name,omitempty"`
+
+	// NamespaceCount Number of namespaces in the backup.
+	NamespaceCount *int `json:"namespace_count,omitempty"`
+
+	// RecordCount Total number of records in the backup.
+	RecordCount *int `json:"record_count,omitempty"`
+
+	// Region Cloud region where the backup is stored.
+	Region string `json:"region"`
+
+	// SizeBytes Size of the backup in bytes.
+	SizeBytes *int `json:"size_bytes,omitempty"`
+
+	// SourceIndexId ID of the index.
+	SourceIndexId string `json:"source_index_id"`
+
+	// SourceIndexName Name of the index from which the backup was taken.
+	SourceIndexName string `json:"source_index_name"`
+
+	// Status Current status of the backup (e.g., Initializing, Ready, Failed).
+	Status string `json:"status"`
+
+	// Tags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
+	Tags *IndexTags `json:"tags,omitempty"`
+}
+
+// BackupModelMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If the 'vector_type' is 'sparse', the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric defaults to 'cosine'.
+type BackupModelMetric string
+
+// ByocSpec Configuration needed to deploy an index in a BYOC environment.
+type ByocSpec struct {
+	// Environment The environment where the index is hosted.
+	Environment string `json:"environment"`
+}
 
 // CollectionList The list of collections that exist in the project.
 type CollectionList struct {
@@ -142,12 +216,12 @@ type CollectionModelStatus string
 
 // ConfigureIndexRequest Configuration used to scale an index.
 type ConfigureIndexRequest struct {
-	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 
 	// Embed Configure the integrated inference embedding settings for this index.
 	//
-	// You can convert an existing index to an integrated index by specifying the embedding model and field_map. The index vector type and dimension must match the model vector type and dimension, and the index similarity metric must be supported by the model. Refer to the [model guide](https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models) for available models and model details.
+	// You can convert an existing index to an integrated index by specifying the embedding model and field_map. The index vector type and dimension must match the model vector type and dimension, and the index similarity metric must be supported by the model. Refer to the [model guide](https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models) for available models and model details.
 	//
 	// You can later change the embedding configuration to update the field map, read parameters, or write parameters. Once set, the model cannot be changed.
 	Embed *struct {
@@ -177,6 +251,15 @@ type ConfigureIndexRequest struct {
 	Tags *IndexTags `json:"tags,omitempty"`
 }
 
+// CreateBackupRequest The configuration needed to create a backup of an index.
+type CreateBackupRequest struct {
+	// Description A description of the backup.
+	Description *string `json:"description,omitempty"`
+
+	// Name The name of the backup.
+	Name *string `json:"name,omitempty"`
+}
+
 // CreateCollectionRequest The configuration needed to create a Pinecone collection.
 type CreateCollectionRequest struct {
 	// Name The name of the collection to be created. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
@@ -191,15 +274,18 @@ type CreateIndexForModelRequest struct {
 	// Cloud The public cloud where you would like your index hosted.
 	Cloud CreateIndexForModelRequestCloud `json:"cloud"`
 
-	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 
 	// Embed Specify the integrated inference embedding configuration for the index.
 	//
 	// Once set the model cannot be changed, but you can later update the embedding configuration for an integrated inference index including field map, read parameters, or write parameters.
 	//
-	// Refer to the [model guide](https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models) for available models and model details.
+	// Refer to the [model guide](https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models) for available models and model details.
 	Embed struct {
+		// Dimension The dimension of embedding vectors produced for the index.
+		Dimension *int `json:"dimension,omitempty"`
+
 		// FieldMap Identifies the name of the text field from your document model that will be embedded.
 		FieldMap map[string]interface{} `json:"field_map"`
 
@@ -232,9 +318,30 @@ type CreateIndexForModelRequestCloud string
 // CreateIndexForModelRequestEmbedMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If not specified, the metric will be defaulted according to the model. Cannot be updated once set.
 type CreateIndexForModelRequestEmbedMetric string
 
+// CreateIndexFromBackupRequest The configuration needed to create a Pinecone index from a backup.
+type CreateIndexFromBackupRequest struct {
+	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
+
+	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
+	Name string `json:"name"`
+
+	// Tags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
+	Tags *IndexTags `json:"tags,omitempty"`
+}
+
+// CreateIndexFromBackupResponse The response for creating an index from a backup.
+type CreateIndexFromBackupResponse struct {
+	// IndexId The ID of the index that was created from the backup.
+	IndexId string `json:"index_id"`
+
+	// RestoreJobId The ID of the restore job that was created.
+	RestoreJobId string `json:"restore_job_id"`
+}
+
 // CreateIndexRequest The configuration needed to create a Pinecone index.
 type CreateIndexRequest struct {
-	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 
 	// Dimension The dimensions of the vectors to be inserted in the index.
@@ -248,7 +355,7 @@ type CreateIndexRequest struct {
 
 	// Spec The spec object defines how the index should be deployed.
 	//
-	// For serverless indexes, you define only the [cloud and region](http://docs.pinecone.io/guides/indexes/understanding-indexes#cloud-regions) where the index should be hosted. For pod-based indexes, you define the [environment](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-environments) where the index should be hosted, the [pod type and size](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-types) to use, and other index characteristics.
+	// For serverless indexes, you set only the [cloud and region](http://docs.pinecone.io/guides/index-data/create-an-index#cloud-regions) where the index should be hosted. For pod-based indexes, you set the [environment](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-environments) where the index should be hosted, the [pod type and size](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-types) to use, and other index characteristics. For [BYOC indexes](http://docs.pinecone.io/guides/production/bring-your-own-cloud), you set the environment name provided to you during onboarding.
 	Spec IndexSpec `json:"spec"`
 
 	// Tags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
@@ -261,7 +368,7 @@ type CreateIndexRequest struct {
 // CreateIndexRequestMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If the 'vector_type' is 'sparse', the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric defaults to 'cosine'.
 type CreateIndexRequestMetric string
 
-// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
 type DeletionProtection string
 
 // ErrorResponse The response shape used for all error responses.
@@ -289,7 +396,7 @@ type IndexList struct {
 
 // IndexModel The IndexModel describes the configuration and status of a Pinecone index.
 type IndexModel struct {
-	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/indexes/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 
 	// Dimension The dimensions of the vectors to be inserted in the index.
@@ -307,6 +414,9 @@ type IndexModel struct {
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 	Spec struct {
+		// Byoc Configuration needed to deploy an index in a BYOC environment.
+		Byoc *ByocSpec `json:"byoc,omitempty"`
+
 		// Pod Configuration needed to deploy a pod-based index.
 		Pod *PodSpec `json:"pod,omitempty"`
 
@@ -333,8 +443,11 @@ type IndexModelStatusState string
 
 // IndexSpec The spec object defines how the index should be deployed.
 //
-// For serverless indexes, you define only the [cloud and region](http://docs.pinecone.io/guides/indexes/understanding-indexes#cloud-regions) where the index should be hosted. For pod-based indexes, you define the [environment](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-environments) where the index should be hosted, the [pod type and size](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-types) to use, and other index characteristics.
+// For serverless indexes, you set only the [cloud and region](http://docs.pinecone.io/guides/index-data/create-an-index#cloud-regions) where the index should be hosted. For pod-based indexes, you set the [environment](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-environments) where the index should be hosted, the [pod type and size](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-types) to use, and other index characteristics. For [BYOC indexes](http://docs.pinecone.io/guides/production/bring-your-own-cloud), you set the environment name provided to you during onboarding.
 type IndexSpec struct {
+	// Byoc Configuration needed to deploy an index in a BYOC environment.
+	Byoc *ByocSpec `json:"byoc,omitempty"`
+
 	// Pod Configuration needed to deploy a pod-based index.
 	Pod *PodSpec `json:"pod,omitempty"`
 
@@ -348,6 +461,9 @@ type IndexSpec0 = interface{}
 
 // IndexSpec1 defines model for .
 type IndexSpec1 = interface{}
+
+// IndexSpec2 defines model for .
+type IndexSpec2 = interface{}
 
 // IndexTags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
 type IndexTags map[string]string
@@ -379,6 +495,12 @@ type ModelIndexEmbed struct {
 // ModelIndexEmbedMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If not specified, the metric will be defaulted according to the model. Cannot be updated once set.
 type ModelIndexEmbedMetric string
 
+// PaginationResponse The pagination object that is returned with paginated responses.
+type PaginationResponse struct {
+	// Next The token to use to retrieve the next page of results.
+	Next string `json:"next"`
+}
+
 // PodSpec Configuration needed to deploy a pod-based index.
 type PodSpec struct {
 	// Environment The environment where the index is hosted.
@@ -406,6 +528,41 @@ type PodSpec struct {
 	SourceCollection *string `json:"source_collection,omitempty"`
 }
 
+// RestoreJobList The list of restore jobs that exist in the project.
+type RestoreJobList struct {
+	Data []RestoreJobModel `json:"data"`
+
+	// Pagination The pagination object that is returned with paginated responses.
+	Pagination *PaginationResponse `json:"pagination,omitempty"`
+}
+
+// RestoreJobModel The RestoreJobModel describes the status of a restore job.
+type RestoreJobModel struct {
+	// BackupId Backup used for the restore
+	BackupId string `json:"backup_id"`
+
+	// CompletedAt Timestamp when the restore job finished
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+
+	// CreatedAt Timestamp when the restore job started
+	CreatedAt time.Time `json:"created_at"`
+
+	// PercentComplete The progress made by the restore job out of 100
+	PercentComplete *float32 `json:"percent_complete,omitempty"`
+
+	// RestoreJobId Unique identifier for the restore job
+	RestoreJobId string `json:"restore_job_id"`
+
+	// Status Status of the restore job
+	Status string `json:"status"`
+
+	// TargetIndexId ID of the index
+	TargetIndexId string `json:"target_index_id"`
+
+	// TargetIndexName Name of the index into which data is being restored
+	TargetIndexName string `json:"target_index_name"`
+}
+
 // ServerlessSpec Configuration needed to deploy a serverless index.
 type ServerlessSpec struct {
 	// Cloud The public cloud where you would like your index hosted.
@@ -418,6 +575,36 @@ type ServerlessSpec struct {
 // ServerlessSpecCloud The public cloud where you would like your index hosted.
 type ServerlessSpecCloud string
 
+// ListProjectBackupsParams defines parameters for ListProjectBackups.
+type ListProjectBackupsParams struct {
+	// Limit The number of results to return per page.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// PaginationToken The token to use to retrieve the next page of results.
+	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
+}
+
+// ListIndexBackupsParams defines parameters for ListIndexBackups.
+type ListIndexBackupsParams struct {
+	// Limit The number of results to return per page.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// PaginationToken The token to use to retrieve the next page of results.
+	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
+}
+
+// ListRestoreJobsParams defines parameters for ListRestoreJobs.
+type ListRestoreJobsParams struct {
+	// Limit The number of results to return per page.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// PaginationToken The token to use to retrieve the next page of results.
+	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
+}
+
+// CreateIndexFromBackupOperationJSONRequestBody defines body for CreateIndexFromBackupOperation for application/json ContentType.
+type CreateIndexFromBackupOperationJSONRequestBody = CreateIndexFromBackupRequest
+
 // CreateCollectionJSONRequestBody defines body for CreateCollection for application/json ContentType.
 type CreateCollectionJSONRequestBody = CreateCollectionRequest
 
@@ -429,6 +616,9 @@ type CreateIndexForModelJSONRequestBody = CreateIndexForModelRequest
 
 // ConfigureIndexJSONRequestBody defines body for ConfigureIndex for application/json ContentType.
 type ConfigureIndexJSONRequestBody = ConfigureIndexRequest
+
+// CreateBackupJSONRequestBody defines body for CreateBackup for application/json ContentType.
+type CreateBackupJSONRequestBody = CreateBackupRequest
 
 // AsIndexSpec0 returns the union data inside the IndexSpec as a IndexSpec0
 func (t IndexSpec) AsIndexSpec0() (IndexSpec0, error) {
@@ -482,6 +672,32 @@ func (t *IndexSpec) MergeIndexSpec1(v IndexSpec1) error {
 	return err
 }
 
+// AsIndexSpec2 returns the union data inside the IndexSpec as a IndexSpec2
+func (t IndexSpec) AsIndexSpec2() (IndexSpec2, error) {
+	var body IndexSpec2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromIndexSpec2 overwrites any union data inside the IndexSpec as the provided IndexSpec2
+func (t *IndexSpec) FromIndexSpec2(v IndexSpec2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeIndexSpec2 performs a merge with any union data inside the IndexSpec, using the provided IndexSpec2
+func (t *IndexSpec) MergeIndexSpec2(v IndexSpec2) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t IndexSpec) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
 	if err != nil {
@@ -492,6 +708,13 @@ func (t IndexSpec) MarshalJSON() ([]byte, error) {
 		err = json.Unmarshal(b, &object)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	if t.Byoc != nil {
+		object["byoc"], err = json.Marshal(t.Byoc)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'byoc': %w", err)
 		}
 	}
 
@@ -521,6 +744,13 @@ func (t *IndexSpec) UnmarshalJSON(b []byte) error {
 	err = json.Unmarshal(b, &object)
 	if err != nil {
 		return err
+	}
+
+	if raw, found := object["byoc"]; found {
+		err = json.Unmarshal(raw, &t.Byoc)
+		if err != nil {
+			return fmt.Errorf("error reading 'byoc': %w", err)
+		}
 	}
 
 	if raw, found := object["pod"]; found {
@@ -613,6 +843,20 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// ListProjectBackups request
+	ListProjectBackups(ctx context.Context, params *ListProjectBackupsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteBackup request
+	DeleteBackup(ctx context.Context, backupId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DescribeBackup request
+	DescribeBackup(ctx context.Context, backupId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateIndexFromBackupOperationWithBody request with any body
+	CreateIndexFromBackupOperationWithBody(ctx context.Context, backupId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateIndexFromBackupOperation(ctx context.Context, backupId string, body CreateIndexFromBackupOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListCollections request
 	ListCollections(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -650,6 +894,80 @@ type ClientInterface interface {
 	ConfigureIndexWithBody(ctx context.Context, indexName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	ConfigureIndex(ctx context.Context, indexName string, body ConfigureIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListIndexBackups request
+	ListIndexBackups(ctx context.Context, indexName string, params *ListIndexBackupsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateBackupWithBody request with any body
+	CreateBackupWithBody(ctx context.Context, indexName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateBackup(ctx context.Context, indexName string, body CreateBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListRestoreJobs request
+	ListRestoreJobs(ctx context.Context, params *ListRestoreJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DescribeRestoreJob request
+	DescribeRestoreJob(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) ListProjectBackups(ctx context.Context, params *ListProjectBackupsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectBackupsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteBackup(ctx context.Context, backupId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteBackupRequest(c.Server, backupId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DescribeBackup(ctx context.Context, backupId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDescribeBackupRequest(c.Server, backupId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateIndexFromBackupOperationWithBody(ctx context.Context, backupId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIndexFromBackupOperationRequestWithBody(c.Server, backupId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateIndexFromBackupOperation(ctx context.Context, backupId string, body CreateIndexFromBackupOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIndexFromBackupOperationRequest(c.Server, backupId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) ListCollections(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -818,6 +1136,246 @@ func (c *Client) ConfigureIndex(ctx context.Context, indexName string, body Conf
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+func (c *Client) ListIndexBackups(ctx context.Context, indexName string, params *ListIndexBackupsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListIndexBackupsRequest(c.Server, indexName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateBackupWithBody(ctx context.Context, indexName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBackupRequestWithBody(c.Server, indexName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateBackup(ctx context.Context, indexName string, body CreateBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBackupRequest(c.Server, indexName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListRestoreJobs(ctx context.Context, params *ListRestoreJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRestoreJobsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DescribeRestoreJob(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDescribeRestoreJobRequest(c.Server, jobId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// NewListProjectBackupsRequest generates requests for ListProjectBackups
+func NewListProjectBackupsRequest(server string, params *ListProjectBackupsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/backups")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PaginationToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "paginationToken", runtime.ParamLocationQuery, *params.PaginationToken); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteBackupRequest generates requests for DeleteBackup
+func NewDeleteBackupRequest(server string, backupId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "backup_id", runtime.ParamLocationPath, backupId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/backups/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDescribeBackupRequest generates requests for DescribeBackup
+func NewDescribeBackupRequest(server string, backupId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "backup_id", runtime.ParamLocationPath, backupId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/backups/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateIndexFromBackupOperationRequest calls the generic CreateIndexFromBackupOperation builder with application/json body
+func NewCreateIndexFromBackupOperationRequest(server string, backupId string, body CreateIndexFromBackupOperationJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateIndexFromBackupOperationRequestWithBody(server, backupId, "application/json", bodyReader)
+}
+
+// NewCreateIndexFromBackupOperationRequestWithBody generates requests for CreateIndexFromBackupOperation with any type of body
+func NewCreateIndexFromBackupOperationRequestWithBody(server string, backupId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "backup_id", runtime.ParamLocationPath, backupId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/backups/%s/create-index", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
 }
 
 // NewListCollectionsRequest generates requests for ListCollections
@@ -1177,6 +1735,224 @@ func NewConfigureIndexRequestWithBody(server string, indexName string, contentTy
 	return req, nil
 }
 
+// NewListIndexBackupsRequest generates requests for ListIndexBackups
+func NewListIndexBackupsRequest(server string, indexName string, params *ListIndexBackupsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "index_name", runtime.ParamLocationPath, indexName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/indexes/%s/backups", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PaginationToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "paginationToken", runtime.ParamLocationQuery, *params.PaginationToken); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateBackupRequest calls the generic CreateBackup builder with application/json body
+func NewCreateBackupRequest(server string, indexName string, body CreateBackupJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateBackupRequestWithBody(server, indexName, "application/json", bodyReader)
+}
+
+// NewCreateBackupRequestWithBody generates requests for CreateBackup with any type of body
+func NewCreateBackupRequestWithBody(server string, indexName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "index_name", runtime.ParamLocationPath, indexName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/indexes/%s/backups", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListRestoreJobsRequest generates requests for ListRestoreJobs
+func NewListRestoreJobsRequest(server string, params *ListRestoreJobsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/restore-jobs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PaginationToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "paginationToken", runtime.ParamLocationQuery, *params.PaginationToken); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDescribeRestoreJobRequest generates requests for DescribeRestoreJob
+func NewDescribeRestoreJobRequest(server string, jobId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "job_id", runtime.ParamLocationPath, jobId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/restore-jobs/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -1220,6 +1996,20 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// ListProjectBackupsWithResponse request
+	ListProjectBackupsWithResponse(ctx context.Context, params *ListProjectBackupsParams, reqEditors ...RequestEditorFn) (*ListProjectBackupsResponse, error)
+
+	// DeleteBackupWithResponse request
+	DeleteBackupWithResponse(ctx context.Context, backupId string, reqEditors ...RequestEditorFn) (*DeleteBackupResponse, error)
+
+	// DescribeBackupWithResponse request
+	DescribeBackupWithResponse(ctx context.Context, backupId string, reqEditors ...RequestEditorFn) (*DescribeBackupResponse, error)
+
+	// CreateIndexFromBackupOperationWithBodyWithResponse request with any body
+	CreateIndexFromBackupOperationWithBodyWithResponse(ctx context.Context, backupId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexFromBackupOperationResponse, error)
+
+	CreateIndexFromBackupOperationWithResponse(ctx context.Context, backupId string, body CreateIndexFromBackupOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexFromBackupOperationResponse, error)
+
 	// ListCollectionsWithResponse request
 	ListCollectionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListCollectionsResponse, error)
 
@@ -1257,6 +2047,124 @@ type ClientWithResponsesInterface interface {
 	ConfigureIndexWithBodyWithResponse(ctx context.Context, indexName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConfigureIndexResponse, error)
 
 	ConfigureIndexWithResponse(ctx context.Context, indexName string, body ConfigureIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*ConfigureIndexResponse, error)
+
+	// ListIndexBackupsWithResponse request
+	ListIndexBackupsWithResponse(ctx context.Context, indexName string, params *ListIndexBackupsParams, reqEditors ...RequestEditorFn) (*ListIndexBackupsResponse, error)
+
+	// CreateBackupWithBodyWithResponse request with any body
+	CreateBackupWithBodyWithResponse(ctx context.Context, indexName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBackupResponse, error)
+
+	CreateBackupWithResponse(ctx context.Context, indexName string, body CreateBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBackupResponse, error)
+
+	// ListRestoreJobsWithResponse request
+	ListRestoreJobsWithResponse(ctx context.Context, params *ListRestoreJobsParams, reqEditors ...RequestEditorFn) (*ListRestoreJobsResponse, error)
+
+	// DescribeRestoreJobWithResponse request
+	DescribeRestoreJobWithResponse(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*DescribeRestoreJobResponse, error)
+}
+
+type ListProjectBackupsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BackupList
+	JSON401      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectBackupsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectBackupsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteBackupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON412      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteBackupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteBackupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DescribeBackupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BackupModel
+	JSON401      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DescribeBackupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DescribeBackupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateIndexFromBackupOperationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *CreateIndexFromBackupResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON402      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON409      *ErrorResponse
+	JSON422      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateIndexFromBackupOperationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateIndexFromBackupOperationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type ListCollectionsResponse struct {
@@ -1523,6 +2431,152 @@ func (r ConfigureIndexResponse) StatusCode() int {
 	return 0
 }
 
+type ListIndexBackupsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BackupList
+	JSON401      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListIndexBackupsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListIndexBackupsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateBackupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *BackupModel
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON402      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON422      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateBackupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateBackupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListRestoreJobsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RestoreJobList
+	JSON401      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListRestoreJobsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListRestoreJobsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DescribeRestoreJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RestoreJobModel
+	JSON401      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DescribeRestoreJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DescribeRestoreJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ListProjectBackupsWithResponse request returning *ListProjectBackupsResponse
+func (c *ClientWithResponses) ListProjectBackupsWithResponse(ctx context.Context, params *ListProjectBackupsParams, reqEditors ...RequestEditorFn) (*ListProjectBackupsResponse, error) {
+	rsp, err := c.ListProjectBackups(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectBackupsResponse(rsp)
+}
+
+// DeleteBackupWithResponse request returning *DeleteBackupResponse
+func (c *ClientWithResponses) DeleteBackupWithResponse(ctx context.Context, backupId string, reqEditors ...RequestEditorFn) (*DeleteBackupResponse, error) {
+	rsp, err := c.DeleteBackup(ctx, backupId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteBackupResponse(rsp)
+}
+
+// DescribeBackupWithResponse request returning *DescribeBackupResponse
+func (c *ClientWithResponses) DescribeBackupWithResponse(ctx context.Context, backupId string, reqEditors ...RequestEditorFn) (*DescribeBackupResponse, error) {
+	rsp, err := c.DescribeBackup(ctx, backupId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDescribeBackupResponse(rsp)
+}
+
+// CreateIndexFromBackupOperationWithBodyWithResponse request with arbitrary body returning *CreateIndexFromBackupOperationResponse
+func (c *ClientWithResponses) CreateIndexFromBackupOperationWithBodyWithResponse(ctx context.Context, backupId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexFromBackupOperationResponse, error) {
+	rsp, err := c.CreateIndexFromBackupOperationWithBody(ctx, backupId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateIndexFromBackupOperationResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateIndexFromBackupOperationWithResponse(ctx context.Context, backupId string, body CreateIndexFromBackupOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexFromBackupOperationResponse, error) {
+	rsp, err := c.CreateIndexFromBackupOperation(ctx, backupId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateIndexFromBackupOperationResponse(rsp)
+}
+
 // ListCollectionsWithResponse request returning *ListCollectionsResponse
 func (c *ClientWithResponses) ListCollectionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListCollectionsResponse, error) {
 	rsp, err := c.ListCollections(ctx, reqEditors...)
@@ -1643,6 +2697,266 @@ func (c *ClientWithResponses) ConfigureIndexWithResponse(ctx context.Context, in
 		return nil, err
 	}
 	return ParseConfigureIndexResponse(rsp)
+}
+
+// ListIndexBackupsWithResponse request returning *ListIndexBackupsResponse
+func (c *ClientWithResponses) ListIndexBackupsWithResponse(ctx context.Context, indexName string, params *ListIndexBackupsParams, reqEditors ...RequestEditorFn) (*ListIndexBackupsResponse, error) {
+	rsp, err := c.ListIndexBackups(ctx, indexName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListIndexBackupsResponse(rsp)
+}
+
+// CreateBackupWithBodyWithResponse request with arbitrary body returning *CreateBackupResponse
+func (c *ClientWithResponses) CreateBackupWithBodyWithResponse(ctx context.Context, indexName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBackupResponse, error) {
+	rsp, err := c.CreateBackupWithBody(ctx, indexName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBackupResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateBackupWithResponse(ctx context.Context, indexName string, body CreateBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBackupResponse, error) {
+	rsp, err := c.CreateBackup(ctx, indexName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBackupResponse(rsp)
+}
+
+// ListRestoreJobsWithResponse request returning *ListRestoreJobsResponse
+func (c *ClientWithResponses) ListRestoreJobsWithResponse(ctx context.Context, params *ListRestoreJobsParams, reqEditors ...RequestEditorFn) (*ListRestoreJobsResponse, error) {
+	rsp, err := c.ListRestoreJobs(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListRestoreJobsResponse(rsp)
+}
+
+// DescribeRestoreJobWithResponse request returning *DescribeRestoreJobResponse
+func (c *ClientWithResponses) DescribeRestoreJobWithResponse(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*DescribeRestoreJobResponse, error) {
+	rsp, err := c.DescribeRestoreJob(ctx, jobId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDescribeRestoreJobResponse(rsp)
+}
+
+// ParseListProjectBackupsResponse parses an HTTP response from a ListProjectBackupsWithResponse call
+func ParseListProjectBackupsResponse(rsp *http.Response) (*ListProjectBackupsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectBackupsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BackupList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteBackupResponse parses an HTTP response from a DeleteBackupWithResponse call
+func ParseDeleteBackupResponse(rsp *http.Response) (*DeleteBackupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteBackupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDescribeBackupResponse parses an HTTP response from a DescribeBackupWithResponse call
+func ParseDescribeBackupResponse(rsp *http.Response) (*DescribeBackupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DescribeBackupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BackupModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateIndexFromBackupOperationResponse parses an HTTP response from a CreateIndexFromBackupOperationWithResponse call
+func ParseCreateIndexFromBackupOperationResponse(rsp *http.Response) (*CreateIndexFromBackupOperationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateIndexFromBackupOperationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest CreateIndexFromBackupResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 402:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON402 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseListCollectionsResponse parses an HTTP response from a ListCollectionsWithResponse call
@@ -2200,6 +3514,208 @@ func ParseConfigureIndexResponse(rsp *http.Response) (*ConfigureIndexResponse, e
 			return nil, err
 		}
 		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListIndexBackupsResponse parses an HTTP response from a ListIndexBackupsWithResponse call
+func ParseListIndexBackupsResponse(rsp *http.Response) (*ListIndexBackupsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListIndexBackupsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BackupList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateBackupResponse parses an HTTP response from a CreateBackupWithResponse call
+func ParseCreateBackupResponse(rsp *http.Response) (*CreateBackupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateBackupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest BackupModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 402:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON402 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListRestoreJobsResponse parses an HTTP response from a ListRestoreJobsWithResponse call
+func ParseListRestoreJobsResponse(rsp *http.Response) (*ListRestoreJobsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListRestoreJobsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RestoreJobList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDescribeRestoreJobResponse parses an HTTP response from a DescribeRestoreJobWithResponse call
+func ParseDescribeRestoreJobResponse(rsp *http.Response) (*DescribeRestoreJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DescribeRestoreJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RestoreJobModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse

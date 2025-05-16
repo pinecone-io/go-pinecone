@@ -858,6 +858,8 @@ type CreateIndexForModelRequest struct {
 // Fields:
 //   - Model: (Required) The name of the embedding model to use for the index.
 //   - FieldMap: (Required) Identifies the name of the text field from your document model that will be embedded.
+//   - Dimension: (Optional) The dimensionality of the vectors to be inserted in the Index. If not specified, the dimension
+//     will be defaulted according to the model.
 //   - Metric: (Optional) The [similarity metric] to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
 //     If not specified, the metric will be defaulted according to the model. Cannot be updated once set.
 //   - ReadParameters: (Optional) Read parameters for the embedding model.
@@ -871,6 +873,7 @@ type CreateIndexForModelRequest struct {
 type CreateIndexForModelEmbed struct {
 	Model           string
 	FieldMap        map[string]interface{}
+	Dimension       *int
 	Metric          *IndexMetric
 	ReadParameters  *map[string]interface{}
 	WriteParameters *map[string]interface{}
@@ -935,12 +938,14 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 		Region: in.Region,
 		Cloud:  db_control.CreateIndexForModelRequestCloud(in.Cloud),
 		Embed: struct {
+			Dimension       *int                                              `json:"dimension,omitempty"`
 			FieldMap        map[string]interface{}                            `json:"field_map"`
 			Metric          *db_control.CreateIndexForModelRequestEmbedMetric `json:"metric,omitempty"`
 			Model           string                                            `json:"model"`
 			ReadParameters  *map[string]interface{}                           `json:"read_parameters,omitempty"`
 			WriteParameters *map[string]interface{}                           `json:"write_parameters,omitempty"`
 		}{
+			Dimension:       in.Embed.Dimension,
 			FieldMap:        in.Embed.FieldMap,
 			Metric:          (*db_control.CreateIndexForModelRequestEmbedMetric)(in.Embed.Metric),
 			Model:           in.Embed.Model,
