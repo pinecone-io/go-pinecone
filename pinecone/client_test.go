@@ -1107,9 +1107,11 @@ func TestToIndexUnit(t *testing.T) {
 				Metric:             "cosine",
 				DeletionProtection: &deletionProtectionDisabled,
 				Spec: struct {
+					Byoc       *db_control.ByocSpec       `json:"byoc,omitempty"`
 					Pod        *db_control.PodSpec        `json:"pod,omitempty"`
 					Serverless *db_control.ServerlessSpec `json:"serverless,omitempty"`
 				}(struct {
+					Byoc       *db_control.ByocSpec `json:"byoc,omitempty"`
 					Pod        *db_control.PodSpec
 					Serverless *db_control.ServerlessSpec
 				}{Pod: &db_control.PodSpec{
@@ -1160,9 +1162,11 @@ func TestToIndexUnit(t *testing.T) {
 				Metric:             "cosine",
 				DeletionProtection: &deletionProtectionEnabled,
 				Spec: struct {
+					Byoc       *db_control.ByocSpec       `json:"byoc,omitempty"`
 					Pod        *db_control.PodSpec        `json:"pod,omitempty"`
 					Serverless *db_control.ServerlessSpec `json:"serverless,omitempty"`
 				}(struct {
+					Byoc       *db_control.ByocSpec `json:"byoc,omitempty"`
 					Pod        *db_control.PodSpec
 					Serverless *db_control.ServerlessSpec
 				}{Serverless: &db_control.ServerlessSpec{
