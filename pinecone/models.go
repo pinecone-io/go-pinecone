@@ -224,7 +224,7 @@ type DenseEmbedding struct {
 type SparseEmbedding struct {
 	VectorType    string    `json:"vector_type"`
 	SparseValues  []float32 `json:"sparse_values,omitempty"`
-	SparseIndices []int32   `json:"sparse_indices,omitempty"`
+	SparseIndices []int64   `json:"sparse_indices,omitempty"`
 	SparseTokens  *[]string `json:"sparse_tokens,omitempty"`
 }
 
