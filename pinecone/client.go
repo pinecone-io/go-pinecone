@@ -1643,7 +1643,7 @@ func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedR
 		return nil, handleErrorResponseBody(res, "failed to embed: ")
 	}
 
-	return decodeEmbeddingsList(res.Body)
+	return decodeEmbedResponse(res.Body)
 }
 
 // [Document] is a map representing the document to be reranked.
@@ -1770,6 +1770,23 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 	return decodeRerankResponse(res.Body)
 }
 
+func (i *InferenceService) GetModel(ctx context.Context, modelName string) (*inference.ModelInfo, error) {
+	res, err := i.client.GetModel(ctx, modelName)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to get model: ")
+	}
+	var modelInfo inference.ModelInfo
+	err = json.NewDecoder(res.Body).Decode(&modelInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode model info response: %w", err)
+	}
+	return &modelInfo, nil
+}
+
 func (c *Client) extractAuthHeader() map[string]string {
 	possibleAuthKeys := []string{
 		"api-key",
@@ -1863,14 +1880,50 @@ func decodeIndex(resBody io.ReadCloser) (*Index, error) {
 	return toIndex(&idx), nil
 }
 
-func decodeEmbeddingsList(resBody io.ReadCloser) (*EmbedResponse, error) {
-	var embeddingsList EmbedResponse
-	err := json.NewDecoder(resBody).Decode(&embeddingsList)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode embeddings response: %w", err)
+func decodeEmbedResponse(resBody io.ReadCloser) (*EmbedResponse, error) {
+	var rawEmbedResponse struct {
+		Data  []json.RawMessage `json:"data"`
+		Model string            `json:"model"`
+		Usage struct {
+			TotalTokens *int `json:"total_tokens,omitempty"`
+		}
+	}
+	if err := json.NewDecoder(resBody).Decode(&rawEmbedResponse); err != nil {
+		return nil, fmt.Errorf("failed to decode embed response: %w", err)
 	}
 
-	return &embeddingsList, nil
+	decodedEmbeddings := make([]Embedding, len(rawEmbedResponse.Data))
+	for i, embedding := range rawEmbedResponse.Data {
+		var vectorTypeCheck struct {
+			VectorType string `json:"vector_type"`
+		}
+		if err := json.Unmarshal(embedding, &vectorTypeCheck); err != nil {
+			return nil, fmt.Errorf("failed to decode VectorType check: %w", err)
+		}
+
+		switch vectorTypeCheck.VectorType {
+		case "sparse":
+			var sparseEmbedding SparseEmbedding
+			if err := json.Unmarshal(embedding, &sparseEmbedding); err != nil {
+				return nil, fmt.Errorf("failed to decode sparse embedding: %w", err)
+			}
+			decodedEmbeddings[i] = Embedding{SparseEmbedding: &sparseEmbedding}
+		case "dense":
+			var denseEmbedding DenseEmbedding
+			if err := json.Unmarshal(embedding, &denseEmbedding); err != nil {
+				return nil, fmt.Errorf("failed to decode dense embedding: %w", err)
+			}
+			decodedEmbeddings[i] = Embedding{DenseEmbedding: &denseEmbedding}
+		default:
+			return nil, fmt.Errorf("unsupported VectorType: %s", vectorTypeCheck.VectorType)
+		}
+	}
+
+	return &EmbedResponse{
+		Data:  decodedEmbeddings,
+		Model: rawEmbedResponse.Model,
+		Usage: rawEmbedResponse.Usage,
+	}, nil
 }
 
 func decodeRerankResponse(resBody io.ReadCloser) (*RerankResponse, error) {

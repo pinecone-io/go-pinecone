@@ -320,7 +320,8 @@ func (ts *IntegrationTests) TestGenerateEmbeddings() {
 	require.NotNil(ts.T(), embeddings, "Expected embedding to be non-nil")
 	require.Equal(ts.T(), embeddingModel, embeddings.Model, "Expected model to be '%s', but got '%s'", embeddingModel, embeddings.Model)
 	require.Equal(ts.T(), 2, len(embeddings.Data), "Expected 2 embeddings")
-	require.Equal(ts.T(), 1024, len(*embeddings.Data[0].Values), "Expected embeddings to have length 1024")
+	require.NotNil(ts.T(), embeddings.Data[0].DenseEmbedding, "Expected DenseEmbedding to be non-nil")
+	require.Equal(ts.T(), 1024, len(embeddings.Data[0].DenseEmbedding.Values), "Expected embeddings to have length 1024")
 }
 
 func (ts *IntegrationTests) TestGenerateEmbeddingsInvalidInputs() {

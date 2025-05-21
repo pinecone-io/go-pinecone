@@ -1,6 +1,7 @@
 package pinecone
 
 import (
+	"encoding/json"
 	"time"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -211,7 +212,20 @@ type Metadata = structpb.Struct
 //
 // [generating embeddings]: https://docs.pinecone.io/guides/inference/generate-embeddings#3-generate-embeddings
 type Embedding struct {
-	Values *[]float32 `json:"values,omitempty"`
+	SparseEmbedding *SparseEmbedding `json:"sparse_embedding,omitempty"`
+	DenseEmbedding  *DenseEmbedding  `json:"dense_embedding,omitempty"`
+}
+
+type DenseEmbedding struct {
+	VectorType string    `json:"vector_type"`
+	Values     []float32 `json:"values"`
+}
+
+type SparseEmbedding struct {
+	VectorType    string    `json:"vector_type"`
+	SparseValues  []float32 `json:"sparse_values,omitempty"`
+	SparseIndices []int32   `json:"sparse_indices,omitempty"`
+	SparseTokens  *[]string `json:"sparse_tokens,omitempty"`
 }
 
 // [ImportStatus] represents the status of an [Import] operation.
@@ -358,4 +372,48 @@ type SearchUsage struct {
 	ReadUnits        int32  `json:"read_units"`
 	EmbedTotalTokens *int32 `json:"embed_total_tokens,omitempty"`
 	RerankUnits      *int32 `json:"rerank_units,omitempty"`
+}
+
+type ModelInfo struct {
+	DefaultDimension    *int32                         `json:"default_dimension,omitempty"`
+	MaxBatchSize        *int32                         `json:"max_batch_size,omitempty"`
+	MaxSequenceLength   *int32                         `json:"max_sequence_length,omitempty"`
+	Modality            *string                        `json:"modality,omitempty"`
+	Model               string                         `json:"model"`
+	ProviderName        *string                        `json:"provider_name,omitempty"`
+	ShortDescription    string                         `json:"short_description"`
+	SupportedDimensions *[]int32                       `json:"supported_dimensions,omitempty"`
+	SupportedMetrics    *[]IndexMetric                 `json:"supported_metrics,omitempty"`
+	SupportedParameters *[]ModelInfoSupportedParameter `json:"supported_parameters,omitempty"`
+	Type                string                         `json:"type"`
+	VectorType          *string                        `json:"vector_type,omitempty"`
+}
+
+type ModelInfoSupportedParameter struct {
+	AllowedValues *[]ModelInfoSupportedParameterAllowedValue `json:"allowed_values,omitempty"`
+	Default       *ModelInfoSupportedParameterDefault        `json:"default,omitempty"`
+	Max           *float32                                   `json:"max,omitempty"`
+	Min           *float32                                   `json:"min,omitempty"`
+	Parameter     string                                     `json:"parameter"`
+	Required      bool                                       `json:"required"`
+	Type          string                                     `json:"type"`
+	ValueType     string                                     `json:"value_type"`
+}
+
+type ModelInfoSupportedParameterString = string
+type ModelInfoSupportedParameterInt = int
+type ModelInfoSupportedParameterAllowedValue struct {
+	union json.RawMessage
+}
+
+type ModelInfoSupportedParameterDefaultString = string
+type ModelInfoSupportedParameterDefaultInt = int32
+type ModelInfoSupportedParameterDefaultFloat = float32
+type ModelInfoSupportedParameterDefaultBool = bool
+type ModelInfoSupportedParameterDefault struct {
+	union json.RawMessage
+}
+
+type ModelInfoList struct {
+	Models *[]ModelInfo `json:"models,omitempty"`
 }
