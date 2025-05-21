@@ -296,7 +296,7 @@ func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
 }
 
-func (ts *IntegrationTests) TestGenerateEmbeddings() {
+func (ts *IntegrationTests) TestGenerateEmbeddingsDense() {
 	// Run Embed tests once rather than duplicating across serverless & pods
 	if ts.indexType == "pod" {
 		ts.T().Skip("Skipping Embed tests for pods")
@@ -304,7 +304,7 @@ func (ts *IntegrationTests) TestGenerateEmbeddings() {
 
 	ctx := context.Background()
 	embeddingModel := "multilingual-e5-large"
-	embeddings, err := ts.client.Inference.Embed(ctx, &EmbedRequest{
+	denseEmbeddings, err := ts.client.Inference.Embed(ctx, &EmbedRequest{
 		Model: embeddingModel,
 		TextInputs: []string{
 			"The quick brown fox jumps over the lazy dog",
@@ -317,11 +317,41 @@ func (ts *IntegrationTests) TestGenerateEmbeddings() {
 	})
 
 	require.NoError(ts.T(), err)
-	require.NotNil(ts.T(), embeddings, "Expected embedding to be non-nil")
-	require.Equal(ts.T(), embeddingModel, embeddings.Model, "Expected model to be '%s', but got '%s'", embeddingModel, embeddings.Model)
-	require.Equal(ts.T(), 2, len(embeddings.Data), "Expected 2 embeddings")
-	require.NotNil(ts.T(), embeddings.Data[0].DenseEmbedding, "Expected DenseEmbedding to be non-nil")
-	require.Equal(ts.T(), 1024, len(embeddings.Data[0].DenseEmbedding.Values), "Expected embeddings to have length 1024")
+	require.NotNil(ts.T(), denseEmbeddings, "Expected embedding to be non-nil")
+	require.Equal(ts.T(), embeddingModel, denseEmbeddings.Model, "Expected model to be '%s', but got '%s'", embeddingModel, denseEmbeddings.Model)
+	require.Equal(ts.T(), 2, len(denseEmbeddings.Data), "Expected 2 embeddings")
+	require.NotNil(ts.T(), denseEmbeddings.Data[0].DenseEmbedding, "Expected DenseEmbedding to be non-nil")
+	require.Equal(ts.T(), 1024, len(denseEmbeddings.Data[0].DenseEmbedding.Values), "Expected embeddings to have length 1024")
+}
+
+func (ts *IntegrationTests) TestGenerateEmbeddingsSparse() {
+	// Run Embed tests once rather than duplicating across serverless & pods
+	if ts.indexType == "pod" {
+		ts.T().Skip("Skipping Embed tests for pods")
+	}
+
+	ctx := context.Background()
+	embeddingModel := "pinecone-sparse-english-v0"
+	sparseEmbeddings, err := ts.client.Inference.Embed(ctx, &EmbedRequest{
+		Model: embeddingModel,
+		TextInputs: []string{
+			"The quick brown fox jumps over the lazy dog",
+			"Lorem ipsum",
+		},
+		Parameters: map[string]interface{}{
+			"input_type":    "passage",
+			"return_tokens": true,
+		},
+	})
+
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), sparseEmbeddings, "Expected embedding to be non-nil")
+	require.Equal(ts.T(), embeddingModel, sparseEmbeddings.Model, "Expected model to be '%s', but got '%s'", embeddingModel, sparseEmbeddings.Model)
+	require.Equal(ts.T(), 2, len(sparseEmbeddings.Data), "Expected 2 embeddings")
+	require.NotNil(ts.T(), sparseEmbeddings.Data[0].SparseEmbedding, "Expected SparseEmbedding to be non-nil")
+	require.NotNil(ts.T(), sparseEmbeddings.Data[0].SparseEmbedding.SparseTokens, "Expected SparseTokens to be non-nil")
+	require.NotNil(ts.T(), sparseEmbeddings.Data[0].SparseEmbedding.SparseIndices, "Expected SparseIndices to be non-nil")
+	require.NotNil(ts.T(), sparseEmbeddings.Data[0].SparseEmbedding.SparseValues, "Expected SparseValues to be non-nil")
 }
 
 func (ts *IntegrationTests) TestGenerateEmbeddingsInvalidInputs() {
