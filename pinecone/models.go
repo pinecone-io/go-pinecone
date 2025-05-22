@@ -2,6 +2,7 @@ package pinecone
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -374,46 +375,66 @@ type SearchUsage struct {
 	RerankUnits      *int32 `json:"rerank_units,omitempty"`
 }
 
-type ModelInfo struct {
-	DefaultDimension    *int32                         `json:"default_dimension,omitempty"`
-	MaxBatchSize        *int32                         `json:"max_batch_size,omitempty"`
-	MaxSequenceLength   *int32                         `json:"max_sequence_length,omitempty"`
-	Modality            *string                        `json:"modality,omitempty"`
-	Model               string                         `json:"model"`
-	ProviderName        *string                        `json:"provider_name,omitempty"`
-	ShortDescription    string                         `json:"short_description"`
-	SupportedDimensions *[]int32                       `json:"supported_dimensions,omitempty"`
-	SupportedMetrics    *[]IndexMetric                 `json:"supported_metrics,omitempty"`
-	SupportedParameters *[]ModelInfoSupportedParameter `json:"supported_parameters,omitempty"`
-	Type                string                         `json:"type"`
-	VectorType          *string                        `json:"vector_type,omitempty"`
-}
-
-type ModelInfoSupportedParameter struct {
-	AllowedValues *[]ModelInfoSupportedParameterAllowedValue `json:"allowed_values,omitempty"`
-	Default       *ModelInfoSupportedParameterDefault        `json:"default,omitempty"`
-	Max           *float32                                   `json:"max,omitempty"`
-	Min           *float32                                   `json:"min,omitempty"`
-	Parameter     string                                     `json:"parameter"`
-	Required      bool                                       `json:"required"`
-	Type          string                                     `json:"type"`
-	ValueType     string                                     `json:"value_type"`
-}
-
-type ModelInfoSupportedParameterString = string
-type ModelInfoSupportedParameterInt = int
-type ModelInfoSupportedParameterAllowedValue struct {
-	union json.RawMessage
-}
-
-type ModelInfoSupportedParameterDefaultString = string
-type ModelInfoSupportedParameterDefaultInt = int32
-type ModelInfoSupportedParameterDefaultFloat = float32
-type ModelInfoSupportedParameterDefaultBool = bool
-type ModelInfoSupportedParameterDefault struct {
-	union json.RawMessage
-}
-
 type ModelInfoList struct {
 	Models *[]ModelInfo `json:"models,omitempty"`
+}
+
+type ModelInfo struct {
+	DefaultDimension    *int32                `json:"default_dimension,omitempty"`
+	MaxBatchSize        *int32                `json:"max_batch_size,omitempty"`
+	MaxSequenceLength   *int32                `json:"max_sequence_length,omitempty"`
+	Modality            *string               `json:"modality,omitempty"`
+	Model               string                `json:"model"`
+	ProviderName        *string               `json:"provider_name,omitempty"`
+	ShortDescription    string                `json:"short_description"`
+	SupportedDimensions *[]int32              `json:"supported_dimensions,omitempty"`
+	SupportedMetrics    *[]IndexMetric        `json:"supported_metrics,omitempty"`
+	SupportedParameters *[]SupportedParameter `json:"supported_parameters,omitempty"`
+	Type                string                `json:"type"`
+	VectorType          *string               `json:"vector_type,omitempty"`
+}
+
+type SupportedParameter struct {
+	AllowedValues *[]SupportedParameterValue `json:"allowed_values,omitempty"`
+	Default       *SupportedParameterValue   `json:"default,omitempty"`
+	Max           *float32                   `json:"max,omitempty"`
+	Min           *float32                   `json:"min,omitempty"`
+	Parameter     string                     `json:"parameter"`
+	Required      bool                       `json:"required"`
+	Type          string                     `json:"type"`
+	ValueType     string                     `json:"value_type"`
+}
+
+type SupportedParameterValue struct {
+	StringValue *string
+	IntValue    *int32
+	FloatValue  *float32
+	BoolValue   *bool
+}
+
+func (spv *SupportedParameterValue) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		spv.StringValue = &s
+		return nil
+	}
+
+	var i int32
+	if err := json.Unmarshal(data, &i); err == nil {
+		spv.IntValue = &i
+		return nil
+	}
+
+	var f float32
+	if err := json.Unmarshal(data, &f); err == nil {
+		spv.FloatValue = &f
+		return nil
+	}
+
+	var b bool
+	if err := json.Unmarshal(data, &b); err == nil {
+		spv.BoolValue = &b
+		return nil
+	}
+	return fmt.Errorf("unsupported type for SupportedParameterValue: %s", data)
 }

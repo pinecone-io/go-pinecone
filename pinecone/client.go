@@ -1770,7 +1770,7 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 	return decodeRerankResponse(res.Body)
 }
 
-func (i *InferenceService) GetModel(ctx context.Context, modelName string) (*inference.ModelInfo, error) {
+func (i *InferenceService) GetModel(ctx context.Context, modelName string) (*ModelInfo, error) {
 	res, err := i.client.GetModel(ctx, modelName)
 	if err != nil {
 		return nil, err
@@ -1779,12 +1779,42 @@ func (i *InferenceService) GetModel(ctx context.Context, modelName string) (*inf
 	if res.StatusCode != http.StatusOK {
 		return nil, handleErrorResponseBody(res, "failed to get model: ")
 	}
-	var modelInfo inference.ModelInfo
+	var modelInfo ModelInfo
 	err = json.NewDecoder(res.Body).Decode(&modelInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode model info response: %w", err)
 	}
 	return &modelInfo, nil
+}
+
+type ListModelsParams struct {
+	Type       *string
+	VectorType *string
+}
+
+func (i *InferenceService) ListModels(ctx context.Context, in *ListModelsParams) (*ModelInfoList, error) {
+	var params *inference.ListModelsParams
+	if in != nil {
+		params = &inference.ListModelsParams{
+			Type:       in.Type,
+			VectorType: in.VectorType,
+		}
+	}
+
+	res, err := i.client.ListModels(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to list models: ")
+	}
+	var modelInfoList ModelInfoList
+	err = json.NewDecoder(res.Body).Decode(&modelInfoList)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode model info list response: %w", err)
+	}
+	return &modelInfoList, nil
 }
 
 func (c *Client) extractAuthHeader() map[string]string {
