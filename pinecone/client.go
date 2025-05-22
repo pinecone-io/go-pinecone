@@ -1537,16 +1537,9 @@ type EmbedRequest struct {
 // [EmbedParameters] contains model-specific parameters that can be used for generating embeddings.
 //
 // Fields:
-//
 //   - InputType: (Optional) A common property used to distinguish between different types of data. For example, "passage", or "query".
-//
 //   - Truncate: (Optional) How to handle inputs longer than those supported by the model. if "NONE", when the input exceeds
 //     the maximum input token length, an error will be returned.
-//
-//     type EmbedParameters struct {
-//     InputType string
-//     Truncate  string
-//     }
 type EmbedParameters map[string]interface{}
 
 // [EmbedResponse] represents holds the embeddings generated for a single input.
@@ -1653,7 +1646,7 @@ type Document map[string]interface{}
 // by a specified query and model.
 //
 // Fields:
-//   - Model: "The [model] to use for reranking.
+//   - Model: (Required) The [model] to use for reranking.
 //   - Query: (Required) The query to rerank Documents against.
 //   - Documents: (Required) A list of Document objects to be reranked. The default is "text", but you can
 //     specify this behavior with [RerankRequest.RankFields].
@@ -1673,7 +1666,7 @@ type RerankRequest struct {
 	Parameters      *map[string]interface{}
 }
 
-// Represents a ranked document with a relevance score and an index position.
+// [RankedDocument] represents a ranked document with a relevance score and an index position.
 //
 // Fields:
 //   - Document: The [Document].
@@ -1708,6 +1701,8 @@ type RerankResponse struct {
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
 //   - in: A pointer to a [RerankRequest] object that contains the model, query, and documents to use for reranking.
+//
+// Returns a pointer to a [RerankResponse] object or an error.
 //
 // Example:
 //
@@ -1770,6 +1765,35 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 	return decodeRerankResponse(res.Body)
 }
 
+// [InferenceService.GetModel] gets a description of a model hosted by Pinecone.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime, allowing for the request
+//     to be canceled or to timeout according to the context's deadline.
+//   - modelName: The name of the model to retrieve information about.
+//
+// Returns a pointer to a [ModelInfo] object or an error.
+//
+// Example:
+//
+//	     ctx := context.Background()
+//
+//		 clientParams := pinecone.NewClientParams{
+//			    ApiKey:    "YOUR_API_KEY",
+//			    SourceTag: "your_source_identifier", // optional
+//		 }
+//
+//	     pc, err := pinecone.NewClient(clientParams)
+//		 if err != nil {
+//			    log.Fatalf("Failed to create Client: %v", err)
+//		 }
+//
+//	     model, err := pc.Inference.GetModel(ctx, "multilingual-e5-large")
+//		 if err != nil {
+//			    log.Fatalf("Failed to get model: %v", err)
+//		 }
+//
+//	     fmt.Printf("Model (multilingual-e5-large): %+v\n", model)
 func (i *InferenceService) GetModel(ctx context.Context, modelName string) (*ModelInfo, error) {
 	res, err := i.client.GetModel(ctx, modelName)
 	if err != nil {
@@ -1787,11 +1811,47 @@ func (i *InferenceService) GetModel(ctx context.Context, modelName string) (*Mod
 	return &modelInfo, nil
 }
 
+// [ListModelsParams] holds the parameters for filtering model results when calling [InferenceService.ListModels].
+//
+// Fields:
+//   - Type: (Optional) The type of model to filter by. Can be either "embed" or "rerank".
+//   - VectorType: (Optional) The vector type of the model to filter by. Can be either "dense" or "sparse".
+//     Only relevant if Type is "embed".
 type ListModelsParams struct {
 	Type       *string
 	VectorType *string
 }
 
+// [InferenceService.ListModels] lists all available models hosted by Pinecone. You can filter results using [ListModelsParams].
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime, allowing for the request
+//     to be canceled or to timeout according to the context's deadline.
+//   - in: The name of the model to retrieve information about.
+//
+// Returns a pointer to a [ModelInfoList] object or an error.
+//
+// Example:
+//
+//		 ctx := context.Background()
+//
+//		 clientParams := pinecone.NewClientParams{
+//		        ApiKey:    "YOUR_API_KEY",
+//		 		SourceTag: "your_source_identifier", // optional
+//	     }
+//
+//		 pc, err := pinecone.NewClient(clientParams)
+//	     if err != nil {
+//		        log.Fatalf("Failed to create Client: %v", err)
+//		 }
+//
+//	     embed := "embed"
+//		 embedModels, err := pc.Inference.ListModels(ctx, &pinecone.ListModelsParams{ Type: &embed })
+//	     if err != nil {
+//		        log.Fatalf("Failed to list models: %v", err)
+//		 }
+//
+//		 fmt.Printf("Embed Models: %+v\n", embedModels)
 func (i *InferenceService) ListModels(ctx context.Context, in *ListModelsParams) (*ModelInfoList, error) {
 	var params *inference.ListModelsParams
 	if in != nil {
