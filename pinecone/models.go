@@ -183,6 +183,14 @@ type NamespaceSummary struct {
 	VectorCount uint32 `json:"vector_count"`
 }
 
+// [NamespaceDescription] is a description of a Pinecone [namespace].
+//
+// [namespace]: https://docs.pinecone.io/guides/indexes/use-namespaces
+type NamespaceDescription struct {
+	Name        string `json:"name"`
+	RecordCount uint64 `json:"record_count"`
+}
+
 // [Usage] is the usage stats ([Read Units]) for a Pinecone [Index].
 //
 // [Read Units]: https://docs.pinecone.io/guides/organizations/manage-cost/understanding-cost#serverless-indexes
@@ -210,6 +218,7 @@ type MetadataFilter = structpb.Struct
 type Metadata = structpb.Struct
 
 // [Embedding] represents the embedding of a single input which is returned after [generating embeddings].
+// Each embedding can have either a [SparseEmbedding] or a [DenseEmbedding].
 //
 // [generating embeddings]: https://docs.pinecone.io/guides/inference/generate-embeddings#3-generate-embeddings
 type Embedding struct {
@@ -227,6 +236,10 @@ type SparseEmbedding struct {
 	SparseValues  []float32 `json:"sparse_values,omitempty"`
 	SparseIndices []int64   `json:"sparse_indices,omitempty"`
 	SparseTokens  *[]string `json:"sparse_tokens,omitempty"`
+}
+
+type Pagination struct {
+	Next string `json:"next"`
 }
 
 // [ImportStatus] represents the status of an [Import] operation.

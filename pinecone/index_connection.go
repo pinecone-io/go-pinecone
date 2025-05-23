@@ -1522,6 +1522,52 @@ func (idx *IndexConnection) CancelImport(ctx context.Context, id string) error {
 	return nil
 }
 
+func (idx *IndexConnection) DescribeNamespace(ctx context.Context, namespace string) (*NamespaceDescription, error) {
+	res, err := (*idx.grpcClient).DescribeNamespace(idx.akCtx(ctx), &db_data_grpc.DescribeNamespaceRequest{Namespace: namespace})
+	if err != nil {
+		return nil, err
+	}
+
+	return &NamespaceDescription{
+		Name:        res.Name,
+		RecordCount: res.RecordCount,
+	}, nil
+}
+
+type ListNamespacesResponse struct {
+	Namespaces []*NamespaceDescription
+	Pagination *Pagination
+}
+
+type ListNamespacesParams struct {
+	PaginationToken *string
+	Limit           *uint32
+}
+
+func (idx *IndexConnection) ListNamespaces(ctx context.Context, in *db_data_grpc.ListNamespacesRequest) (*ListNamespacesResponse, error) {
+	res, err := (*idx.grpcClient).ListNamespaces(idx.akCtx(ctx), in)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ListNamespacesResponse{
+		Namespaces: make([]*NamespaceDescription, len(res.Namespaces)),
+		Pagination: &Pagination{
+			Next: res.Pagination.Next,
+		},
+	}, nil
+}
+
+func (idx *IndexConnection) DeleteNamespace(ctx context.Context, namespace string) error {
+	_, err := (*idx.grpcClient).DeleteNamespace(idx.akCtx(ctx), &db_data_grpc.DeleteNamespaceRequest{
+		Namespace: namespace,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func decodeSearchRecordsResponse(body io.ReadCloser) (*SearchRecordsResponse, error) {
 	var searchRecordsResponse *db_data_rest.SearchRecordsResponse
 	if err := json.NewDecoder(body).Decode(&searchRecordsResponse); err != nil {
