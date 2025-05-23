@@ -1522,10 +1522,50 @@ func (idx *IndexConnection) CancelImport(ctx context.Context, id string) error {
 	return nil
 }
 
+// [IndexConnection.DescribeNamespace] describes a namespace within a serverless index.
+//
+// Returns a pointer to a [NamespaceDescription] object or an error if the request fails.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - namespace: The unique name of the namespace to describe.
+//
+// Example:
+//
+//		ctx := context.Background()
+//
+//		clientParams := NewClientParams{
+//	        ApiKey:    "YOUR_API_KEY",
+//			SourceTag: "your_source_identifier", // optional
+//		}
+//
+//		pc, err := NewClient(clientParams)
+//		if err != nil {
+//	        log.Fatalf("Failed to create Client: %v", err)
+//		}
+//
+//		idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//		if err != nil {
+//			 log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//		}
+//
+//		idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
+//		if err != nil {
+//	         log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		}
+//
+//		namespace, err := idxConnection.DescribeNamespace(ctx, "your-namespace-name")
+//		if err != nil {
+//			 log.Fatalf("Failed to describe namespace \"%s\". Error:%s", "your-namespace-name", err)
+//		}
 func (idx *IndexConnection) DescribeNamespace(ctx context.Context, namespace string) (*NamespaceDescription, error) {
 	res, err := (*idx.grpcClient).DescribeNamespace(idx.akCtx(ctx), &db_data_grpc.DescribeNamespaceRequest{Namespace: namespace})
 	if err != nil {
 		return nil, err
+	}
+	if res == nil {
+		return nil, nil
 	}
 
 	return &NamespaceDescription{
@@ -1534,30 +1574,115 @@ func (idx *IndexConnection) DescribeNamespace(ctx context.Context, namespace str
 	}, nil
 }
 
+// [ListNamespacesResponse] is returned by the [IndexConnection.ListNamespaces] method.
+//
+// Fields:
+//   - Namespaces: A slice of [NamespaceDescription] objects.
+//   - Pagination: The [Pagination] object for paginating results.
 type ListNamespacesResponse struct {
 	Namespaces []*NamespaceDescription
 	Pagination *Pagination
 }
 
+// [ListNamespacesParams] holds the parameters for the [IndexConnection.ListNamespaces] method.
+//
+// Fields:
+//   - PaginationToken: The token to retrieve the next page of namespaces, if available.
+//   - Limit: The maximum number of namespaces to return.
 type ListNamespacesParams struct {
 	PaginationToken *string
 	Limit           *uint32
 }
 
-func (idx *IndexConnection) ListNamespaces(ctx context.Context, in *db_data_grpc.ListNamespacesRequest) (*ListNamespacesResponse, error) {
-	res, err := (*idx.grpcClient).ListNamespaces(idx.akCtx(ctx), in)
+// [IndexConnection.DescribeNamespace] lists namespaces within a serverless index.
+//
+// Returns a pointer to a [ListNamespacesResponse] object or an error if the request fails.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - in: A [ListNamespacesParams] object containing limit and pagination options.
+//
+// Example:
+//
+//		ctx := context.Background()
+//
+//		clientParams := NewClientParams{
+//	        ApiKey:    "YOUR_API_KEY",
+//			SourceTag: "your_source_identifier", // optional
+//		}
+//
+//		pc, err := NewClient(clientParams)
+//		if err != nil {
+//	        log.Fatalf("Failed to create Client: %v", err)
+//		}
+//
+//		idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//		if err != nil {
+//			 log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//		}
+//
+//		idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
+//		if err != nil {
+//	         log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		}
+//
+//		namespaces, err := pc.ListNamespaces(ctx, &pinecone.ListNamespacesParams{ Limit: 10 })
+//		if err != nil {
+//			 log.Fatalf("Failed to list namespaces for index \"%s\". Error:%s", idx.Name, err)
+//		}
+func (idx *IndexConnection) ListNamespaces(ctx context.Context, in *ListNamespacesParams) (*ListNamespacesResponse, error) {
+	var listRequest *db_data_grpc.ListNamespacesRequest
+	if in != nil {
+		listRequest = &db_data_grpc.ListNamespacesRequest{
+			PaginationToken: in.PaginationToken,
+			Limit:           in.Limit,
+		}
+	}
+	res, err := (*idx.grpcClient).ListNamespaces(idx.akCtx(ctx), listRequest)
 	if err != nil {
 		return nil, err
 	}
-
-	return &ListNamespacesResponse{
-		Namespaces: make([]*NamespaceDescription, len(res.Namespaces)),
-		Pagination: &Pagination{
-			Next: res.Pagination.Next,
-		},
-	}, nil
+	return toListNamespacesResponse(res), nil
 }
 
+// [IndexConnection.DeleteNamespace] describes a namespace within a serverless index.
+//
+// Returns an error if the request fails.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - namespace: The unique name of the namespace to delete.
+//
+// Example:
+//
+//		ctx := context.Background()
+//
+//		clientParams := NewClientParams{
+//	        ApiKey:    "YOUR_API_KEY",
+//			SourceTag: "your_source_identifier", // optional
+//		}
+//
+//		pc, err := NewClient(clientParams)
+//		if err != nil {
+//	        log.Fatalf("Failed to create Client: %v", err)
+//		}
+//
+//		idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//		if err != nil {
+//			 log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//		}
+//
+//		idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
+//		if err != nil {
+//	         log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		}
+//
+//		err := pc.DeleteNamespace(ctx, "your-namespace-name")
+//		if err != nil {
+//			 log.Fatalf("Failed to delete namespace \"%s\". Error:%s", "your-namespace-name", err)
+//		}
 func (idx *IndexConnection) DeleteNamespace(ctx context.Context, namespace string) error {
 	_, err := (*idx.grpcClient).DeleteNamespace(idx.akCtx(ctx), &db_data_grpc.DeleteNamespaceRequest{
 		Namespace: namespace,
@@ -1566,6 +1691,29 @@ func (idx *IndexConnection) DeleteNamespace(ctx context.Context, namespace strin
 		return err
 	}
 	return nil
+}
+
+func (idx *IndexConnection) query(ctx context.Context, req *db_data_grpc.QueryRequest) (*QueryVectorsResponse, error) {
+	res, err := (*idx.grpcClient).Query(idx.akCtx(ctx), req)
+	if err != nil {
+		return nil, err
+	}
+
+	matches := make([]*ScoredVector, len(res.Matches))
+	for i, match := range res.Matches {
+		matches[i] = toScoredVector(match)
+	}
+
+	return &QueryVectorsResponse{
+		Matches:   matches,
+		Usage:     toUsage(res.Usage),
+		Namespace: idx.Namespace,
+	}, nil
+}
+
+func (idx *IndexConnection) delete(ctx context.Context, req *db_data_grpc.DeleteRequest) error {
+	_, err := (*idx.grpcClient).Delete(idx.akCtx(ctx), req)
+	return err
 }
 
 func decodeSearchRecordsResponse(body io.ReadCloser) (*SearchRecordsResponse, error) {
@@ -1602,29 +1750,6 @@ func decodeStartImportResponse(body io.ReadCloser) (*StartImportResponse, error)
 	}
 
 	return toImportResponse(importResponse), nil
-}
-
-func (idx *IndexConnection) query(ctx context.Context, req *db_data_grpc.QueryRequest) (*QueryVectorsResponse, error) {
-	res, err := (*idx.grpcClient).Query(idx.akCtx(ctx), req)
-	if err != nil {
-		return nil, err
-	}
-
-	matches := make([]*ScoredVector, len(res.Matches))
-	for i, match := range res.Matches {
-		matches[i] = toScoredVector(match)
-	}
-
-	return &QueryVectorsResponse{
-		Matches:   matches,
-		Usage:     toUsage(res.Usage),
-		Namespace: idx.Namespace,
-	}, nil
-}
-
-func (idx *IndexConnection) delete(ctx context.Context, req *db_data_grpc.DeleteRequest) error {
-	_, err := (*idx.grpcClient).Delete(idx.akCtx(ctx), req)
-	return err
 }
 
 func (idx *IndexConnection) akCtx(ctx context.Context) context.Context {
@@ -1762,15 +1887,36 @@ func toSearchRecordsResponse(searchRecordsResponse *db_data_rest.SearchRecordsRe
 		Result: struct {
 			Hits []Hit "json:\"hits\""
 		}{Hits: hits},
-		Usage: toSearchUsage(searchRecordsResponse.Usage),
+		Usage: SearchUsage{
+			ReadUnits:        searchRecordsResponse.Usage.ReadUnits,
+			EmbedTotalTokens: searchRecordsResponse.Usage.EmbedTotalTokens,
+			RerankUnits:      searchRecordsResponse.Usage.RerankUnits,
+		},
 	}
 }
 
-func toSearchUsage(searchUsage db_data_rest.SearchUsage) SearchUsage {
-	return SearchUsage{
-		ReadUnits:        searchUsage.ReadUnits,
-		EmbedTotalTokens: searchUsage.EmbedTotalTokens,
-		RerankUnits:      searchUsage.RerankUnits,
+func toListNamespacesResponse(listNamespacesResponse *db_data_grpc.ListNamespacesResponse) *ListNamespacesResponse {
+	if listNamespacesResponse == nil {
+		return nil
+	}
+
+	namespaces := make([]*NamespaceDescription, len(listNamespacesResponse.Namespaces))
+	for i, ns := range listNamespacesResponse.Namespaces {
+		namespaces[i] = &NamespaceDescription{
+			Name:        ns.Name,
+			RecordCount: ns.RecordCount,
+		}
+	}
+	var pagination *Pagination
+	if listNamespacesResponse.Pagination != nil {
+		pagination = &Pagination{
+			Next: listNamespacesResponse.Pagination.Next,
+		}
+	}
+
+	return &ListNamespacesResponse{
+		Namespaces: namespaces,
+		Pagination: pagination,
 	}
 }
 
