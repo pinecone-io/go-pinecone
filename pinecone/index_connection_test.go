@@ -480,13 +480,14 @@ func (ts *IntegrationTests) TestListNamespaces() {
 	require.Equal(ts.T(), limit, uint32(len(namespaces.Namespaces)))
 
 	// List remaining
-	remainingLength := len(ts.namespaces) - int(limit)
+	remainingLength := uint32(len(ts.namespaces) - int(limit))
 	namespaces, err = ts.idxConn.ListNamespaces(ctx, &ListNamespacesParams{
 		PaginationToken: &namespaces.Pagination.Next,
+		Limit:           &remainingLength,
 	})
 	require.NoError(ts.T(), err)
 	require.NotNil(ts.T(), namespaces, "ListNamespaces response should not be nil")
-	require.Equal(ts.T(), remainingLength, len(namespaces.Namespaces), "ListNamespaces should return the remaining namespaces")
+	require.Equal(ts.T(), limit, uint32(len(namespaces.Namespaces)), "ListNamespaces should return the remaining namespaces")
 }
 
 func (ts *IntegrationTests) TestDeleteNamespace() {
