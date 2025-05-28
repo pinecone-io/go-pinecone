@@ -46,7 +46,7 @@ func (ts *LocalIntegrationTests) SetupSuite() {
 	for _, idxConn := range ts.idxConns {
 		upsertedVectors, err := idxConn.UpsertVectors(ctx, vectors)
 		require.NoError(ts.T(), err)
-		fmt.Printf("Upserted vectors: %v into host: %s in namespace: %s \n", upsertedVectors, ts.host, idxConn.Namespace)
+		fmt.Printf("Upserted vectors: %v into host: %s in namespace: %s \n", upsertedVectors, ts.host, idxConn.namespace)
 	}
 
 	ts.vectorIds = append(ts.vectorIds, vectorIds...)

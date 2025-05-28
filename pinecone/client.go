@@ -1765,7 +1765,7 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 	return decodeRerankResponse(res.Body)
 }
 
-// [InferenceService.GetModel] gets a description of a model hosted by Pinecone.
+// [InferenceService.DescribeModel] gets a description of a model hosted by Pinecone.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1794,7 +1794,7 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 //		 }
 //
 //	     fmt.Printf("Model (multilingual-e5-large): %+v\n", model)
-func (i *InferenceService) GetModel(ctx context.Context, modelName string) (*ModelInfo, error) {
+func (i *InferenceService) DescribeModel(ctx context.Context, modelName string) (*ModelInfo, error) {
 	res, err := i.client.GetModel(ctx, modelName)
 	if err != nil {
 		return nil, err

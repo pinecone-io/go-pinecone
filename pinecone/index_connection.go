@@ -25,12 +25,12 @@ import (
 // instantiate an [IndexConnection] by calling the [Client.Index] method with a [NewIndexConnParams] object.
 //
 // Fields:
-//   - Namespace: The namespace where index operations will be performed.
+//   - namespace: The namespace where index operations will be performed.
 //   - additionalMetadata: Additional metadata to be sent with each RPC request.
 //   - dataClient: The gRPC client for the index.
 //   - grpcConn: The gRPC connection.
 type IndexConnection struct {
-	Namespace          string
+	namespace          string
 	additionalMetadata map[string]string
 	restClient         *db_data_rest.Client
 	grpcClient         *db_data_grpc.VectorServiceClient
@@ -76,7 +76,7 @@ func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*In
 	dataClient := db_data_grpc.NewVectorServiceClient(conn)
 
 	idx := IndexConnection{
-		Namespace:          in.namespace,
+		namespace:          in.namespace,
 		restClient:         in.dbDataClient,
 		grpcClient:         &dataClient,
 		grpcConn:           conn,
@@ -124,6 +124,16 @@ func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*In
 func (idx *IndexConnection) Close() error {
 	err := idx.grpcConn.Close()
 	return err
+}
+
+func (idx *IndexConnection) WithNamespace(namespace string) *IndexConnection {
+	return &IndexConnection{
+		namespace:          namespace,
+		additionalMetadata: idx.additionalMetadata,
+		restClient:         idx.restClient,
+		grpcClient:         idx.grpcClient,
+		grpcConn:           idx.grpcConn,
+	}
 }
 
 // [IndexConnection.UpsertVectors] upserts vectors into a Pinecone [Index].
@@ -201,7 +211,7 @@ func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (ui
 
 	req := &db_data_grpc.UpsertRequest{
 		Vectors:   vectors,
-		Namespace: idx.Namespace,
+		Namespace: idx.namespace,
 	}
 
 	res, err := (*idx.grpcClient).Upsert(idx.akCtx(ctx), req)
@@ -281,7 +291,7 @@ func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRe
 		Values:       in.Values,
 		SparseValues: sparseValToGrpc(in.SparseValues),
 		SetMetadata:  in.Metadata,
-		Namespace:    idx.Namespace,
+		Namespace:    idx.namespace,
 	}
 
 	_, err := (*idx.grpcClient).Update(idx.akCtx(ctx), req)
@@ -350,7 +360,7 @@ type FetchVectorsResponse struct {
 func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*FetchVectorsResponse, error) {
 	req := &db_data_grpc.FetchRequest{
 		Ids:       ids,
-		Namespace: idx.Namespace,
+		Namespace: idx.namespace,
 	}
 
 	res, err := (*idx.grpcClient).Fetch(idx.akCtx(ctx), req)
@@ -366,7 +376,7 @@ func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*Fe
 	return &FetchVectorsResponse{
 		Vectors:   vectors,
 		Usage:     toUsage(res.Usage),
-		Namespace: idx.Namespace,
+		Namespace: idx.namespace,
 	}, nil
 }
 
@@ -458,7 +468,7 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 		Prefix:          in.Prefix,
 		Limit:           in.Limit,
 		PaginationToken: in.PaginationToken,
-		Namespace:       idx.Namespace,
+		Namespace:       idx.namespace,
 	}
 	res, err := (*idx.grpcClient).List(idx.akCtx(ctx), req)
 	if err != nil {
@@ -474,7 +484,7 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 		VectorIds:           vectorIds,
 		Usage:               toUsage(res.Usage),
 		NextPaginationToken: toPaginationTokenGrpc(res.Pagination),
-		Namespace:           idx.Namespace,
+		Namespace:           idx.namespace,
 	}, nil
 }
 
@@ -583,7 +593,7 @@ type QueryVectorsResponse struct {
 //	    }
 func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryByVectorValuesRequest) (*QueryVectorsResponse, error) {
 	req := &db_data_grpc.QueryRequest{
-		Namespace:       idx.Namespace,
+		Namespace:       idx.namespace,
 		TopK:            in.TopK,
 		Filter:          in.MetadataFilter,
 		IncludeValues:   in.IncludeValues,
@@ -673,7 +683,7 @@ type QueryByVectorIdRequest struct {
 func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVectorIdRequest) (*QueryVectorsResponse, error) {
 	req := &db_data_grpc.QueryRequest{
 		Id:              in.VectorId,
-		Namespace:       idx.Namespace,
+		Namespace:       idx.namespace,
 		TopK:            in.TopK,
 		Filter:          in.MetadataFilter,
 		IncludeValues:   in.IncludeValues,
@@ -785,7 +795,7 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 		}
 	}
 
-	_, err := idx.restClient.UpsertRecordsNamespaceWithBody(ctx, idx.Namespace, "application/x-ndjson", &buffer)
+	_, err := idx.restClient.UpsertRecordsNamespaceWithBody(ctx, idx.namespace, "application/x-ndjson", &buffer)
 	if err != nil {
 		return fmt.Errorf("failed to upsert records: %v", err)
 	}
@@ -929,7 +939,7 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 		}
 	}
 
-	res, err := (*idx.restClient).SearchRecordsNamespace(idx.akCtx(ctx), idx.Namespace, req)
+	res, err := (*idx.restClient).SearchRecordsNamespace(idx.akCtx(ctx), idx.namespace, req)
 	if err != nil {
 		return nil, err
 	}
@@ -985,7 +995,7 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string) error {
 	req := db_data_grpc.DeleteRequest{
 		Ids:       ids,
-		Namespace: idx.Namespace,
+		Namespace: idx.namespace,
 	}
 
 	return idx.delete(ctx, &req)
@@ -1049,7 +1059,7 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, metadataFilter *MetadataFilter) error {
 	req := db_data_grpc.DeleteRequest{
 		Filter:    metadataFilter,
-		Namespace: idx.Namespace,
+		Namespace: idx.namespace,
 	}
 
 	return idx.delete(ctx, &req)
@@ -1096,11 +1106,11 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, metadataF
 //	    err = idxConnection.DeleteAllVectorsInNamespace(ctx)
 //
 //	    if err != nil {
-//		       log.Fatalf("Failed to delete vectors in namespace: \"%s\". Error: %s", idxConnection.Namespace, err)
+//		       log.Fatalf("Failed to delete vectors in namespace: \"%s\". Error: %s", "your-namespace", err)
 //	    }
 func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx context.Context) error {
 	req := db_data_grpc.DeleteRequest{
-		Namespace: idx.Namespace,
+		Namespace: idx.namespace,
 		DeleteAll: true,
 	}
 
@@ -1707,7 +1717,7 @@ func (idx *IndexConnection) query(ctx context.Context, req *db_data_grpc.QueryRe
 	return &QueryVectorsResponse{
 		Matches:   matches,
 		Usage:     toUsage(res.Usage),
-		Namespace: idx.Namespace,
+		Namespace: idx.namespace,
 	}, nil
 }
 

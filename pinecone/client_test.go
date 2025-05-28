@@ -296,6 +296,134 @@ func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
 }
 
+func (ts *IntegrationTests) TestDescribeModel() {
+	ctx := context.Background()
+	modelName := "multilingual-e5-large"
+	supportedDimensions := []int32{1024}
+
+	// Describe the model
+	model, err := ts.client.Inference.DescribeModel(ctx, modelName)
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), model, "Expected model to be non-nil")
+	require.Equal(ts.T(), modelName, model.Model, "Expected model name to match")
+	require.Equal(ts.T(), model.ShortDescription, "A high-performance dense embedding model trained on a mixture of multilingual datasets. It works well on messy data and short queries expected to return medium-length passages of text (1-2 paragraphs)")
+	require.Equal(ts.T(), "dense", *model.VectorType, "Expected model vector type to be 'dense'")
+	require.Equal(ts.T(), "text", *model.Modality, "Expected model modality to be 'text'")
+	require.Equal(ts.T(), int32(1024), *model.DefaultDimension, "Expected model default dimension to be 1024")
+	require.Equal(ts.T(), int32(507), *model.MaxSequenceLength, "Expected model max sequence length to be 507")
+	require.Equal(ts.T(), int32(96), *model.MaxBatchSize, "Expected model max batch size to be 96")
+	require.Equal(ts.T(), "Microsoft", *model.ProviderName, "Expected model provider name to be 'Microsoft'")
+	require.Equal(ts.T(), &supportedDimensions, model.SupportedDimensions, "Expected model supported dimensions to match")
+}
+
+func (ts *IntegrationTests) TestListAllModels() {
+	ctx := context.Background()
+
+	allModels, err := ts.client.Inference.ListModels(ctx, nil)
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), allModels, "Expected model results to be non-nil")
+	require.Greater(ts.T(), len(*allModels.Models), 0, "Expected at least one model to be listed")
+
+	returnsRerank := false
+	returnsEmbed := false
+	returnsSparse := false
+	returnsDense := false
+	for _, model := range *allModels.Models {
+		if model.Type == "rerank" {
+			returnsRerank = true
+		}
+		if model.Type == "embed" {
+			returnsEmbed = true
+			if *model.VectorType == "sparse" {
+				returnsSparse = true
+			} else if *model.VectorType == "dense" {
+				returnsDense = true
+			}
+		}
+	}
+	require.True(ts.T(), returnsRerank, "Expected at least one rerank model to be listed")
+	require.True(ts.T(), returnsEmbed, "Expected at least one embed model to be listed")
+	require.True(ts.T(), returnsSparse, "Expected at least one sparse embed model to be listed")
+	require.True(ts.T(), returnsDense, "Expected at least one dense embed model to be listed")
+}
+
+func (ts *IntegrationTests) TestListRerankModels() {
+	ctx := context.Background()
+	rerank := "rerank"
+
+	rerankModels, err := ts.client.Inference.ListModels(ctx, &ListModelsParams{
+		Type: &rerank,
+	})
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), rerankModels, "Expected model results to be non-nil")
+	require.Greater(ts.T(), len(*rerankModels.Models), 0, "Expected at least one model to be listed")
+
+	returnsOnlyRerank := true
+	returnsEmbed := false
+
+	for _, model := range *rerankModels.Models {
+		if model.Type != "rerank" {
+			returnsOnlyRerank = false
+		}
+		if model.Type == "embed" {
+			returnsEmbed = true
+		}
+	}
+
+	require.Equal(ts.T(), true, returnsOnlyRerank, "Expected all models to be of type 'rerank'")
+	require.Equal(ts.T(), false, returnsEmbed, "Expected no embed models to be listed in rerank models")
+}
+
+func (ts *IntegrationTests) TestListEmbeddingModels() {
+	ctx := context.Background()
+	embed := "embed"
+	sparse := "sparse"
+	dense := "dense"
+	returnsOnlyEmbed := true
+
+	// List embed models (sparse)
+	sparseEmbedModels, err := ts.client.Inference.ListModels(ctx, &ListModelsParams{
+		Type:       &embed,
+		VectorType: &sparse,
+	})
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), sparseEmbedModels, "Expected model results to be non-nil")
+	require.Greater(ts.T(), len(*sparseEmbedModels.Models), 0, "Expected at least one model to be listed")
+
+	allSparseModels := true
+	for _, model := range *sparseEmbedModels.Models {
+		if model.Type != "embed" {
+			returnsOnlyEmbed = false
+		}
+		if *model.VectorType != "sparse" {
+			allSparseModels = false
+		}
+	}
+	require.Equal(ts.T(), true, returnsOnlyEmbed, "Expected all models to be of type 'embed'")
+	require.Equal(ts.T(), true, allSparseModels, "Expected all listed models to be of vector type 'sparse'")
+
+	// List embed models (dense)
+	denseEmbedModels, err := ts.client.Inference.ListModels(ctx, &ListModelsParams{
+		Type:       &embed,
+		VectorType: &dense,
+	})
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), denseEmbedModels, "Expected model results to be non-nil")
+	require.Greater(ts.T(), len(*denseEmbedModels.Models), 0, "Expected at least one model to be listed")
+
+	allDenseModels := true
+	for _, model := range *denseEmbedModels.Models {
+		if model.Type != "embed" {
+			returnsOnlyEmbed = false
+		}
+		if *model.VectorType != "dense" {
+			allDenseModels = false
+		}
+	}
+	require.Equal(ts.T(), true, returnsOnlyEmbed, "Expected all models to be of type 'embed'")
+	require.Equal(ts.T(), true, allDenseModels, "Expected all listed models to be of vector type 'dense'")
+}
+
 func (ts *IntegrationTests) TestGenerateEmbeddingsDense() {
 	// Run Embed tests once rather than duplicating across serverless & pods
 	if ts.indexType == "pod" {
