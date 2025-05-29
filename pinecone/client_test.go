@@ -296,15 +296,39 @@ func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
 }
 
-func (ts *IntegrationTests) TestDescribeModel() {
+func (ts *IntegrationTests) TestDescribeEmbedModel() {
 	ctx := context.Background()
 	modelName := "multilingual-e5-large"
+	paramQuery := "query"
+	paramPassage := "passage"
+	paramEND := "END"
+	paramNONE := "NONE"
 	supportedDimensions := []int32{1024}
+	supportedMetrics := []IndexMetric{"cosine", "euclidean"}
+	allowedValuesInputType := []SupportedParameterValue{{StringValue: &paramQuery}, {StringValue: &paramPassage}}
+	allowedValuesTruncate := []SupportedParameterValue{{StringValue: &paramEND}, {StringValue: &paramNONE}}
+	supportedParameters := []SupportedParameter{
+		{
+			Type:          "one_of",
+			Required:      true,
+			Parameter:     "input_type",
+			ValueType:     "string",
+			AllowedValues: &allowedValuesInputType,
+		},
+		{
+			Type:          "one_of",
+			Required:      false,
+			Parameter:     "truncate",
+			ValueType:     "string",
+			Default:       &SupportedParameterValue{StringValue: &paramEND},
+			AllowedValues: &allowedValuesTruncate,
+		},
+	}
 
-	// Describe the model
 	model, err := ts.client.Inference.DescribeModel(ctx, modelName)
 	require.NoError(ts.T(), err)
 	require.NotNil(ts.T(), model, "Expected model to be non-nil")
+	require.Equal(ts.T(), "embed", model.Type, "Expected model type to be 'embed'")
 	require.Equal(ts.T(), modelName, model.Model, "Expected model name to match")
 	require.Equal(ts.T(), model.ShortDescription, "A high-performance dense embedding model trained on a mixture of multilingual datasets. It works well on messy data and short queries expected to return medium-length passages of text (1-2 paragraphs)")
 	require.Equal(ts.T(), "dense", *model.VectorType, "Expected model vector type to be 'dense'")
@@ -313,7 +337,44 @@ func (ts *IntegrationTests) TestDescribeModel() {
 	require.Equal(ts.T(), int32(507), *model.MaxSequenceLength, "Expected model max sequence length to be 507")
 	require.Equal(ts.T(), int32(96), *model.MaxBatchSize, "Expected model max batch size to be 96")
 	require.Equal(ts.T(), "Microsoft", *model.ProviderName, "Expected model provider name to be 'Microsoft'")
-	require.Equal(ts.T(), &supportedDimensions, model.SupportedDimensions, "Expected model supported dimensions to match")
+	require.Equal(ts.T(), supportedDimensions, *model.SupportedDimensions, "Expected model supported dimensions to match")
+	require.Equal(ts.T(), supportedMetrics, *model.SupportedMetrics, "Expected model supported metrics to match")
+	require.Equal(ts.T(), supportedParameters, *model.SupportedParameters, "Expected model supported parameters to match")
+}
+
+func (ts *IntegrationTests) TestDescribeRerankModel() {
+	ctx := context.Background()
+	modelName := "pinecone-rerank-v0"
+	paramEND := "END"
+	paramNONE := "NONE"
+	defaultParam := SupportedParameterValue{StringValue: &paramEND}
+	allowedValues := []SupportedParameterValue{{StringValue: &paramEND}, {StringValue: &paramNONE}}
+	supportedParameters := []SupportedParameter{
+		{
+			Type:          "one_of",
+			Default:       &defaultParam,
+			Required:      false,
+			Parameter:     "truncate",
+			ValueType:     "string",
+			AllowedValues: &allowedValues,
+		},
+	}
+
+	model, err := ts.client.Inference.DescribeModel(ctx, modelName)
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), model, "Expected model to be non-nil")
+	require.Equal(ts.T(), "rerank", model.Type, "Expected model type to be 'rerank'")
+	require.Equal(ts.T(), modelName, model.Model, "Expected model name to match")
+	require.Equal(ts.T(), model.ShortDescription, "A state of the art reranking model that out-performs competitors on widely accepted benchmarks. It can handle chunks up to 512 tokens (1-2 paragraphs)")
+	require.Equal(ts.T(), "text", *model.Modality, "Expected model modality to be 'text'")
+	require.Equal(ts.T(), int32(512), *model.MaxSequenceLength, "Expected model max sequence length to be 512")
+	require.Equal(ts.T(), int32(100), *model.MaxBatchSize, "Expected model max batch size to be 100")
+	require.Equal(ts.T(), "Pinecone", *model.ProviderName, "Expected model provider name to be 'Pinecone'")
+	require.Equal(ts.T(), supportedParameters, *model.SupportedParameters, "Expected model supported parameters to match")
+	require.Nil(ts.T(), model.VectorType, "Expected model vector type to be nil")
+	require.Nil(ts.T(), model.SupportedMetrics, "Expected model supported metrics to be nil")
+	require.Nil(ts.T(), model.SupportedDimensions, "Expected model supported dimensions to be nil")
+	require.Nil(ts.T(), model.DefaultDimension, "Expected model default dimension to be nil")
 }
 
 func (ts *IntegrationTests) TestListAllModels() {
