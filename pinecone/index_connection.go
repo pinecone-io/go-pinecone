@@ -1295,13 +1295,13 @@ type StartImportResponse struct {
 //		     log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	     }
 //
-//	     uri := "s3://your-bucket/your-file.csv"
-//	     errorMode := "abort"
-//	     importRes, err := idxConnection.StartImport(ctx, uri, nil, &errorMode)
+//	     uri := "s3://BUCKET_NAME/PATH/TO/DIR"
+//	     errorMode := "continue" // or "abort"
+//	     importRes, err := idxConnection.StartImport(ctx, uri, nil, (*pinecone.ImportErrorMode)(&errorMode))
 //	     if err != nil {
 //	         log.Fatalf("Failed to start import: %v", err)
 //	     }
-//	     fmt.Printf("import starteed with ID: %s", importRes.Id)
+//	     fmt.Printf("Import started with ID: %s", importRes.Id)
 //
 // [storage integration]: https://docs.pinecone.io/guides/operations/integrations/manage-storage-integrations
 func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integrationId *string, errorMode *ImportErrorMode) (*StartImportResponse, error) {
