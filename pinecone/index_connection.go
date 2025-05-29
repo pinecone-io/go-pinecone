@@ -22,7 +22,9 @@ import (
 )
 
 // [IndexConnection] holds the parameters for a Pinecone [IndexConnection] object. You can
-// instantiate an [IndexConnection] by calling the [Client.Index] method with a [NewIndexConnParams] object.
+// instantiate a [IndexConnection] by calling the [Client.Index] method with a [NewIndexConnParams] object.
+// You can use [IndexConnection.WithNamespace] to create a new [IndexConnection] that targets a different namespace
+// while sharing the underlying gRPC connection.
 //
 // Fields:
 //   - namespace: The namespace where index operations will be performed.
@@ -126,6 +128,60 @@ func (idx *IndexConnection) Close() error {
 	return err
 }
 
+// [IndexConnection.Namespace] allows returning the namespace the instance of [IndexConnection] is targeting.
+func (idx *IndexConnection) Namespace() string {
+	return idx.namespace
+}
+
+// [IndexConnection.WithNamespace] creates a new copy of [IndexConnection] that targets a new namespace within that index while
+// sharing the underlying gRPC connection. This is useful for performing operations across namespaces in an index without re-creating the index connection.
+//
+// Example:
+//
+//	    ctx := context.Background()
+//		clientParams := pinecone.NewClientParams{
+//				ApiKey:    "YOUR_API_KEY",
+//				SourceTag: "your_source_identifier", // optional
+//		}
+//		pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//				log.Fatalf("Failed to create Client: %v", err)
+//		}
+//		idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//		if err != nil {
+//				log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//		}
+//
+//		idxConnNs1, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "namespace1"})
+//		if err != nil {
+//				log.Fatalf("Failed to create IndexConnection: %v", err)
+//		}
+//
+//		metadataMap := map[string]interface{}{
+//				"genre": "classical",
+//		}
+//		metadata, err := structpb.NewStruct(metadataMap)
+//		if err != nil {
+//				log.Fatalf("Failed to create metadata map. Error: %v", err)
+//		}
+//		values := []float32{1.0, 2.0}
+//		vectors := []*pinecone.Vector{
+//				{
+//					Id:       "abc-1",
+//					Values:   &values,
+//					Metadata: metadata,
+//				},
+//		}
+//
+//		_, err = idxConnNs1.UpsertVectors(ctx, vectors)
+//		if err != nil {
+//				log.Fatalf("Failed to upsert vectors in %s. Error: %v", idxConnNs1.Namespace, err)
+//		}
+//		idxConnNs2 := idxConnNs1.WithNamespace("namespace2")
+//		_, err = idxConnNs2.UpsertVectors(ctx, vectors)
+//		if err != nil {
+//				log.Fatalf("Failed to upsert vectors in %s. Error: %v", idxConnNs2.Namespace, err)
+//		}
 func (idx *IndexConnection) WithNamespace(namespace string) *IndexConnection {
 	return &IndexConnection{
 		namespace:          namespace,
@@ -147,62 +203,56 @@ func (idx *IndexConnection) WithNamespace(namespace string) *IndexConnection {
 //
 // Example:
 //
-//	    ctx := context.Background()
+//		ctx := context.Background()
+//		clientParams := pinecone.NewClientParams{
+//			   ApiKey:    "YOUR_API_KEY",
+//			   SourceTag: "your_source_identifier", // optional
+//		}
 //
-//	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
-//	    }
+//		pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//			   log.Fatalf("Failed to create Client: %v", err)
+//		}
 //
-//	    pc, err := pinecone.NewClient(clientParams)
+//		idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//		if err != nil {
+//			   log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//		}
 //
-//	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
+//		idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
+//		if err != nil {
+//			   log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//		}
 //
-//	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//		metadataMap := map[string]interface{}{
+//			   "genre": "classical",
+//		}
+//		metadata, err := structpb.NewStruct(metadataMap)
+//		if err != nil {
+//			   log.Fatalf("Failed to create metadata map. Error: %v", err)
+//		}
+//	   	denseValues := []float32{1.0, 2.0}
 //
-//	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//	    }
+//		sparseValues := pinecone.SparseValues{
+//			   Indices: []uint32{0, 1},
+//			   Values:  []float32{1.0, 2.0},
+//		}
 //
-//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
+//		vectors := []*pinecone.Vector{
+//				{
+//			    	Id:           "abc-1",
+//				    Values:       &denseValues,
+//				    Metadata:     metadata,
+//				    SparseValues: &sparseValues,
+//			    },
+//		}
 //
-//	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	    }
-//
-//	    metadataMap := map[string]interface{}{
-//		       "genre": "classical",
-//	    }
-//
-//	    metadata, err := structpb.NewStruct(metadataMap)
-//
-//	    if err != nil {
-//		       log.Fatalf("Failed to create metadata map. Error: %v", err)
-//	    }
-//
-//	    sparseValues := pinecone.SparseValues{
-//		       Indices: []uint32{0, 1},
-//		       Values:  []float32{1.0, 2.0},
-//	    }
-//
-//	    vectors := []*pinecone.Vector{
-//		       {
-//			       Id:           "abc-1",
-//			       Values:       []float32{1.0, 2.0},
-//			       Metadata:     metadata,
-//			       SparseValues: &sparseValues,
-//		       },
-//	    }
-//
-//	    count, err := idxConnection.UpsertVectors(ctx, vectors)
-//
-//	    if err != nil {
-//		       log.Fatalf("Failed to upsert vectors. Error: %v", err)
-//	    } else {
-//		       log.Fatalf("Successfully upserted %d vector(s)!\n", count)
-//	    }
+//		count, err := idxConnection.UpsertVectors(ctx, vectors)
+//		if err != nil {
+//	    		log.Fatalf("Failed to upsert vectors. Error: %v", err)
+//		} else {
+//				log.Fatalf("Successfully upserted %d vector(s)!\n", count)
+//		}
 func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (uint32, error) {
 	vectors := make([]*db_data_grpc.Vector, len(in))
 	for i, v := range in {
@@ -1637,7 +1687,8 @@ type ListNamespacesParams struct {
 //	         log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //		}
 //
-//		namespaces, err := pc.ListNamespaces(ctx, &pinecone.ListNamespacesParams{ Limit: 10 })
+//		limit := uint32(10)
+//		namespaces, err := pc.ListNamespaces(ctx, &pinecone.ListNamespacesParams{ Limit: &limit })
 //		if err != nil {
 //			 log.Fatalf("Failed to list namespaces for index \"%s\". Error:%s", idx.Name, err)
 //		}

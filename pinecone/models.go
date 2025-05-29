@@ -168,7 +168,7 @@ type ScoredVector struct {
 	Score  float32 `json:"score"`
 }
 
-// [SparseValues] is a sparse vector objects, most commonly used for [hybrid search].
+// [SparseValues] is a sparse vector object, most commonly used for [hybrid search].
 //
 // [hybrid search]: https://docs.pinecone.io/guides/data/understanding-hybrid-search#hybrid-search-in-pinecone
 type SparseValues struct {
@@ -179,6 +179,8 @@ type SparseValues struct {
 // [NamespaceSummary] is a summary of stats for a Pinecone [namespace].
 //
 // [namespace]: https://docs.pinecone.io/guides/indexes/use-namespaces
+// Fields:
+//   - VectorCount: The number of vectors in the namespace.
 type NamespaceSummary struct {
 	VectorCount uint32 `json:"vector_count"`
 }
@@ -186,6 +188,9 @@ type NamespaceSummary struct {
 // [NamespaceDescription] is a description of a Pinecone [namespace].
 //
 // [namespace]: https://docs.pinecone.io/guides/indexes/use-namespaces
+// Fields:
+//   - Name: The name of the namespace.
+//   - RecordCount: The number of records in the namespace.
 type NamespaceDescription struct {
 	Name        string `json:"name"`
 	RecordCount uint64 `json:"record_count"`
@@ -218,26 +223,42 @@ type MetadataFilter = structpb.Struct
 type Metadata = structpb.Struct
 
 // [Embedding] represents the embedding of a single input which is returned after [generating embeddings].
-// Each embedding can have either a [SparseEmbedding] or a [DenseEmbedding].
+// [Embedding] is a tagged union which can have either a [SparseEmbedding] or a [DenseEmbedding].
 //
 // [generating embeddings]: https://docs.pinecone.io/guides/inference/generate-embeddings#3-generate-embeddings
+// Fields:
+//   - SparseEmbedding: The [SparseEmbedding] representation of the input.
+//   - DenseEmbedding: The [DenseEmbedding] representation of the input.
 type Embedding struct {
 	SparseEmbedding *SparseEmbedding `json:"sparse_embedding,omitempty"`
 	DenseEmbedding  *DenseEmbedding  `json:"dense_embedding,omitempty"`
 }
 
+// [DenseEmbedding] represents a dense numerical embedding of the input.
+//
+// Fields:
+//   - VectorType: A string indicating the type of vector embedding ("dense").
+//   - Values: A slice of float32 values representing the dense embedding.
 type DenseEmbedding struct {
 	VectorType string    `json:"vector_type"`
 	Values     []float32 `json:"values"`
 }
 
+// [SparseEmbedding] represents a sparse embedding of the input, where only selected dimensions are populated.
+//
+// Fields:
+//   - VectorType: A string indicating the type of vector embedding ("sparse").
+//   - SparseValues: A slice of float32 values representing the sparse embedding value.
+//   - SparseIndices: A slice of int64 values representing the embedding indices.
+//   - SparseTokens: The normalized tokens used to create the sparse embedding, if requested.
 type SparseEmbedding struct {
 	VectorType    string    `json:"vector_type"`
-	SparseValues  []float32 `json:"sparse_values,omitempty"`
-	SparseIndices []int64   `json:"sparse_indices,omitempty"`
+	SparseValues  []float32 `json:"sparse_values"`
+	SparseIndices []int64   `json:"sparse_indices"`
 	SparseTokens  *[]string `json:"sparse_tokens,omitempty"`
 }
 
+// [Pagination] represents the pagination information for a list of resources.
 type Pagination struct {
 	Next string `json:"next"`
 }

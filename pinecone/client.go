@@ -123,7 +123,7 @@ type NewClientBaseParams struct {
 // See [Client.Index] for code example.
 type NewIndexConnParams struct {
 	Host               string            // required - obtained through DescribeIndex or ListIndexes
-	Namespace          string            // optional - if not provided the default namespace of "" will be used
+	Namespace          string            // optional - if not provided the default namespace of "__default__" will be used
 	AdditionalMetadata map[string]string // optional
 }
 
@@ -287,6 +287,10 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*IndexConnection, error) {
 	if in.AdditionalMetadata == nil {
 		in.AdditionalMetadata = make(map[string]string)
+	}
+
+	if in.Namespace == "" {
+		in.Namespace = "__default__"
 	}
 
 	if in.Host == "" {
