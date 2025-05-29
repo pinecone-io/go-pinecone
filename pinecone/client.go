@@ -1792,7 +1792,7 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 //			    log.Fatalf("Failed to create Client: %v", err)
 //		 }
 //
-//	     model, err := pc.Inference.GetModel(ctx, "multilingual-e5-large")
+//	     model, err := pc.Inference.DescribeModel(ctx, "multilingual-e5-large")
 //		 if err != nil {
 //			    log.Fatalf("Failed to get model: %v", err)
 //		 }
