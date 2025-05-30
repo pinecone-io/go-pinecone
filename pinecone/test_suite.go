@@ -26,6 +26,7 @@ type IntegrationTests struct {
 	collectionName string
 	sourceTag      string
 	indexTags      *IndexTags
+	namespaces     []string
 }
 
 func (ts *IntegrationTests) SetupSuite() {
@@ -34,17 +35,21 @@ func (ts *IntegrationTests) SetupSuite() {
 	_, err := waitUntilIndexReady(ts, ctx)
 	require.NoError(ts.T(), err)
 
-	namespace := uuid.New().String()
+	namespace1 := uuid.New().String()
+	namespace2 := uuid.New().String()
+	namespace3 := uuid.New().String()
+	namespaces := append([]string{}, namespace1, namespace2, namespace3)
 
 	idxConn, err := ts.client.Index(NewIndexConnParams{
 		Host:      ts.host,
-		Namespace: namespace,
+		Namespace: namespace1,
 	})
 
 	require.NoError(ts.T(), err)
 	require.NotNil(ts.T(), idxConn, "Failed to create idxConn")
 
 	ts.idxConn = idxConn
+	ts.namespaces = namespaces
 	dim := int32(0)
 	if ts.dimension != nil {
 		dim = *ts.dimension
@@ -59,10 +64,13 @@ func (ts *IntegrationTests) SetupSuite() {
 		vectorIds[i] = v.Id
 	}
 
-	// Upsert vectors
-	err = upsertVectors(ts, ctx, vectors)
-	if err != nil {
-		log.Fatalf("Failed to upsert vectors in SetupSuite: %v", err)
+	// Upsert vectors into each namespace
+	for _, ns := range namespaces {
+		idxConnNamespaced := ts.idxConn.WithNamespace(ns)
+		_, err = idxConnNamespaced.UpsertVectors(ctx, vectors)
+		if err != nil {
+			log.Fatalf("Failed to upsert vectors in SetupSuite: %v to namespace: %v", err, idxConnNamespaced.namespace)
+		}
 	}
 
 	// Wait for vector freshness
@@ -77,8 +85,6 @@ func (ts *IntegrationTests) SetupSuite() {
 	}
 
 	fmt.Printf("\n %s set up suite completed successfully\n", ts.indexType)
-
-	// Poll for data freshness
 }
 
 func (ts *IntegrationTests) TearDownSuite() {

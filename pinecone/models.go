@@ -1,6 +1,8 @@
 package pinecone
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -166,7 +168,7 @@ type ScoredVector struct {
 	Score  float32 `json:"score"`
 }
 
-// [SparseValues] is a sparse vector objects, most commonly used for [hybrid search].
+// [SparseValues] is a sparse vector object, most commonly used for [hybrid search].
 //
 // [hybrid search]: https://docs.pinecone.io/guides/data/understanding-hybrid-search#hybrid-search-in-pinecone
 type SparseValues struct {
@@ -177,8 +179,21 @@ type SparseValues struct {
 // [NamespaceSummary] is a summary of stats for a Pinecone [namespace].
 //
 // [namespace]: https://docs.pinecone.io/guides/indexes/use-namespaces
+// Fields:
+//   - VectorCount: The number of vectors in the namespace.
 type NamespaceSummary struct {
 	VectorCount uint32 `json:"vector_count"`
+}
+
+// [NamespaceDescription] is a description of a Pinecone [namespace].
+//
+// [namespace]: https://docs.pinecone.io/guides/indexes/use-namespaces
+// Fields:
+//   - Name: The name of the namespace.
+//   - RecordCount: The number of records in the namespace.
+type NamespaceDescription struct {
+	Name        string `json:"name"`
+	RecordCount uint64 `json:"record_count"`
 }
 
 // [Usage] is the usage stats ([Read Units]) for a Pinecone [Index].
@@ -208,10 +223,44 @@ type MetadataFilter = structpb.Struct
 type Metadata = structpb.Struct
 
 // [Embedding] represents the embedding of a single input which is returned after [generating embeddings].
+// [Embedding] is a tagged union which can have either a [SparseEmbedding] or a [DenseEmbedding].
 //
 // [generating embeddings]: https://docs.pinecone.io/guides/inference/generate-embeddings#3-generate-embeddings
+// Fields:
+//   - SparseEmbedding: The [SparseEmbedding] representation of the input.
+//   - DenseEmbedding: The [DenseEmbedding] representation of the input.
 type Embedding struct {
-	Values *[]float32 `json:"values,omitempty"`
+	SparseEmbedding *SparseEmbedding `json:"sparse_embedding,omitempty"`
+	DenseEmbedding  *DenseEmbedding  `json:"dense_embedding,omitempty"`
+}
+
+// [DenseEmbedding] represents a dense numerical embedding of the input.
+//
+// Fields:
+//   - VectorType: A string indicating the type of vector embedding ("dense").
+//   - Values: A slice of float32 values representing the dense embedding.
+type DenseEmbedding struct {
+	VectorType string    `json:"vector_type"`
+	Values     []float32 `json:"values"`
+}
+
+// [SparseEmbedding] represents a sparse embedding of the input, where only selected dimensions are populated.
+//
+// Fields:
+//   - VectorType: A string indicating the type of vector embedding ("sparse").
+//   - SparseValues: A slice of float32 values representing the sparse embedding value.
+//   - SparseIndices: A slice of int64 values representing the embedding indices.
+//   - SparseTokens: The normalized tokens used to create the sparse embedding, if requested.
+type SparseEmbedding struct {
+	VectorType    string    `json:"vector_type"`
+	SparseValues  []float32 `json:"sparse_values"`
+	SparseIndices []int64   `json:"sparse_indices"`
+	SparseTokens  *[]string `json:"sparse_tokens,omitempty"`
+}
+
+// [Pagination] represents the pagination information for a list of resources.
+type Pagination struct {
+	Next string `json:"next"`
 }
 
 // [ImportStatus] represents the status of an [Import] operation.
@@ -232,7 +281,7 @@ const (
 	Pending    ImportStatus = "Pending"
 )
 
-// ImportErrorMode specifies how errors are handled during an [Import].
+// [ImportErrorMode] specifies how errors are handled during an [Import].
 //
 // Values:
 //   - Abort: The [Import] process will abort upon encountering an error.
@@ -268,7 +317,7 @@ type Import struct {
 
 type IntegratedRecord map[string]interface{}
 
-// SearchRecordsRequest represents a search request for records in a specific namespace.
+// [SearchRecordsRequest] represents a search request for records in a specific namespace.
 //
 // Fields:
 //   - Query: The query inputs to search with.
@@ -280,7 +329,7 @@ type SearchRecordsRequest struct {
 	Rerank *SearchRecordsRerank `json:"rerank,omitempty"`
 }
 
-// SearchRecordsQuery represents the query parameters for searching records.
+// [SearchRecordsQuery] represents the query parameters for searching records.
 //
 // Fields:
 //   - TopK: The number of results to return for each search.
@@ -296,7 +345,7 @@ type SearchRecordsQuery struct {
 	Vector *SearchRecordsVector    `json:"vector,omitempty"`
 }
 
-// SearchRecordsRerank represents the parameters for reranking search results.
+// [SearchRecordsRerank] represents the parameters for reranking search results.
 //
 // Fields:
 //   - Model: The name of the [reranking model](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) to use.
@@ -312,7 +361,7 @@ type SearchRecordsRerank struct {
 	TopN       *int32                  `json:"top_n,omitempty"`
 }
 
-// Hit represents a record whose vector values are similar to the provided search query.
+// [Hit] represents a record whose vector values are similar to the provided search query.
 //
 // Fields:
 //   - Id: The record ID of the search hit.
@@ -324,7 +373,7 @@ type Hit struct {
 	Fields map[string]interface{} `json:"fields"`
 }
 
-// SearchRecordsResponse represents the response of a records search.
+// [SearchRecordsResponse] represents the response of a records search.
 //
 // Fields:
 //   - Result: The result object containing the [Hit] responses for the search.
@@ -336,7 +385,7 @@ type SearchRecordsResponse struct {
 	Usage SearchUsage `json:"usage"`
 }
 
-// SearchRecordsVector represents the vector data used in a search request.
+// [SearchRecordsVector] represents the vector data used in a search request.
 //
 // Fields:
 //   - SparseIndices: The sparse embedding indices.
@@ -348,7 +397,7 @@ type SearchRecordsVector struct {
 	Values        *[]float32 `json:"values,omitempty"`
 }
 
-// SearchUsage represents the resource usage details of a search operation.
+// [SearchUsage] represents the resource usage details of a search operation.
 //
 // Fields:
 //   - ReadUnits: The number of read units consumed by this operation.
@@ -358,4 +407,108 @@ type SearchUsage struct {
 	ReadUnits        int32  `json:"read_units"`
 	EmbedTotalTokens *int32 `json:"embed_total_tokens,omitempty"`
 	RerankUnits      *int32 `json:"rerank_units,omitempty"`
+}
+
+// [ModelInfoList] represents a list of [ModelInfo] objects describing the models hosted by Pinecone.
+//
+// Fields:
+//   - Models: A slice of [ModelInfo] objects.
+type ModelInfoList struct {
+	Models *[]ModelInfo `json:"models,omitempty"`
+}
+
+// [ModelInfo] represents the model configuration include model type, supported parameters, and other model details.
+//
+// Fields:
+//   - DefaultDimension: The default embedding model dimension (applies to dense embedding models only).
+//   - MaxBatchSize: The maximum batch size (number of sequences) supported by the model.
+//   - MaxSequenceLength: The maximum tokens per sequence supported by the model.
+//   - Modality: The modality of the model (e.g. "text").
+//   - Model: The name of the model.
+//   - ProviderName: The name of the provider of the model. (e.g. "Pinecone", "NVIDIA").
+//   - ShortDescription: A summary of the model.
+//   - SupportedDimensions: The list of supported dimensions for the model (applies to dense embedding models only).
+//   - SupportedMetrics: The distance metrics supported by the model for similarity search (e.g. "cosine", "dotproduct", "euclidean").
+//   - SupportedParameters: A list of parameters supported by the model, including parameter value constraints.
+//   - Type: The type of model (e.g. "embed" or "rerank").
+//   - VectorType: Whether the embedding model produces "dense" or "sparse" embeddings.
+type ModelInfo struct {
+	DefaultDimension    *int32                `json:"default_dimension,omitempty"`
+	MaxBatchSize        *int32                `json:"max_batch_size,omitempty"`
+	MaxSequenceLength   *int32                `json:"max_sequence_length,omitempty"`
+	Modality            *string               `json:"modality,omitempty"`
+	Model               string                `json:"model"`
+	ProviderName        *string               `json:"provider_name,omitempty"`
+	ShortDescription    string                `json:"short_description"`
+	SupportedDimensions *[]int32              `json:"supported_dimensions,omitempty"`
+	SupportedMetrics    *[]IndexMetric        `json:"supported_metrics,omitempty"`
+	SupportedParameters *[]SupportedParameter `json:"supported_parameters,omitempty"`
+	Type                string                `json:"type"`
+	VectorType          *string               `json:"vector_type,omitempty"`
+}
+
+// [SupportedParameter] describes a parameter supported by the model, including parameter value constraints.
+//
+// Fields:
+//   - AllowedValues: The allowed parameter values when the type is "one_of".
+//   - Default: The default value for the parameter when a parameter is optional.
+//   - Max: The maximum allowed value (inclusive) when the type is "numeric_range".
+//   - Min: The minimum allowed value (inclusive) when the type is "numeric_range".
+//   - Parameter: The name of the parameter.
+//   - Required: Indicates whether this parameter is required or optional.
+//   - Type: The parameter type e.g. "one_of", "numeric_range", or "any". If the type is "one_of", then "allowed_values" will be set,
+//     and the value specified must be one of the allowed values. "one_of" is only compatible with ValueType "string" or "integer".
+//     If "numeric_range", then "min" and "max" will be set, then the value specified must adhere to the ValueType and must fall within
+//     the `[Min, Max]` range. If "any" then any value is allowed, as long as it adheres to the ValueType.
+//   - ValueType: The type of value the parameter accepts, e.g. "string", "integer", "float", or "boolean".
+type SupportedParameter struct {
+	AllowedValues *[]SupportedParameterValue `json:"allowed_values,omitempty"`
+	Default       *SupportedParameterValue   `json:"default,omitempty"`
+	Max           *float32                   `json:"max,omitempty"`
+	Min           *float32                   `json:"min,omitempty"`
+	Parameter     string                     `json:"parameter"`
+	Required      bool                       `json:"required"`
+	Type          string                     `json:"type"`
+	ValueType     string                     `json:"value_type"`
+}
+
+// [SupportedParameterValue] is a tagged union type representing the value of a [SupportedParameter].
+//
+// Fields:
+//   - StringValue: A string-based value, if the parameter accepts strings.
+//   - IntValue: An integer-based value, if the parameter accepts integers.
+//   - FloatValue: A float-based value, if the parameter accepts floating point numbers.
+//   - BoolValue: A boolean value, if the parameter accepts true/false input.
+type SupportedParameterValue struct {
+	StringValue *string
+	IntValue    *int32
+	FloatValue  *float32
+	BoolValue   *bool
+}
+
+func (spv *SupportedParameterValue) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		spv.StringValue = &s
+		return nil
+	}
+
+	var i int32
+	if err := json.Unmarshal(data, &i); err == nil {
+		spv.IntValue = &i
+		return nil
+	}
+
+	var f float32
+	if err := json.Unmarshal(data, &f); err == nil {
+		spv.FloatValue = &f
+		return nil
+	}
+
+	var b bool
+	if err := json.Unmarshal(data, &b); err == nil {
+		spv.BoolValue = &b
+		return nil
+	}
+	return fmt.Errorf("unsupported type for SupportedParameterValue: %s", data)
 }

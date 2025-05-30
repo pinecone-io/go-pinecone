@@ -588,8 +588,10 @@ Pinecone indexes support working with vector data using operations such as upser
 
 ### Targeting an index
 
-To perform data operations on an index, you target it using the `Index` method on a `Client` object. You will
-need your index's `Host` value, which you can retrieve via `DescribeIndex` or `ListIndexes`.
+To perform data operations on an index, you target it using the `Index` method on a `Client` object which returns a pointer to an `IndexConnection`. Calling `Index` will create and dial the index via a new gRPC connection. You can target a specific `Namespace` when calling `Index`, but if you want to reuse the connection with different namespaces, you can call `IndexConnection.WithNamespace`. If no `Namespace` is provided when establishing a new
+`IndexConnection`, the default of `"__default__"` will be used.
+
+You will need your index's `Host` value, which you can retrieve via `DescribeIndex` or `ListIndexes`.
 
 ```go
 package main
@@ -628,9 +630,57 @@ func main() {
 }
 ```
 
+### Working with namespaces
+
+Within an index, records are partitioned into namespaces, and all upserts, queries, and other data operations always target one namespace. You can read more about [namespaces here](https://docs.pinecone.io/guides/index-data/indexing-overview#namespaces).
+
+You can list all namespaces in an index in a paginated format, describe a specific namespace, or delete a namespace. NOTE: Deleting a namespace will delete all record information partitioned in that namespace.
+
+```go
+	ctx := context.Background()
+
+	pc, err := pinecone.NewClient(pinecone.NewClientParams{
+		ApiKey:    "YOUR_API_KEY",
+	})
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	}
+
+	idx, err := pc.DescribeIndex(ctx, "example-index")
+	if err != nil {
+		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+	}
+
+	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
+	if err != nil {
+		log.Fatalf("Failed to create IndexConnection for Host: %v: %v", idx.Host, err)
+	}
+
+	// list namespaces
+	limit := uint32(10)
+	namespaces, err := idxConnection.ListNamespaces(ctx, &pinecone.ListNamespacesParams{
+		Limit: &limit,
+	})
+	if err != nil {
+		log.Fatalf("Failed to list namespaces for Host: %v: %v", idx.Host, err)
+	}
+
+	// describe a namespace
+	namespace1, err := idxConnection.DescribeNamespace(ctx, "my-namespace-1")
+	if err != nil {
+		log.Fatalf("Failed to describe namespace: %v: %v", "my-namespace-1", err)
+	}
+
+	// delete a namespace
+	err := idxConnection.DeleteNamespace("my-namespace-1")
+	if err != nil {
+		log.Fatalf("Failed to delete namespace: %v: %v", "my-namespace-1", err)
+	}
+```
+
 ### Upsert vectors
 
-The following example upserts dense vectors and metadata to `example-index`.
+The following example upserts dense vectors and metadata to `example-index` in the namespace `my-namespace`. Upserting to a specific `Namespace` will implicitly create the namespace if it does not exist already.
 
 ```go
 package main
@@ -663,7 +713,7 @@ func main() {
 		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
 	}
 
-	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
+	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "my-namespace"})
 	if err != nil {
 		log.Fatalf("Failed to create IndexConnection for Host: %v: %v", idx.Host, err)
 	}
@@ -1582,10 +1632,8 @@ func main() {
 
 ## Inference
 
-The `Client` object has an `Inference` namespace which allows interacting with
-Pinecone's [Inference API](https://docs.pinecone.io/guides/inference/generate-embeddings). The Inference
-API is a service that gives you access to embedding models hosted on Pinecone's infrastructure. Read more
-at [Understanding Pinecone Inference](https://docs.pinecone.io/guides/inference/understanding-inference).
+The `Client` object has an `Inference` namespace which exposes an `InferenceService` pointer which allows interacting with Pinecone's [Inference API](https://docs.pinecone.io/guides/inference/generate-embeddings).
+The Inference API is a service that gives you access to embedding models hosted on Pinecone's infrastructure. Read more at [Understanding Pinecone Inference](https://docs.pinecone.io/guides/inference/understanding-inference).
 
 ### Create Embeddings
 
@@ -1697,6 +1745,60 @@ indicating higher relevance.
     }
 
     fmt.Printf("rerank response: %+v", rerankResponse)
+```
+
+### Hosted Models
+
+To see available models hosted by Pinecone, you can use the `DescribeModel` and `ListModels` methods on the `InferenceService` struct. This allows you to retrieve detailed information about specific models.
+
+You can list all available models, with the options of filtering by model `Type` (`"embed"`, `"rerank"`), and `VectorType` (`"sparse"`, `"dense"`) for models with `Type` `"embed"`.
+
+```go
+	ctx := context.Background()
+
+	pc, err := pinecone.NewClient(pinecone.NewClientParams{
+		ApiKey:    "YOUR_API_KEY",
+	})
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	}
+
+	embed := "embed"
+	rerank := "rerank"
+
+	embedModels, err := pc.Inference.ListModels(ctx, &pinecone.ListModelsParams{
+		Type: &embed,
+	})
+	if err != nil {
+		log.Fatalf("Failed to list embedding models: %v", err)
+	}
+
+	rerankModels, err := pc.Inference.ListModels(ctx, &pinecone.ListModelsParams{
+		Type: &rerank,
+	})
+	if err != nil {
+		log.Fatalf("Failed to list reranking models: %v", err)
+	}
+```
+
+You can also describe a single model by name:
+
+```go
+	ctx := context.Background()
+
+	pc, err := pinecone.NewClient(pinecone.NewClientParams{
+		ApiKey:    "YOUR_API_KEY",
+	})
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	}
+
+	model, err := pc.Inference.DescribeModel(ctx, "multilingual-e5-large")
+	if err != nil {
+		log.Fatalf("Failed to get model: %v", err)
+	}
+
+	fmt.Printf("Model (multilingual-e5-large): %+v\n", model)
 ```
 
 ### Integrated Inference
