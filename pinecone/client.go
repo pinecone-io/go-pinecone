@@ -123,7 +123,7 @@ type NewClientBaseParams struct {
 // See [Client.Index] for code example.
 type NewIndexConnParams struct {
 	Host               string            // required - obtained through DescribeIndex or ListIndexes
-	Namespace          string            // optional - if not provided the default namespace of "" will be used
+	Namespace          string            // optional - if not provided the default namespace of "__default__" will be used
 	AdditionalMetadata map[string]string // optional
 }
 
@@ -287,6 +287,10 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*IndexConnection, error) {
 	if in.AdditionalMetadata == nil {
 		in.AdditionalMetadata = make(map[string]string)
+	}
+
+	if in.Namespace == "" {
+		in.Namespace = "__default__"
 	}
 
 	if in.Host == "" {
@@ -1537,16 +1541,9 @@ type EmbedRequest struct {
 // [EmbedParameters] contains model-specific parameters that can be used for generating embeddings.
 //
 // Fields:
-//
 //   - InputType: (Optional) A common property used to distinguish between different types of data. For example, "passage", or "query".
-//
 //   - Truncate: (Optional) How to handle inputs longer than those supported by the model. if "NONE", when the input exceeds
 //     the maximum input token length, an error will be returned.
-//
-//     type EmbedParameters struct {
-//     InputType string
-//     Truncate  string
-//     }
 type EmbedParameters map[string]interface{}
 
 // [EmbedResponse] represents holds the embeddings generated for a single input.
@@ -1643,7 +1640,7 @@ func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedR
 		return nil, handleErrorResponseBody(res, "failed to embed: ")
 	}
 
-	return decodeEmbeddingsList(res.Body)
+	return decodeEmbedResponse(res.Body)
 }
 
 // [Document] is a map representing the document to be reranked.
@@ -1653,7 +1650,7 @@ type Document map[string]interface{}
 // by a specified query and model.
 //
 // Fields:
-//   - Model: "The [model] to use for reranking.
+//   - Model: (Required) The [model] to use for reranking.
 //   - Query: (Required) The query to rerank Documents against.
 //   - Documents: (Required) A list of Document objects to be reranked. The default is "text", but you can
 //     specify this behavior with [RerankRequest.RankFields].
@@ -1673,7 +1670,7 @@ type RerankRequest struct {
 	Parameters      *map[string]interface{}
 }
 
-// Represents a ranked document with a relevance score and an index position.
+// [RankedDocument] represents a ranked document with a relevance score and an index position.
 //
 // Fields:
 //   - Document: The [Document].
@@ -1708,6 +1705,8 @@ type RerankResponse struct {
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
 //   - in: A pointer to a [RerankRequest] object that contains the model, query, and documents to use for reranking.
+//
+// Returns a pointer to a [RerankResponse] object or an error.
 //
 // Example:
 //
@@ -1768,6 +1767,118 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 		return nil, handleErrorResponseBody(res, "failed to rerank: ")
 	}
 	return decodeRerankResponse(res.Body)
+}
+
+// [InferenceService.DescribeModel] gets a description of a model hosted by Pinecone.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime, allowing for the request
+//     to be canceled or to timeout according to the context's deadline.
+//   - modelName: The name of the model to retrieve information about.
+//
+// Returns a pointer to a [ModelInfo] object or an error.
+//
+// Example:
+//
+//	     ctx := context.Background()
+//
+//		 clientParams := pinecone.NewClientParams{
+//			    ApiKey:    "YOUR_API_KEY",
+//			    SourceTag: "your_source_identifier", // optional
+//		 }
+//
+//	     pc, err := pinecone.NewClient(clientParams)
+//		 if err != nil {
+//			    log.Fatalf("Failed to create Client: %v", err)
+//		 }
+//
+//	     model, err := pc.Inference.DescribeModel(ctx, "multilingual-e5-large")
+//		 if err != nil {
+//			    log.Fatalf("Failed to get model: %v", err)
+//		 }
+//
+//	     fmt.Printf("Model (multilingual-e5-large): %+v\n", model)
+func (i *InferenceService) DescribeModel(ctx context.Context, modelName string) (*ModelInfo, error) {
+	res, err := i.client.GetModel(ctx, modelName)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to get model: ")
+	}
+	var modelInfo ModelInfo
+	err = json.NewDecoder(res.Body).Decode(&modelInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode model info response: %w", err)
+	}
+	return &modelInfo, nil
+}
+
+// [ListModelsParams] holds the parameters for filtering model results when calling [InferenceService.ListModels].
+//
+// Fields:
+//   - Type: (Optional) The type of model to filter by. Can be either "embed" or "rerank".
+//   - VectorType: (Optional) The vector type of the model to filter by. Can be either "dense" or "sparse".
+//     Only relevant if Type is "embed".
+type ListModelsParams struct {
+	Type       *string
+	VectorType *string
+}
+
+// [InferenceService.ListModels] lists all available models hosted by Pinecone. You can filter results using [ListModelsParams].
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime, allowing for the request
+//     to be canceled or to timeout according to the context's deadline.
+//   - in: The name of the model to retrieve information about.
+//
+// Returns a pointer to a [ModelInfoList] object or an error.
+//
+// Example:
+//
+//		 ctx := context.Background()
+//
+//		 clientParams := pinecone.NewClientParams{
+//		        ApiKey:    "YOUR_API_KEY",
+//		 		SourceTag: "your_source_identifier", // optional
+//	     }
+//
+//		 pc, err := pinecone.NewClient(clientParams)
+//	     if err != nil {
+//		        log.Fatalf("Failed to create Client: %v", err)
+//		 }
+//
+//	     embed := "embed"
+//		 embedModels, err := pc.Inference.ListModels(ctx, &pinecone.ListModelsParams{ Type: &embed })
+//	     if err != nil {
+//		        log.Fatalf("Failed to list models: %v", err)
+//		 }
+//
+//		 fmt.Printf("Embed Models: %+v\n", embedModels)
+func (i *InferenceService) ListModels(ctx context.Context, in *ListModelsParams) (*ModelInfoList, error) {
+	var params *inference.ListModelsParams
+	if in != nil {
+		params = &inference.ListModelsParams{
+			Type:       in.Type,
+			VectorType: in.VectorType,
+		}
+	}
+
+	res, err := i.client.ListModels(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to list models: ")
+	}
+	var modelInfoList ModelInfoList
+	err = json.NewDecoder(res.Body).Decode(&modelInfoList)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode model info list response: %w", err)
+	}
+	return &modelInfoList, nil
 }
 
 func (c *Client) extractAuthHeader() map[string]string {
@@ -1863,14 +1974,50 @@ func decodeIndex(resBody io.ReadCloser) (*Index, error) {
 	return toIndex(&idx), nil
 }
 
-func decodeEmbeddingsList(resBody io.ReadCloser) (*EmbedResponse, error) {
-	var embeddingsList EmbedResponse
-	err := json.NewDecoder(resBody).Decode(&embeddingsList)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode embeddings response: %w", err)
+func decodeEmbedResponse(resBody io.ReadCloser) (*EmbedResponse, error) {
+	var rawEmbedResponse struct {
+		Data  []json.RawMessage `json:"data"`
+		Model string            `json:"model"`
+		Usage struct {
+			TotalTokens *int `json:"total_tokens,omitempty"`
+		}
+	}
+	if err := json.NewDecoder(resBody).Decode(&rawEmbedResponse); err != nil {
+		return nil, fmt.Errorf("failed to decode embed response: %w", err)
 	}
 
-	return &embeddingsList, nil
+	decodedEmbeddings := make([]Embedding, len(rawEmbedResponse.Data))
+	for i, embedding := range rawEmbedResponse.Data {
+		var vectorTypeCheck struct {
+			VectorType string `json:"vector_type"`
+		}
+		if err := json.Unmarshal(embedding, &vectorTypeCheck); err != nil {
+			return nil, fmt.Errorf("failed to decode VectorType check: %w", err)
+		}
+
+		switch vectorTypeCheck.VectorType {
+		case "sparse":
+			var sparseEmbedding SparseEmbedding
+			if err := json.Unmarshal(embedding, &sparseEmbedding); err != nil {
+				return nil, fmt.Errorf("failed to decode sparse embedding: %w", err)
+			}
+			decodedEmbeddings[i] = Embedding{SparseEmbedding: &sparseEmbedding}
+		case "dense":
+			var denseEmbedding DenseEmbedding
+			if err := json.Unmarshal(embedding, &denseEmbedding); err != nil {
+				return nil, fmt.Errorf("failed to decode dense embedding: %w", err)
+			}
+			decodedEmbeddings[i] = Embedding{DenseEmbedding: &denseEmbedding}
+		default:
+			return nil, fmt.Errorf("unsupported VectorType: %s", vectorTypeCheck.VectorType)
+		}
+	}
+
+	return &EmbedResponse{
+		Data:  decodedEmbeddings,
+		Model: rawEmbedResponse.Model,
+		Usage: rawEmbedResponse.Usage,
+	}, nil
 }
 
 func decodeRerankResponse(resBody io.ReadCloser) (*RerankResponse, error) {

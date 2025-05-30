@@ -181,7 +181,7 @@ func (ts *IntegrationTests) TestMetadataAppliedToRequests() {
 	apiKeyHeader, ok := idxConn.additionalMetadata["api-key"]
 	require.True(ts.T(), ok, "Expected client to have an 'api-key' header")
 	require.Equal(ts.T(), apiKey, apiKeyHeader, "Expected 'api-key' header to equal %s", apiKey)
-	require.Equal(ts.T(), namespace, idxConn.Namespace, "Expected idxConn to have namespace '%s', but got '%s'", namespace, idxConn.Namespace)
+	require.Equal(ts.T(), namespace, idxConn.namespace, "Expected idxConn to have namespace '%s', but got '%s'", namespace, idxConn.namespace)
 	require.NotNil(ts.T(), idxConn.grpcClient, "Expected idxConn to have non-nil dataClient")
 	require.NotNil(ts.T(), idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
 
@@ -207,7 +207,7 @@ func (ts *IntegrationTests) TestUpdateVectorValues() {
 	retryAssertionsWithDefaults(ts.T(), func() error {
 		vector, err := ts.idxConn.FetchVectors(ctx, []string{ts.vectorIds[0]})
 		if err != nil {
-			return fmt.Errorf(fmt.Sprintf("Failed to fetch vector: %v", err))
+			return fmt.Errorf("Failed to fetch vector: %v", err)
 		}
 
 		if len(vector.Vectors) > 0 {
@@ -450,6 +450,71 @@ func (ts *IntegrationTests) TestIntegratedInference() {
 	})
 }
 
+func (ts *IntegrationTests) TestDescribeNamespace() {
+	if ts.indexType != "serverless" {
+		ts.T().Skip("Namespace operations are only supported in serverless indexes")
+	}
+
+	ctx := context.Background()
+	namespace := ts.namespaces[0]
+
+	namespaceDesc, err := ts.idxConn.DescribeNamespace(ctx, namespace)
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), namespaceDesc, "Namespace description should not be nil")
+	require.Equal(ts.T(), namespace, namespaceDesc.Name, "Namespace name should match the requested namespace")
+}
+
+func (ts *IntegrationTests) TestListNamespaces() {
+	if ts.indexType != "serverless" {
+		ts.T().Skip("Namespace operations are only supported in serverless indexes")
+	}
+
+	// List one namespace with limit
+	limit := uint32(1)
+	ctx := context.Background()
+	namespaces, err := ts.idxConn.ListNamespaces(ctx, &ListNamespacesParams{
+		Limit: &limit,
+	})
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), namespaces, "ListNamespaces response should not be nil")
+	require.Equal(ts.T(), limit, uint32(len(namespaces.Namespaces)))
+
+	// List remaining
+	remainingLength := uint32(len(ts.namespaces) - int(limit))
+	namespaces, err = ts.idxConn.ListNamespaces(ctx, &ListNamespacesParams{
+		PaginationToken: &namespaces.Pagination.Next,
+		Limit:           &remainingLength,
+	})
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), namespaces, "ListNamespaces response should not be nil")
+	require.Equal(ts.T(), limit, uint32(len(namespaces.Namespaces)), "ListNamespaces should return the remaining namespaces")
+}
+
+func (ts *IntegrationTests) TestDeleteNamespace() {
+	if ts.indexType != "serverless" {
+		ts.T().Skip("Namespace operations are only supported in serverless indexes")
+	}
+
+	deletedNamespace := ts.namespaces[len(ts.namespaces)-1]
+	ctx := context.Background()
+	err := ts.idxConn.DeleteNamespace(ctx, deletedNamespace)
+	require.NoError(ts.T(), err, "DeleteNamespace should not return an error")
+
+	// Verify the namespace is deleted, which may take some time
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		namespaces, err := ts.idxConn.ListNamespaces(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("ListNamespaces failed: %v", err)
+		}
+		for _, ns := range namespaces.Namespaces {
+			if ns.Name == deletedNamespace {
+				return fmt.Errorf("Namespace %s was not deleted", deletedNamespace)
+			}
+		}
+		return nil // Namespace successfully deleted
+	})
+}
+
 // Unit tests:
 func TestUpdateVectorMissingReqdFieldsUnit(t *testing.T) {
 	ctx := context.Background()
@@ -475,7 +540,7 @@ func TestNewIndexConnection(t *testing.T) {
 	apiKeyHeader, ok := idxConn.additionalMetadata["api-key"]
 	require.True(t, ok, "Expected client to have an 'api-key' header")
 	require.Equal(t, apiKey, apiKeyHeader, "Expected 'api-key' header to equal %s", apiKey)
-	require.Empty(t, idxConn.Namespace, "Expected idxConn to have empty namespace, but got '%s'", idxConn.Namespace)
+	require.Empty(t, idxConn.namespace, "Expected idxConn to have empty namespace, but got '%s'", idxConn.namespace)
 	require.NotNil(t, idxConn.grpcClient, "Expected idxConn to have non-nil dataClient")
 	require.NotNil(t, idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
 }
@@ -496,7 +561,7 @@ func TestNewIndexConnectionNamespace(t *testing.T) {
 	apiKeyHeader, ok := idxConn.additionalMetadata["api-key"]
 	require.True(t, ok, "Expected client to have an 'api-key' header")
 	require.Equal(t, apiKey, apiKeyHeader, "Expected 'api-key' header to equal %s", apiKey)
-	require.Equal(t, namespace, idxConn.Namespace, "Expected idxConn to have namespace '%s', but got '%s'", namespace, idxConn.Namespace)
+	require.Equal(t, namespace, idxConn.namespace, "Expected idxConn to have namespace '%s', but got '%s'", namespace, idxConn.namespace)
 	require.NotNil(t, idxConn.grpcClient, "Expected idxConn to have non-nil dataClient")
 	require.NotNil(t, idxConn.grpcConn, "Expected idxConn to have non-nil grpcConn")
 }
