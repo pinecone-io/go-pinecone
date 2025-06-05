@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/pinecone-io/go-pinecone/v3/internal/gen"
 	"github.com/pinecone-io/go-pinecone/v3/internal/gen/db_control"
@@ -344,7 +345,7 @@ func ensureHostHasHttps(host string) string {
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
 //
-// Returns a slice of pointers to Index objects or an error.
+// Returns a slice of pointers to [Index] objects or an error.
 //
 // Example:
 //
@@ -388,6 +389,7 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 		return nil, err
 	}
 
+	// TODO - possible invalid pointer dereference
 	indexes := make([]*Index, len(*indexList.Indexes))
 	for i, idx := range *indexList.Indexes {
 		indexes[i] = toIndex(&idx)
@@ -1518,6 +1520,295 @@ func (c *Client) DeleteCollection(ctx context.Context, collectionName string) er
 	return nil
 }
 
+type CreateBackupRequest struct {
+	IndexName string `json:"index_name"`
+
+	// Description A description of the backup.
+	Description *string `json:"description,omitempty"`
+
+	// Name The name of the backup.
+	Name *string `json:"name,omitempty"`
+}
+
+// BackupModel The BackupModel describes the configuration and status of a Pinecone backup.
+type BackupModel struct {
+	// BackupId Unique identifier for the backup.
+	BackupId string `json:"backup_id"`
+
+	// Cloud Cloud provider where the backup is stored.
+	Cloud string `json:"cloud"`
+
+	// CreatedAt Timestamp when the backup was created.
+	CreatedAt *string `json:"created_at,omitempty"`
+
+	// Description Optional description providing context for the backup.
+	Description *string `json:"description,omitempty"`
+
+	// Dimension The dimensions of the vectors to be inserted in the index.
+	Dimension *int32 `json:"dimension,omitempty"`
+
+	// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If the 'vector_type' is 'sparse', the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric defaults to 'cosine'.
+	Metric *IndexMetric `json:"metric,omitempty"`
+
+	// Name Optional user-defined name for the backup.
+	Name *string `json:"name,omitempty"`
+
+	// NamespaceCount Number of namespaces in the backup.
+	NamespaceCount *int `json:"namespace_count,omitempty"`
+
+	// RecordCount Total number of records in the backup.
+	RecordCount *int `json:"record_count,omitempty"`
+
+	// Region Cloud region where the backup is stored.
+	Region string `json:"region"`
+
+	// SizeBytes Size of the backup in bytes.
+	SizeBytes *int `json:"size_bytes,omitempty"`
+
+	// SourceIndexId ID of the index.
+	SourceIndexId string `json:"source_index_id"`
+
+	// SourceIndexName Name of the index from which the backup was taken.
+	SourceIndexName string `json:"source_index_name"`
+
+	// Status Current status of the backup (e.g., Initializing, Ready, Failed).
+	Status string `json:"status"`
+
+	// Tags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
+	Tags *IndexTags `json:"tags,omitempty"`
+}
+
+func (c *Client) CreateBackup(ctx context.Context, in *CreateBackupRequest) (*BackupModel, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreateBackupRequest) cannot be nil")
+	}
+	if in.IndexName == "" {
+		return nil, fmt.Errorf("IndexName must be included in CreateBackupRequest")
+	}
+
+	res, err := c.restClient.CreateBackup(ctx, in.IndexName, db_control.CreateBackupRequest{
+		Description: in.Description,
+		Name:        in.Name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		return nil, handleErrorResponseBody(res, "failed to create backup: ")
+	}
+
+	return decodeBackup(res.Body)
+}
+
+// CreateIndexFromBackupRequest The configuration needed to create a Pinecone index from a backup.
+type CreateIndexFromBackupRequest struct {
+	// BackupId of the backup to restore the index from.
+	BackupId string `json:"backup_id"`
+
+	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
+	Name string `json:"name"`
+
+	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
+
+	// Tags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
+	Tags *IndexTags `json:"tags,omitempty"`
+}
+
+type CreateIndexFromBackupResponse struct {
+	// IndexId The ID of the index that was created from the backup.
+	IndexId string `json:"index_id"`
+
+	// RestoreJobId The ID of the restore job that was created.
+	RestoreJobId string `json:"restore_job_id"`
+}
+
+func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromBackupRequest) (*CreateIndexFromBackupResponse, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreateIndexFromBackupRequest) cannot be nil")
+	}
+	if in.BackupId == "" {
+		return nil, fmt.Errorf("BackupId must be included in CreateIndexFromBackupRequest")
+	}
+	if in.Name == "" {
+		return nil, fmt.Errorf("Name must be included in CreateIndexFromBackupRequest")
+	}
+
+	res, err := c.restClient.CreateIndexFromBackupOperation(ctx, in.BackupId, db_control.CreateIndexFromBackupRequest{
+		Name:               in.Name,
+		DeletionProtection: (*db_control.DeletionProtection)(in.DeletionProtection),
+		Tags:               (*db_control.IndexTags)(in.Tags),
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		return nil, handleErrorResponseBody(res, "failed to create index from backup: ")
+	}
+
+	var response *db_control.CreateIndexFromBackupResponse
+	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response body: %w", err)
+	}
+	if response == nil {
+		return nil, nil
+	}
+	return &CreateIndexFromBackupResponse{
+		IndexId:      response.IndexId,
+		RestoreJobId: response.RestoreJobId,
+	}, nil
+}
+
+func (c *Client) DescribeBackup(ctx context.Context, backupId string) (*BackupModel, error) {
+	if backupId == "" {
+		return nil, fmt.Errorf("you must provide a backupId to describe a backup")
+	}
+
+	res, err := c.restClient.DescribeBackup(ctx, backupId)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to describe backup: ")
+	}
+
+	return decodeBackup(res.Body)
+}
+
+type ListBackupsParams struct {
+	IndexName       *string `json:"index_name,omitempty"`
+	Limit           *int    `json:"limit,omitempty"`
+	PaginationToken *string `json:"pagination_token,omitempty"`
+}
+
+type BackupList struct {
+	Data       []*BackupModel `json:"data"`
+	Pagination *Pagination    `json:"pagination,omitempty"`
+}
+
+func (c *Client) ListBackups(ctx context.Context, in *ListBackupsParams) (*BackupList, error) {
+	var response *http.Response
+	var err error
+	if in.IndexName == nil {
+		response, err = c.restClient.ListProjectBackups(ctx, &db_control.ListProjectBackupsParams{
+			Limit:           in.Limit,
+			PaginationToken: in.PaginationToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		response, err = c.restClient.ListIndexBackups(ctx, *in.IndexName, &db_control.ListIndexBackupsParams{
+			Limit:           in.Limit,
+			PaginationToken: in.PaginationToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(response, "failed to list backups: ")
+	}
+	return decodeBackupList(response.Body)
+}
+
+func (c *Client) DeleteBackup(ctx context.Context, backupId string) error {
+	if backupId == "" {
+		return fmt.Errorf("you must provide a backupId to delete a backup")
+	}
+
+	res, err := c.restClient.DeleteBackup(ctx, backupId)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusAccepted {
+		return handleErrorResponseBody(res, "failed to delete backup: ")
+	}
+
+	return nil
+}
+
+// RestoreJobModel The RestoreJobModel describes the status of a restore job.
+type RestoreJobModel struct {
+	// BackupId Backup used for the restore
+	BackupId string `json:"backup_id"`
+
+	// CompletedAt Timestamp when the restore job finished
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+
+	// CreatedAt Timestamp when the restore job started
+	CreatedAt time.Time `json:"created_at"`
+
+	// PercentComplete The progress made by the restore job out of 100
+	PercentComplete *float32 `json:"percent_complete,omitempty"`
+
+	// RestoreJobId Unique identifier for the restore job
+	RestoreJobId string `json:"restore_job_id"`
+
+	// Status Status of the restore job
+	Status string `json:"status"`
+
+	// TargetIndexId ID of the index
+	TargetIndexId string `json:"target_index_id"`
+
+	// TargetIndexName Name of the index into which data is being restored
+	TargetIndexName string `json:"target_index_name"`
+}
+
+func (c *Client) DescribeRestoreJob(ctx context.Context, restoreJobId string) (*RestoreJobModel, error) {
+	if restoreJobId == "" {
+		return nil, fmt.Errorf("you must provide a restoreJobId to describe a restore job")
+	}
+
+	res, err := c.restClient.DescribeRestoreJob(ctx, restoreJobId)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to describe restore job: ")
+	}
+
+	return decodeRestoreJob(res.Body)
+}
+
+type ListRestoreJobsParams struct {
+	Limit           *int    `json:"limit,omitempty"`
+	PaginationToken *string `json:"pagination_token,omitempty"`
+}
+
+type RestoreJobList struct {
+	Data       []*RestoreJobModel `json:"data"`
+	Pagination *Pagination        `json:"pagination,omitempty"`
+}
+
+func (c *Client) ListRestoreJobs(ctx context.Context, in *ListRestoreJobsParams) (*RestoreJobList, error) {
+	res, err := c.restClient.ListRestoreJobs(ctx, &db_control.ListRestoreJobsParams{
+		Limit:           in.Limit,
+		PaginationToken: in.PaginationToken,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to list restore jobs: ")
+	}
+
+	return decodeRestoreJobList(res.Body)
+}
+
 // [InferenceService] is a struct which exposes methods for interacting with the Pinecone Inference API. [InferenceService]
 // can be accessed via the Client object through the Client.Inference namespace.
 //
@@ -1974,7 +2265,105 @@ func decodeIndex(resBody io.ReadCloser) (*Index, error) {
 	return toIndex(&idx), nil
 }
 
+func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
+	var backupListDb db_control.BackupList
+	if err := json.NewDecoder(resBody).Decode(&backupListDb); err != nil {
+		return nil, fmt.Errorf("failed to decode backup list response: %w", err)
+	}
+	var backupList BackupList
+	if backupListDb.Data != nil {
+		backupList.Data = make([]*BackupModel, len(*backupListDb.Data))
+		for i, backup := range *backupListDb.Data {
+			backupList.Data[i] = toBackup(&backup)
+		}
+		backupList.Pagination = (*Pagination)(backupListDb.Pagination)
+	} else {
+		backupList.Data = make([]*BackupModel, 0)
+		backupList.Pagination = (*Pagination)(backupListDb.Pagination)
+	}
+	return &backupList, nil
+}
+
+func decodeRestoreJobList(resBody io.ReadCloser) (*RestoreJobList, error) {
+	var restoreJobListDb db_control.RestoreJobList
+	if err := json.NewDecoder(resBody).Decode(&restoreJobListDb); err != nil {
+		return nil, fmt.Errorf("failed to decode restore job list response: %w", err)
+	}
+	var restoreJobList RestoreJobList
+	if len(restoreJobListDb.Data) > 0 {
+		restoreJobList.Data = make([]*RestoreJobModel, len(restoreJobListDb.Data))
+		for i, restoreJob := range restoreJobListDb.Data {
+			restoreJobList.Data[i] = toRestoreJob(&restoreJob)
+		}
+		restoreJobList.Pagination = (*Pagination)(restoreJobListDb.Pagination)
+	} else {
+		restoreJobList.Data = make([]*RestoreJobModel, 0)
+		restoreJobList.Pagination = (*Pagination)(restoreJobListDb.Pagination)
+	}
+	return &restoreJobList, nil
+}
+
+func toBackup(backup *db_control.BackupModel) *BackupModel {
+	if backup == nil {
+		return nil
+	}
+
+	return &BackupModel{
+		BackupId:        backup.BackupId,
+		Cloud:           backup.Cloud,
+		CreatedAt:       backup.CreatedAt,
+		Description:     backup.Description,
+		Dimension:       backup.Dimension,
+		Metric:          (*IndexMetric)(backup.Metric),
+		Name:            backup.Name,
+		NamespaceCount:  backup.NamespaceCount,
+		RecordCount:     backup.RecordCount,
+		Region:          backup.Region,
+		SizeBytes:       backup.SizeBytes,
+		SourceIndexId:   backup.SourceIndexId,
+		SourceIndexName: backup.SourceIndexName,
+		Status:          backup.Status,
+		Tags:            (*IndexTags)(backup.Tags),
+	}
+}
+
+func decodeBackup(resBody io.ReadCloser) (*BackupModel, error) {
+	var backup db_control.BackupModel
+	if err := json.NewDecoder(resBody).Decode(&backup); err != nil {
+		return nil, fmt.Errorf("failed to decode backup response: %w", err)
+	}
+
+	return toBackup(&backup), nil
+}
+
+func toRestoreJob(restoreJob *db_control.RestoreJobModel) *RestoreJobModel {
+	if restoreJob == nil {
+		return nil
+	}
+
+	return &RestoreJobModel{
+		BackupId:        restoreJob.BackupId,
+		CompletedAt:     restoreJob.CompletedAt,
+		CreatedAt:       restoreJob.CreatedAt,
+		PercentComplete: restoreJob.PercentComplete,
+		RestoreJobId:    restoreJob.RestoreJobId,
+		Status:          restoreJob.Status,
+		TargetIndexId:   restoreJob.TargetIndexId,
+		TargetIndexName: restoreJob.TargetIndexName,
+	}
+}
+
+func decodeRestoreJob(resBody io.ReadCloser) (*RestoreJobModel, error) {
+	var restoreJob db_control.RestoreJobModel
+	if err := json.NewDecoder(resBody).Decode(&restoreJob); err != nil {
+		return nil, fmt.Errorf("failed to decode restore job response: %w", err)
+	}
+
+	return toRestoreJob(&restoreJob), nil
+}
+
 func decodeEmbedResponse(resBody io.ReadCloser) (*EmbedResponse, error) {
+	// TODO - update this to use the actual internal type, we're not decoding everything here
 	var rawEmbedResponse struct {
 		Data  []json.RawMessage `json:"data"`
 		Model string            `json:"model"`
