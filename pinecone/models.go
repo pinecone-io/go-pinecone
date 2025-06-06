@@ -512,3 +512,81 @@ func (spv *SupportedParameterValue) UnmarshalJSON(data []byte) error {
 	}
 	return fmt.Errorf("unsupported type for SupportedParameterValue: %s", data)
 }
+
+// [Backup] describes the configuration and status of a Pinecone backup.
+//
+// Fields:
+//   - BackupId: Unique identifier for the backup.
+//   - Cloud: Cloud provider where the backup is stored.
+//   - CreatedAt: Timestamp when the backup was created.
+//   - Description: Optional description providing context for the backup.
+//   - Dimension: The dimensions of the vectors to be inserted in the index.
+//   - Metric: The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If the 'vector_type' is 'sparse', the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric defaults to 'cosine'.
+//   - Name: Optional user-defined name for the backup.
+//   - NamespaceCount: Number of namespaces in the backup.
+//   - RecordCount: Total number of records in the backup.
+//   - Region: Cloud region where the backup is stored.
+//   - SizeBytes: Size of the backup in bytes.
+//   - SourceIndexId: ID of the index.
+//   - SourceIndexName: Name of the index from which the backup was taken.
+//   - Status: Current status of the backup (e.g., Initializing, Ready, Failed).
+//   - Tags: Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'. Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to an empty string.
+type Backup struct {
+	BackupId        string       `json:"backup_id"`
+	Cloud           string       `json:"cloud"`
+	CreatedAt       *string      `json:"created_at,omitempty"`
+	Description     *string      `json:"description,omitempty"`
+	Dimension       *int32       `json:"dimension,omitempty"`
+	Metric          *IndexMetric `json:"metric,omitempty"`
+	Name            *string      `json:"name,omitempty"`
+	NamespaceCount  *int         `json:"namespace_count,omitempty"`
+	RecordCount     *int         `json:"record_count,omitempty"`
+	Region          string       `json:"region"`
+	SizeBytes       *int         `json:"size_bytes,omitempty"`
+	SourceIndexId   string       `json:"source_index_id"`
+	SourceIndexName string       `json:"source_index_name"`
+	Status          string       `json:"status"`
+	Tags            *IndexTags   `json:"tags,omitempty"`
+}
+
+// [BackupList] contains a paginated list of backups.
+//
+// Fields:
+//   - Data: A list of [Backup] records.
+//   - Pagination: Pagination token for fetching the next page of results.
+type BackupList struct {
+	Data       []*Backup   `json:"data"`
+	Pagination *Pagination `json:"pagination,omitempty"`
+}
+
+// [RestoreJob] describes the status of a restore job.
+//
+// Fields:
+//   - BackupId: Backup used for the restore.
+//   - CompletedAt: Timestamp when the restore job finished.
+//   - CreatedAt: Timestamp when the restore job started.
+//   - PercentComplete: The progress made by the restore job out of 100.
+//   - RestoreJobId: Unique identifier for the restore job.
+//   - Status: Status of the restore job.
+//   - TargetIndexId: ID of the index.
+//   - TargetIndexName: Name of the index into which data is being restored.
+type RestoreJob struct {
+	BackupId        string     `json:"backup_id"`
+	CompletedAt     *time.Time `json:"completed_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+	PercentComplete *float32   `json:"percent_complete,omitempty"`
+	RestoreJobId    string     `json:"restore_job_id"`
+	Status          string     `json:"status"`
+	TargetIndexId   string     `json:"target_index_id"`
+	TargetIndexName string     `json:"target_index_name"`
+}
+
+// [RestoreJobList] contains a paginated list of restore jobs.
+//
+// Fields:
+//   - Data: A list of [RestoreJob] records.
+//   - Pagination: Pagination token for fetching the next page of results.
+type RestoreJobList struct {
+	Data       []*RestoreJob `json:"data"`
+	Pagination *Pagination   `json:"pagination,omitempty"`
+}

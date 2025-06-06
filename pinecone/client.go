@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/pinecone-io/go-pinecone/v3/internal/gen"
 	"github.com/pinecone-io/go-pinecone/v3/internal/gen/db_control"
@@ -1520,7 +1519,7 @@ func (c *Client) DeleteCollection(ctx context.Context, collectionName string) er
 	return nil
 }
 
-type CreateBackupRequest struct {
+type CreateBackupParams struct {
 	IndexName string `json:"index_name"`
 
 	// Description A description of the backup.
@@ -1530,55 +1529,7 @@ type CreateBackupRequest struct {
 	Name *string `json:"name,omitempty"`
 }
 
-// BackupModel The BackupModel describes the configuration and status of a Pinecone backup.
-type BackupModel struct {
-	// BackupId Unique identifier for the backup.
-	BackupId string `json:"backup_id"`
-
-	// Cloud Cloud provider where the backup is stored.
-	Cloud string `json:"cloud"`
-
-	// CreatedAt Timestamp when the backup was created.
-	CreatedAt *string `json:"created_at,omitempty"`
-
-	// Description Optional description providing context for the backup.
-	Description *string `json:"description,omitempty"`
-
-	// Dimension The dimensions of the vectors to be inserted in the index.
-	Dimension *int32 `json:"dimension,omitempty"`
-
-	// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If the 'vector_type' is 'sparse', the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric defaults to 'cosine'.
-	Metric *IndexMetric `json:"metric,omitempty"`
-
-	// Name Optional user-defined name for the backup.
-	Name *string `json:"name,omitempty"`
-
-	// NamespaceCount Number of namespaces in the backup.
-	NamespaceCount *int `json:"namespace_count,omitempty"`
-
-	// RecordCount Total number of records in the backup.
-	RecordCount *int `json:"record_count,omitempty"`
-
-	// Region Cloud region where the backup is stored.
-	Region string `json:"region"`
-
-	// SizeBytes Size of the backup in bytes.
-	SizeBytes *int `json:"size_bytes,omitempty"`
-
-	// SourceIndexId ID of the index.
-	SourceIndexId string `json:"source_index_id"`
-
-	// SourceIndexName Name of the index from which the backup was taken.
-	SourceIndexName string `json:"source_index_name"`
-
-	// Status Current status of the backup (e.g., Initializing, Ready, Failed).
-	Status string `json:"status"`
-
-	// Tags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
-	Tags *IndexTags `json:"tags,omitempty"`
-}
-
-func (c *Client) CreateBackup(ctx context.Context, in *CreateBackupRequest) (*BackupModel, error) {
+func (c *Client) CreateBackup(ctx context.Context, in *CreateBackupParams) (*Backup, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*CreateBackupRequest) cannot be nil")
 	}
@@ -1595,7 +1546,7 @@ func (c *Client) CreateBackup(ctx context.Context, in *CreateBackupRequest) (*Ba
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusCreated {
+	if res.StatusCode != http.StatusOK {
 		return nil, handleErrorResponseBody(res, "failed to create backup: ")
 	}
 
@@ -1603,7 +1554,7 @@ func (c *Client) CreateBackup(ctx context.Context, in *CreateBackupRequest) (*Ba
 }
 
 // CreateIndexFromBackupRequest The configuration needed to create a Pinecone index from a backup.
-type CreateIndexFromBackupRequest struct {
+type CreateIndexFromBackupParams struct {
 	// BackupId of the backup to restore the index from.
 	BackupId string `json:"backup_id"`
 
@@ -1625,7 +1576,7 @@ type CreateIndexFromBackupResponse struct {
 	RestoreJobId string `json:"restore_job_id"`
 }
 
-func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromBackupRequest) (*CreateIndexFromBackupResponse, error) {
+func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromBackupParams) (*CreateIndexFromBackupResponse, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*CreateIndexFromBackupRequest) cannot be nil")
 	}
@@ -1646,7 +1597,7 @@ func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromB
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusCreated {
+	if res.StatusCode != http.StatusAccepted {
 		return nil, handleErrorResponseBody(res, "failed to create index from backup: ")
 	}
 
@@ -1663,7 +1614,7 @@ func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromB
 	}, nil
 }
 
-func (c *Client) DescribeBackup(ctx context.Context, backupId string) (*BackupModel, error) {
+func (c *Client) DescribeBackup(ctx context.Context, backupId string) (*Backup, error) {
 	if backupId == "" {
 		return nil, fmt.Errorf("you must provide a backupId to describe a backup")
 	}
@@ -1687,15 +1638,15 @@ type ListBackupsParams struct {
 	PaginationToken *string `json:"pagination_token,omitempty"`
 }
 
-type BackupList struct {
-	Data       []*BackupModel `json:"data"`
-	Pagination *Pagination    `json:"pagination,omitempty"`
-}
-
 func (c *Client) ListBackups(ctx context.Context, in *ListBackupsParams) (*BackupList, error) {
 	var response *http.Response
 	var err error
-	if in.IndexName == nil {
+	if in == nil {
+		response, err = c.restClient.ListProjectBackups(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+	} else if in.IndexName == nil {
 		response, err = c.restClient.ListProjectBackups(ctx, &db_control.ListProjectBackupsParams{
 			Limit:           in.Limit,
 			PaginationToken: in.PaginationToken,
@@ -1737,34 +1688,7 @@ func (c *Client) DeleteBackup(ctx context.Context, backupId string) error {
 	return nil
 }
 
-// RestoreJobModel The RestoreJobModel describes the status of a restore job.
-type RestoreJobModel struct {
-	// BackupId Backup used for the restore
-	BackupId string `json:"backup_id"`
-
-	// CompletedAt Timestamp when the restore job finished
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
-
-	// CreatedAt Timestamp when the restore job started
-	CreatedAt time.Time `json:"created_at"`
-
-	// PercentComplete The progress made by the restore job out of 100
-	PercentComplete *float32 `json:"percent_complete,omitempty"`
-
-	// RestoreJobId Unique identifier for the restore job
-	RestoreJobId string `json:"restore_job_id"`
-
-	// Status Status of the restore job
-	Status string `json:"status"`
-
-	// TargetIndexId ID of the index
-	TargetIndexId string `json:"target_index_id"`
-
-	// TargetIndexName Name of the index into which data is being restored
-	TargetIndexName string `json:"target_index_name"`
-}
-
-func (c *Client) DescribeRestoreJob(ctx context.Context, restoreJobId string) (*RestoreJobModel, error) {
+func (c *Client) DescribeRestoreJob(ctx context.Context, restoreJobId string) (*RestoreJob, error) {
 	if restoreJobId == "" {
 		return nil, fmt.Errorf("you must provide a restoreJobId to describe a restore job")
 	}
@@ -1787,26 +1711,31 @@ type ListRestoreJobsParams struct {
 	PaginationToken *string `json:"pagination_token,omitempty"`
 }
 
-type RestoreJobList struct {
-	Data       []*RestoreJobModel `json:"data"`
-	Pagination *Pagination        `json:"pagination,omitempty"`
-}
-
 func (c *Client) ListRestoreJobs(ctx context.Context, in *ListRestoreJobsParams) (*RestoreJobList, error) {
-	res, err := c.restClient.ListRestoreJobs(ctx, &db_control.ListRestoreJobsParams{
-		Limit:           in.Limit,
-		PaginationToken: in.PaginationToken,
-	})
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
+	var response *http.Response
+	var err error
+	if in == nil {
+		response, err = c.restClient.ListRestoreJobs(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+	} else {
 
-	if res.StatusCode != http.StatusOK {
-		return nil, handleErrorResponseBody(res, "failed to list restore jobs: ")
+		response, err = c.restClient.ListRestoreJobs(ctx, &db_control.ListRestoreJobsParams{
+			Limit:           in.Limit,
+			PaginationToken: in.PaginationToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(response, "failed to list restore jobs: ")
 	}
 
-	return decodeRestoreJobList(res.Body)
+	return decodeRestoreJobList(response.Body)
 }
 
 // [InferenceService] is a struct which exposes methods for interacting with the Pinecone Inference API. [InferenceService]
@@ -2272,13 +2201,13 @@ func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
 	}
 	var backupList BackupList
 	if backupListDb.Data != nil {
-		backupList.Data = make([]*BackupModel, len(*backupListDb.Data))
+		backupList.Data = make([]*Backup, len(*backupListDb.Data))
 		for i, backup := range *backupListDb.Data {
 			backupList.Data[i] = toBackup(&backup)
 		}
 		backupList.Pagination = (*Pagination)(backupListDb.Pagination)
 	} else {
-		backupList.Data = make([]*BackupModel, 0)
+		backupList.Data = make([]*Backup, 0)
 		backupList.Pagination = (*Pagination)(backupListDb.Pagination)
 	}
 	return &backupList, nil
@@ -2291,24 +2220,24 @@ func decodeRestoreJobList(resBody io.ReadCloser) (*RestoreJobList, error) {
 	}
 	var restoreJobList RestoreJobList
 	if len(restoreJobListDb.Data) > 0 {
-		restoreJobList.Data = make([]*RestoreJobModel, len(restoreJobListDb.Data))
+		restoreJobList.Data = make([]*RestoreJob, len(restoreJobListDb.Data))
 		for i, restoreJob := range restoreJobListDb.Data {
 			restoreJobList.Data[i] = toRestoreJob(&restoreJob)
 		}
 		restoreJobList.Pagination = (*Pagination)(restoreJobListDb.Pagination)
 	} else {
-		restoreJobList.Data = make([]*RestoreJobModel, 0)
+		restoreJobList.Data = make([]*RestoreJob, 0)
 		restoreJobList.Pagination = (*Pagination)(restoreJobListDb.Pagination)
 	}
 	return &restoreJobList, nil
 }
 
-func toBackup(backup *db_control.BackupModel) *BackupModel {
+func toBackup(backup *db_control.BackupModel) *Backup {
 	if backup == nil {
 		return nil
 	}
 
-	return &BackupModel{
+	return &Backup{
 		BackupId:        backup.BackupId,
 		Cloud:           backup.Cloud,
 		CreatedAt:       backup.CreatedAt,
@@ -2327,7 +2256,7 @@ func toBackup(backup *db_control.BackupModel) *BackupModel {
 	}
 }
 
-func decodeBackup(resBody io.ReadCloser) (*BackupModel, error) {
+func decodeBackup(resBody io.ReadCloser) (*Backup, error) {
 	var backup db_control.BackupModel
 	if err := json.NewDecoder(resBody).Decode(&backup); err != nil {
 		return nil, fmt.Errorf("failed to decode backup response: %w", err)
@@ -2336,12 +2265,12 @@ func decodeBackup(resBody io.ReadCloser) (*BackupModel, error) {
 	return toBackup(&backup), nil
 }
 
-func toRestoreJob(restoreJob *db_control.RestoreJobModel) *RestoreJobModel {
+func toRestoreJob(restoreJob *db_control.RestoreJobModel) *RestoreJob {
 	if restoreJob == nil {
 		return nil
 	}
 
-	return &RestoreJobModel{
+	return &RestoreJob{
 		BackupId:        restoreJob.BackupId,
 		CompletedAt:     restoreJob.CompletedAt,
 		CreatedAt:       restoreJob.CreatedAt,
@@ -2353,7 +2282,7 @@ func toRestoreJob(restoreJob *db_control.RestoreJobModel) *RestoreJobModel {
 	}
 }
 
-func decodeRestoreJob(resBody io.ReadCloser) (*RestoreJobModel, error) {
+func decodeRestoreJob(resBody io.ReadCloser) (*RestoreJob, error) {
 	var restoreJob db_control.RestoreJobModel
 	if err := json.NewDecoder(resBody).Decode(&restoreJob); err != nil {
 		return nil, fmt.Errorf("failed to decode restore job response: %w", err)
