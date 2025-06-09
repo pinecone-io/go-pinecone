@@ -771,7 +771,7 @@ func (ts *IntegrationTests) TestListAndDescribeIndexBackups() {
 	}
 }
 
-func (ts *IntegrationTests) TestCreateIndexFromBackup() {
+func (ts *IntegrationTests) TestCreateIndexFromBackupViaRestore() {
 	if ts.indexType != "serverless" {
 		ts.T().Skip("Skipping backup tests for non-serverless indexes")
 	}
