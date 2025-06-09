@@ -747,6 +747,70 @@ func (ts *IntegrationTests) TestIndexTags() {
 	ts.indexTags = &updatedTags
 }
 
+func (ts *IntegrationTests) TestListAndDescribeIndexBackups() {
+	if ts.indexType != "serverless" {
+		ts.T().Skip("Skipping backup tests for non-serverless indexes")
+	}
+	// CreateBackup and DeleteBackup are tested as a part of IntegrationTests.SetupSuite(), so not explicitly tested here
+	limit := 5
+
+	// list project backups
+	backups, err := ts.client.ListBackups(context.Background(), &ListBackupsParams{Limit: &limit})
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), backups, "Expected backups to be non-nil")
+
+	// list index backups
+	indexBackups, err := ts.client.ListBackups(context.Background(), &ListBackupsParams{
+		IndexName: &ts.idxName,
+		Limit:     &limit,
+	})
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), indexBackups, "Expected index backups to be non-nil")
+	if len(indexBackups.Data) > 0 {
+		require.Equal(ts.T(), ts.idxName, indexBackups.Data[0].SourceIndexName, "Expected index backup to match index name")
+	}
+}
+
+func (ts *IntegrationTests) TestCreateIndexFromBackup() {
+	if ts.indexType != "serverless" {
+		ts.T().Skip("Skipping backup tests for non-serverless indexes")
+	}
+	limit := 5
+	restoredIndexName := ts.idxName + "-from-backup"
+	createIndexFromBackupResp, err := ts.client.CreateIndexFromBackup(context.Background(), &CreateIndexFromBackupParams{
+		BackupId: ts.backupId,
+		Name:     restoredIndexName,
+	})
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), createIndexFromBackupResp, "Expected CreateIndexFromBackup response to be non-nil")
+
+	// validate describing restore job
+	restoreJob, err := ts.client.DescribeRestoreJob(context.Background(), createIndexFromBackupResp.RestoreJobId)
+	require.NoError(ts.T(), err)
+	require.Equal(ts.T(), createIndexFromBackupResp.RestoreJobId, restoreJob.RestoreJobId, "Expected restore job ID to match")
+	require.Equal(ts.T(), restoredIndexName, restoreJob.TargetIndexName)
+
+	// validate listing restore jobs
+	restoreJobs, err := ts.client.ListRestoreJobs(context.Background(), &ListRestoreJobsParams{Limit: &limit})
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), restoreJobs, "Expected restore jobs to be non-nil")
+
+	// wait until restore job completes
+	maxRetries := 10
+	for restoreJob.CompletedAt != nil || maxRetries > 0 {
+		time.Sleep(10 * time.Second)
+		restoreJob, err = ts.client.DescribeRestoreJob(context.Background(), createIndexFromBackupResp.RestoreJobId)
+		require.NoError(ts.T(), err)
+		maxRetries--
+	}
+
+	// validate describing the restored index
+	index, err := ts.client.DescribeIndex(context.Background(), restoredIndexName)
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), index, "Expected restored index to be non-nil")
+	require.Equal(ts.T(), restoredIndexName, index.Name, "Expected restored index name to match")
+}
+
 // Unit tests:
 func TestExtractAuthHeaderUnit(t *testing.T) {
 	globalApiKey := os.Getenv("PINECONE_API_KEY")

@@ -22,6 +22,7 @@ type IntegrationTests struct {
 	indexType      string
 	vectorIds      []string
 	idxName        string
+	backupId       string
 	idxConn        *IndexConnection
 	collectionName string
 	sourceTag      string
@@ -83,6 +84,10 @@ func (ts *IntegrationTests) SetupSuite() {
 	if ts.indexType == "pods" {
 		createCollection(ts, ctx)
 	}
+	// Create backup for serverless index suite
+	if ts.indexType == "serverless" {
+		createBackup(ts, ctx)
+	}
 
 	fmt.Printf("\n %s set up suite completed successfully\n", ts.indexType)
 }
@@ -118,6 +123,12 @@ func (ts *IntegrationTests) TearDownSuite() {
 
 	if err != nil {
 		fmt.Printf("Failed to delete index \"%s\" after 4 retries: %v\n", ts.idxName, err)
+	}
+
+	// Delete backup
+	err = ts.client.DeleteBackup(ctx, ts.backupId)
+	if err != nil {
+		fmt.Printf("Failed to delete backup \"%s\": %v\n", ts.backupId, err)
 	}
 
 	fmt.Printf("\n %s setup suite torn down successfully\n", ts.indexType)
@@ -159,6 +170,37 @@ func createCollection(ts *IntegrationTests, ctx context.Context) {
 
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), name, collection.Name)
+}
+
+func createBackup(ts *IntegrationTests, ctx context.Context) {
+	backupName := fmt.Sprintf("backup-%s", uuid.New().String())
+	fmt.Printf("Creating backup: %s for index: %s\n", backupName, ts.idxName)
+
+	backup, err := ts.client.CreateBackup(ctx, &CreateBackupParams{
+		IndexName: ts.idxName,
+		Name:      &backupName,
+	})
+
+	require.NoError(ts.T(), err)
+	require.Equal(ts.T(), backupName, *backup.Name)
+	ts.backupId = backup.BackupId
+
+	fmt.Printf("Successfully created backup with ID: %s\n", ts.backupId)
+	fmt.Printf("Waiting for backup to complete...\n")
+	retries := 5
+	for retries > 0 {
+		time.Sleep(5 * time.Second)
+		backupDesc, err := ts.client.DescribeBackup(ctx, ts.backupId)
+		require.NoError(ts.T(), err)
+
+		if backupDesc.Status == "Ready" || backupDesc.Status == "Failed" {
+			fmt.Printf("Backup \"%s\" is ready with status: %s\n", ts.backupId, backupDesc.Status)
+			return
+		}
+
+		fmt.Printf("Backup \"%s\" not ready yet, retrying... (%d retries left)\n", ts.backupId, retries-1)
+		retries--
+	}
 }
 
 func waitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error) {
