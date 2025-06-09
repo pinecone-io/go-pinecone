@@ -174,15 +174,18 @@ func createCollection(ts *IntegrationTests, ctx context.Context) {
 
 func createBackup(ts *IntegrationTests, ctx context.Context) {
 	backupName := fmt.Sprintf("backup-%s", uuid.New().String())
+	backupDesc := fmt.Sprintf("Backup created for index %s for Pinecone integration tests", ts.idxName)
 	fmt.Printf("Creating backup: %s for index: %s\n", backupName, ts.idxName)
 
 	backup, err := ts.client.CreateBackup(ctx, &CreateBackupParams{
-		IndexName: ts.idxName,
-		Name:      &backupName,
+		IndexName:   ts.idxName,
+		Name:        &backupName,
+		Description: &backupDesc,
 	})
 
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), backupName, *backup.Name)
+	require.Equal(ts.T(), backupDesc, *backup.Description)
 	ts.backupId = backup.BackupId
 
 	fmt.Printf("Successfully created backup with ID: %s\n", ts.backupId)

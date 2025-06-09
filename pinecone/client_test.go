@@ -777,9 +777,11 @@ func (ts *IntegrationTests) TestCreateIndexFromBackup() {
 	}
 	limit := 5
 	restoredIndexName := ts.idxName + "-from-backup"
+	restoredIndexTags := IndexTags{"status": "integration-test", "type": "backup-restore"}
 	createIndexFromBackupResp, err := ts.client.CreateIndexFromBackup(context.Background(), &CreateIndexFromBackupParams{
 		BackupId: ts.backupId,
 		Name:     restoredIndexName,
+		Tags:     &restoredIndexTags,
 	})
 	require.NoError(ts.T(), err)
 	require.NotNil(ts.T(), createIndexFromBackupResp, "Expected CreateIndexFromBackup response to be non-nil")
@@ -809,6 +811,7 @@ func (ts *IntegrationTests) TestCreateIndexFromBackup() {
 	require.NoError(ts.T(), err)
 	require.NotNil(ts.T(), index, "Expected restored index to be non-nil")
 	require.Equal(ts.T(), restoredIndexName, index.Name, "Expected restored index name to match")
+	require.Equal(ts.T(), restoredIndexTags, index.Tags, "Expected restored index tags to match")
 }
 
 // Unit tests:
