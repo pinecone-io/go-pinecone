@@ -1679,8 +1679,8 @@ A backup is a static copy of a serverless index that only consumes storage. It i
 
 	// create a new serverless index from the backup
 	restoredIndexName := indexName + "-from-backup"
-	restoredIndexTags := IndexTags{"restored_on": time.Now().Format("2006-01-02 15:04")}
-	createIndexFromBackupResp, err := pc.CreateIndexFromBackup(context.Background(), &CreateIndexFromBackupParams{
+	restoredIndexTags := pinecone.IndexTags{"restored_on": time.Now().Format("2006-01-02 15:04")}
+	createIndexFromBackupResp, err := pc.CreateIndexFromBackup(context.Background(), &pinecone.CreateIndexFromBackupParams{
 		BackupId: ts.backupId,
 		Name:     restoredIndexName,
 		Tags:     &restoredIndexTags,
