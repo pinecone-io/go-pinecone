@@ -798,9 +798,9 @@ func (ts *IntegrationTests) TestCreateIndexFromBackupViaRestore() {
 	require.NotNil(ts.T(), restoreJobs, "Expected restore jobs to be non-nil")
 
 	// wait until restore job completes
-	maxRetries := 10
+	maxRetries := 5
 	for restoreJob.CompletedAt != nil || maxRetries > 0 {
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 		restoreJob, err = ts.client.DescribeRestoreJob(context.Background(), createIndexFromBackupResp.RestoreJobId)
 		require.NoError(ts.T(), err)
 		maxRetries--
