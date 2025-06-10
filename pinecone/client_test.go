@@ -811,7 +811,7 @@ func (ts *IntegrationTests) TestCreateIndexFromBackupViaRestore() {
 	require.NoError(ts.T(), err)
 	require.NotNil(ts.T(), index, "Expected restored index to be non-nil")
 	require.Equal(ts.T(), restoredIndexName, index.Name, "Expected restored index name to match")
-	require.Equal(ts.T(), restoredIndexTags, index.Tags, "Expected restored index tags to match")
+	require.Equal(ts.T(), restoredIndexTags, *index.Tags, "Expected restored index tags to match")
 }
 
 // Unit tests:
