@@ -1630,6 +1630,69 @@ func main() {
 }
 ```
 
+## Backups
+
+A backup is a static copy of a serverless index that only consumes storage. It is a non-queryable representation of a set of records. You can create a backup of a serverless index, and you can create a new serverless index from a backup. You can optionally apply new `Tags` and `DeletionProtection` configurations for the index when calling `CreateIndexFromBackup`. You can read more about [backups here](https://docs.pinecone.io/guides/manage-data/backups-overview).
+
+```go
+	ctx := context.Background()
+
+	clientParams := pinecone.NewClientParams{
+		ApiKey: os.Getenv("PINECONE_API_KEY"),
+	}
+
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %w", err)
+	}
+
+	indexName := "my-index"
+	backupName := fmt.Sprintf("backup-%s", )
+	backupDesc := fmt.Sprintf("Backup created for index %s", indexName)
+	fmt.Printf("Creating backup: %s for index: %s\n", backupName, indexName)
+
+	backup, err := pc.CreateBackup(ctx, &pinecone.CreateBackupParams{
+		IndexName:   indexName,
+		Name:        &backupName,
+		Description: &backupDesc,
+	})
+	if err != nil {
+		log.Fatalf("Failed to create backup: %w", err)
+	}
+
+	backup, err = pc.DescribeBackup(ctx, backup.BackupId)
+	if err != nil {
+		log.Fatalf("Failed to describe backup: %w", err)
+	}
+
+	// wait for backup to be "Complete" before triggering a restore job
+	log.Printf("Backup status: %v", backup.Status)
+
+	limit := 10
+	backups, err := pc.ListBackups(ctx, &pinecone.ListBackupsParams{
+		Limit: &limit,
+		IndexName: &indexName,
+	})
+	if err != nil {
+		log.Fatalf("Failed to list backups: %w", err)
+	}
+
+	// create a new serverless index from the backup
+	restoredIndexName := indexName + "-from-backup"
+	restoredIndexTags := pinecone.IndexTags{"restored_on": time.Now().Format("2006-01-02 15:04")}
+	createIndexFromBackupResp, err := pc.CreateIndexFromBackup(context.Background(), &pinecone.CreateIndexFromBackupParams{
+		BackupId: ts.backupId,
+		Name:     restoredIndexName,
+		Tags:     &restoredIndexTags,
+	})
+
+	// check the status of the index restoration
+	restoreJob, err := pc.DescribeRestoreJob(ctx, restoreJob.RestoreJobId)
+	if err != nil {
+		log.Fatalf("Failed to describe restore job: %w", err)
+	}
+```
+
 ## Inference
 
 The `Client` object has an `Inference` namespace which exposes an `InferenceService` pointer which allows interacting with Pinecone's [Inference API](https://docs.pinecone.io/guides/inference/generate-embeddings).
