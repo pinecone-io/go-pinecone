@@ -12,9 +12,9 @@ import (
 	"net/url"
 	"strings"
 
-	db_data_grpc "github.com/pinecone-io/go-pinecone/v3/internal/gen/db_data/grpc"
-	db_data_rest "github.com/pinecone-io/go-pinecone/v3/internal/gen/db_data/rest"
-	"github.com/pinecone-io/go-pinecone/v3/internal/useragent"
+	db_data_grpc "github.com/pinecone-io/go-pinecone/v4/internal/gen/db_data/grpc"
+	db_data_rest "github.com/pinecone-io/go-pinecone/v4/internal/gen/db_data/rest"
+	"github.com/pinecone-io/go-pinecone/v4/internal/useragent"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
