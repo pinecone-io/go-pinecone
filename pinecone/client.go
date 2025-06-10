@@ -388,10 +388,14 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 		return nil, err
 	}
 
-	// TODO - possible invalid pointer dereference
-	indexes := make([]*Index, len(*indexList.Indexes))
-	for i, idx := range *indexList.Indexes {
-		indexes[i] = toIndex(&idx)
+	var indexes []*Index
+	if indexList.Indexes != nil {
+		indexes = make([]*Index, len(*indexList.Indexes))
+		for i, idx := range *indexList.Indexes {
+			indexes[i] = toIndex(&idx)
+		}
+	} else {
+		indexes = make([]*Index, 0)
 	}
 
 	return indexes, nil
@@ -2007,7 +2011,7 @@ type EmbedResponse struct {
 	Data  []Embedding `json:"data"`
 	Model string      `json:"model"`
 	Usage struct {
-		TotalTokens *int `json:"total_tokens,omitempty"`
+		TotalTokens *int32 `json:"total_tokens,omitempty"`
 	} `json:"usage"`
 }
 
@@ -2521,42 +2525,37 @@ func decodeRestoreJob(resBody io.ReadCloser) (*RestoreJob, error) {
 }
 
 func decodeEmbedResponse(resBody io.ReadCloser) (*EmbedResponse, error) {
-	// TODO - update this to use the actual internal type, we're not decoding everything here
-	var rawEmbedResponse struct {
-		Data  []json.RawMessage `json:"data"`
-		Model string            `json:"model"`
-		Usage struct {
-			TotalTokens *int `json:"total_tokens,omitempty"`
-		}
-	}
+	var rawEmbedResponse inference.EmbeddingsList
 	if err := json.NewDecoder(resBody).Decode(&rawEmbedResponse); err != nil {
 		return nil, fmt.Errorf("failed to decode embed response: %w", err)
 	}
 
 	decodedEmbeddings := make([]Embedding, len(rawEmbedResponse.Data))
 	for i, embedding := range rawEmbedResponse.Data {
-		var vectorTypeCheck struct {
-			VectorType string `json:"vector_type"`
-		}
-		if err := json.Unmarshal(embedding, &vectorTypeCheck); err != nil {
-			return nil, fmt.Errorf("failed to decode VectorType check: %w", err)
-		}
 
-		switch vectorTypeCheck.VectorType {
+		switch rawEmbedResponse.VectorType {
 		case "sparse":
-			var sparseEmbedding SparseEmbedding
-			if err := json.Unmarshal(embedding, &sparseEmbedding); err != nil {
-				return nil, fmt.Errorf("failed to decode sparse embedding: %w", err)
+			dbSparseEmbedding, err := embedding.AsSparseEmbedding()
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode SparseEmbedding: %w", err)
 			}
-			decodedEmbeddings[i] = Embedding{SparseEmbedding: &sparseEmbedding}
+			decodedEmbeddings[i] = Embedding{SparseEmbedding: &SparseEmbedding{
+				VectorType:    dbSparseEmbedding.VectorType,
+				SparseValues:  dbSparseEmbedding.SparseValues,
+				SparseIndices: dbSparseEmbedding.SparseIndices,
+				SparseTokens:  dbSparseEmbedding.SparseTokens,
+			}}
 		case "dense":
-			var denseEmbedding DenseEmbedding
-			if err := json.Unmarshal(embedding, &denseEmbedding); err != nil {
-				return nil, fmt.Errorf("failed to decode dense embedding: %w", err)
+			dbDenseEmbedding, err := embedding.AsDenseEmbedding()
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode SparseEmbedding: %w", err)
 			}
-			decodedEmbeddings[i] = Embedding{DenseEmbedding: &denseEmbedding}
+			decodedEmbeddings[i] = Embedding{DenseEmbedding: &DenseEmbedding{
+				VectorType: dbDenseEmbedding.VectorType,
+				Values:     dbDenseEmbedding.Values,
+			}}
 		default:
-			return nil, fmt.Errorf("unsupported VectorType: %s", vectorTypeCheck.VectorType)
+			return nil, fmt.Errorf("unsupported VectorType: %s", rawEmbedResponse.VectorType)
 		}
 	}
 

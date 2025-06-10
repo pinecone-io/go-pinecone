@@ -800,7 +800,7 @@ func (ts *IntegrationTests) TestCreateIndexFromBackupViaRestore() {
 	// wait until restore job completes
 	maxRetries := 5
 	for restoreJob.CompletedAt != nil || maxRetries > 0 {
-		time.Sleep(5 * time.Second)
+		time.Sleep(2 * time.Second)
 		restoreJob, err = ts.client.DescribeRestoreJob(context.Background(), createIndexFromBackupResp.RestoreJobId)
 		require.NoError(ts.T(), err)
 		maxRetries--
@@ -808,6 +808,11 @@ func (ts *IntegrationTests) TestCreateIndexFromBackupViaRestore() {
 
 	// validate describing the restored index
 	index, err := ts.client.DescribeIndex(context.Background(), restoredIndexName)
+	defer func(ts *IntegrationTests, name string) {
+		err := ts.client.DeleteIndex(context.Background(), name)
+		require.NoError(ts.T(), err)
+	}(ts, restoredIndexName)
+
 	require.NoError(ts.T(), err)
 	require.NotNil(ts.T(), index, "Expected restored index to be non-nil")
 	require.Equal(ts.T(), restoredIndexName, index.Name, "Expected restored index name to match")

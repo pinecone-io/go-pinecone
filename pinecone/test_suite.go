@@ -112,7 +112,7 @@ func (ts *IntegrationTests) TearDownSuite() {
 	err = ts.client.DeleteIndex(ctx, ts.idxName)
 
 	// If the index failed to delete, wait a bit and retry cleaning up
-	// Somtimes indexes are stuck upgrading, or have pending collections
+	// Sometimes indexes are stuck upgrading, or have pending collections
 	retry := 4
 	for err != nil && retry > 0 {
 		time.Sleep(5 * time.Second)
@@ -126,9 +126,11 @@ func (ts *IntegrationTests) TearDownSuite() {
 	}
 
 	// Delete backup
-	err = ts.client.DeleteBackup(ctx, ts.backupId)
-	if err != nil {
-		fmt.Printf("Failed to delete backup \"%s\": %v\n", ts.backupId, err)
+	if ts.backupId != "" {
+		err = ts.client.DeleteBackup(ctx, ts.backupId)
+		if err != nil {
+			fmt.Printf("Failed to delete backup \"%s\": %v\n", ts.backupId, err)
+		}
 	}
 
 	fmt.Printf("\n %s setup suite torn down successfully\n", ts.indexType)
@@ -192,7 +194,7 @@ func createBackup(ts *IntegrationTests, ctx context.Context) {
 	fmt.Printf("Waiting for backup to complete...\n")
 	retries := 5
 	for retries > 0 {
-		time.Sleep(5 * time.Second)
+		time.Sleep(2 * time.Second)
 		backupDesc, err := ts.client.DescribeBackup(ctx, ts.backupId)
 		require.NoError(ts.T(), err)
 
