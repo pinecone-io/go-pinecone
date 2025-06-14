@@ -114,8 +114,8 @@ type Index struct {
 	Metric             IndexMetric        `json:"metric"`
 	VectorType         string             `json:"vector_type"`
 	DeletionProtection DeletionProtection `json:"deletion_protection,omitempty"`
-	PrivateHost        *string            `json:"private_host"`
-	Dimension          *int32             `json:"dimension"`
+	PrivateHost        *string            `json:"private_host,omitempty"`
+	Dimension          *int32             `json:"dimension,omitempty"`
 	Spec               *IndexSpec         `json:"spec,omitempty"`
 	Status             *IndexStatus       `json:"status,omitempty"`
 	Tags               *IndexTags         `json:"tags,omitempty"`

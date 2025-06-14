@@ -230,7 +230,7 @@ func TestMarshalIndexUnit(t *testing.T) {
 		{
 			name:  "Fields omitted",
 			input: Index{},
-			want:  `{"name":"","host":"","metric":"","vector_type":"","dimension":null}`,
+			want:  `{"name":"","host":"","metric":"","vector_type":""}`,
 		},
 		{
 			name: "Fields empty",
@@ -242,7 +242,7 @@ func TestMarshalIndexUnit(t *testing.T) {
 				Spec:      nil,
 				Status:    nil,
 			},
-			want: `{"name":"","host":"","metric":"","vector_type":"","dimension":null}`,
+			want: `{"name":"","host":"","metric":"","vector_type":""}`,
 		},
 	}
 
