@@ -339,7 +339,7 @@ type UpsertRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// An array containing the vectors to upsert. Recommended batch limit is 100 vectors.
+	// An array containing the vectors to upsert. Recommended batch limit is up to 1000 vectors.
 	Vectors []*Vector `protobuf:"bytes,1,rep,name=vectors,proto3" json:"vectors,omitempty"`
 	// The namespace where you upsert vectors.
 	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
@@ -454,8 +454,7 @@ type DeleteRequest struct {
 	Namespace string `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// If specified, the metadata filter here will be used to select the vectors to delete. This is mutually exclusive
 	// with specifying ids to delete in the ids param or using `delete_all=True`.
-	// For guidance and examples, see [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata).
-	// Serverless indexes do not support delete by metadata. Instead, you can use the `list` operation to fetch the vector IDs based on their common ID prefix and then delete the records by ID.
+	// For guidance and examples, see [Delete data](https://docs.pinecone.io/guides/manage-data/delete-data#delete-records-by-metadata).
 	Filter *structpb.Struct `protobuf:"bytes,4,opt,name=filter,proto3" json:"filter,omitempty"`
 }
 
@@ -1022,7 +1021,7 @@ type QueryRequest struct {
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// The number of results to return for each query.
 	TopK uint32 `protobuf:"varint,2,opt,name=top_k,json=topK,proto3" json:"top_k,omitempty"`
-	// The filter to apply. You can use vector metadata to limit your search. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata). You can use vector metadata to limit your search. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata).
+	// The filter to apply. You can use vector metadata to limit your search. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata).
 	Filter *structpb.Struct `protobuf:"bytes,3,opt,name=filter,proto3" json:"filter,omitempty"`
 	// Indicates whether vector values are included in the response.
 	IncludeValues bool `protobuf:"varint,4,opt,name=include_values,json=includeValues,proto3" json:"include_values,omitempty"`
