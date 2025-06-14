@@ -329,9 +329,9 @@ func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*Ind
 }
 
 func ensureHostHasHttps(host string) string {
-	if strings.HasPrefix("http://", host) {
+	if strings.HasPrefix(host, "http://") {
 		return strings.Replace(host, "http://", "https://", 1)
-	} else if !strings.HasPrefix("https://", host) {
+	} else if !strings.HasPrefix(host, "https://") {
 		return "https://" + host
 	}
 
