@@ -2406,6 +2406,7 @@ func toIndex(idx *db_control.IndexModel) *Index {
 	return &Index{
 		Name:               idx.Name,
 		Host:               idx.Host,
+		PrivateHost:        idx.PrivateHost,
 		Metric:             IndexMetric(idx.Metric),
 		VectorType:         idx.VectorType,
 		DeletionProtection: DeletionProtection(deletionProtection),

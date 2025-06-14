@@ -39,7 +39,7 @@ type VectorServiceClient interface {
 	//
 	// Upsert vectors into a namespace. If a new value is upserted for an existing vector ID, it will overwrite the previous value.
 	//
-	// For guidance and examples, see [Upsert data](https://docs.pinecone.io/guides/index-data/upsert-data#upsert-vectors).
+	// For guidance, examples, and limits, see [Upsert data](https://docs.pinecone.io/guides/index-data/upsert-data).
 	Upsert(ctx context.Context, in *UpsertRequest, opts ...grpc.CallOption) (*UpsertResponse, error)
 	// Delete vectors
 	//
@@ -67,7 +67,7 @@ type VectorServiceClient interface {
 	//
 	// Search a namespace with a query vector or record ID and return the IDs of the most similar records, along with their similarity scores.
 	//
-	// For guidance and examples, see [Search](https://docs.pinecone.io/guides/search/semantic-search).
+	// For guidance, examples, and limits, see [Search](https://docs.pinecone.io/guides/search/search-overview).
 	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 	// Update a vector
 	//
@@ -81,13 +81,15 @@ type VectorServiceClient interface {
 	//
 	// Serverless indexes scale automatically as needed, so index fullness is relevant only for pod-based indexes.
 	DescribeIndexStats(ctx context.Context, in *DescribeIndexStatsRequest, opts ...grpc.CallOption) (*DescribeIndexStatsResponse, error)
-	// Get list of all namespaces
+	// List namespaces
 	//
-	// Get a list of all namespaces within an index.
+	// Get a list of all [namespaces](https://docs.pinecone.io/guides/index-data/indexing-overview#namespaces) in a serverless index.
+	//
+	// Up to 100 namespaces are returned at a time by default, in sorted order (bitwise “C” collation). If the `limit` parameter is set, up to that number of namespaces are returned instead. Whenever there are additional namespaces to return, the response also includes a `pagination_token` that you can use to get the next batch of namespaces. When the response does not include a `pagination_token`, there are no more namespaces to return.
 	ListNamespaces(ctx context.Context, in *ListNamespacesRequest, opts ...grpc.CallOption) (*ListNamespacesResponse, error)
 	// Describe a namespace
 	//
-	// Describe a namespace within an index, showing the vector count within the namespace.
+	// Describe a [namespace](https://docs.pinecone.io/guides/index-data/indexing-overview#namespaces) in a serverless index, including the total number of vectors in the namespace.
 	DescribeNamespace(ctx context.Context, in *DescribeNamespaceRequest, opts ...grpc.CallOption) (*NamespaceDescription, error)
 	// Delete a namespace
 	//
@@ -201,7 +203,7 @@ type VectorServiceServer interface {
 	//
 	// Upsert vectors into a namespace. If a new value is upserted for an existing vector ID, it will overwrite the previous value.
 	//
-	// For guidance and examples, see [Upsert data](https://docs.pinecone.io/guides/index-data/upsert-data#upsert-vectors).
+	// For guidance, examples, and limits, see [Upsert data](https://docs.pinecone.io/guides/index-data/upsert-data).
 	Upsert(context.Context, *UpsertRequest) (*UpsertResponse, error)
 	// Delete vectors
 	//
@@ -229,7 +231,7 @@ type VectorServiceServer interface {
 	//
 	// Search a namespace with a query vector or record ID and return the IDs of the most similar records, along with their similarity scores.
 	//
-	// For guidance and examples, see [Search](https://docs.pinecone.io/guides/search/semantic-search).
+	// For guidance, examples, and limits, see [Search](https://docs.pinecone.io/guides/search/search-overview).
 	Query(context.Context, *QueryRequest) (*QueryResponse, error)
 	// Update a vector
 	//
@@ -243,13 +245,15 @@ type VectorServiceServer interface {
 	//
 	// Serverless indexes scale automatically as needed, so index fullness is relevant only for pod-based indexes.
 	DescribeIndexStats(context.Context, *DescribeIndexStatsRequest) (*DescribeIndexStatsResponse, error)
-	// Get list of all namespaces
+	// List namespaces
 	//
-	// Get a list of all namespaces within an index.
+	// Get a list of all [namespaces](https://docs.pinecone.io/guides/index-data/indexing-overview#namespaces) in a serverless index.
+	//
+	// Up to 100 namespaces are returned at a time by default, in sorted order (bitwise “C” collation). If the `limit` parameter is set, up to that number of namespaces are returned instead. Whenever there are additional namespaces to return, the response also includes a `pagination_token` that you can use to get the next batch of namespaces. When the response does not include a `pagination_token`, there are no more namespaces to return.
 	ListNamespaces(context.Context, *ListNamespacesRequest) (*ListNamespacesResponse, error)
 	// Describe a namespace
 	//
-	// Describe a namespace within an index, showing the vector count within the namespace.
+	// Describe a [namespace](https://docs.pinecone.io/guides/index-data/indexing-overview#namespaces) in a serverless index, including the total number of vectors in the namespace.
 	DescribeNamespace(context.Context, *DescribeNamespaceRequest) (*NamespaceDescription, error)
 	// Delete a namespace
 	//

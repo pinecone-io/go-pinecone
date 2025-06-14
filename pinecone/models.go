@@ -95,13 +95,27 @@ type IndexEmbed struct {
 type IndexTags map[string]string
 
 // [Index] is a Pinecone [Index] object. Can be either a pod-based or a serverless [Index], depending on the [IndexSpec].
+//
+// Fields:
+//   - Name: The name of the index.
+//   - Host: The URL address where the index is hosted.
+//   - Metric: The distance metric used for similarity search. One of 'euclidean', 'cosine', or 'dotproduct'.
+//   - VectorType: The index vector type. One of 'sparse' or 'dense'.
+//   - DeletionProtection: Whether deletion protection is configured for the index. Can be 'enabled' or 'disabled'.
+//   - PrivateHost: The private endpoint URL of an index.
+//   - Dimension: The dimensions of vectors stored in the index. Required for dense indexes.
+//   - Spec: The infrastructure configuration for the index. Contains either [PodSpec] or [ServerlessSpec].
+//   - Status: The [IndexStatus] of the index, which includes index state information.
+//   - Tags: Custom [IndexTags] added to an index.
+//   - Embed: The [IndexEmbed] model configured for the index, if applicable.
 type Index struct {
 	Name               string             `json:"name"`
 	Host               string             `json:"host"`
 	Metric             IndexMetric        `json:"metric"`
 	VectorType         string             `json:"vector_type"`
 	DeletionProtection DeletionProtection `json:"deletion_protection,omitempty"`
-	Dimension          *int32             `json:"dimension"`
+	PrivateHost        *string            `json:"private_host,omitempty"`
+	Dimension          *int32             `json:"dimension,omitempty"`
 	Spec               *IndexSpec         `json:"spec,omitempty"`
 	Status             *IndexStatus       `json:"status,omitempty"`
 	Tags               *IndexTags         `json:"tags,omitempty"`
@@ -109,6 +123,14 @@ type Index struct {
 }
 
 // [Collection] is a Pinecone [collection entity]. Only available for pod-based Indexes.
+//
+// Fields:
+//   - Name: The name of the collection.
+//   - Size: The total size of the collection in bytes.
+//   - Status: The [CollectionStatus] of the collection.
+//   - Dimension: The dimensionality of the each vectors for each record stored in the collection.
+//   - VectorCount: The number of records (vectors) stored in the collection.
+//   - Environment: The environment where the collection is hosted.
 //
 // [collection entity]: https://docs.pinecone.io/guides/indexes/understanding-collections
 type Collection struct {
@@ -135,6 +157,17 @@ type PodSpecMetadataConfig struct {
 }
 
 // [PodSpec] is the infrastructure specification of a pod-based Pinecone [Index]. Only available for pod-based Indexes.
+//
+// Fields:
+//   - Environment: The environment where the index is hosted.
+//   - PodType: The pod type used for the index. Must be one of "s1", "p1", or "p2"
+//     followed by ".x1", ".x2", ".x4", or ".x8".
+//   - PodCount: The number of pods used for the index. Should equal `shards` × `replicas`.
+//   - Replicas: The number of replicas. Replicas duplicate the index. They provide higher availability and throughput.
+//   - ShardCount: The number of shards. Shards split your data across multiple pods so you can fit more data into an index.
+//   - SourceCollection: The name of the [Collection] used as a source for the index.
+//   - MetadataConfig: Configuration for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed;
+//     when `metadata_config` is present, only specified metadata fields are indexed.
 type PodSpec struct {
 	Environment      string                 `json:"environment"`
 	PodType          string                 `json:"pod_type"`
@@ -146,6 +179,10 @@ type PodSpec struct {
 }
 
 // [ServerlessSpec] is the infrastructure specification of a serverless Pinecone [Index]. Only available for serverless Indexes.
+//
+// Fields:
+//   - Cloud: The public cloud provider where the index is hosted.
+//   - Region: The region where the index is hosted.
 type ServerlessSpec struct {
 	Cloud  Cloud  `json:"cloud"`
 	Region string `json:"region"`
