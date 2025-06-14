@@ -413,7 +413,10 @@ type IndexModel struct {
 
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
-	Spec struct {
+
+	// PrivateHost The private endpoint URL of an index.
+	PrivateHost *string `json:"private_host,omitempty"`
+	Spec        struct {
 		// Byoc Configuration needed to deploy an index in a BYOC environment.
 		Byoc *ByocSpec `json:"byoc,omitempty"`
 

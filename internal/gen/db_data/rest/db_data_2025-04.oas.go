@@ -44,8 +44,7 @@ type DeleteRequest struct {
 	// DeleteAll This indicates that all vectors in the index namespace should be deleted.
 	DeleteAll *bool `json:"deleteAll,omitempty"`
 
-	// Filter If specified, the metadata filter here will be used to select the vectors to delete. This is mutually exclusive with specifying ids to delete in the ids param or using delete_all=True. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata).
-	// Serverless indexes do not support delete by metadata. Instead, you can use the `list` operation to fetch the vector IDs based on their common ID prefix and then delete the records by ID.
+	// Filter If specified, the metadata filter here will be used to select the vectors to delete. This is mutually exclusive with specifying ids to delete in the ids param or using delete_all=True. See [Delete data](https://docs.pinecone.io/guides/manage-data/delete-data#delete-records-by-metadata).
 	Filter *map[string]interface{} `json:"filter,omitempty"`
 
 	// Ids Vectors to delete.
@@ -202,7 +201,7 @@ type Pagination struct {
 
 // QueryRequest The request for the `query` operation.
 type QueryRequest struct {
-	// Filter The filter to apply. You can use vector metadata to limit your search. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata). You can use vector metadata to limit your search. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata).
+	// Filter The filter to apply. You can use vector metadata to limit your search. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata).
 	Filter *map[string]interface{} `json:"filter,omitempty"`
 
 	// Id The unique ID of the vector to be used as a query vector. Each request  can contain either the `vector` or `id` parameter.
@@ -422,7 +421,7 @@ type UpsertRequest struct {
 	// Namespace The namespace where you upsert vectors.
 	Namespace *string `json:"namespace,omitempty"`
 
-	// Vectors An array containing the vectors to upsert. Recommended batch limit is 100 vectors.
+	// Vectors An array containing the vectors to upsert. Recommended batch limit is up to 1000 vectors.
 	Vectors []Vector `json:"vectors"`
 }
 
