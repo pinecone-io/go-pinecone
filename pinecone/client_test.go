@@ -1772,6 +1772,37 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 	}
 }
 
+func TestEnsureHostHasHttpsUnit(t *testing.T) {
+	tests := []struct {
+		name     string
+		host     string
+		expected string
+	}{
+		{
+			name:     "Host with https prefix should remain unchanged",
+			host:     "https://test-abcd.pinecone.io",
+			expected: "https://test-abcd.pinecone.io",
+		},
+		{
+			name:     "Host with http prefix should be converted to https",
+			host:     "http://test-abcd.pinecone.io",
+			expected: "https://test-abcd.pinecone.io",
+		},
+		{
+			name:     "Host without prefix should get https prefix",
+			host:     "test-abcd.pinecone.io",
+			expected: "https://test-abcd.pinecone.io",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ensureHostHasHttps(tt.host)
+			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+}
+
 // Helper functions:
 func (ts *IntegrationTests) deleteIndex(name string) error {
 	_, err := waitUntilIndexReady(ts, context.Background())
