@@ -379,7 +379,7 @@ type StartImportRequest struct {
 	// IntegrationId The id of the [storage integration](https://docs.pinecone.io/guides/operations/integrations/manage-storage-integrations) that should be used to access the data.
 	IntegrationId *string `json:"integrationId,omitempty"`
 
-	// Uri The [URI prefix](https://docs.pinecone.io/guides/index-data/import-data#prepare-your-data) under which the data to import is available. All data within this prefix will be listed then imported into the target index. Currently only `s3://` URIs are supported.
+	// Uri The URI of the bucket and import directory containing the namespaces and Parquet files you want to import, for example, `s3://BUCKET_NAME/IMPORT_DIR` for Amazong S3 or `gs://BUCKET_NAME/IMPORT_DIR` for Google Cloud Storage. For more information, see [Import directory structure](https://docs.pinecone.io/guides/index-data/import-data#directory-structure).
 	Uri string `json:"uri"`
 }
 
