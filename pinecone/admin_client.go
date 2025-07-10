@@ -86,6 +86,83 @@ type Project struct {
 	OrganizationId string `json:"organization_id"`
 }
 
+type CreateProjectParams struct {
+	// ForceEncryptionWithCmek Whether to force encryption with a customer-managed encryption key (CMEK). Default is `false`.
+	ForceEncryptionWithCmek *bool `json:"force_encryption_with_cmek,omitempty"`
+
+	// MaxPods The maximum number of Pods that can be created in the project. Default is `0` (serverless only).
+	MaxPods *int `json:"max_pods,omitempty"`
+
+	// Name The name of the new project.
+	Name string `json:"name"`
+}
+
+func (a *AdminClient) CreateProject(ctx context.Context, in CreateProjectParams) (*Project, error) {
+	request := admin.CreateProjectRequest{
+		ForceEncryptionWithCmek: in.ForceEncryptionWithCmek,
+		MaxPods:                 in.MaxPods,
+		Name:                    in.Name,
+	}
+
+	res, err := a.restClient.CreateProject(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		return nil, handleErrorResponseBody(res, "failed to create project: ")
+	}
+
+	var adminProject admin.Project
+	err = json.NewDecoder(res.Body).Decode(&adminProject)
+	if err != nil {
+		return nil, err
+	}
+
+	return toProject(adminProject), nil
+}
+
+type UpdateProjectParams struct {
+	// ForceEncryptionWithCmek Whether to force encryption with a customer-managed encryption key (CMEK). Once enabled, CMEK encryption cannot be disabled.
+	ForceEncryptionWithCmek *bool `json:"force_encryption_with_cmek,omitempty"`
+
+	// MaxPods The maximum number of Pods that can be created in the project.
+	MaxPods *int `json:"max_pods,omitempty"`
+
+	// Name The name of the new project.
+	Name *string `json:"name,omitempty"`
+}
+
+func (a *AdminClient) UpdateProject(ctx context.Context, projectId string, in UpdateProjectParams) (*Project, error) {
+	projectIdUUID, err := uuid.Parse(projectId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid projectId: %w", err)
+	}
+
+	request := admin.UpdateProjectRequest{
+		Name: in.Name,
+	}
+
+	res, err := a.restClient.UpdateProject(ctx, projectIdUUID, request)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to update project: ")
+	}
+
+	var adminProject admin.Project
+	err = json.NewDecoder(res.Body).Decode(&adminProject)
+	if err != nil {
+		return nil, err
+	}
+
+	return toProject(adminProject), nil
+}
+
 func (a *AdminClient) ListProjects(ctx context.Context) ([]*Project, error) {
 	res, err := a.restClient.ListProjects(ctx)
 	if err != nil {
@@ -274,6 +351,82 @@ func (a *AdminClient) DeleteOrganization(ctx context.Context, organizationId str
 		return handleErrorResponseBody(res, "failed to delete organization: ")
 	}
 	return nil
+}
+
+type CreateApiKeyParams struct {
+	// Name The name of the API key. The name must be 1-80 characters long.
+	Name string `json:"name"`
+
+	// Roles The roles to create the API key with. Default is `["ProjectEditor"]`.
+	Roles *[]string `json:"roles,omitempty"`
+}
+
+func (a *AdminClient) CreateApiKey(ctx context.Context, projectId string, in CreateApiKeyParams) (*ApiKey, error) {
+	request := admin.CreateAPIKeyRequest{
+		Name:  in.Name,
+		Roles: in.Roles,
+	}
+
+	projectIdUUID, err := uuid.Parse(projectId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid projectId: %w", err)
+	}
+
+	res, err := a.restClient.CreateApiKey(ctx, projectIdUUID, request)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		return nil, handleErrorResponseBody(res, "failed to create api key: ")
+	}
+
+	var adminApiKey admin.APIKey
+	err = json.NewDecoder(res.Body).Decode(&adminApiKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return toApiKey(adminApiKey), nil
+}
+
+type UpdateApiKeyParams struct {
+	// Name A new name for the API key. The name must be 1-80 characters long. If omitted, the name will not be updated.
+	Name *string `json:"name,omitempty"`
+
+	// Roles A new set of roles for the API key. Existing roles will be removed if not included.
+	// If this field is omitted, the roles will not be updated.
+	Roles *[]string `json:"roles,omitempty"`
+}
+
+func (a *AdminClient) UpdateApiKey(ctx context.Context, apiKeyId string, in UpdateApiKeyParams) (*ApiKey, error) {
+	apiKeyIdUUID, err := uuid.Parse(apiKeyId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid apiKeyId: %w", err)
+	}
+
+	request := admin.UpdateAPIKeyRequest{
+		Name: in.Name,
+	}
+
+	res, err := a.restClient.UpdateApiKey(ctx, apiKeyIdUUID, request)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to update api key: ")
+	}
+
+	var adminApiKey admin.APIKey
+	err = json.NewDecoder(res.Body).Decode(&adminApiKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return toApiKey(adminApiKey), nil
 }
 
 type ApiKey struct {
