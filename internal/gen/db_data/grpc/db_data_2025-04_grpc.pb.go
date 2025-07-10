@@ -83,17 +83,29 @@ type VectorServiceClient interface {
 	DescribeIndexStats(ctx context.Context, in *DescribeIndexStatsRequest, opts ...grpc.CallOption) (*DescribeIndexStatsResponse, error)
 	// List namespaces
 	//
-	// Get a list of all [namespaces](https://docs.pinecone.io/guides/index-data/indexing-overview#namespaces) in a serverless index.
+	// List all namespaces in a serverless index.
 	//
 	// Up to 100 namespaces are returned at a time by default, in sorted order (bitwise “C” collation). If the `limit` parameter is set, up to that number of namespaces are returned instead. Whenever there are additional namespaces to return, the response also includes a `pagination_token` that you can use to get the next batch of namespaces. When the response does not include a `pagination_token`, there are no more namespaces to return.
+	//
+	// For guidance and examples, see [Manage namespaces](https://docs.pinecone.io/guides/manage-data/manage-namespaces).
+	//
+	// **Note:** This operation is not supported for pod-based indexes.
 	ListNamespaces(ctx context.Context, in *ListNamespacesRequest, opts ...grpc.CallOption) (*ListNamespacesResponse, error)
 	// Describe a namespace
 	//
-	// Describe a [namespace](https://docs.pinecone.io/guides/index-data/indexing-overview#namespaces) in a serverless index, including the total number of vectors in the namespace.
+	// Describe a namespace in a serverless index, including the total number of vectors in the namespace.
+	//
+	// For guidance and examples, see [Manage namespaces](https://docs.pinecone.io/guides/manage-data/manage-namespaces).
+	//
+	// **Note:** This operation is not supported for pod-based indexes.
 	DescribeNamespace(ctx context.Context, in *DescribeNamespaceRequest, opts ...grpc.CallOption) (*NamespaceDescription, error)
 	// Delete a namespace
 	//
-	// Delete a namespace from an index.
+	// Delete a namespace from a serverless index. Deleting a namespace is irreversible; all data in the namespace is permanently deleted.
+	//
+	// For guidance and examples, see [Manage namespaces](https://docs.pinecone.io/guides/manage-data/manage-namespaces).
+	//
+	// **Note:** This operation is not supported for pod-based indexes.
 	DeleteNamespace(ctx context.Context, in *DeleteNamespaceRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 }
 
@@ -247,17 +259,29 @@ type VectorServiceServer interface {
 	DescribeIndexStats(context.Context, *DescribeIndexStatsRequest) (*DescribeIndexStatsResponse, error)
 	// List namespaces
 	//
-	// Get a list of all [namespaces](https://docs.pinecone.io/guides/index-data/indexing-overview#namespaces) in a serverless index.
+	// List all namespaces in a serverless index.
 	//
 	// Up to 100 namespaces are returned at a time by default, in sorted order (bitwise “C” collation). If the `limit` parameter is set, up to that number of namespaces are returned instead. Whenever there are additional namespaces to return, the response also includes a `pagination_token` that you can use to get the next batch of namespaces. When the response does not include a `pagination_token`, there are no more namespaces to return.
+	//
+	// For guidance and examples, see [Manage namespaces](https://docs.pinecone.io/guides/manage-data/manage-namespaces).
+	//
+	// **Note:** This operation is not supported for pod-based indexes.
 	ListNamespaces(context.Context, *ListNamespacesRequest) (*ListNamespacesResponse, error)
 	// Describe a namespace
 	//
-	// Describe a [namespace](https://docs.pinecone.io/guides/index-data/indexing-overview#namespaces) in a serverless index, including the total number of vectors in the namespace.
+	// Describe a namespace in a serverless index, including the total number of vectors in the namespace.
+	//
+	// For guidance and examples, see [Manage namespaces](https://docs.pinecone.io/guides/manage-data/manage-namespaces).
+	//
+	// **Note:** This operation is not supported for pod-based indexes.
 	DescribeNamespace(context.Context, *DescribeNamespaceRequest) (*NamespaceDescription, error)
 	// Delete a namespace
 	//
-	// Delete a namespace from an index.
+	// Delete a namespace from a serverless index. Deleting a namespace is irreversible; all data in the namespace is permanently deleted.
+	//
+	// For guidance and examples, see [Manage namespaces](https://docs.pinecone.io/guides/manage-data/manage-namespaces).
+	//
+	// **Note:** This operation is not supported for pod-based indexes.
 	DeleteNamespace(context.Context, *DeleteNamespaceRequest) (*DeleteResponse, error)
 	mustEmbedUnimplementedVectorServiceServer()
 }

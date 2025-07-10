@@ -74,7 +74,7 @@ type Project struct {
 	ForceEncryptionWithCmek bool `json:"force_encryption_with_cmek"`
 
 	// Id The unique ID of the project.
-	Id uuid.UUID `json:"id"`
+	Id string `json:"id"`
 
 	// MaxPods The maximum number of Pods that can be created in the project.
 	MaxPods int `json:"max_pods"`
@@ -109,14 +109,7 @@ func (a *AdminClient) ListProjects(ctx context.Context) ([]*Project, error) {
 	if listResp.Data != nil {
 		projects = make([]*Project, len(*listResp.Data))
 		for i, project := range *listResp.Data {
-			projects[i] = &Project{
-				CreatedAt:               project.CreatedAt,
-				ForceEncryptionWithCmek: project.ForceEncryptionWithCmek,
-				Id:                      project.Id,
-				MaxPods:                 project.MaxPods,
-				Name:                    project.Name,
-				OrganizationId:          project.OrganizationId,
-			}
+			projects[i] = toProject(project)
 		}
 	} else {
 		projects = make([]*Project, 0)
@@ -125,13 +118,57 @@ func (a *AdminClient) ListProjects(ctx context.Context) ([]*Project, error) {
 	return projects, nil
 }
 
+func (a *AdminClient) DescribeProject(ctx context.Context, projectId string) (*Project, error) {
+	projectIdUUID, err := uuid.Parse(projectId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid projectId: %w", err)
+	}
+
+	res, err := a.restClient.FetchProject(ctx, projectIdUUID)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to describe project: ")
+	}
+
+	var adminProject admin.Project
+	err = json.NewDecoder(res.Body).Decode(&adminProject)
+	if err != nil {
+		return nil, err
+	}
+
+	return toProject(adminProject), nil
+}
+
+func (a *AdminClient) DeleteProject(ctx context.Context, projectId string) error {
+	projectIdUUID, err := uuid.Parse(projectId)
+	if err != nil {
+		return fmt.Errorf("invalid projectId: %w", err)
+	}
+
+	res, err := a.restClient.DeleteProject(ctx, projectIdUUID)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return handleErrorResponseBody(res, "failed to delete project: ")
+	}
+
+	return nil
+}
+
 // Organization The details of an organization.
 type Organization struct {
 	// CreatedAt The date and time when the organization was created.
 	CreatedAt time.Time `json:"created_at"`
 
 	// Id The unique ID of the organization.
-	Id uuid.UUID `json:"id"`
+	Id string `json:"id"`
 
 	// Name The name of the organization.
 	Name string `json:"name"`
@@ -169,20 +206,161 @@ func (a *AdminClient) ListOrganizations(ctx context.Context) ([]*Organization, e
 	if listResp.Data != nil {
 		organizations = make([]*Organization, len(*listResp.Data))
 		for i, org := range *listResp.Data {
-			organizations[i] = &Organization{
-				CreatedAt:     org.CreatedAt,
-				Id:            org.Id,
-				Name:          org.Name,
-				PaymentStatus: org.PaymentStatus,
-				Plan:          org.Plan,
-				SupportTier:   org.SupportTier,
-			}
+			organizations[i] = toOrganization(org)
 		}
 	} else {
 		organizations = make([]*Organization, 0)
 	}
 
 	return organizations, nil
+}
+
+func (a *AdminClient) DescribeOrganization(ctx context.Context, organizationId string) (*Organization, error) {
+	res, err := a.restClient.FetchOrganization(ctx, organizationId)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to describe organization: ")
+	}
+
+	var adminOrganization admin.Organization
+	err = json.NewDecoder(res.Body).Decode(&adminOrganization)
+	if err != nil {
+		return nil, err
+	}
+
+	return toOrganization(adminOrganization), nil
+}
+
+type UpdateOrganizationParams struct {
+	Name *string `json:"name"`
+}
+
+func (a *AdminClient) UpdateOrganization(ctx context.Context, organizationId string, in UpdateOrganizationParams) (*Organization, error) {
+	request := admin.UpdateOrganizationRequest{
+		Name: in.Name,
+	}
+
+	res, err := a.restClient.UpdateOrganization(ctx, organizationId, request)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to update organization: ")
+	}
+
+	var adminOrganization admin.Organization
+	err = json.NewDecoder(res.Body).Decode(&adminOrganization)
+	if err != nil {
+		return nil, err
+	}
+
+	return toOrganization(adminOrganization), nil
+}
+
+func (a *AdminClient) DeleteOrganization(ctx context.Context, organizationId string) error {
+	res, err := a.restClient.DeleteOrganization(ctx, organizationId)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return handleErrorResponseBody(res, "failed to delete organization: ")
+	}
+	return nil
+}
+
+type ApiKey struct {
+	Id        string   `json:"id"`
+	Name      string   `json:"name"`
+	ProjectId string   `json:"project_id"`
+	Roles     []string `json:"roles"`
+}
+
+func (a *AdminClient) ListApiKeys(ctx context.Context, projectId string) ([]*ApiKey, error) {
+	projectIdUUID, err := uuid.Parse(projectId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid projectId: %w", err)
+	}
+
+	res, err := a.restClient.ListApiKeys(ctx, projectIdUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to list api keys: ")
+	}
+
+	var listResp struct {
+		Data *[]admin.APIKey `json:"data,omitempty"`
+	}
+	err = json.NewDecoder(res.Body).Decode(&listResp)
+	if err != nil {
+		return nil, err
+	}
+
+	var apiKeys []*ApiKey
+	if listResp.Data != nil {
+		apiKeys = make([]*ApiKey, len(*listResp.Data))
+		for i, apiKey := range *listResp.Data {
+			apiKeys[i] = toApiKey(apiKey)
+		}
+	} else {
+		apiKeys = make([]*ApiKey, 0)
+	}
+
+	return apiKeys, nil
+}
+
+func (a *AdminClient) DescribeApiKey(ctx context.Context, apiKeyId string) (*ApiKey, error) {
+	apiKeyIdUUID, err := uuid.Parse(apiKeyId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid apiKeyId: %w", err)
+	}
+
+	res, err := a.restClient.FetchApiKey(ctx, apiKeyIdUUID)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to describe api key: ")
+	}
+
+	var adminApiKey admin.APIKey
+	err = json.NewDecoder(res.Body).Decode(&adminApiKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return toApiKey(adminApiKey), nil
+}
+
+func (a *AdminClient) DeleteApiKey(ctx context.Context, apiKeyId string) error {
+	apiKeyIdUUID, err := uuid.Parse(apiKeyId)
+	if err != nil {
+		return fmt.Errorf("invalid apiKeyId: %w", err)
+	}
+
+	res, err := a.restClient.DeleteApiKey(ctx, apiKeyIdUUID)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return handleErrorResponseBody(res, "failed to delete api key: ")
+	}
+
+	return nil
 }
 
 type authTokenResponse struct {
@@ -206,7 +384,7 @@ func getAuthToken(ctx context.Context, clientId string, clientSecret string, opt
 		return "", err
 	}
 
-	operationPath := "/oauth2/token"
+	operationPath := "/oauth/token"
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -220,7 +398,7 @@ func getAuthToken(ctx context.Context, clientId string, clientSecret string, opt
 		"client_id":     clientId,
 		"client_secret": clientSecret,
 		"grant_type":    "client_credentials",
-		"audience":      "https://api.pinecone.io",
+		"audience":      "https://api.pinecone.io/",
 	}
 
 	body, err := json.Marshal(bodyMap)
@@ -229,7 +407,6 @@ func getAuthToken(ctx context.Context, clientId string, clientSecret string, opt
 	}
 
 	bodyReader := bytes.NewReader(body)
-
 	req, err := http.NewRequest("POST", queryURL.String(), bodyReader)
 	if err != nil {
 		return "", err
@@ -260,7 +437,6 @@ func getAuthToken(ctx context.Context, clientId string, clientSecret string, opt
 func buildAdminClientOptions(in NewAdminClientParams) []admin.ClientOption {
 	clientOptions := []admin.ClientOption{}
 	headerProviders := buildAdminClientProviderHeaders(in)
-
 	for _, provider := range headerProviders {
 		clientOptions = append(clientOptions, admin.WithRequestEditorFn(provider.Intercept))
 	}
@@ -277,7 +453,7 @@ func buildAdminClientProviderHeaders(in NewAdminClientParams) []*provider.Custom
 	providers := []*provider.CustomHeader{}
 
 	sourceTag := ""
-	if in.SourceTag == nil {
+	if in.SourceTag != nil {
 		sourceTag = *in.SourceTag
 	}
 
@@ -307,4 +483,35 @@ func buildAdminClientProviderHeaders(in NewAdminClientParams) []*provider.Custom
 	}
 
 	return providers
+}
+
+func toProject(project admin.Project) *Project {
+	return &Project{
+		CreatedAt:               project.CreatedAt,
+		ForceEncryptionWithCmek: project.ForceEncryptionWithCmek,
+		Id:                      project.Id.String(),
+		MaxPods:                 project.MaxPods,
+		Name:                    project.Name,
+		OrganizationId:          project.OrganizationId,
+	}
+}
+
+func toOrganization(organization admin.Organization) *Organization {
+	return &Organization{
+		CreatedAt:     organization.CreatedAt,
+		Id:            organization.Id,
+		Name:          organization.Name,
+		PaymentStatus: organization.PaymentStatus,
+		Plan:          organization.Plan,
+		SupportTier:   organization.SupportTier,
+	}
+}
+
+func toApiKey(apiKey admin.APIKey) *ApiKey {
+	return &ApiKey{
+		Id:        apiKey.Id.String(),
+		Name:      apiKey.Name,
+		ProjectId: apiKey.ProjectId.String(),
+		Roles:     apiKey.Roles,
+	}
 }

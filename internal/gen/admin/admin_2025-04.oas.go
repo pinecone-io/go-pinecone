@@ -90,7 +90,7 @@ type Organization struct {
 	CreatedAt time.Time `json:"created_at"`
 
 	// Id The unique ID of the organization.
-	Id openapi_types.UUID `json:"id"`
+	Id string `json:"id"`
 
 	// Name The name of the organization.
 	Name string `json:"name"`
@@ -126,6 +126,16 @@ type Project struct {
 	OrganizationId string `json:"organization_id"`
 }
 
+// UpdateAPIKeyRequest defines model for UpdateAPIKeyRequest.
+type UpdateAPIKeyRequest struct {
+	// Name A new name for the API key. The name must be 1-80 characters long. If omitted, the name will not be updated.
+	Name *string `json:"name,omitempty"`
+
+	// Roles A new set of roles for the API key. Existing roles will be removed if not included.
+	// If this field is omitted, the roles will not be updated.
+	Roles *[]string `json:"roles,omitempty"`
+}
+
 // UpdateOrganizationRequest defines model for UpdateOrganizationRequest.
 type UpdateOrganizationRequest struct {
 	// Name The new name for the organization.
@@ -143,6 +153,9 @@ type UpdateProjectRequest struct {
 	// Name The name of the new project.
 	Name *string `json:"name,omitempty"`
 }
+
+// UpdateApiKeyJSONRequestBody defines body for UpdateApiKey for application/json ContentType.
+type UpdateApiKeyJSONRequestBody = UpdateAPIKeyRequest
 
 // UpdateOrganizationJSONRequestBody defines body for UpdateOrganization for application/json ContentType.
 type UpdateOrganizationJSONRequestBody = UpdateOrganizationRequest
@@ -235,19 +248,24 @@ type ClientInterface interface {
 	// FetchApiKey request
 	FetchApiKey(ctx context.Context, apiKeyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// UpdateApiKeyWithBody request with any body
+	UpdateApiKeyWithBody(ctx context.Context, apiKeyId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateApiKey(ctx context.Context, apiKeyId openapi_types.UUID, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListOrganizations request
 	ListOrganizations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteOrganization request
-	DeleteOrganization(ctx context.Context, organizationId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteOrganization(ctx context.Context, organizationId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// FetchOrganization request
-	FetchOrganization(ctx context.Context, organizationId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	FetchOrganization(ctx context.Context, organizationId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateOrganizationWithBody request with any body
-	UpdateOrganizationWithBody(ctx context.Context, organizationId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateOrganizationWithBody(ctx context.Context, organizationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpdateOrganization(ctx context.Context, organizationId openapi_types.UUID, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateOrganization(ctx context.Context, organizationId string, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProjects request
 	ListProjects(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -301,6 +319,30 @@ func (c *Client) FetchApiKey(ctx context.Context, apiKeyId openapi_types.UUID, r
 	return c.Client.Do(req)
 }
 
+func (c *Client) UpdateApiKeyWithBody(ctx context.Context, apiKeyId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateApiKeyRequestWithBody(c.Server, apiKeyId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateApiKey(ctx context.Context, apiKeyId openapi_types.UUID, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateApiKeyRequest(c.Server, apiKeyId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListOrganizations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListOrganizationsRequest(c.Server)
 	if err != nil {
@@ -313,7 +355,7 @@ func (c *Client) ListOrganizations(ctx context.Context, reqEditors ...RequestEdi
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteOrganization(ctx context.Context, organizationId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) DeleteOrganization(ctx context.Context, organizationId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteOrganizationRequest(c.Server, organizationId)
 	if err != nil {
 		return nil, err
@@ -325,7 +367,7 @@ func (c *Client) DeleteOrganization(ctx context.Context, organizationId openapi_
 	return c.Client.Do(req)
 }
 
-func (c *Client) FetchOrganization(ctx context.Context, organizationId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) FetchOrganization(ctx context.Context, organizationId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewFetchOrganizationRequest(c.Server, organizationId)
 	if err != nil {
 		return nil, err
@@ -337,7 +379,7 @@ func (c *Client) FetchOrganization(ctx context.Context, organizationId openapi_t
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateOrganizationWithBody(ctx context.Context, organizationId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) UpdateOrganizationWithBody(ctx context.Context, organizationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateOrganizationRequestWithBody(c.Server, organizationId, contentType, body)
 	if err != nil {
 		return nil, err
@@ -349,7 +391,7 @@ func (c *Client) UpdateOrganizationWithBody(ctx context.Context, organizationId 
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateOrganization(ctx context.Context, organizationId openapi_types.UUID, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) UpdateOrganization(ctx context.Context, organizationId string, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateOrganizationRequest(c.Server, organizationId, body)
 	if err != nil {
 		return nil, err
@@ -549,6 +591,53 @@ func NewFetchApiKeyRequest(server string, apiKeyId openapi_types.UUID) (*http.Re
 	return req, nil
 }
 
+// NewUpdateApiKeyRequest calls the generic UpdateApiKey builder with application/json body
+func NewUpdateApiKeyRequest(server string, apiKeyId openapi_types.UUID, body UpdateApiKeyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateApiKeyRequestWithBody(server, apiKeyId, "application/json", bodyReader)
+}
+
+// NewUpdateApiKeyRequestWithBody generates requests for UpdateApiKey with any type of body
+func NewUpdateApiKeyRequestWithBody(server string, apiKeyId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "api_key_id", runtime.ParamLocationPath, apiKeyId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/api-keys/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListOrganizationsRequest generates requests for ListOrganizations
 func NewListOrganizationsRequest(server string) (*http.Request, error) {
 	var err error
@@ -577,7 +666,7 @@ func NewListOrganizationsRequest(server string) (*http.Request, error) {
 }
 
 // NewDeleteOrganizationRequest generates requests for DeleteOrganization
-func NewDeleteOrganizationRequest(server string, organizationId openapi_types.UUID) (*http.Request, error) {
+func NewDeleteOrganizationRequest(server string, organizationId string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -611,7 +700,7 @@ func NewDeleteOrganizationRequest(server string, organizationId openapi_types.UU
 }
 
 // NewFetchOrganizationRequest generates requests for FetchOrganization
-func NewFetchOrganizationRequest(server string, organizationId openapi_types.UUID) (*http.Request, error) {
+func NewFetchOrganizationRequest(server string, organizationId string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -645,7 +734,7 @@ func NewFetchOrganizationRequest(server string, organizationId openapi_types.UUI
 }
 
 // NewUpdateOrganizationRequest calls the generic UpdateOrganization builder with application/json body
-func NewUpdateOrganizationRequest(server string, organizationId openapi_types.UUID, body UpdateOrganizationJSONRequestBody) (*http.Request, error) {
+func NewUpdateOrganizationRequest(server string, organizationId string, body UpdateOrganizationJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
@@ -656,7 +745,7 @@ func NewUpdateOrganizationRequest(server string, organizationId openapi_types.UU
 }
 
 // NewUpdateOrganizationRequestWithBody generates requests for UpdateOrganization with any type of body
-func NewUpdateOrganizationRequestWithBody(server string, organizationId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+func NewUpdateOrganizationRequestWithBody(server string, organizationId string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1003,19 +1092,24 @@ type ClientWithResponsesInterface interface {
 	// FetchApiKeyWithResponse request
 	FetchApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*FetchApiKeyResponse, error)
 
+	// UpdateApiKeyWithBodyWithResponse request with any body
+	UpdateApiKeyWithBodyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error)
+
+	UpdateApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error)
+
 	// ListOrganizationsWithResponse request
 	ListOrganizationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOrganizationsResponse, error)
 
 	// DeleteOrganizationWithResponse request
-	DeleteOrganizationWithResponse(ctx context.Context, organizationId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteOrganizationResponse, error)
+	DeleteOrganizationWithResponse(ctx context.Context, organizationId string, reqEditors ...RequestEditorFn) (*DeleteOrganizationResponse, error)
 
 	// FetchOrganizationWithResponse request
-	FetchOrganizationWithResponse(ctx context.Context, organizationId openapi_types.UUID, reqEditors ...RequestEditorFn) (*FetchOrganizationResponse, error)
+	FetchOrganizationWithResponse(ctx context.Context, organizationId string, reqEditors ...RequestEditorFn) (*FetchOrganizationResponse, error)
 
 	// UpdateOrganizationWithBodyWithResponse request with any body
-	UpdateOrganizationWithBodyWithResponse(ctx context.Context, organizationId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error)
+	UpdateOrganizationWithBodyWithResponse(ctx context.Context, organizationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error)
 
-	UpdateOrganizationWithResponse(ctx context.Context, organizationId openapi_types.UUID, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error)
+	UpdateOrganizationWithResponse(ctx context.Context, organizationId string, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error)
 
 	// ListProjectsWithResponse request
 	ListProjectsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListProjectsResponse, error)
@@ -1091,6 +1185,33 @@ func (r FetchApiKeyResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r FetchApiKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateApiKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *APIKeyWithSecret
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateApiKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateApiKeyResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1411,6 +1532,23 @@ func (c *ClientWithResponses) FetchApiKeyWithResponse(ctx context.Context, apiKe
 	return ParseFetchApiKeyResponse(rsp)
 }
 
+// UpdateApiKeyWithBodyWithResponse request with arbitrary body returning *UpdateApiKeyResponse
+func (c *ClientWithResponses) UpdateApiKeyWithBodyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error) {
+	rsp, err := c.UpdateApiKeyWithBody(ctx, apiKeyId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateApiKeyResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error) {
+	rsp, err := c.UpdateApiKey(ctx, apiKeyId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateApiKeyResponse(rsp)
+}
+
 // ListOrganizationsWithResponse request returning *ListOrganizationsResponse
 func (c *ClientWithResponses) ListOrganizationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOrganizationsResponse, error) {
 	rsp, err := c.ListOrganizations(ctx, reqEditors...)
@@ -1421,7 +1559,7 @@ func (c *ClientWithResponses) ListOrganizationsWithResponse(ctx context.Context,
 }
 
 // DeleteOrganizationWithResponse request returning *DeleteOrganizationResponse
-func (c *ClientWithResponses) DeleteOrganizationWithResponse(ctx context.Context, organizationId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteOrganizationResponse, error) {
+func (c *ClientWithResponses) DeleteOrganizationWithResponse(ctx context.Context, organizationId string, reqEditors ...RequestEditorFn) (*DeleteOrganizationResponse, error) {
 	rsp, err := c.DeleteOrganization(ctx, organizationId, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -1430,7 +1568,7 @@ func (c *ClientWithResponses) DeleteOrganizationWithResponse(ctx context.Context
 }
 
 // FetchOrganizationWithResponse request returning *FetchOrganizationResponse
-func (c *ClientWithResponses) FetchOrganizationWithResponse(ctx context.Context, organizationId openapi_types.UUID, reqEditors ...RequestEditorFn) (*FetchOrganizationResponse, error) {
+func (c *ClientWithResponses) FetchOrganizationWithResponse(ctx context.Context, organizationId string, reqEditors ...RequestEditorFn) (*FetchOrganizationResponse, error) {
 	rsp, err := c.FetchOrganization(ctx, organizationId, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -1439,7 +1577,7 @@ func (c *ClientWithResponses) FetchOrganizationWithResponse(ctx context.Context,
 }
 
 // UpdateOrganizationWithBodyWithResponse request with arbitrary body returning *UpdateOrganizationResponse
-func (c *ClientWithResponses) UpdateOrganizationWithBodyWithResponse(ctx context.Context, organizationId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error) {
+func (c *ClientWithResponses) UpdateOrganizationWithBodyWithResponse(ctx context.Context, organizationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error) {
 	rsp, err := c.UpdateOrganizationWithBody(ctx, organizationId, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -1447,7 +1585,7 @@ func (c *ClientWithResponses) UpdateOrganizationWithBodyWithResponse(ctx context
 	return ParseUpdateOrganizationResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpdateOrganizationWithResponse(ctx context.Context, organizationId openapi_types.UUID, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error) {
+func (c *ClientWithResponses) UpdateOrganizationWithResponse(ctx context.Context, organizationId string, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error) {
 	rsp, err := c.UpdateOrganization(ctx, organizationId, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -1630,6 +1768,67 @@ func ParseFetchApiKeyResponse(rsp *http.Response) (*FetchApiKeyResponse, error) 
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateApiKeyResponse parses an HTTP response from a UpdateApiKeyWithResponse call
+func ParseUpdateApiKeyResponse(rsp *http.Response) (*UpdateApiKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateApiKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest APIKeyWithSecret
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
