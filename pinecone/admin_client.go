@@ -97,7 +97,11 @@ type CreateProjectParams struct {
 	Name string `json:"name"`
 }
 
-func (a *AdminClient) CreateProject(ctx context.Context, in CreateProjectParams) (*Project, error) {
+func (a *AdminClient) CreateProject(ctx context.Context, in *CreateProjectParams) (*Project, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreateProjectParams) cannot be nil")
+	}
+
 	request := admin.CreateProjectRequest{
 		ForceEncryptionWithCmek: in.ForceEncryptionWithCmek,
 		MaxPods:                 in.MaxPods,
@@ -110,7 +114,7 @@ func (a *AdminClient) CreateProject(ctx context.Context, in CreateProjectParams)
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusCreated {
+	if res.StatusCode != http.StatusOK {
 		return nil, handleErrorResponseBody(res, "failed to create project: ")
 	}
 
@@ -134,7 +138,11 @@ type UpdateProjectParams struct {
 	Name *string `json:"name,omitempty"`
 }
 
-func (a *AdminClient) UpdateProject(ctx context.Context, projectId string, in UpdateProjectParams) (*Project, error) {
+func (a *AdminClient) UpdateProject(ctx context.Context, projectId string, in *UpdateProjectParams) (*Project, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*UpdateProjectParams) cannot be nil")
+	}
+
 	projectIdUUID, err := uuid.Parse(projectId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid projectId: %w", err)
@@ -232,7 +240,7 @@ func (a *AdminClient) DeleteProject(ctx context.Context, projectId string) error
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode != http.StatusAccepted {
 		return handleErrorResponseBody(res, "failed to delete project: ")
 	}
 
@@ -316,7 +324,11 @@ type UpdateOrganizationParams struct {
 	Name *string `json:"name"`
 }
 
-func (a *AdminClient) UpdateOrganization(ctx context.Context, organizationId string, in UpdateOrganizationParams) (*Organization, error) {
+func (a *AdminClient) UpdateOrganization(ctx context.Context, organizationId string, in *UpdateOrganizationParams) (*Organization, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*UpdateOrganizationParams) cannot be nil")
+	}
+
 	request := admin.UpdateOrganizationRequest{
 		Name: in.Name,
 	}
@@ -361,7 +373,19 @@ type CreateApiKeyParams struct {
 	Roles *[]string `json:"roles,omitempty"`
 }
 
-func (a *AdminClient) CreateApiKey(ctx context.Context, projectId string, in CreateApiKeyParams) (*ApiKey, error) {
+type ApiKeyWithSecret struct {
+	// Key The details of an API key, without the secret.
+	Key ApiKey `json:"key"`
+
+	// Value The value to use as an API key. New keys will have the format `"pckey_<public-label>_<unique-key>"`. The entire string should be used when authenticating.
+	Value string `json:"value"`
+}
+
+func (a *AdminClient) CreateApiKey(ctx context.Context, projectId string, in *CreateApiKeyParams) (*ApiKeyWithSecret, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreateApiKeyParams) cannot be nil")
+	}
+
 	request := admin.CreateAPIKeyRequest{
 		Name:  in.Name,
 		Roles: in.Roles,
@@ -378,17 +402,17 @@ func (a *AdminClient) CreateApiKey(ctx context.Context, projectId string, in Cre
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusCreated {
+	if res.StatusCode != http.StatusOK {
 		return nil, handleErrorResponseBody(res, "failed to create api key: ")
 	}
 
-	var adminApiKey admin.APIKey
+	var adminApiKey admin.APIKeyWithSecret
 	err = json.NewDecoder(res.Body).Decode(&adminApiKey)
 	if err != nil {
 		return nil, err
 	}
 
-	return toApiKey(adminApiKey), nil
+	return toApiKeyWithSecret(adminApiKey), nil
 }
 
 type UpdateApiKeyParams struct {
@@ -400,7 +424,11 @@ type UpdateApiKeyParams struct {
 	Roles *[]string `json:"roles,omitempty"`
 }
 
-func (a *AdminClient) UpdateApiKey(ctx context.Context, apiKeyId string, in UpdateApiKeyParams) (*ApiKey, error) {
+func (a *AdminClient) UpdateApiKey(ctx context.Context, apiKeyId string, in *UpdateApiKeyParams) (*ApiKey, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*UpdateApiKeyParams) cannot be nil")
+	}
+
 	apiKeyIdUUID, err := uuid.Parse(apiKeyId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid apiKeyId: %w", err)
@@ -509,7 +537,7 @@ func (a *AdminClient) DeleteApiKey(ctx context.Context, apiKeyId string) error {
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode != http.StatusAccepted {
 		return handleErrorResponseBody(res, "failed to delete api key: ")
 	}
 
@@ -666,5 +694,12 @@ func toApiKey(apiKey admin.APIKey) *ApiKey {
 		Name:      apiKey.Name,
 		ProjectId: apiKey.ProjectId.String(),
 		Roles:     apiKey.Roles,
+	}
+}
+
+func toApiKeyWithSecret(apiKey admin.APIKeyWithSecret) *ApiKeyWithSecret {
+	return &ApiKeyWithSecret{
+		Key:   *toApiKey(apiKey.Key),
+		Value: apiKey.Value,
 	}
 }
