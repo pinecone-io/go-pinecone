@@ -29,7 +29,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21.x"
+          go-version: '1.21.x'
       - name: Install dependencies
         run: |
           go get ./pinecone
@@ -37,6 +37,8 @@ jobs:
         run: go test -count=1 -v ./pinecone
         env:
           PINECONE_API_KEY: ${{ secrets.API_KEY }}
+          PINECONE_CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          PINECONE_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
       - name: Run local integration tests
         run: go test -count=1 -v ./pinecone -run TestRunLocalIntegrationSuite -tags=localServer
         env:
