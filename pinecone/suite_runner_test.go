@@ -17,14 +17,25 @@ func TestRunSuites(t *testing.T) {
 }
 
 func RunSuites(t *testing.T) {
-	apiKey, present := os.LookupEnv("PINECONE_API_KEY")
-	assert.True(t, present, "PINECONE_API_KEY env variable not set")
+	apiKey, apiKeyPresent := os.LookupEnv("PINECONE_API_KEY")
+	clientId, clientIdPresent := os.LookupEnv("PINECONE_CLIENT_ID")
+	clientSecret, clientSecretPresent := os.LookupEnv("PINECONE_CLIENT_SECRET")
+	assert.True(t, apiKeyPresent, "PINECONE_API_KEY env variable not set")
+	assert.True(t, clientIdPresent, "PINECONE_CLIENT_ID env variable not set")
+	assert.True(t, clientSecretPresent, "PINECONE_CLIENT_SECRET env variable not set")
 
 	sourceTag := "pinecone_test_go_sdk"
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: sourceTag})
 	require.NotNil(t, client, "Client should not be nil after creation")
 	require.NoError(t, err)
 	indexTags := IndexTags{"test1": "test-tag-1", "test2": "test-tag-2"}
+
+	adminClient, err := NewAdminClient(NewAdminClientParams{
+		ClientId:     clientId,
+		ClientSecret: clientSecret,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, adminClient, "AdminClient should not be nil after creation")
 
 	serverlessIdx := buildServerlessTestIndex(client, "serverless-"+generateTestIndexName(), indexTags)
 	podIdx := buildPodTestIndex(client, "pods-"+generateTestIndexName(), indexTags)
@@ -51,6 +62,13 @@ func RunSuites(t *testing.T) {
 		indexTags: &indexTags,
 	}
 
+	adminTestSuite := &AdminIntegrationTests{
+		clientId:     clientId,
+		clientSecret: clientSecret,
+		adminClient:  adminClient,
+	}
+
+	suite.Run(t, adminTestSuite)
 	suite.Run(t, podTestSuite)
 	suite.Run(t, serverlessTestSuite)
 }

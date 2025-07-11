@@ -627,3 +627,60 @@ type RestoreJobList struct {
 	Data       []*RestoreJob `json:"data"`
 	Pagination *Pagination   `json:"pagination,omitempty"`
 }
+
+// Project The details of a project.
+type Project struct {
+	// CreatedAt The date and time when the project was created.
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// ForceEncryptionWithCmek Whether to force encryption with a customer-managed encryption key (CMEK).
+	ForceEncryptionWithCmek bool `json:"force_encryption_with_cmek"`
+
+	// Id The unique ID of the project.
+	Id string `json:"id"`
+
+	// MaxPods The maximum number of Pods that can be created in the project.
+	MaxPods int `json:"max_pods"`
+
+	// Name The name of the project.
+	Name string `json:"name"`
+
+	// OrganizationId The unique ID of the organization that the project belongs to.
+	OrganizationId string `json:"organization_id"`
+}
+
+// The details of an organization.
+type Organization struct {
+	// CreatedAt The date and time when the organization was created.
+	CreatedAt time.Time `json:"created_at"`
+
+	// Id The unique ID of the organization.
+	Id string `json:"id"`
+
+	// Name The name of the organization.
+	Name string `json:"name"`
+
+	// PaymentStatus The current payment status of the organization.
+	PaymentStatus string `json:"payment_status"`
+
+	// Plan The current plan the organization is on.
+	Plan string `json:"plan"`
+
+	// SupportTier The support tier of the organization.
+	SupportTier string `json:"support_tier"`
+}
+
+type APIKey struct {
+	Id        string   `json:"id"`
+	Name      string   `json:"name"`
+	ProjectId string   `json:"project_id"`
+	Roles     []string `json:"roles"`
+}
+
+type APIKeyWithSecret struct {
+	// Key The details of an API key, without the secret.
+	Key APIKey `json:"key"`
+
+	// Value The value to use as an API key. New keys will have the format `"pckey_<public-label>_<unique-key>"`. The entire string should be used when authenticating.
+	Value string `json:"value"`
+}

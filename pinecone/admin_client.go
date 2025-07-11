@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/v4/internal/gen"
@@ -21,7 +20,7 @@ import (
 type AdminClient struct {
 	Project      ProjectClient
 	Organization OrganizationClient
-	ApiKey       ApiKeyClient
+	APIKey       APIKeyClient
 }
 
 type ProjectClient interface {
@@ -39,24 +38,12 @@ type OrganizationClient interface {
 	Delete(ctx context.Context, organizationId string) error
 }
 
-type ApiKeyClient interface {
-	Create(ctx context.Context, projectId string, in *CreateApiKeyParams) (*ApiKeyWithSecret, error)
-	Update(ctx context.Context, apiKeyId string, in *UpdateApiKeyParams) (*ApiKey, error)
-	List(ctx context.Context, projectId string) ([]*ApiKey, error)
-	Describe(ctx context.Context, apiKeyId string) (*ApiKey, error)
+type APIKeyClient interface {
+	Create(ctx context.Context, projectId string, in *CreateAPIKeyParams) (*APIKeyWithSecret, error)
+	Update(ctx context.Context, apiKeyId string, in *UpdateAPIKeyParams) (*APIKey, error)
+	List(ctx context.Context, projectId string) ([]*APIKey, error)
+	Describe(ctx context.Context, apiKeyId string) (*APIKey, error)
 	Delete(ctx context.Context, apiKeyId string) error
-}
-
-type projectClient struct {
-	restClient *admin.Client
-}
-
-type organizationClient struct {
-	restClient *admin.Client
-}
-
-type apiKeyClient struct {
-	restClient *admin.Client
 }
 
 type NewAdminClientParams struct {
@@ -106,31 +93,10 @@ func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*A
 		Organization: &organizationClient{
 			restClient: adminClient,
 		},
-		ApiKey: &apiKeyClient{
+		APIKey: &apiKeyClient{
 			restClient: adminClient,
 		},
 	}, nil
-}
-
-// Project The details of a project.
-type Project struct {
-	// CreatedAt The date and time when the project was created.
-	CreatedAt *time.Time `json:"created_at,omitempty"`
-
-	// ForceEncryptionWithCmek Whether to force encryption with a customer-managed encryption key (CMEK).
-	ForceEncryptionWithCmek bool `json:"force_encryption_with_cmek"`
-
-	// Id The unique ID of the project.
-	Id string `json:"id"`
-
-	// MaxPods The maximum number of Pods that can be created in the project.
-	MaxPods int `json:"max_pods"`
-
-	// Name The name of the project.
-	Name string `json:"name"`
-
-	// OrganizationId The unique ID of the organization that the project belongs to.
-	OrganizationId string `json:"organization_id"`
 }
 
 type CreateProjectParams struct {
@@ -294,27 +260,6 @@ func (p *projectClient) Delete(ctx context.Context, projectId string) error {
 	return nil
 }
 
-// Organization The details of an organization.
-type Organization struct {
-	// CreatedAt The date and time when the organization was created.
-	CreatedAt time.Time `json:"created_at"`
-
-	// Id The unique ID of the organization.
-	Id string `json:"id"`
-
-	// Name The name of the organization.
-	Name string `json:"name"`
-
-	// PaymentStatus The current payment status of the organization.
-	PaymentStatus string `json:"payment_status"`
-
-	// Plan The current plan the organization is on.
-	Plan string `json:"plan"`
-
-	// SupportTier The support tier of the organization.
-	SupportTier string `json:"support_tier"`
-}
-
 func (o *organizationClient) List(ctx context.Context) ([]*Organization, error) {
 	res, err := o.restClient.ListOrganizations(ctx)
 	if err != nil {
@@ -412,7 +357,7 @@ func (o *organizationClient) Delete(ctx context.Context, organizationId string) 
 	return nil
 }
 
-type CreateApiKeyParams struct {
+type CreateAPIKeyParams struct {
 	// Name The name of the API key. The name must be 1-80 characters long.
 	Name string `json:"name"`
 
@@ -420,17 +365,9 @@ type CreateApiKeyParams struct {
 	Roles *[]string `json:"roles,omitempty"`
 }
 
-type ApiKeyWithSecret struct {
-	// Key The details of an API key, without the secret.
-	Key ApiKey `json:"key"`
-
-	// Value The value to use as an API key. New keys will have the format `"pckey_<public-label>_<unique-key>"`. The entire string should be used when authenticating.
-	Value string `json:"value"`
-}
-
-func (a *apiKeyClient) Create(ctx context.Context, projectId string, in *CreateApiKeyParams) (*ApiKeyWithSecret, error) {
+func (a *apiKeyClient) Create(ctx context.Context, projectId string, in *CreateAPIKeyParams) (*APIKeyWithSecret, error) {
 	if in == nil {
-		return nil, fmt.Errorf("in (*CreateApiKeyParams) cannot be nil")
+		return nil, fmt.Errorf("in (*CreateAPIKeyParams) cannot be nil")
 	}
 
 	request := admin.CreateAPIKeyRequest{
@@ -459,10 +396,10 @@ func (a *apiKeyClient) Create(ctx context.Context, projectId string, in *CreateA
 		return nil, err
 	}
 
-	return toApiKeyWithSecret(adminApiKey), nil
+	return toAPIKeyWithSecret(adminApiKey), nil
 }
 
-type UpdateApiKeyParams struct {
+type UpdateAPIKeyParams struct {
 	// Name A new name for the API key. The name must be 1-80 characters long. If omitted, the name will not be updated.
 	Name *string `json:"name,omitempty"`
 
@@ -471,9 +408,9 @@ type UpdateApiKeyParams struct {
 	Roles *[]string `json:"roles,omitempty"`
 }
 
-func (a *apiKeyClient) Update(ctx context.Context, apiKeyId string, in *UpdateApiKeyParams) (*ApiKey, error) {
+func (a *apiKeyClient) Update(ctx context.Context, apiKeyId string, in *UpdateAPIKeyParams) (*APIKey, error) {
 	if in == nil {
-		return nil, fmt.Errorf("in (*UpdateApiKeyParams) cannot be nil")
+		return nil, fmt.Errorf("in (*UpdateAPIKeyParams) cannot be nil")
 	}
 
 	apiKeyIdUUID, err := uuid.Parse(apiKeyId)
@@ -501,17 +438,10 @@ func (a *apiKeyClient) Update(ctx context.Context, apiKeyId string, in *UpdateAp
 		return nil, err
 	}
 
-	return toApiKey(adminApiKey), nil
+	return toAPIKey(adminApiKey), nil
 }
 
-type ApiKey struct {
-	Id        string   `json:"id"`
-	Name      string   `json:"name"`
-	ProjectId string   `json:"project_id"`
-	Roles     []string `json:"roles"`
-}
-
-func (a *apiKeyClient) List(ctx context.Context, projectId string) ([]*ApiKey, error) {
+func (a *apiKeyClient) List(ctx context.Context, projectId string) ([]*APIKey, error) {
 	projectIdUUID, err := uuid.Parse(projectId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid projectId: %w", err)
@@ -534,20 +464,20 @@ func (a *apiKeyClient) List(ctx context.Context, projectId string) ([]*ApiKey, e
 		return nil, err
 	}
 
-	var apiKeys []*ApiKey
+	var apiKeys []*APIKey
 	if listResp.Data != nil {
-		apiKeys = make([]*ApiKey, len(*listResp.Data))
+		apiKeys = make([]*APIKey, len(*listResp.Data))
 		for i, apiKey := range *listResp.Data {
-			apiKeys[i] = toApiKey(apiKey)
+			apiKeys[i] = toAPIKey(apiKey)
 		}
 	} else {
-		apiKeys = make([]*ApiKey, 0)
+		apiKeys = make([]*APIKey, 0)
 	}
 
 	return apiKeys, nil
 }
 
-func (a *apiKeyClient) Describe(ctx context.Context, apiKeyId string) (*ApiKey, error) {
+func (a *apiKeyClient) Describe(ctx context.Context, apiKeyId string) (*APIKey, error) {
 	apiKeyIdUUID, err := uuid.Parse(apiKeyId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid apiKeyId: %w", err)
@@ -569,7 +499,7 @@ func (a *apiKeyClient) Describe(ctx context.Context, apiKeyId string) (*ApiKey, 
 		return nil, err
 	}
 
-	return toApiKey(adminApiKey), nil
+	return toAPIKey(adminApiKey), nil
 }
 
 func (a *apiKeyClient) Delete(ctx context.Context, apiKeyId string) error {
@@ -589,6 +519,18 @@ func (a *apiKeyClient) Delete(ctx context.Context, apiKeyId string) error {
 	}
 
 	return nil
+}
+
+type projectClient struct {
+	restClient *admin.Client
+}
+
+type organizationClient struct {
+	restClient *admin.Client
+}
+
+type apiKeyClient struct {
+	restClient *admin.Client
 }
 
 type authTokenResponse struct {
@@ -735,8 +677,8 @@ func toOrganization(organization admin.Organization) *Organization {
 	}
 }
 
-func toApiKey(apiKey admin.APIKey) *ApiKey {
-	return &ApiKey{
+func toAPIKey(apiKey admin.APIKey) *APIKey {
+	return &APIKey{
 		Id:        apiKey.Id.String(),
 		Name:      apiKey.Name,
 		ProjectId: apiKey.ProjectId.String(),
@@ -744,9 +686,9 @@ func toApiKey(apiKey admin.APIKey) *ApiKey {
 	}
 }
 
-func toApiKeyWithSecret(apiKey admin.APIKeyWithSecret) *ApiKeyWithSecret {
-	return &ApiKeyWithSecret{
-		Key:   *toApiKey(apiKey.Key),
+func toAPIKeyWithSecret(apiKey admin.APIKeyWithSecret) *APIKeyWithSecret {
+	return &APIKeyWithSecret{
+		Key:   *toAPIKey(apiKey.Key),
 		Value: apiKey.Value,
 	}
 }
