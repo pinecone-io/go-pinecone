@@ -19,6 +19,43 @@ import (
 )
 
 type AdminClient struct {
+	Project      ProjectClient
+	Organization OrganizationClient
+	ApiKey       ApiKeyClient
+}
+
+type ProjectClient interface {
+	Create(ctx context.Context, in *CreateProjectParams) (*Project, error)
+	Update(ctx context.Context, projectId string, in *UpdateProjectParams) (*Project, error)
+	List(ctx context.Context) ([]*Project, error)
+	Describe(ctx context.Context, projectId string) (*Project, error)
+	Delete(ctx context.Context, projectId string) error
+}
+
+type OrganizationClient interface {
+	List(ctx context.Context) ([]*Organization, error)
+	Describe(ctx context.Context, organizationId string) (*Organization, error)
+	Update(ctx context.Context, organizationId string, in *UpdateOrganizationParams) (*Organization, error)
+	Delete(ctx context.Context, organizationId string) error
+}
+
+type ApiKeyClient interface {
+	Create(ctx context.Context, projectId string, in *CreateApiKeyParams) (*ApiKeyWithSecret, error)
+	Update(ctx context.Context, apiKeyId string, in *UpdateApiKeyParams) (*ApiKey, error)
+	List(ctx context.Context, projectId string) ([]*ApiKey, error)
+	Describe(ctx context.Context, apiKeyId string) (*ApiKey, error)
+	Delete(ctx context.Context, apiKeyId string) error
+}
+
+type projectClient struct {
+	restClient *admin.Client
+}
+
+type organizationClient struct {
+	restClient *admin.Client
+}
+
+type apiKeyClient struct {
 	restClient *admin.Client
 }
 
@@ -62,7 +99,17 @@ func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*A
 		return nil, err
 	}
 
-	return &AdminClient{restClient: adminClient}, nil
+	return &AdminClient{
+		Project: &projectClient{
+			restClient: adminClient,
+		},
+		Organization: &organizationClient{
+			restClient: adminClient,
+		},
+		ApiKey: &apiKeyClient{
+			restClient: adminClient,
+		},
+	}, nil
 }
 
 // Project The details of a project.
@@ -97,7 +144,7 @@ type CreateProjectParams struct {
 	Name string `json:"name"`
 }
 
-func (a *AdminClient) CreateProject(ctx context.Context, in *CreateProjectParams) (*Project, error) {
+func (p *projectClient) Create(ctx context.Context, in *CreateProjectParams) (*Project, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*CreateProjectParams) cannot be nil")
 	}
@@ -108,7 +155,7 @@ func (a *AdminClient) CreateProject(ctx context.Context, in *CreateProjectParams
 		Name:                    in.Name,
 	}
 
-	res, err := a.restClient.CreateProject(ctx, request)
+	res, err := p.restClient.CreateProject(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +185,7 @@ type UpdateProjectParams struct {
 	Name *string `json:"name,omitempty"`
 }
 
-func (a *AdminClient) UpdateProject(ctx context.Context, projectId string, in *UpdateProjectParams) (*Project, error) {
+func (p *projectClient) Update(ctx context.Context, projectId string, in *UpdateProjectParams) (*Project, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*UpdateProjectParams) cannot be nil")
 	}
@@ -152,7 +199,7 @@ func (a *AdminClient) UpdateProject(ctx context.Context, projectId string, in *U
 		Name: in.Name,
 	}
 
-	res, err := a.restClient.UpdateProject(ctx, projectIdUUID, request)
+	res, err := p.restClient.UpdateProject(ctx, projectIdUUID, request)
 	if err != nil {
 		return nil, err
 	}
@@ -171,8 +218,8 @@ func (a *AdminClient) UpdateProject(ctx context.Context, projectId string, in *U
 	return toProject(adminProject), nil
 }
 
-func (a *AdminClient) ListProjects(ctx context.Context) ([]*Project, error) {
-	res, err := a.restClient.ListProjects(ctx)
+func (p *projectClient) List(ctx context.Context) ([]*Project, error) {
+	res, err := p.restClient.ListProjects(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -203,13 +250,13 @@ func (a *AdminClient) ListProjects(ctx context.Context) ([]*Project, error) {
 	return projects, nil
 }
 
-func (a *AdminClient) DescribeProject(ctx context.Context, projectId string) (*Project, error) {
+func (p *projectClient) Describe(ctx context.Context, projectId string) (*Project, error) {
 	projectIdUUID, err := uuid.Parse(projectId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid projectId: %w", err)
 	}
 
-	res, err := a.restClient.FetchProject(ctx, projectIdUUID)
+	res, err := p.restClient.FetchProject(ctx, projectIdUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -228,13 +275,13 @@ func (a *AdminClient) DescribeProject(ctx context.Context, projectId string) (*P
 	return toProject(adminProject), nil
 }
 
-func (a *AdminClient) DeleteProject(ctx context.Context, projectId string) error {
+func (p *projectClient) Delete(ctx context.Context, projectId string) error {
 	projectIdUUID, err := uuid.Parse(projectId)
 	if err != nil {
 		return fmt.Errorf("invalid projectId: %w", err)
 	}
 
-	res, err := a.restClient.DeleteProject(ctx, projectIdUUID)
+	res, err := p.restClient.DeleteProject(ctx, projectIdUUID)
 	if err != nil {
 		return err
 	}
@@ -268,8 +315,8 @@ type Organization struct {
 	SupportTier string `json:"support_tier"`
 }
 
-func (a *AdminClient) ListOrganizations(ctx context.Context) ([]*Organization, error) {
-	res, err := a.restClient.ListOrganizations(ctx)
+func (o *organizationClient) List(ctx context.Context) ([]*Organization, error) {
+	res, err := o.restClient.ListOrganizations(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -300,8 +347,8 @@ func (a *AdminClient) ListOrganizations(ctx context.Context) ([]*Organization, e
 	return organizations, nil
 }
 
-func (a *AdminClient) DescribeOrganization(ctx context.Context, organizationId string) (*Organization, error) {
-	res, err := a.restClient.FetchOrganization(ctx, organizationId)
+func (o *organizationClient) Describe(ctx context.Context, organizationId string) (*Organization, error) {
+	res, err := o.restClient.FetchOrganization(ctx, organizationId)
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +371,7 @@ type UpdateOrganizationParams struct {
 	Name *string `json:"name"`
 }
 
-func (a *AdminClient) UpdateOrganization(ctx context.Context, organizationId string, in *UpdateOrganizationParams) (*Organization, error) {
+func (o *organizationClient) Update(ctx context.Context, organizationId string, in *UpdateOrganizationParams) (*Organization, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*UpdateOrganizationParams) cannot be nil")
 	}
@@ -333,7 +380,7 @@ func (a *AdminClient) UpdateOrganization(ctx context.Context, organizationId str
 		Name: in.Name,
 	}
 
-	res, err := a.restClient.UpdateOrganization(ctx, organizationId, request)
+	res, err := o.restClient.UpdateOrganization(ctx, organizationId, request)
 	if err != nil {
 		return nil, err
 	}
@@ -352,8 +399,8 @@ func (a *AdminClient) UpdateOrganization(ctx context.Context, organizationId str
 	return toOrganization(adminOrganization), nil
 }
 
-func (a *AdminClient) DeleteOrganization(ctx context.Context, organizationId string) error {
-	res, err := a.restClient.DeleteOrganization(ctx, organizationId)
+func (o *organizationClient) Delete(ctx context.Context, organizationId string) error {
+	res, err := o.restClient.DeleteOrganization(ctx, organizationId)
 	if err != nil {
 		return err
 	}
@@ -381,7 +428,7 @@ type ApiKeyWithSecret struct {
 	Value string `json:"value"`
 }
 
-func (a *AdminClient) CreateApiKey(ctx context.Context, projectId string, in *CreateApiKeyParams) (*ApiKeyWithSecret, error) {
+func (a *apiKeyClient) Create(ctx context.Context, projectId string, in *CreateApiKeyParams) (*ApiKeyWithSecret, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*CreateApiKeyParams) cannot be nil")
 	}
@@ -424,7 +471,7 @@ type UpdateApiKeyParams struct {
 	Roles *[]string `json:"roles,omitempty"`
 }
 
-func (a *AdminClient) UpdateApiKey(ctx context.Context, apiKeyId string, in *UpdateApiKeyParams) (*ApiKey, error) {
+func (a *apiKeyClient) Update(ctx context.Context, apiKeyId string, in *UpdateApiKeyParams) (*ApiKey, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*UpdateApiKeyParams) cannot be nil")
 	}
@@ -464,7 +511,7 @@ type ApiKey struct {
 	Roles     []string `json:"roles"`
 }
 
-func (a *AdminClient) ListApiKeys(ctx context.Context, projectId string) ([]*ApiKey, error) {
+func (a *apiKeyClient) List(ctx context.Context, projectId string) ([]*ApiKey, error) {
 	projectIdUUID, err := uuid.Parse(projectId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid projectId: %w", err)
@@ -500,7 +547,7 @@ func (a *AdminClient) ListApiKeys(ctx context.Context, projectId string) ([]*Api
 	return apiKeys, nil
 }
 
-func (a *AdminClient) DescribeApiKey(ctx context.Context, apiKeyId string) (*ApiKey, error) {
+func (a *apiKeyClient) Describe(ctx context.Context, apiKeyId string) (*ApiKey, error) {
 	apiKeyIdUUID, err := uuid.Parse(apiKeyId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid apiKeyId: %w", err)
@@ -525,7 +572,7 @@ func (a *AdminClient) DescribeApiKey(ctx context.Context, apiKeyId string) (*Api
 	return toApiKey(adminApiKey), nil
 }
 
-func (a *AdminClient) DeleteApiKey(ctx context.Context, apiKeyId string) error {
+func (a *apiKeyClient) Delete(ctx context.Context, apiKeyId string) error {
 	apiKeyIdUUID, err := uuid.Parse(apiKeyId)
 	if err != nil {
 		return fmt.Errorf("invalid apiKeyId: %w", err)
