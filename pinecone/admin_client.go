@@ -37,51 +37,246 @@ type AdminClient struct {
 // [ProjectClient] defines operations for managing Pinecone projects.
 type ProjectClient interface {
 	// Creates a new project.
+	//
+	// Parameters:
+	//   - ctx: The request context.
+	//   - in: A pointer to [CreateProjectParams] containing the new project's configuration.
+	//
+	// Returns a pointer to a [Project] or an error.
+	//
+	// Example:
+	//
+	//	ctx := context.Background()
+	//	project, err := adminClient.Project.Create(ctx, &CreateProjectParams{
+	//		Name: "example-project",
+	//	})
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
 	Create(ctx context.Context, in *CreateProjectParams) (*Project, error)
 
-	// Updates an existing project.
+	// Updates an existing project by ID.
+	//
+	// Parameters:
+	//   - ctx: The request context.
+	//   - projectId: The ID of the project to update.
+	//   - in: A pointer to [UpdateProjectParams] containing the updated project configuration.
+	//
+	// Returns the updated [Project] or an error.
+	//
+	// Example:
+	//
+	//	project, err := adminClient.Project.Update(ctx, "project-id", &UpdateProjectParams{
+	//		Name: "renamed-project",
+	//	})
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
 	Update(ctx context.Context, projectId string, in *UpdateProjectParams) (*Project, error)
 
 	// Lists all projects available to the authenticated service account.
+	//
+	// Parameters:
+	//   - ctx: The request context.
+	//
+	// Returns a slice of [Project] objects or an error.
+	//
+	// Example:
+	//
+	//	projects, err := adminClient.Project.List(ctx)
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
 	List(ctx context.Context) ([]*Project, error)
 
-	// Describes a project.
+	// Describes an existing project by ID.
+	//
+	// Parameters:
+	//   - ctx: The request context.
+	//   - projectId: The ID of the project to describe.
+	//
+	// Returns a pointer to a [Project] or an error.
+	//
+	// Example:
+	//
+	//	project, err := adminClient.Project.Describe(ctx, "project-id")
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
 	Describe(ctx context.Context, projectId string) (*Project, error)
 
-	// Deletes a project.
+	// Delete removes a project by ID.
+	//
+	// Parameters:
+	//   - ctx: The request context.
+	//   - projectId: The ID of the project to delete.
+	//
+	// Returns an error if deletion fails.
+	//
+	// Example:
+	//
+	//	err := adminClient.Project.Delete(ctx, "project-id")
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
 	Delete(ctx context.Context, projectId string) error
 }
 
 // [OrganizationClient] defines operations for managing organizations.
 type OrganizationClient interface {
 	// Lists all organizations available to the authenticated service account.
+	//
+	// Parameters:
+	//   - ctx: The request context.
+	//
+	// Returns a slice of [Organization] objects or an error.
+	//
+	// Example:
+	//
+	//	orgs, err := adminClient.Organization.List(ctx)
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
 	List(ctx context.Context) ([]*Organization, error)
 
-	// Describes an organization.
+	// Describes an organization by ID.
+	//
+	// Parameters:
+	//   - ctx: The request context.
+	//   - organizationId: The ID of the organization to describe.
+	//
+	// Returns a pointer to an [Organization] or an error.
+	//
+	// Example:
+	//
+	//	org, err := adminClient.Organization.Describe(ctx, "organization-id")
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
 	Describe(ctx context.Context, organizationId string) (*Organization, error)
 
-	// Updates an organization.
+	// Updates an existing organization by ID.
+	//
+	// Parameters:
+	//   - ctx: The request context.
+	//   - organizationId: The ID of the organization to update.
+	//   - in: A pointer to [UpdateOrganizationParams] containing updated fields.
+	//
+	// Returns the updated [Organization] or an error.
+	//
+	// Example:
+	//
+	//	org, err := adminClient.Organization.Update(ctx, "organization-id", &UpdateOrganizationParams{
+	//		Name: "Renamed Org",
+	//	})
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
 	Update(ctx context.Context, organizationId string, in *UpdateOrganizationParams) (*Organization, error)
 
-	// Deletes an organization.
+	// Deletes an organization by ID. All projects within the organization must be deleted first.
+	//
+	// Parameters:
+	//   - ctx: The request context.
+	//   - organizationId: The ID of the organization to delete.
+	//
+	// Returns an error if deletion fails.
+	//
+	// Example:
+	//
+	//	err := adminClient.Organization.Delete(ctx, "organization-id")
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
 	Delete(ctx context.Context, organizationId string) error
 }
 
 // [APIKeyClient] defines operations for managing API keys within a project.
 type APIKeyClient interface {
 	// Creates a new API key.
+	//
+	// Parameters:
+	//   - ctx: The request context.
+	//   - projectId: The ID of the project in which to create the API key.
+	//   - in: A pointer to [CreateAPIKeyParams] containing the API key configuration.
+	//
+	// Returns a pointer to an [APIKeyWithSecret] or an error.
+	//
+	// Example:
+	//
+	//	apiKeyWithSecret, err := adminClient.APIKey.Create(ctx, "project-id", &CreateAPIKeyParams{
+	//		Name: "my-api-key",
+	//	})
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
 	Create(ctx context.Context, projectId string, in *CreateAPIKeyParams) (*APIKeyWithSecret, error)
 
-	// Updates an existing API key.
+	// Updates an existing API key by ID.
+	//
+	// Parameters:
+	//   - ctx: The request context.
+	//   - apiKeyId: The ID of the API key to update.
+	//   - in: A pointer to [UpdateAPIKeyParams] containing updated fields.
+	//
+	// Returns the updated [APIKey] or an error.
+	//
+	// Example:
+	//
+	//	apiKey, err := adminClient.APIKey.Update(ctx, "api-key-id", &UpdateAPIKeyParams{
+	//		Name: "updated-name",
+	//	})
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
 	Update(ctx context.Context, apiKeyId string, in *UpdateAPIKeyParams) (*APIKey, error)
 
 	// Lists all API keys within a project.
+	//
+	// Parameters:
+	//   - ctx: The request context.
+	//   - projectId: The ID of the project to list API keys for.
+	//
+	// Returns a slice of [APIKey] objects or an error.
+	//
+	// Example:
+	//
+	//	apiKeys, err := adminClient.APIKey.List(ctx, "project-id")
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
 	List(ctx context.Context, projectId string) ([]*APIKey, error)
 
-	// Describes an API key.
+	// Describes an API key by ID.
+	//
+	// Parameters:
+	//   - ctx: The request context.
+	//   - apiKeyId: The ID of the API key to describe.
+	//
+	// Returns a pointer to an [APIKey] or an error.
+	//
+	// Example:
+	//
+	//	apiKey, err := adminClient.APIKey.Describe(ctx, "api-key-id")
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
 	Describe(ctx context.Context, apiKeyId string) (*APIKey, error)
 
-	// Deletes an API key.
+	// Deletes an API key by ID.
+	//
+	// Parameters:
+	//   - ctx: The request context.
+	//   - apiKeyId: The ID of the API key to delete.
+	//
+	// Returns an error if deletion fails.
+	//
+	// Example:
+	//
+	//	err := adminClient.APIKey.Delete(ctx, "api-key-id")
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
 	Delete(ctx context.Context, apiKeyId string) error
 }
 
