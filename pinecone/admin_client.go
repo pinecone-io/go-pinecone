@@ -17,47 +17,105 @@ import (
 	"github.com/pinecone-io/go-pinecone/v4/internal/useragent"
 )
 
+// [AdminClient] provides access to Pinecone's administrative APIs, including
+// managing projects, organizations, and API keys. It is constructed using
+// [NewAdminClient] or [NewAdminClientWithContext].
 type AdminClient struct {
-	Project      ProjectClient
+	// Project provides methods for creating, updating, listing, describing,
+	// and deleting projects.
+	Project ProjectClient
+
+	// Organization provides methods for listing, describing, updating,
+	// and deleting organizations.
 	Organization OrganizationClient
-	APIKey       APIKeyClient
+
+	// APIKey provides methods for creating, updating, listing, describing,
+	// and deleting API keys within a project.
+	APIKey APIKeyClient
 }
 
+// [ProjectClient] defines operations for managing Pinecone projects.
 type ProjectClient interface {
+	// Creates a new project.
 	Create(ctx context.Context, in *CreateProjectParams) (*Project, error)
+
+	// Updates an existing project.
 	Update(ctx context.Context, projectId string, in *UpdateProjectParams) (*Project, error)
+
+	// Lists all projects available to the authenticated service account.
 	List(ctx context.Context) ([]*Project, error)
+
+	// Describes a project.
 	Describe(ctx context.Context, projectId string) (*Project, error)
+
+	// Deletes a project.
 	Delete(ctx context.Context, projectId string) error
 }
 
+// [OrganizationClient] defines operations for managing organizations.
 type OrganizationClient interface {
+	// Lists all organizations available to the authenticated service account.
 	List(ctx context.Context) ([]*Organization, error)
+
+	// Describes an organization.
 	Describe(ctx context.Context, organizationId string) (*Organization, error)
+
+	// Updates an organization.
 	Update(ctx context.Context, organizationId string, in *UpdateOrganizationParams) (*Organization, error)
+
+	// Deletes an organization.
 	Delete(ctx context.Context, organizationId string) error
 }
 
+// [APIKeyClient] defines operations for managing API keys within a project.
 type APIKeyClient interface {
+	// Creates a new API key.
 	Create(ctx context.Context, projectId string, in *CreateAPIKeyParams) (*APIKeyWithSecret, error)
+
+	// Updates an existing API key.
 	Update(ctx context.Context, apiKeyId string, in *UpdateAPIKeyParams) (*APIKey, error)
+
+	// Lists all API keys within a project.
 	List(ctx context.Context, projectId string) ([]*APIKey, error)
+
+	// Describes an API key.
 	Describe(ctx context.Context, apiKeyId string) (*APIKey, error)
+
+	// Deletes an API key.
 	Delete(ctx context.Context, apiKeyId string) error
 }
 
+// [NewAdminClientParams] contains parameters used to configure the [AdminClient].
+// You must provide a client ID and secret either directly or via environment
+// variables (PINECONE_CLIENT_ID and PINECONE_CLIENT_SECRET).
 type NewAdminClientParams struct {
-	ClientId     string
+	// The OAuth client ID used for authentication.
+	ClientId string
+
+	// The OAuth client secret used for authentication.
 	ClientSecret string
-	Headers      *map[string]string
-	RestClient   *http.Client
-	SourceTag    *string
+
+	// (Optional) Additional headers to include in the request.
+	Headers *map[string]string
+
+	// (Optional)The HTTP client to use for the request.
+	RestClient *http.Client
+
+	// (Optional)The source tag to include in the request.
+	SourceTag *string
 }
 
+// [NewAdminClient] returns a new [AdminClient] using the given parameters,
+// using context.Background as the default context. It validates the client ID and secret
+// from the input or environment, authenticates, and constructs an authorized [AdminClient].
 func NewAdminClient(in NewAdminClientParams) (*AdminClient, error) {
 	return NewAdminClientWithContext(context.Background(), in)
 }
 
+// [NewAdminClientWithContext] returns a new [AdminClient] using the provided
+// context and parameters. This function allows for finer control over timeout, and
+// cancellation of the authentication request. It validates the client ID and secret
+// from the input or environment, authenticates, and constructs an authorized [AdminClient].
 func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*AdminClient, error) {
 	osClientId := os.Getenv("PINECONE_CLIENT_ID")
 	osClientSecret := os.Getenv("PINECONE_CLIENT_SECRET")
@@ -99,15 +157,17 @@ func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*A
 	}, nil
 }
 
+// [CreateProjectParams] contains parameters for creating a new project.
 type CreateProjectParams struct {
-	// ForceEncryptionWithCmek Whether to force encryption with a customer-managed encryption key (CMEK). Default is `false`.
+	// The name of the new project.
+	Name string `json:"name"`
+
+	// (Optional) Whether to force encryption with a customer-managed encryption key (CMEK). Default is `false`.
+	// Once enabled, CMEK encryption cannot be disabled.
 	ForceEncryptionWithCmek *bool `json:"force_encryption_with_cmek,omitempty"`
 
-	// MaxPods The maximum number of Pods that can be created in the project. Default is `0` (serverless only).
+	// (Optional) The maximum number of Pods that can be created in the project. Default is `0` (serverless only).
 	MaxPods *int `json:"max_pods,omitempty"`
-
-	// Name The name of the new project.
-	Name string `json:"name"`
 }
 
 func (p *projectClient) Create(ctx context.Context, in *CreateProjectParams) (*Project, error) {
@@ -140,15 +200,17 @@ func (p *projectClient) Create(ctx context.Context, in *CreateProjectParams) (*P
 	return toProject(adminProject), nil
 }
 
+// [UpdateProjectParams] contains parameters for updating an existing project.
 type UpdateProjectParams struct {
-	// ForceEncryptionWithCmek Whether to force encryption with a customer-managed encryption key (CMEK). Once enabled, CMEK encryption cannot be disabled.
+	// (Optional) The name of the new project.
+	Name *string `json:"name,omitempty"`
+
+	// (Optional) Whether to force encryption with a customer-managed encryption key (CMEK).
+	// Once enabled, CMEK encryption cannot be disabled.
 	ForceEncryptionWithCmek *bool `json:"force_encryption_with_cmek,omitempty"`
 
-	// MaxPods The maximum number of Pods that can be created in the project.
+	// (Optional) The maximum number of Pods that can be created in the project.
 	MaxPods *int `json:"max_pods,omitempty"`
-
-	// Name The name of the new project.
-	Name *string `json:"name,omitempty"`
 }
 
 func (p *projectClient) Update(ctx context.Context, projectId string, in *UpdateProjectParams) (*Project, error) {
@@ -312,7 +374,9 @@ func (o *organizationClient) Describe(ctx context.Context, organizationId string
 	return toOrganization(adminOrganization), nil
 }
 
+// [UpdateOrganizationParams] contains parameters for updating an existing organization.
 type UpdateOrganizationParams struct {
+	// (Optional) The new name of the organization.
 	Name *string `json:"name"`
 }
 
@@ -357,11 +421,14 @@ func (o *organizationClient) Delete(ctx context.Context, organizationId string) 
 	return nil
 }
 
+// [CreateAPIKeyParams] contains parameters for creating a new API key.
 type CreateAPIKeyParams struct {
-	// Name The name of the API key. The name must be 1-80 characters long.
+	// The name of the API key. The name must be 1-80 characters long.
 	Name string `json:"name"`
 
-	// Roles The roles to create the API key with. Default is `["ProjectEditor"]`.
+	// (Optional) The roles to create the API key with.
+	// Expected values: "ProjectEditor", "ProjectViewer", "ControlPlaneEditor", "ControlPlaneViewer", "DataPlaneEditor", "DataPlaneViewer"
+	// Default is `["ProjectEditor"]`.
 	Roles *[]string `json:"roles,omitempty"`
 }
 
@@ -399,11 +466,13 @@ func (a *apiKeyClient) Create(ctx context.Context, projectId string, in *CreateA
 	return toAPIKeyWithSecret(adminApiKey), nil
 }
 
+// [UpdateAPIKeyParams] contains parameters for updating an existing API key.
 type UpdateAPIKeyParams struct {
-	// Name A new name for the API key. The name must be 1-80 characters long. If omitted, the name will not be updated.
+	// (Optional) A new name for the API key. The name must be 1-80 characters long. If omitted, the name will not be updated.
 	Name *string `json:"name,omitempty"`
 
-	// Roles A new set of roles for the API key. Existing roles will be removed if not included.
+	// (Optional) A new set of roles for the API key. Existing roles will be removed if not included.
+	// Expected values:ProjectEditor, ProjectViewer, ControlPlaneEditor, ControlPlaneViewer, DataPlaneEditor, DataPlaneViewer
 	// If this field is omitted, the roles will not be updated.
 	Roles *[]string `json:"roles,omitempty"`
 }

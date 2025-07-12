@@ -9,6 +9,45 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func (ts *AdminIntegrationTests) TestOrganizations() {
+	var originalOrgName string
+	var orgId string
+
+	ts.T().Run("ListOrganizations", func(t *testing.T) {
+		orgs, err := ts.adminClient.Organization.List(context.Background())
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), orgs, "Expected organizations to be non-nil")
+		require.Greater(ts.T(), len(orgs), 0, "Expected at least one organization in list")
+		originalOrgName = orgs[0].Name
+		orgId = orgs[0].Id
+	})
+
+	ts.T().Run("DescribeOrganization", func(t *testing.T) {
+		descOrg, err := ts.adminClient.Organization.Describe(context.Background(), orgId)
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), descOrg, "Expected organization to be non-nil")
+		require.Equal(ts.T(), orgId, descOrg.Id, "Expected organization ID to match")
+	})
+
+	ts.T().Run("UpdateOrganization", func(t *testing.T) {
+		newName := originalOrgName + "-updated"
+		updatedOrg, err := ts.adminClient.Organization.Update(context.Background(), orgId, &UpdateOrganizationParams{
+			Name: &newName,
+		})
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), updatedOrg, "Expected organization to be non-nil")
+		require.Equal(ts.T(), newName, updatedOrg.Name, "Expected organization name to match")
+
+		_, err = ts.adminClient.Organization.Update(context.Background(), orgId, &UpdateOrganizationParams{
+			Name: &originalOrgName,
+		})
+		require.NoError(ts.T(), err)
+	})
+
+	// Service accounts are associated with a single organization, and cannot create new ones currently.
+	// Skip explicitly testing DeleteOrganization for now.
+}
+
 func (ts *AdminIntegrationTests) TestProjectsAndAPIKeys() {
 	// Test project operations
 	projectName := fmt.Sprintf("test-project-%s", uuid.New().String()[:6])
@@ -119,43 +158,4 @@ func (ts *AdminIntegrationTests) TestProjectsAndAPIKeys() {
 		require.Contains(ts.T(), err.Error(), "Project")
 		require.Contains(ts.T(), err.Error(), "not found")
 	})
-}
-
-func (ts *AdminIntegrationTests) TestOrganizations() {
-	var originalOrgName string
-	var orgId string
-
-	ts.T().Run("ListOrganizations", func(t *testing.T) {
-		orgs, err := ts.adminClient.Organization.List(context.Background())
-		require.NoError(ts.T(), err)
-		require.NotNil(ts.T(), orgs, "Expected organizations to be non-nil")
-		require.Greater(ts.T(), len(orgs), 0, "Expected at least one organization in list")
-		originalOrgName = orgs[0].Name
-		orgId = orgs[0].Id
-	})
-
-	ts.T().Run("DescribeOrganization", func(t *testing.T) {
-		descOrg, err := ts.adminClient.Organization.Describe(context.Background(), orgId)
-		require.NoError(ts.T(), err)
-		require.NotNil(ts.T(), descOrg, "Expected organization to be non-nil")
-		require.Equal(ts.T(), orgId, descOrg.Id, "Expected organization ID to match")
-	})
-
-	ts.T().Run("UpdateOrganization", func(t *testing.T) {
-		newName := originalOrgName + "-updated"
-		updatedOrg, err := ts.adminClient.Organization.Update(context.Background(), orgId, &UpdateOrganizationParams{
-			Name: &newName,
-		})
-		require.NoError(ts.T(), err)
-		require.NotNil(ts.T(), updatedOrg, "Expected organization to be non-nil")
-		require.Equal(ts.T(), newName, updatedOrg.Name, "Expected organization name to match")
-
-		_, err = ts.adminClient.Organization.Update(context.Background(), orgId, &UpdateOrganizationParams{
-			Name: &originalOrgName,
-		})
-		require.NoError(ts.T(), err)
-	})
-
-	// Service accounts are associated with a single organization, and cannot create new ones currently.
-	// Skip explicitly testing DeleteOrganization for now.
 }
