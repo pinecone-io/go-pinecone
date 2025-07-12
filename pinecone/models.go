@@ -630,35 +630,35 @@ type RestoreJobList struct {
 
 // [Project] represents the details of a project.
 type Project struct {
+	// The name of the project.
+	Name string `json:"name"`
+
+	// The unique ID of the project.
+	Id string `json:"id"`
+
+	// The unique ID of the organization that the project belongs to.
+	OrganizationId string `json:"organization_id"`
+
 	// The date and time when the project was created.
 	CreatedAt *time.Time `json:"created_at,omitempty"`
 
 	// Whether to force encryption with a customer-managed encryption key (CMEK).
 	ForceEncryptionWithCmek bool `json:"force_encryption_with_cmek"`
 
-	// The unique ID of the project.
-	Id string `json:"id"`
-
 	// The maximum number of Pods that can be created in the project.
 	MaxPods int `json:"max_pods"`
-
-	// The name of the project.
-	Name string `json:"name"`
-
-	// The unique ID of the organization that the project belongs to.
-	OrganizationId string `json:"organization_id"`
 }
 
 // [Organization] represents the details of an organization.
 type Organization struct {
-	// The date and time when the organization was created.
-	CreatedAt time.Time `json:"created_at"`
+	// The name of the organization.
+	Name string `json:"name"`
 
 	// The unique ID of the organization.
 	Id string `json:"id"`
 
-	// The name of the organization.
-	Name string `json:"name"`
+	// The date and time when the organization was created.
+	CreatedAt time.Time `json:"created_at"`
 
 	// The current payment status of the organization.
 	PaymentStatus string `json:"payment_status"`
@@ -672,11 +672,11 @@ type Organization struct {
 
 // [APIKey] represents the details of an API key without the secret.
 type APIKey struct {
-	// The unique ID of the API key.
-	Id string `json:"id"`
-
 	// The name of the API key.
 	Name string `json:"name"`
+
+	// The unique ID of the API key.
+	Id string `json:"id"`
 
 	// The ID of the project containing the API key.
 	ProjectId string `json:"project_id"`

@@ -54,12 +54,18 @@ func (ts *AdminIntegrationTests) TestProjectsAndAPIKeys() {
 	var newProject *Project
 	var err error
 	ts.T().Run("CreateProject", func(t *testing.T) {
+		maxPods := 8
+		forceEncryptionWithCmek := true
 		newProject, err = ts.adminClient.Project.Create(context.Background(), &CreateProjectParams{
-			Name: projectName,
+			Name:                    projectName,
+			MaxPods:                 &maxPods,
+			ForceEncryptionWithCmek: &forceEncryptionWithCmek,
 		})
 		require.NoError(ts.T(), err)
 		require.NotNil(ts.T(), newProject, "Expected project to be non-nil")
 		require.Equal(ts.T(), projectName, newProject.Name, "Expected project name to match")
+		require.Equal(ts.T(), maxPods, newProject.MaxPods, "Expected max pods to match")
+		require.Equal(ts.T(), forceEncryptionWithCmek, newProject.ForceEncryptionWithCmek, "Expected force encryption with CMEK to match")
 	})
 
 	ts.T().Run("DescribeProject", func(t *testing.T) {
@@ -71,12 +77,17 @@ func (ts *AdminIntegrationTests) TestProjectsAndAPIKeys() {
 
 	ts.T().Run("UpdateProject", func(t *testing.T) {
 		newName := projectName + "-updated"
+		newMaxPods := 10
 		updatedProject, err := ts.adminClient.Project.Update(context.Background(), newProject.Id, &UpdateProjectParams{
-			Name: &newName,
+			Name:    &newName,
+			MaxPods: &newMaxPods,
 		})
 		require.NoError(ts.T(), err)
 		require.NotNil(ts.T(), updatedProject, "Expected project to be non-nil")
 		require.Equal(ts.T(), newName, updatedProject.Name, "Expected project name to match")
+
+		updatedProject, err = ts.adminClient.Project.Describe(context.Background(), updatedProject.Id)
+		require.Equal(ts.T(), newMaxPods, updatedProject.MaxPods, "Expected max pods to match")
 	})
 
 	ts.T().Run("ListProjects", func(t *testing.T) {
@@ -99,12 +110,15 @@ func (ts *AdminIntegrationTests) TestProjectsAndAPIKeys() {
 	var newAPIKey *APIKey
 
 	ts.T().Run("CreateAPIKey", func(t *testing.T) {
+		roles := []string{"ProjectEditor", "ProjectViewer", "ControlPlaneEditor", "ControlPlaneViewer"}
 		apiKeyWithSecret, err := ts.adminClient.APIKey.Create(context.Background(), newProject.Id, &CreateAPIKeyParams{
-			Name: apiKeyName,
+			Name:  apiKeyName,
+			Roles: &roles,
 		})
 		require.NoError(ts.T(), err)
 		require.NotNil(ts.T(), apiKeyWithSecret, "Expected API key to be non-nil")
 		require.Equal(ts.T(), apiKeyName, apiKeyWithSecret.Key.Name, "Expected API key name to match")
+		require.ElementsMatch(ts.T(), roles, apiKeyWithSecret.Key.Roles, "Expected API key roles to match")
 		newAPIKey = &apiKeyWithSecret.Key
 	})
 
@@ -132,12 +146,14 @@ func (ts *AdminIntegrationTests) TestProjectsAndAPIKeys() {
 
 	ts.T().Run("UpdateAPIKey", func(t *testing.T) {
 		newName := apiKeyName + "-updated"
+		newRoles := []string{"ProjectEditor", "ProjectViewer", "ControlPlaneEditor", "ControlPlaneViewer"}
 		updatedAPIKey, err := ts.adminClient.APIKey.Update(context.Background(), newAPIKey.Id, &UpdateAPIKeyParams{
 			Name: &newName,
 		})
 		require.NoError(ts.T(), err)
 		require.NotNil(ts.T(), updatedAPIKey, "Expected API key to be non-nil")
 		require.Equal(ts.T(), newName, updatedAPIKey.Name, "Expected API key name to match")
+		require.ElementsMatch(ts.T(), newRoles, updatedAPIKey.Roles, "Expected API key roles to match")
 	})
 
 	ts.T().Run("DeleteAPIKey", func(t *testing.T) {

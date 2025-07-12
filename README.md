@@ -134,14 +134,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/pinecone-io/go-pinecone/pinecone/admin"
+	"github.com/pinecone-io/go-pinecone/v4/pinecone"
 )
 
 func main() {
 	ctx := context.Background()
 
 	// Create an AdminClient using your credentials
-	adminClient, err := admin.NewAdminClient(admin.NewAdminClientParams{
+	adminClient, err := pinecone.NewAdminClient(pinecone.NewAdminClientParams{
 		ClientId:     "YOUR_CLIENT_ID",
 		ClientSecret: "YOUR_CLIENT_SECRET",
 	})
@@ -150,7 +150,7 @@ func main() {
 	}
 
 	// Create a new project
-	project, err := adminClient.Project.Create(ctx, &admin.CreateProjectParams{
+	project, err := adminClient.Project.Create(ctx, &pinecone.CreateProjectParams{
 		Name: "example-project",
 	})
 	if err != nil {
@@ -159,7 +159,7 @@ func main() {
 	fmt.Printf("Created project: %s\n", project.Name)
 
 	// Create a new API within that project
-	apiKey, err := adminClient.APIKey.Create(ctx, project.Id, &admin.CreateAPIKeyParams{
+	apiKey, err := adminClient.APIKey.Create(ctx, project.Id, &pinecone.CreateAPIKeyParams{
 		Name: "example-api-key",
 	})
 	if err != nil {

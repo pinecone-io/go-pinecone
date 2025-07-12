@@ -419,7 +419,9 @@ func (p *projectClient) Update(ctx context.Context, projectId string, in *Update
 	}
 
 	request := admin.UpdateProjectRequest{
-		Name: in.Name,
+		Name:                    in.Name,
+		MaxPods:                 in.MaxPods,
+		ForceEncryptionWithCmek: in.ForceEncryptionWithCmek,
 	}
 
 	res, err := p.restClient.UpdateProject(ctx, projectIdUUID, request)
@@ -683,7 +685,8 @@ func (a *apiKeyClient) Update(ctx context.Context, apiKeyId string, in *UpdateAP
 	}
 
 	request := admin.UpdateAPIKeyRequest{
-		Name: in.Name,
+		Name:  in.Name,
+		Roles: in.Roles,
 	}
 
 	res, err := a.restClient.UpdateApiKey(ctx, apiKeyIdUUID, request)
