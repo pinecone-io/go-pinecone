@@ -13,9 +13,10 @@ visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v4/pinecone.
 
 go-pinecone contains
 
-- gRPC bindings for [Data Plane](https://docs.pinecone.io/reference/api/2024-07/data-plane) operations
-- REST bindings for [Control Plane](https://docs.pinecone.io/reference/api/2024-07/control-plane)
+- gRPC bindings for [Data Plane](https://docs.pinecone.io/reference/api/2025-04/data-plane) operations
+- REST bindings for [Control Plane](https://docs.pinecone.io/reference/api/2025-04/control-plane)
   operations
+- REST bindings for [Admin API](https://docs.pinecone.io/reference/api/2025-04/admin/)
 
 See the [Pinecone API Docs](https://docs.pinecone.io/reference/) for more information.
 
@@ -43,12 +44,12 @@ For more information on setting up a Go project, see the [Go documentation](http
 
 ## Usage
 
-### Initializing the client
+### Initializing a Client
 
 **Authenticating via an API key**
 
-When initializing the client with a Pinecone API key, you must construct a `NewClientParams` object and pass it to the
-`NewClient` function.
+When initializing a `Client` with a Pinecone API key, you must construct a `NewClientParams` object and pass it to the
+`NewClient` function which returns `Client`.
 
 It's recommended that you set your Pinecone API key as an environment variable (`"PINECONE_API_KEY"`) and access it that
 way. Alternatively, you can pass it in your code directly.
@@ -110,6 +111,75 @@ func main() {
 	} else {
 		fmt.Println("Successfully created a new Client object!")
 	}
+}
+```
+
+### Initializing an AdminClient (Admin API)
+
+When initializing an `AdminClient` you must construct a `NewAdminClientParams` object and pass it to the
+`NewAdminClient` or `NewAdminClientWithContext` functions which return `AdminClient`.
+
+`AdminClient` is a struct used for accessing the Pinecone Admin API. A prerequisite for using this class is to have a [service account](https://docs.pinecone.io/guides/organizations/manage-service-accounts). To create a service
+account, visit the [Pinecone web console](https://app.pinecone.io) and navigate to the `Access > Service Accounts` section.
+
+**Authenticating via client ID and secret**
+
+After creating a service account, you will be provided with a client ID and secret. These values can be passed via the `NewAdminClientParams` struct, or by setting the `PINECONE_CLIENT_ID` and `PINECONE_CLIENT_SECRET` environment variables. The `NewAdminClient` function handles the authentication handshake, and returns an authenticated `AdminClient`.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/pinecone-io/go-pinecone/pinecone/admin"
+)
+
+func main() {
+	ctx := context.Background()
+
+	// Create an AdminClient using your credentials
+	adminClient, err := admin.NewAdminClient(admin.NewAdminClientParams{
+		ClientId:     "YOUR_CLIENT_ID",
+		ClientSecret: "YOUR_CLIENT_SECRET",
+	})
+	if err != nil {
+		log.Fatalf("failed to create AdminClient: %v", err)
+	}
+
+	// Create a new project
+	project, err := adminClient.Project.Create(ctx, &admin.CreateProjectParams{
+		Name: "example-project",
+	})
+	if err != nil {
+		log.Fatalf("failed to create project: %v", err)
+	}
+	fmt.Printf("Created project: %s\n", project.Name)
+
+	// Create a new API within that project
+	apiKey, err := adminClient.APIKey.Create(ctx, project.Id, &admin.CreateAPIKeyParams{
+		Name: "example-api-key",
+	})
+	if err != nil {
+		log.Fatalf("failed to create API key: %v", err)
+	}
+	fmt.Printf("Created API key: %s\n", apiKey.Id)
+
+	// List all projects
+	projects, err := adminClient.Project.List(ctx)
+	if err != nil {
+		log.Fatalf("failed to list projects: %v", err)
+	}
+	fmt.Printf("You have %d project(s)\n", len(projects))
+
+	// List API keys for the created project
+	apiKeys, err := adminClient.APIKey.List(ctx, project.Id)
+	if err != nil {
+		log.Fatalf("failed to list API keys: %v", err)
+	}
+	fmt.Printf("Project '%s' has %d API key(s)\n", project.Name, len(apiKeys))
 }
 ```
 
