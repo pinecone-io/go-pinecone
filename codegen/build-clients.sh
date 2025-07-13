@@ -6,6 +6,7 @@ version=$1 # e.g. 2024-07
 db_control_module="db_control"
 db_data_module="db_data"
 inference_module="inference"
+admin_module="admin"
 
 # generated grpc output destination paths
 # db_data_destination must align with the option go_package in the proto file: 
@@ -13,6 +14,7 @@ inference_module="inference"
 db_data_destination="internal/gen/${db_data_module}"
 db_control_destination="internal/gen/${db_control_module}"
 inference_destination="internal/gen/${inference_module}"
+admin_destination="internal/gen/${admin_module}"
 
 # version file
 version_file="internal/gen/api_version.go"
@@ -22,6 +24,7 @@ db_data_rest_destination="${db_data_destination}/rest"
 db_data_oas_file="${db_data_rest_destination}/${db_data_module}_${version}.oas.go"
 db_control_oas_file="${db_control_destination}/${db_control_module}_${version}.oas.go"
 inference_oas_file="${inference_destination}/${inference_module}_${version}.oas.go"
+admin_oas_file="${admin_destination}/${admin_module}_${version}.oas.go"
 
 set -eux -o pipefail
 
@@ -108,6 +111,11 @@ generate_oas_client $db_control_module $db_control_oas_file
 rm -rf "${inference_destination}"
 mkdir -p "${inference_destination}"
 generate_oas_client $inference_module $inference_oas_file
+
+# Generate admin oas client
+rm -rf "${admin_destination}"
+mkdir -p "${admin_destination}"
+generate_oas_client $admin_module $admin_oas_file
 
 # Generate db_data oas and proto clients
 rm -rf "${db_data_destination}"

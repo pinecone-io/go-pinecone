@@ -30,6 +30,13 @@ type IntegrationTests struct {
 	namespaces     []string
 }
 
+type AdminIntegrationTests struct {
+	suite.Suite
+	clientId     string
+	clientSecret string
+	adminClient  *AdminClient
+}
+
 func (ts *IntegrationTests) SetupSuite() {
 	ctx := context.Background()
 
