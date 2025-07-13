@@ -17,7 +17,7 @@ import (
 	"github.com/pinecone-io/go-pinecone/v4/internal/useragent"
 )
 
-// [AdminClient] provides access to Pinecone's administrative APIs, including
+// [AdminClient] provides access to Pinecone's administrative APIs, which supports
 // managing projects, organizations, and API keys. It is constructed using
 // [NewAdminClient] or [NewAdminClientWithContext].
 type AdminClient struct {
@@ -47,7 +47,7 @@ type ProjectClient interface {
 	// Example:
 	//
 	//	ctx := context.Background()
-	//	project, err := adminClient.Project.Create(ctx, &CreateProjectParams{
+	//	project, err := adminClient.Project.Create(ctx, &pinecone.CreateProjectParams{
 	//		Name: "example-project",
 	//	})
 	//	if err != nil {
@@ -66,7 +66,7 @@ type ProjectClient interface {
 	//
 	// Example:
 	//
-	//	project, err := adminClient.Project.Update(ctx, "project-id", &UpdateProjectParams{
+	//	project, err := adminClient.Project.Update(ctx, "project-id", &pinecone.UpdateProjectParams{
 	//		Name: "renamed-project",
 	//	})
 	//	if err != nil {
@@ -105,7 +105,7 @@ type ProjectClient interface {
 	//	}
 	Describe(ctx context.Context, projectId string) (*Project, error)
 
-	// Delete removes a project by ID.
+	// Deletes a project by ID.
 	//
 	// Parameters:
 	//   - ctx: The request context.
@@ -166,7 +166,7 @@ type OrganizationClient interface {
 	//
 	// Example:
 	//
-	//	org, err := adminClient.Organization.Update(ctx, "organization-id", &UpdateOrganizationParams{
+	//	org, err := adminClient.Organization.Update(ctx, "organization-id", &pinecone.UpdateOrganizationParams{
 	//		Name: "Renamed Org",
 	//	})
 	//	if err != nil {
@@ -204,7 +204,7 @@ type APIKeyClient interface {
 	//
 	// Example:
 	//
-	//	apiKeyWithSecret, err := adminClient.APIKey.Create(ctx, "project-id", &CreateAPIKeyParams{
+	//	apiKeyWithSecret, err := adminClient.APIKey.Create(ctx, "project-id", &pinecone.CreateAPIKeyParams{
 	//		Name: "my-api-key",
 	//	})
 	//	if err != nil {
@@ -223,7 +223,7 @@ type APIKeyClient interface {
 	//
 	// Example:
 	//
-	//	apiKey, err := adminClient.APIKey.Update(ctx, "api-key-id", &UpdateAPIKeyParams{
+	//	apiKey, err := adminClient.APIKey.Update(ctx, "api-key-id", &pinecone.UpdateAPIKeyParams{
 	//		Name: "updated-name",
 	//	})
 	//	if err != nil {
