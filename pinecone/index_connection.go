@@ -1895,12 +1895,14 @@ func toImport(importModel *db_data_rest.ImportModel) *Import {
 	}
 
 	return &Import{
-		Id:         *importModel.Id,
-		Uri:        *importModel.Uri,
-		Status:     ImportStatus(*importModel.Status),
-		CreatedAt:  importModel.CreatedAt,
-		FinishedAt: importModel.FinishedAt,
-		Error:      importModel.Error,
+		Id:              *importModel.Id,
+		Uri:             *importModel.Uri,
+		Status:          ImportStatus(*importModel.Status),
+		CreatedAt:       importModel.CreatedAt,
+		FinishedAt:      importModel.FinishedAt,
+		Error:           importModel.Error,
+		PercentComplete: derefOrDefault(importModel.PercentComplete, 0),
+		RecordsImported: derefOrDefault(importModel.RecordsImported, 0),
 	}
 }
 
