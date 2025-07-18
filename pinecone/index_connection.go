@@ -1901,6 +1901,8 @@ func toImport(importModel *db_data_rest.ImportModel) *Import {
 		CreatedAt:  importModel.CreatedAt,
 		FinishedAt: importModel.FinishedAt,
 		Error:      importModel.Error,
+		PercentComplete: derefOrDefault(importModel.PercentComplete, 0),
+		RecordsImported: derefOrDefault(importModel.RecordsImported, 0),
 	}
 }
 
