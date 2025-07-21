@@ -608,7 +608,7 @@ func main() {
 
 ### Describe index statistics
 
-The following examlpe describes the statistics of an index by name.
+The following example describes the statistics of an index by name.
 
 ```go
 package main

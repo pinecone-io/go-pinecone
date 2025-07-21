@@ -2055,7 +2055,7 @@ type EmbedResponse struct {
 //	    if err != nil {
 //		       log.Fatalf("Failed to embed: %v", err)
 //	    } else {
-//		       fmt.Printf("Successfull generated embeddings: %+v", res)
+//		       fmt.Printf("Successfully generated embeddings: %+v", res)
 //	    }
 func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedResponse, error) {
 	if len(in.TextInputs) == 0 {
