@@ -573,6 +573,9 @@ type ServerlessSpec struct {
 
 	// Region The region where you would like your index to be created.
 	Region string `json:"region"`
+
+	// SourceCollection The name of the collection to be used as the source for the index.
+	SourceCollection *string `json:"source_collection,omitempty"`
 }
 
 // ServerlessSpecCloud The public cloud where you would like your index hosted.
