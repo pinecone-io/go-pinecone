@@ -2377,8 +2377,9 @@ func toIndex(idx *db_control.IndexModel) *Index {
 	}
 	if idx.Spec.Serverless != nil {
 		spec.Serverless = &ServerlessSpec{
-			Cloud:  Cloud(idx.Spec.Serverless.Cloud),
-			Region: idx.Spec.Serverless.Region,
+			Cloud:            Cloud(idx.Spec.Serverless.Cloud),
+			Region:           idx.Spec.Serverless.Region,
+			SourceCollection: idx.Spec.Serverless.SourceCollection,
 		}
 	}
 	status := &IndexStatus{
