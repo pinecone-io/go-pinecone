@@ -631,6 +631,8 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //   - VectorType: (Optional) The index vector type. You can use `dense` or `sparse`. If `dense`, the vector dimension must be specified.
 //     If `sparse`, the vector dimension should not be specified, and the Metric must be set to `dotproduct`. Defaults to `dense`.
 //   - Tags: (Optional) A map of tags to associate with the Index.
+//   - SourceCollection: (Optional) The name of the [Collection] to use as the source for the index. NOTE: Collections can only be created
+//     from pods-based indexes.
 //
 // To create a new Serverless Index, use the [Client.CreateServerlessIndex] method.
 //
@@ -681,6 +683,7 @@ type CreateServerlessIndexRequest struct {
 	Dimension          *int32
 	VectorType         *string
 	Tags               *IndexTags
+	SourceCollection   *string
 }
 
 // [Client.CreateServerlessIndex] creates and initializes a new serverless Index via the specified [Client].
@@ -772,8 +775,9 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 		VectorType:         vectorType,
 		Spec: db_control.IndexSpec{
 			Serverless: &db_control.ServerlessSpec{
-				Cloud:  db_control.ServerlessSpecCloud(in.Cloud),
-				Region: in.Region,
+				Cloud:            db_control.ServerlessSpecCloud(in.Cloud),
+				Region:           in.Region,
+				SourceCollection: in.SourceCollection,
 			},
 		},
 		Tags: tags,
@@ -2373,8 +2377,9 @@ func toIndex(idx *db_control.IndexModel) *Index {
 	}
 	if idx.Spec.Serverless != nil {
 		spec.Serverless = &ServerlessSpec{
-			Cloud:  Cloud(idx.Spec.Serverless.Cloud),
-			Region: idx.Spec.Serverless.Region,
+			Cloud:            Cloud(idx.Spec.Serverless.Cloud),
+			Region:           idx.Spec.Serverless.Region,
+			SourceCollection: idx.Spec.Serverless.SourceCollection,
 		}
 	}
 	status := &IndexStatus{
