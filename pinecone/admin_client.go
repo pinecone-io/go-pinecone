@@ -34,261 +34,84 @@ type AdminClient struct {
 	APIKey APIKeyClient
 }
 
-// [ProjectClient] defines operations for managing Pinecone projects.
+// [ProjectClient] provides an interface for managing Pinecone projects.
 type ProjectClient interface {
-	// Creates a new project.
-	//
-	// Parameters:
-	//   - ctx: The request context.
-	//   - in: A pointer to [CreateProjectParams] containing the new project's configuration.
-	//
-	// Returns a pointer to a [Project] or an error.
-	//
-	// Example:
-	//
-	//	ctx := context.Background()
-	//	project, err := adminClient.Project.Create(ctx, &pinecone.CreateProjectParams{
-	//		Name: "example-project",
-	//	})
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
+	// Create a new project.
 	Create(ctx context.Context, in *CreateProjectParams) (*Project, error)
 
-	// Updates an existing project by ID.
-	//
-	// Parameters:
-	//   - ctx: The request context.
-	//   - projectId: The ID of the project to update.
-	//   - in: A pointer to [UpdateProjectParams] containing the updated project configuration.
-	//
-	// Returns the updated [Project] or an error.
-	//
-	// Example:
-	//
-	//	project, err := adminClient.Project.Update(ctx, "project-id", &pinecone.UpdateProjectParams{
-	//		Name: "renamed-project",
-	//	})
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
+	// Update an existing project by ID.
 	Update(ctx context.Context, projectId string, in *UpdateProjectParams) (*Project, error)
 
-	// Lists all projects available to the authenticated service account.
-	//
-	// Parameters:
-	//   - ctx: The request context.
-	//
-	// Returns a slice of [Project] objects or an error.
-	//
-	// Example:
-	//
-	//	projects, err := adminClient.Project.List(ctx)
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
+	// List all projects available to the authenticated service account.
 	List(ctx context.Context) ([]*Project, error)
 
-	// Describes an existing project by ID.
-	//
-	// Parameters:
-	//   - ctx: The request context.
-	//   - projectId: The ID of the project to describe.
-	//
-	// Returns a pointer to a [Project] or an error.
-	//
-	// Example:
-	//
-	//	project, err := adminClient.Project.Describe(ctx, "project-id")
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
+	// Describe an existing project by ID.
 	Describe(ctx context.Context, projectId string) (*Project, error)
 
-	// Deletes a project by ID.
-	//
-	// Parameters:
-	//   - ctx: The request context.
-	//   - projectId: The ID of the project to delete.
-	//
-	// Returns an error if deletion fails.
-	//
-	// Example:
-	//
-	//	err := adminClient.Project.Delete(ctx, "project-id")
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
+	// Delete a project by ID.
 	Delete(ctx context.Context, projectId string) error
 }
 
-// [OrganizationClient] defines operations for managing organizations.
+// [OrganizationClient] provides an interface for managing organizations.
 type OrganizationClient interface {
-	// Lists all organizations available to the authenticated service account.
-	//
-	// Parameters:
-	//   - ctx: The request context.
-	//
-	// Returns a slice of [Organization] objects or an error.
-	//
-	// Example:
-	//
-	//	orgs, err := adminClient.Organization.List(ctx)
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
+	// List all organizations available to the authenticated service account.
 	List(ctx context.Context) ([]*Organization, error)
 
-	// Describes an organization by ID.
-	//
-	// Parameters:
-	//   - ctx: The request context.
-	//   - organizationId: The ID of the organization to describe.
-	//
-	// Returns a pointer to an [Organization] or an error.
-	//
-	// Example:
-	//
-	//	org, err := adminClient.Organization.Describe(ctx, "organization-id")
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
+	// Describe an organization by ID.
 	Describe(ctx context.Context, organizationId string) (*Organization, error)
 
-	// Updates an existing organization by ID.
-	//
-	// Parameters:
-	//   - ctx: The request context.
-	//   - organizationId: The ID of the organization to update.
-	//   - in: A pointer to [UpdateOrganizationParams] containing updated fields.
-	//
-	// Returns the updated [Organization] or an error.
-	//
-	// Example:
-	//
-	//	org, err := adminClient.Organization.Update(ctx, "organization-id", &pinecone.UpdateOrganizationParams{
-	//		Name: "Renamed Org",
-	//	})
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
+	// Update an existing organization by ID.
 	Update(ctx context.Context, organizationId string, in *UpdateOrganizationParams) (*Organization, error)
 
-	// Deletes an organization by ID. All projects within the organization must be deleted first.
-	//
-	// Parameters:
-	//   - ctx: The request context.
-	//   - organizationId: The ID of the organization to delete.
-	//
-	// Returns an error if deletion fails.
-	//
-	// Example:
-	//
-	//	err := adminClient.Organization.Delete(ctx, "organization-id")
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
+	// Delete an organization by ID. All projects within the organization must be deleted first.
 	Delete(ctx context.Context, organizationId string) error
 }
 
-// [APIKeyClient] defines operations for managing API keys within a project.
+// [APIKeyClient] provides an interface for managing API keys within a project.
 type APIKeyClient interface {
-	// Creates a new API key.
-	//
-	// Parameters:
-	//   - ctx: The request context.
-	//   - projectId: The ID of the project in which to create the API key.
-	//   - in: A pointer to [CreateAPIKeyParams] containing the API key configuration.
-	//
-	// Returns a pointer to an [APIKeyWithSecret] or an error.
-	//
-	// Example:
-	//
-	//	apiKeyWithSecret, err := adminClient.APIKey.Create(ctx, "project-id", &pinecone.CreateAPIKeyParams{
-	//		Name: "my-api-key",
-	//	})
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
+	// Create a new API key.
 	Create(ctx context.Context, projectId string, in *CreateAPIKeyParams) (*APIKeyWithSecret, error)
 
-	// Updates an existing API key by ID.
-	//
-	// Parameters:
-	//   - ctx: The request context.
-	//   - apiKeyId: The ID of the API key to update.
-	//   - in: A pointer to [UpdateAPIKeyParams] containing updated fields.
-	//
-	// Returns the updated [APIKey] or an error.
-	//
-	// Example:
-	//
-	//	apiKey, err := adminClient.APIKey.Update(ctx, "api-key-id", &pinecone.UpdateAPIKeyParams{
-	//		Name: "updated-name",
-	//	})
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
+	// Update an existing API key by ID.
 	Update(ctx context.Context, apiKeyId string, in *UpdateAPIKeyParams) (*APIKey, error)
 
-	// Lists all API keys within a project.
-	//
-	// Parameters:
-	//   - ctx: The request context.
-	//   - projectId: The ID of the project to list API keys for.
-	//
-	// Returns a slice of [APIKey] objects or an error.
-	//
-	// Example:
-	//
-	//	apiKeys, err := adminClient.APIKey.List(ctx, "project-id")
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
+	// List all API keys within a project by project ID.
 	List(ctx context.Context, projectId string) ([]*APIKey, error)
 
-	// Describes an API key by ID.
-	//
-	// Parameters:
-	//   - ctx: The request context.
-	//   - apiKeyId: The ID of the API key to describe.
-	//
-	// Returns a pointer to an [APIKey] or an error.
-	//
-	// Example:
-	//
-	//	apiKey, err := adminClient.APIKey.Describe(ctx, "api-key-id")
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
+	// Describe an API key by ID.
 	Describe(ctx context.Context, apiKeyId string) (*APIKey, error)
 
-	// Deletes an API key by ID.
-	//
-	// Parameters:
-	//   - ctx: The request context.
-	//   - apiKeyId: The ID of the API key to delete.
-	//
-	// Returns an error if deletion fails.
-	//
-	// Example:
-	//
-	//	err := adminClient.APIKey.Delete(ctx, "api-key-id")
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
+	// Delete an API key by ID.
 	Delete(ctx context.Context, apiKeyId string) error
 }
 
+// [DefaultProjectClient] is the default implementation of [ProjectClient].
+type DefaultProjectClient struct {
+	restClient *admin.Client
+}
+
+// [DefaultOrganizationClient] is the default implementation of [OrganizationClient].
+type DefaultOrganizationClient struct {
+	restClient *admin.Client
+}
+
+// [DefaultApiKeyClient] is the default implementation of [APIKeyClient].
+type DefaultApiKeyClient struct {
+	restClient *admin.Client
+}
+
 // [NewAdminClientParams] contains parameters used to configure the [AdminClient].
-// You must provide a client ID and secret either directly or via environment
-// variables (PINECONE_CLIENT_ID and PINECONE_CLIENT_SECRET).
+// You must provide either a client ID and secret, or an access token, either directly or via environment
+// variables (PINECONE_CLIENT_ID, PINECONE_CLIENT_SECRET, PINECONE_ACCESS_TOKEN).
 type NewAdminClientParams struct {
 	// The OAuth client ID used for authentication.
 	ClientId string
 
 	// The OAuth client secret used for authentication.
 	ClientSecret string
+
+	// The OAuth access token used for authentication.
+	AccessToken string
 
 	// (Optional) Additional headers to include in the request.
 	Headers *map[string]string
@@ -312,45 +135,57 @@ func NewAdminClient(in NewAdminClientParams) (*AdminClient, error) {
 // cancellation of the authentication request. It validates the client ID and secret
 // from the input or environment, authenticates, and constructs an authorized [AdminClient].
 func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*AdminClient, error) {
-	osClientId := os.Getenv("PINECONE_CLIENT_ID")
-	osClientSecret := os.Getenv("PINECONE_CLIENT_SECRET")
-	hasClientId := valueOrFallback(in.ClientId, osClientId) != ""
-	hasClientSecret := valueOrFallback(in.ClientSecret, osClientSecret) != ""
-
-	if !hasClientId {
-		return nil, fmt.Errorf("no ClientId provided, please pass an ClientId for authorization through NewAdminClientParams or set the PINECONE_CLIENT_ID environment variable")
-	}
-	if !hasClientSecret {
-		return nil, fmt.Errorf("no ClientSecret provided, please pass an ClientSecret for authorization through NewAdminClientParams or set the PINECONE_CLIENT_SECRET environment variable")
-	}
-
+	var authHeader string
 	clientOptions := buildAdminClientOptions(in)
 
-	authToken, err := getAuthToken(ctx, in.ClientId, in.ClientSecret, clientOptions...)
-	if err != nil {
-		return nil, err
+	accessToken := valueOrFallback(in.AccessToken, os.Getenv("PINECONE_ACCESS_TOKEN"))
+	if accessToken != "" {
+		// Use access token directly if provided
+		authHeader = fmt.Sprintf("Bearer %s", accessToken)
+	} else {
+		// Fall back to client ID and secret if access token is not provided
+		clientId := valueOrFallback(in.ClientId, os.Getenv("PINECONE_CLIENT_ID"))
+		clientSecret := valueOrFallback(in.ClientSecret, os.Getenv("PINECONE_CLIENT_SECRET"))
+		if clientId == "" {
+			return nil, fmt.Errorf("no ClientId provided, please pass an ClientId for authorization through NewAdminClientParams or set the PINECONE_CLIENT_ID environment variable")
+		}
+		if clientSecret == "" {
+			return nil, fmt.Errorf("no ClientSecret provided, please pass an ClientSecret for authorization through NewAdminClientParams or set the PINECONE_CLIENT_SECRET environment variable")
+		}
+
+		authToken, err := getAuthTokenFunc(ctx, in.ClientId, in.ClientSecret, clientOptions...)
+		if err != nil {
+			return nil, err
+		}
+		authHeader = fmt.Sprintf("Bearer %s", authToken)
 	}
 
-	authProvider := provider.NewHeaderProvider("Authorization", fmt.Sprintf("Bearer %s", authToken))
+	authProvider := provider.NewHeaderProvider("Authorization", authHeader)
 	clientOptions = append(clientOptions, admin.WithRequestEditorFn(authProvider.Intercept))
 
-	adminClient, err := admin.NewClient("https://api.pinecone.io", clientOptions...)
+	adminClient, err := newAdminClient("https://api.pinecone.io", clientOptions...)
 	if err != nil {
 		return nil, err
 	}
 
 	return &AdminClient{
-		Project: &projectClient{
+		Project: &DefaultProjectClient{
 			restClient: adminClient,
 		},
-		Organization: &organizationClient{
+		Organization: &DefaultOrganizationClient{
 			restClient: adminClient,
 		},
-		APIKey: &apiKeyClient{
+		APIKey: &DefaultApiKeyClient{
 			restClient: adminClient,
 		},
 	}, nil
 }
+
+// testing abstractions
+var (
+	getAuthTokenFunc = getAuthToken
+	newAdminClient   = admin.NewClient
+)
 
 // [CreateProjectParams] contains parameters for creating a new project.
 type CreateProjectParams struct {
@@ -365,7 +200,24 @@ type CreateProjectParams struct {
 	MaxPods *int `json:"max_pods,omitempty"`
 }
 
-func (p *projectClient) Create(ctx context.Context, in *CreateProjectParams) (*Project, error) {
+// Creates a new project.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - in: A pointer to [CreateProjectParams] containing the new project's configuration.
+//
+// Returns a pointer to a [Project] or an error.
+//
+// Example:
+//
+//	ctx := context.Background()
+//	project, err := adminClient.Project.Create(ctx, &pinecone.CreateProjectParams{
+//		Name: "example-project",
+//	})
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (p *DefaultProjectClient) Create(ctx context.Context, in *CreateProjectParams) (*Project, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*CreateProjectParams) cannot be nil")
 	}
@@ -408,7 +260,24 @@ type UpdateProjectParams struct {
 	MaxPods *int `json:"max_pods,omitempty"`
 }
 
-func (p *projectClient) Update(ctx context.Context, projectId string, in *UpdateProjectParams) (*Project, error) {
+// Updates an existing project by ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - projectId: The ID of the project to update.
+//   - in: A pointer to [UpdateProjectParams] containing the updated project configuration.
+//
+// Returns the updated [Project] or an error.
+//
+// Example:
+//
+//	project, err := adminClient.Project.Update(ctx, "project-id", &pinecone.UpdateProjectParams{
+//		Name: "renamed-project",
+//	})
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (p *DefaultProjectClient) Update(ctx context.Context, projectId string, in *UpdateProjectParams) (*Project, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*UpdateProjectParams) cannot be nil")
 	}
@@ -443,7 +312,20 @@ func (p *projectClient) Update(ctx context.Context, projectId string, in *Update
 	return toProject(adminProject), nil
 }
 
-func (p *projectClient) List(ctx context.Context) ([]*Project, error) {
+// Lists all projects available to the authenticated service account.
+//
+// Parameters:
+//   - ctx: The request context.
+//
+// Returns a slice of [Project] objects or an error.
+//
+// Example:
+//
+//	projects, err := adminClient.Project.List(ctx)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (p *DefaultProjectClient) List(ctx context.Context) ([]*Project, error) {
 	res, err := p.restClient.ListProjects(ctx)
 	if err != nil {
 		return nil, err
@@ -475,7 +357,21 @@ func (p *projectClient) List(ctx context.Context) ([]*Project, error) {
 	return projects, nil
 }
 
-func (p *projectClient) Describe(ctx context.Context, projectId string) (*Project, error) {
+// Describes an existing project by ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - projectId: The ID of the project to describe.
+//
+// Returns a pointer to a [Project] or an error.
+//
+// Example:
+//
+//	project, err := adminClient.Project.Describe(ctx, "project-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (p *DefaultProjectClient) Describe(ctx context.Context, projectId string) (*Project, error) {
 	projectIdUUID, err := uuid.Parse(projectId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid projectId: %w", err)
@@ -500,7 +396,21 @@ func (p *projectClient) Describe(ctx context.Context, projectId string) (*Projec
 	return toProject(adminProject), nil
 }
 
-func (p *projectClient) Delete(ctx context.Context, projectId string) error {
+// Deletes a project by ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - projectId: The ID of the project to delete.
+//
+// Returns an error if deletion fails.
+//
+// Example:
+//
+//	err := adminClient.Project.Delete(ctx, "project-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (p *DefaultProjectClient) Delete(ctx context.Context, projectId string) error {
 	projectIdUUID, err := uuid.Parse(projectId)
 	if err != nil {
 		return fmt.Errorf("invalid projectId: %w", err)
@@ -519,7 +429,20 @@ func (p *projectClient) Delete(ctx context.Context, projectId string) error {
 	return nil
 }
 
-func (o *organizationClient) List(ctx context.Context) ([]*Organization, error) {
+// Lists all organizations available to the authenticated service account.
+//
+// Parameters:
+//   - ctx: The request context.
+//
+// Returns a slice of [Organization] objects or an error.
+//
+// Example:
+//
+//	orgs, err := adminClient.Organization.List(ctx)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (o *DefaultOrganizationClient) List(ctx context.Context) ([]*Organization, error) {
 	res, err := o.restClient.ListOrganizations(ctx)
 	if err != nil {
 		return nil, err
@@ -551,7 +474,21 @@ func (o *organizationClient) List(ctx context.Context) ([]*Organization, error) 
 	return organizations, nil
 }
 
-func (o *organizationClient) Describe(ctx context.Context, organizationId string) (*Organization, error) {
+// Describes an organization by ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - organizationId: The ID of the organization to describe.
+//
+// Returns a pointer to an [Organization] or an error.
+//
+// Example:
+//
+//	org, err := adminClient.Organization.Describe(ctx, "organization-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (o *DefaultOrganizationClient) Describe(ctx context.Context, organizationId string) (*Organization, error) {
 	res, err := o.restClient.FetchOrganization(ctx, organizationId)
 	if err != nil {
 		return nil, err
@@ -577,7 +514,24 @@ type UpdateOrganizationParams struct {
 	Name *string `json:"name"`
 }
 
-func (o *organizationClient) Update(ctx context.Context, organizationId string, in *UpdateOrganizationParams) (*Organization, error) {
+// Updates an existing organization by ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - organizationId: The ID of the organization to update.
+//   - in: A pointer to [UpdateOrganizationParams] containing updated fields.
+//
+// Returns the updated [Organization] or an error.
+//
+// Example:
+//
+//	org, err := adminClient.Organization.Update(ctx, "organization-id", &pinecone.UpdateOrganizationParams{
+//		Name: "Renamed Org",
+//	})
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (o *DefaultOrganizationClient) Update(ctx context.Context, organizationId string, in *UpdateOrganizationParams) (*Organization, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*UpdateOrganizationParams) cannot be nil")
 	}
@@ -605,7 +559,21 @@ func (o *organizationClient) Update(ctx context.Context, organizationId string, 
 	return toOrganization(adminOrganization), nil
 }
 
-func (o *organizationClient) Delete(ctx context.Context, organizationId string) error {
+// Deletes an organization by ID. All projects within the organization must be deleted first.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - organizationId: The ID of the organization to delete.
+//
+// Returns an error if deletion fails.
+//
+// Example:
+//
+//	err := adminClient.Organization.Delete(ctx, "organization-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (o *DefaultOrganizationClient) Delete(ctx context.Context, organizationId string) error {
 	res, err := o.restClient.DeleteOrganization(ctx, organizationId)
 	if err != nil {
 		return err
@@ -629,7 +597,24 @@ type CreateAPIKeyParams struct {
 	Roles *[]string `json:"roles,omitempty"`
 }
 
-func (a *apiKeyClient) Create(ctx context.Context, projectId string, in *CreateAPIKeyParams) (*APIKeyWithSecret, error) {
+// Creates a new API key.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - projectId: The ID of the project in which to create the API key.
+//   - in: A pointer to [CreateAPIKeyParams] containing the API key configuration.
+//
+// Returns a pointer to an [APIKeyWithSecret] or an error.
+//
+// Example:
+//
+//	apiKeyWithSecret, err := adminClient.APIKey.Create(ctx, "project-id", &pinecone.CreateAPIKeyParams{
+//		Name: "my-api-key",
+//	})
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (a *DefaultApiKeyClient) Create(ctx context.Context, projectId string, in *CreateAPIKeyParams) (*APIKeyWithSecret, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*CreateAPIKeyParams) cannot be nil")
 	}
@@ -674,7 +659,24 @@ type UpdateAPIKeyParams struct {
 	Roles *[]string `json:"roles,omitempty"`
 }
 
-func (a *apiKeyClient) Update(ctx context.Context, apiKeyId string, in *UpdateAPIKeyParams) (*APIKey, error) {
+// Updates an existing API key by ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - apiKeyId: The ID of the API key to update.
+//   - in: A pointer to [UpdateAPIKeyParams] containing updated fields.
+//
+// Returns the updated [APIKey] or an error.
+//
+// Example:
+//
+//	apiKey, err := adminClient.APIKey.Update(ctx, "api-key-id", &pinecone.UpdateAPIKeyParams{
+//		Name: "updated-name",
+//	})
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (a *DefaultApiKeyClient) Update(ctx context.Context, apiKeyId string, in *UpdateAPIKeyParams) (*APIKey, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*UpdateAPIKeyParams) cannot be nil")
 	}
@@ -708,7 +710,21 @@ func (a *apiKeyClient) Update(ctx context.Context, apiKeyId string, in *UpdateAP
 	return toAPIKey(adminApiKey), nil
 }
 
-func (a *apiKeyClient) List(ctx context.Context, projectId string) ([]*APIKey, error) {
+// Lists all API keys within a project by project ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - projectId: The ID of the project to list API keys for.
+//
+// Returns a slice of [APIKey] objects or an error.
+//
+// Example:
+//
+//	apiKeys, err := adminClient.APIKey.List(ctx, "project-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (a *DefaultApiKeyClient) List(ctx context.Context, projectId string) ([]*APIKey, error) {
 	projectIdUUID, err := uuid.Parse(projectId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid projectId: %w", err)
@@ -744,7 +760,21 @@ func (a *apiKeyClient) List(ctx context.Context, projectId string) ([]*APIKey, e
 	return apiKeys, nil
 }
 
-func (a *apiKeyClient) Describe(ctx context.Context, apiKeyId string) (*APIKey, error) {
+// Describes an API key by ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - apiKeyId: The ID of the API key to describe.
+//
+// Returns a pointer to an [APIKey] or an error.
+//
+// Example:
+//
+//	apiKey, err := adminClient.APIKey.Describe(ctx, "api-key-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (a *DefaultApiKeyClient) Describe(ctx context.Context, apiKeyId string) (*APIKey, error) {
 	apiKeyIdUUID, err := uuid.Parse(apiKeyId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid apiKeyId: %w", err)
@@ -769,7 +799,21 @@ func (a *apiKeyClient) Describe(ctx context.Context, apiKeyId string) (*APIKey, 
 	return toAPIKey(adminApiKey), nil
 }
 
-func (a *apiKeyClient) Delete(ctx context.Context, apiKeyId string) error {
+// Deletes an API key by ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - apiKeyId: The ID of the API key to delete.
+//
+// Returns an error if deletion fails.
+//
+// Example:
+//
+//	err := adminClient.APIKey.Delete(ctx, "api-key-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (a *DefaultApiKeyClient) Delete(ctx context.Context, apiKeyId string) error {
 	apiKeyIdUUID, err := uuid.Parse(apiKeyId)
 	if err != nil {
 		return fmt.Errorf("invalid apiKeyId: %w", err)
@@ -786,18 +830,6 @@ func (a *apiKeyClient) Delete(ctx context.Context, apiKeyId string) error {
 	}
 
 	return nil
-}
-
-type projectClient struct {
-	restClient *admin.Client
-}
-
-type organizationClient struct {
-	restClient *admin.Client
-}
-
-type apiKeyClient struct {
-	restClient *admin.Client
 }
 
 type authTokenResponse struct {

@@ -3,13 +3,17 @@ package pinecone
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/pinecone-io/go-pinecone/v4/internal/gen/admin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func (ts *AdminIntegrationTests) TestOrganizations() {
+// Integration tests:
+func (ts *adminIntegrationTests) TestOrganizations() {
 	var originalOrgName string
 	var orgId string
 
@@ -48,7 +52,7 @@ func (ts *AdminIntegrationTests) TestOrganizations() {
 	// Skip explicitly testing DeleteOrganization for now.
 }
 
-func (ts *AdminIntegrationTests) TestProjectsAndAPIKeys() {
+func (ts *adminIntegrationTests) TestProjectsAndAPIKeys() {
 	// Test project operations
 	projectName := fmt.Sprintf("test-project-%s", uuid.New().String()[:6])
 	var newProject *Project
@@ -87,6 +91,7 @@ func (ts *AdminIntegrationTests) TestProjectsAndAPIKeys() {
 		require.Equal(ts.T(), newName, updatedProject.Name, "Expected project name to match")
 
 		updatedProject, err = ts.adminClient.Project.Describe(context.Background(), updatedProject.Id)
+		require.NoError(ts.T(), err)
 		require.Equal(ts.T(), newMaxPods, updatedProject.MaxPods, "Expected max pods to match")
 	})
 
@@ -174,4 +179,83 @@ func (ts *AdminIntegrationTests) TestProjectsAndAPIKeys() {
 		require.Contains(ts.T(), err.Error(), "Project")
 		require.Contains(ts.T(), err.Error(), "not found")
 	})
+}
+
+// Unit tests:
+func TestNewAdminClientWithContextUnit(t *testing.T) {
+	// grab global env vars, and unset so they don't interfere with unit tests
+	osClientId := os.Getenv("PINECONE_CLIENT_ID")
+	osClientSecret := os.Getenv("PINECONE_CLIENT_SECRET")
+	osAccessToken := os.Getenv("PINECONE_ACCESS_TOKEN")
+	os.Unsetenv("PINECONE_CLIENT_ID")
+	os.Unsetenv("PINECONE_CLIENT_SECRET")
+	os.Unsetenv("PINECONE_ACCESS_TOKEN")
+
+	ctx := context.Background()
+
+	t.Run("access token provided", func(t *testing.T) {
+		// mock admin.NewClient
+		called := false
+		newAdminClient = func(url string, opts ...admin.ClientOption) (*admin.Client, error) {
+			called = true
+			return &admin.Client{}, nil
+		}
+		defer func() { newAdminClient = admin.NewClient }()
+
+		in := NewAdminClientParams{
+			AccessToken: "test-token",
+		}
+		client, err := NewAdminClientWithContext(ctx, in)
+		assert.NoError(t, err)
+		assert.True(t, called)
+		assert.NotNil(t, client)
+	})
+
+	t.Run("client ID and secret provided", func(t *testing.T) {
+		clientId := "test-client-id"
+		clientSecret := "test-client-secret"
+
+		// mock admin.NewClient
+		newAdminClient = func(url string, opts ...admin.ClientOption) (*admin.Client, error) {
+			return &admin.Client{}, nil
+		}
+		defer func() { newAdminClient = admin.NewClient }()
+
+		// mock getAuthToken
+		getAuthTokenFunc = func(ctx context.Context, id, secret string, opts ...admin.ClientOption) (string, error) {
+			assert.Equal(t, clientId, id)
+			assert.Equal(t, clientSecret, secret)
+			return "mock-token", nil
+		}
+		defer func() { getAuthTokenFunc = getAuthToken }()
+
+		in := NewAdminClientParams{
+			ClientId:     clientId,
+			ClientSecret: clientSecret,
+		}
+		client, err := NewAdminClientWithContext(ctx, in)
+		assert.NoError(t, err)
+		assert.NotNil(t, client)
+	})
+
+	t.Run("missing client ID, secret, and access token", func(t *testing.T) {
+		in := NewAdminClientParams{}
+		client, err := NewAdminClientWithContext(ctx, in)
+		assert.Nil(t, client)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "no ClientId provided")
+
+		in = NewAdminClientParams{
+			ClientId: "test-client-id",
+		}
+		client, err = NewAdminClientWithContext(ctx, in)
+		assert.Nil(t, client)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "no ClientSecret provided")
+	})
+
+	// restore global env vars
+	os.Setenv("PINECONE_CLIENT_ID", osClientId)
+	os.Setenv("PINECONE_CLIENT_SECRET", osClientSecret)
+	os.Setenv("PINECONE_ACCESS_TOKEN", osAccessToken)
 }
