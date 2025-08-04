@@ -153,7 +153,7 @@ func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*A
 			return nil, fmt.Errorf("no ClientSecret provided, please pass an ClientSecret for authorization through NewAdminClientParams or set the PINECONE_CLIENT_SECRET environment variable")
 		}
 
-		authToken, err := getAuthTokenFunc(ctx, in.ClientId, in.ClientSecret, clientOptions...)
+		authToken, err := getAuthTokenFunc(ctx, clientId, clientSecret, clientOptions...)
 		if err != nil {
 			return nil, err
 		}
