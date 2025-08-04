@@ -40,7 +40,7 @@ func RunSuites(t *testing.T) {
 	serverlessIdx := buildServerlessTestIndex(client, "serverless-"+generateTestIndexName(), indexTags)
 	podIdx := buildPodTestIndex(client, "pods-"+generateTestIndexName(), indexTags)
 
-	podTestSuite := &IntegrationTests{
+	podTestSuite := &integrationTests{
 		apiKey:    apiKey,
 		indexType: "pods",
 		host:      podIdx.Host,
@@ -51,7 +51,7 @@ func RunSuites(t *testing.T) {
 		indexTags: &indexTags,
 	}
 
-	serverlessTestSuite := &IntegrationTests{
+	serverlessTestSuite := &integrationTests{
 		apiKey:    apiKey,
 		indexType: "serverless",
 		host:      serverlessIdx.Host,
@@ -62,7 +62,7 @@ func RunSuites(t *testing.T) {
 		indexTags: &indexTags,
 	}
 
-	adminTestSuite := &AdminIntegrationTests{
+	adminTestSuite := &adminIntegrationTests{
 		clientId:     clientId,
 		clientSecret: clientSecret,
 		adminClient:  adminClient,

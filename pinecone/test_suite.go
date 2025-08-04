@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type IntegrationTests struct {
+type integrationTests struct {
 	suite.Suite
 	apiKey         string
 	client         *Client
@@ -30,14 +30,14 @@ type IntegrationTests struct {
 	namespaces     []string
 }
 
-type AdminIntegrationTests struct {
+type adminIntegrationTests struct {
 	suite.Suite
 	clientId     string
 	clientSecret string
 	adminClient  *AdminClient
 }
 
-func (ts *IntegrationTests) SetupSuite() {
+func (ts *integrationTests) SetupSuite() {
 	ctx := context.Background()
 
 	_, err := waitUntilIndexReady(ts, ctx)
@@ -99,7 +99,7 @@ func (ts *IntegrationTests) SetupSuite() {
 	fmt.Printf("\n %s set up suite completed successfully\n", ts.indexType)
 }
 
-func (ts *IntegrationTests) TearDownSuite() {
+func (ts *integrationTests) TearDownSuite() {
 	ctx := context.Background()
 
 	// Close index connection
@@ -148,7 +148,7 @@ func generateTestIndexName() string {
 	return fmt.Sprintf("index-%d", time.Now().UnixMilli())
 }
 
-func upsertVectors(ts *IntegrationTests, ctx context.Context, vectors []*Vector) error {
+func upsertVectors(ts *integrationTests, ctx context.Context, vectors []*Vector) error {
 	_, err := waitUntilIndexReady(ts, ctx)
 	require.NoError(ts.T(), err)
 
@@ -166,7 +166,7 @@ func upsertVectors(ts *IntegrationTests, ctx context.Context, vectors []*Vector)
 	return nil
 }
 
-func createCollection(ts *IntegrationTests, ctx context.Context) {
+func createCollection(ts *integrationTests, ctx context.Context) {
 	name := uuid.New().String()
 	sourceIndex := ts.idxName
 
@@ -181,7 +181,7 @@ func createCollection(ts *IntegrationTests, ctx context.Context) {
 	require.Equal(ts.T(), name, collection.Name)
 }
 
-func createBackup(ts *IntegrationTests, ctx context.Context) {
+func createBackup(ts *integrationTests, ctx context.Context) {
 	backupName := fmt.Sprintf("backup-%s", uuid.New().String())
 	backupDesc := fmt.Sprintf("Backup created for index %s for Pinecone integration tests", ts.idxName)
 	fmt.Printf("Creating backup: %s for index: %s\n", backupName, ts.idxName)
@@ -215,7 +215,7 @@ func createBackup(ts *IntegrationTests, ctx context.Context) {
 	}
 }
 
-func waitUntilIndexReady(ts *IntegrationTests, ctx context.Context) (bool, error) {
+func waitUntilIndexReady(ts *integrationTests, ctx context.Context) (bool, error) {
 	start := time.Now()
 	delay := 5 * time.Second
 	maxWaitTimeSeconds := 280 * time.Second
@@ -342,7 +342,7 @@ func retryAssertionsWithDefaults(t *testing.T, fn func() error) {
 	retryAssertions(t, 30, 5*time.Second, fn)
 }
 
-func pollIndexForFreshness(ts *IntegrationTests, ctx context.Context, sampleId string) error {
+func pollIndexForFreshness(ts *integrationTests, ctx context.Context, sampleId string) error {
 	maxSleep := 240 * time.Second
 	delay := 5 * time.Second
 	totalWait := 0 * time.Second
