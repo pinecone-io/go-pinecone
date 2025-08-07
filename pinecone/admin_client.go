@@ -113,6 +113,9 @@ type NewAdminClientParams struct {
 	// The OAuth access token used for authentication.
 	AccessToken string
 
+	// The host URL of the Pinecone API. If not provided, the default value is "https://api.pinecone.io".
+	Host string
+
 	// (Optional) Additional headers to include in the request.
 	Headers *map[string]string
 
@@ -160,10 +163,19 @@ func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*A
 		authHeader = fmt.Sprintf("Bearer %s", authToken)
 	}
 
+	hostOverride := valueOrFallback(in.Host, os.Getenv("PINECONE_CONTROLLER_HOST"))
+	if hostOverride != "" {
+		var err error
+		hostOverride, err = ensureURLScheme(hostOverride)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	authProvider := provider.NewHeaderProvider("Authorization", authHeader)
 	clientOptions = append(clientOptions, admin.WithRequestEditorFn(authProvider.Intercept))
 
-	adminClient, err := newAdminClient("https://api.pinecone.io", clientOptions...)
+	adminClient, err := newAdminClient(valueOrFallback(hostOverride, "https://api.pinecone.io"), clientOptions...)
 	if err != nil {
 		return nil, err
 	}
