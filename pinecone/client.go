@@ -2360,31 +2360,61 @@ func (c *Client) extractAuthHeader() map[string]string {
 	return nil
 }
 
+func getIndexSpecType(spec db_control.IndexModel_Spec) string {
+	rawJSON, err := spec.MarshalJSON()
+	if err != nil {
+		return "unknown"
+	}
+	var rawData map[string]interface{}
+	err = json.Unmarshal(rawJSON, &rawData)
+	if err != nil {
+		return "unknown"
+	}
+	if _, ok := rawData["pod"]; ok {
+		return "pod"
+	} else if _, ok := rawData["serverless"]; ok {
+		return "serverless"
+	} else if _, ok := rawData["byoc"]; ok {
+		return "byoc"
+	}
+	return "unknown"
+}
+
 func toIndex(idx *db_control.IndexModel) *Index {
 	if idx == nil {
 		return nil
 	}
 
 	spec := &IndexSpec{}
-	if podSpec, err := idx.Spec.AsIndexModelSpec1(); err == nil {
-		spec.Pod = &PodSpec{
-			Environment:      podSpec.Pod.Environment,
-			PodType:          podSpec.Pod.PodType,
-			PodCount:         derefOrDefault(podSpec.Pod.Pods, 1),
-			Replicas:         derefOrDefault(podSpec.Pod.Replicas, 1),
-			ShardCount:       derefOrDefault(podSpec.Pod.Shards, 1),
-			SourceCollection: podSpec.Pod.SourceCollection,
+	specType := getIndexSpecType(idx.Spec)
+
+	switch specType {
+	case "pod":
+		if podSpec, err := idx.Spec.AsIndexModelSpec1(); err == nil {
+			fmt.Printf("SUCCESSFULLY unmarshaled pod spec: podSpec: %+v\n", podSpec)
+			spec.Pod = &PodSpec{
+				Environment:      podSpec.Pod.Environment,
+				PodType:          podSpec.Pod.PodType,
+				PodCount:         derefOrDefault(podSpec.Pod.Pods, 1),
+				Replicas:         derefOrDefault(podSpec.Pod.Replicas, 1),
+				ShardCount:       derefOrDefault(podSpec.Pod.Shards, 1),
+				SourceCollection: podSpec.Pod.SourceCollection,
+			}
+			if podSpec.Pod.MetadataConfig != nil {
+				spec.Pod.MetadataConfig = &PodSpecMetadataConfig{Indexed: podSpec.Pod.MetadataConfig.Indexed}
+			}
 		}
-		if podSpec.Pod.MetadataConfig != nil {
-			spec.Pod.MetadataConfig = &PodSpecMetadataConfig{Indexed: podSpec.Pod.MetadataConfig.Indexed}
+	case "serverless":
+		if serverlessSpec, err := idx.Spec.AsIndexModelSpec0(); err == nil {
+			fmt.Printf("SUCCESSFULLY unmarshaled serverless spec: serverlessSpec: %+v\n", serverlessSpec)
+			spec.Serverless = &ServerlessSpec{
+				Cloud:            Cloud(serverlessSpec.Serverless.Cloud),
+				Region:           serverlessSpec.Serverless.Region,
+				SourceCollection: serverlessSpec.Serverless.SourceCollection,
+			}
 		}
-	} else if serverlessSpec, err := idx.Spec.AsIndexModelSpec0(); err == nil {
-		spec.Serverless = &ServerlessSpec{
-			Cloud:            Cloud(serverlessSpec.Serverless.Cloud),
-			Region:           serverlessSpec.Serverless.Region,
-			SourceCollection: serverlessSpec.Serverless.SourceCollection,
-		}
-	} // TODO - Add BYOC support
+		// TODO - Add BYOC support
+	}
 
 	status := &IndexStatus{
 		Ready: idx.Status.Ready,
