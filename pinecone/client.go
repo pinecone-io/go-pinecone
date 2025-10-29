@@ -1205,6 +1205,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	existingTags := idxDesc.Tags
 
 	var request db_control.ConfigureIndexRequest
+	request.Spec = &db_control.ConfigureIndexRequest_Spec{}
 
 	// Apply pod configurations
 	if podType != nil || replicas != nil {
