@@ -323,7 +323,7 @@ func (ts *integrationTests) TestImportFlowHappyPath() {
 	ctx := context.Background()
 	errorMode := "continue"
 
-	startRes, err := ts.idxConn.StartImport(ctx, testImportUri, nil, (*ImportErrorMode)(&errorMode))
+	startRes, err := ts.idxConn.StartImport(ctx, testImportUri, nil, &errorMode)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), startRes)
 

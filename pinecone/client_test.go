@@ -1372,8 +1372,8 @@ func TestEnsureURLSchemeUnit(t *testing.T) {
 }
 
 func TestToIndexUnit(t *testing.T) {
-	deletionProtectionEnabled := db_control.Enabled
-	deletionProtectionDisabled := db_control.Disabled
+	deletionProtectionEnabled := "enabled"
+	deletionProtectionDisabled := "disabled"
 	pods := 1
 	replicas := int32(1)
 	shards := int32(1)
@@ -1397,26 +1397,20 @@ func TestToIndexUnit(t *testing.T) {
 				Host:               "test-host",
 				Metric:             "cosine",
 				DeletionProtection: &deletionProtectionDisabled,
-				Spec: struct {
-					Byoc       *db_control.ByocSpec       `json:"byoc,omitempty"`
-					Pod        *db_control.PodSpec        `json:"pod,omitempty"`
-					Serverless *db_control.ServerlessSpec `json:"serverless,omitempty"`
-				}(struct {
-					Byoc       *db_control.ByocSpec `json:"byoc,omitempty"`
-					Pod        *db_control.PodSpec
-					Serverless *db_control.ServerlessSpec
-				}{Pod: &db_control.PodSpec{
-					Environment:      "test-environ",
-					PodType:          "p1.x2",
-					Pods:             &pods,
-					Replicas:         &replicas,
-					Shards:           &shards,
-					SourceCollection: nil,
-					MetadataConfig:   nil,
-				}}),
+				Spec: newPodIndexModelSpec(t, db_control.IndexModelSpec1{
+					Pod: db_control.PodSpec{
+						Environment:      "test-environ",
+						PodType:          "p1.x2",
+						Pods:             &pods,
+						Replicas:         &replicas,
+						Shards:           &shards,
+						SourceCollection: nil,
+						MetadataConfig:   nil,
+					},
+				}),
 				Status: struct {
-					Ready bool                             `json:"ready"`
-					State db_control.IndexModelStatusState `json:"state"`
+					Ready bool   `json:"ready"`
+					State string `json:"state"`
 				}{
 					Ready: true,
 					State: "active",
@@ -1452,21 +1446,15 @@ func TestToIndexUnit(t *testing.T) {
 				Host:               "test-host",
 				Metric:             "cosine",
 				DeletionProtection: &deletionProtectionEnabled,
-				Spec: struct {
-					Byoc       *db_control.ByocSpec       `json:"byoc,omitempty"`
-					Pod        *db_control.PodSpec        `json:"pod,omitempty"`
-					Serverless *db_control.ServerlessSpec `json:"serverless,omitempty"`
-				}(struct {
-					Byoc       *db_control.ByocSpec `json:"byoc,omitempty"`
-					Pod        *db_control.PodSpec
-					Serverless *db_control.ServerlessSpec
-				}{Serverless: &db_control.ServerlessSpec{
-					Cloud:  "test-environ",
-					Region: "test-region",
-				}}),
+				Spec: newServerlessIndexModelSpec(t, db_control.IndexModelSpec0{
+					Serverless: db_control.ServerlessSpecResponse{
+						Cloud:  "test-environ",
+						Region: "test-region",
+					},
+				}),
 				Status: struct {
-					Ready bool                             `json:"ready"`
-					State db_control.IndexModelStatusState `json:"state"`
+					Ready bool   `json:"ready"`
+					State string `json:"state"`
 				}{
 					Ready: true,
 					State: "active",
@@ -1809,6 +1797,33 @@ func (ts *integrationTests) deleteIndex(name string) error {
 	require.NoError(ts.T(), err)
 
 	return ts.client.DeleteIndex(context.Background(), name)
+}
+
+func newPodIndexModelSpec(t *testing.T, in db_control.IndexModelSpec1) db_control.IndexModel_Spec {
+	spec := db_control.IndexModel_Spec{}
+	err := spec.FromIndexModelSpec1(in)
+	if err != nil {
+		t.Fatalf("Failed to convert pod IndexModelSpec1 to IndexModel_Spec: %v", err)
+	}
+	return spec
+}
+
+func newServerlessIndexModelSpec(t *testing.T, in db_control.IndexModelSpec0) db_control.IndexModel_Spec {
+	spec := db_control.IndexModel_Spec{}
+	err := spec.FromIndexModelSpec0(in)
+	if err != nil {
+		t.Fatalf("Failed to convert serverless IndexModelSpec0 to IndexModel_Spec: %v", err)
+	}
+	return spec
+}
+
+func newByocIndexModelSpec(t *testing.T, in db_control.IndexModelSpec2) db_control.IndexModel_Spec {
+	spec := db_control.IndexModel_Spec{}
+	err := spec.FromIndexModelSpec2(in)
+	if err != nil {
+		t.Fatalf("Failed to convert byoc IndexModelSpec2 to IndexModel_Spec: %v", err)
+	}
+	return spec
 }
 
 func mockResponse(body string, statusCode int) *http.Response {

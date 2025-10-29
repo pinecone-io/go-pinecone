@@ -21,23 +21,23 @@ const (
 	ApiKeyAuthScopes = "ApiKeyAuth.Scopes"
 )
 
-// Defines values for ImportErrorModeOnError.
-const (
-	Abort    ImportErrorModeOnError = "abort"
-	Continue ImportErrorModeOnError = "continue"
-)
-
-// Defines values for ImportModelStatus.
-const (
-	Cancelled  ImportModelStatus = "Cancelled"
-	Completed  ImportModelStatus = "Completed"
-	Failed     ImportModelStatus = "Failed"
-	InProgress ImportModelStatus = "InProgress"
-	Pending    ImportModelStatus = "Pending"
-)
-
 // CancelImportResponse The response for the `cancel_import` operation.
 type CancelImportResponse = map[string]interface{}
+
+// CreateNamespaceRequest A request for creating a namespace with the specified namespace name.
+type CreateNamespaceRequest struct {
+	// Name The name of the namespace.
+	Name string `json:"name"`
+
+	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
+	Schema *struct {
+		// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique.
+		Fields map[string]struct {
+			// Filterable Whether the field is filterable. If true, the field is indexed and can be used in filters. Only true values are allowed.
+			Filterable *bool `json:"filterable,omitempty"`
+		} `json:"fields"`
+	} `json:"schema,omitempty"`
+}
 
 // DeleteRequest The request for the `delete` operation.
 type DeleteRequest struct {
@@ -68,6 +68,32 @@ type DescribeIndexStatsRequest struct {
 // EmbedInputs defines model for EmbedInputs.
 type EmbedInputs = map[string]interface{}
 
+// FetchByMetadataRequest The request for the `fetch_by_metadata` operation.
+type FetchByMetadataRequest struct {
+	// Filter Metadata filter expression to select vectors. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata).
+	Filter *map[string]interface{} `json:"filter,omitempty"`
+
+	// Limit Max number of vectors to return.
+	Limit *int64 `json:"limit,omitempty"`
+
+	// Namespace The namespace to fetch vectors from.
+	Namespace *string `json:"namespace,omitempty"`
+
+	// PaginationToken Pagination token to continue a previous listing operation.
+	PaginationToken *string `json:"paginationToken,omitempty"`
+}
+
+// FetchByMetadataResponse The response for the `fetch_by_metadata` operation.
+type FetchByMetadataResponse struct {
+	// Namespace The namespace of the vectors.
+	Namespace  *string     `json:"namespace,omitempty"`
+	Pagination *Pagination `json:"pagination,omitempty"`
+	Usage      *Usage      `json:"usage,omitempty"`
+
+	// Vectors The fetched vectors, in the form of a map between the fetched ids and the fetched vectors
+	Vectors *map[string]Vector `json:"vectors,omitempty"`
+}
+
 // FetchResponse The response for the `fetch` operation.
 type FetchResponse struct {
 	// Namespace The namespace of the vectors.
@@ -91,11 +117,9 @@ type Hit struct {
 // ImportErrorMode Indicates how to respond to errors during the import process.
 type ImportErrorMode struct {
 	// OnError Indicates how to respond to errors during the import process.
-	OnError *ImportErrorModeOnError `json:"onError,omitempty"`
+	// Possible values: `abort` or `continue`.
+	OnError *string `json:"onError,omitempty"`
 }
-
-// ImportErrorModeOnError Indicates how to respond to errors during the import process.
-type ImportErrorModeOnError string
 
 // ImportModel The model for an import operation.
 type ImportModel struct {
@@ -118,14 +142,12 @@ type ImportModel struct {
 	RecordsImported *int64 `json:"recordsImported,omitempty"`
 
 	// Status The status of the operation.
-	Status *ImportModelStatus `json:"status,omitempty"`
+	// Possible values: `Pending`, `InProgress`, `Failed`, `Completed`, or `Cancelled`.
+	Status *string `json:"status,omitempty"`
 
 	// Uri The URI from where the data is imported.
 	Uri *string `json:"uri,omitempty"`
 }
-
-// ImportModelStatus The status of the operation.
-type ImportModelStatus string
 
 // IndexDescription The response for the `describe_index_stats` operation.
 type IndexDescription struct {
@@ -139,11 +161,17 @@ type IndexDescription struct {
 	// The index fullness result may be inaccurate during pod resizing; to get the status of a pod resizing process, use [`describe_index`](https://docs.pinecone.io/reference/api/2024-10/control-plane/describe_index).
 	IndexFullness *float32 `json:"indexFullness,omitempty"`
 
+	// MemoryFullness The amount of memory used by a dedicated index
+	MemoryFullness *float32 `json:"memory_fullness,omitempty"`
+
 	// Metric The metric used to measure similarity.
 	Metric *string `json:"metric,omitempty"`
 
 	// Namespaces A mapping for each namespace in the index from the namespace name to a summary of its contents. If a metadata filter expression is present, the summary will reflect only vectors matching that expression.
 	Namespaces *map[string]NamespaceSummary `json:"namespaces,omitempty"`
+
+	// StorageFullness The amount of storage used by a dedicated index
+	StorageFullness *float32 `json:"storage_fullness,omitempty"`
 
 	// TotalVectorCount The total number of vectors in the index, regardless of whether a metadata filter expression was passed
 	TotalVectorCount *int64 `json:"totalVectorCount,omitempty"`
@@ -186,6 +214,18 @@ type NamespaceDescription struct {
 
 	// RecordCount The total amount of records within the namespace.
 	RecordCount *int64 `json:"record_count,omitempty"`
+
+	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
+	Schema *struct {
+		// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique.
+		Fields map[string]struct {
+			// Filterable Whether the field is filterable. If true, the field is indexed and can be used in filters. Only true values are allowed.
+			Filterable *bool `json:"filterable,omitempty"`
+		} `json:"fields"`
+	} `json:"schema,omitempty"`
+
+	// TotalCount The total number of namespaces in the index matching the prefix
+	TotalCount *int32 `json:"total_count,omitempty"`
 }
 
 // NamespaceSummary A summary of the contents of a namespace.
@@ -280,6 +320,27 @@ type ScoredVector struct {
 	Values *[]float32 `json:"values,omitempty"`
 }
 
+// SearchMatchTerms Specifies which terms must be present in the text of each search hit based on the specified strategy. The match is performed
+// against the text field specified in the integrated index `field_map` configuration.
+//
+// Terms are normalized and tokenized into single tokens before matching, and order does not matter.
+//
+// Example:
+//
+//	`"match_terms": {"terms": ["animal", "CHARACTER", "donald Duck"], "strategy": "all"}` will tokenize
+//	to `["animal", "character", "donald", "duck"]`, and would match
+//	`"Donald F. Duck is a funny animal character"` but would not match `"A duck is a funny animal"`.
+//
+// Match terms filtering is supported only for sparse indexes with [integrated embedding](https://docs.pinecone.io/guides/index-data/indexing-overview#vector-embedding)
+// configured to use the [pinecone-sparse-english-v0](https://docs.pinecone.io/models/pinecone-sparse-english-v0) model.
+type SearchMatchTerms struct {
+	// Strategy The strategy for matching terms in the text. Currently, only `all` is supported, which means all specified terms must be present.
+	Strategy *string `json:"strategy,omitempty"`
+
+	// Terms A list of terms that must be present in the text of each search hit based on the specified strategy.
+	Terms *[]string `json:"terms,omitempty"`
+}
+
 // SearchRecordsRequest A search request for records in a specific namespace.
 type SearchRecordsRequest struct {
 	// Fields The fields to return in the search results. If not specified, the response will include all fields.
@@ -293,6 +354,21 @@ type SearchRecordsRequest struct {
 		// Id The unique ID of the vector to be used as a query vector.
 		Id     *string      `json:"id,omitempty"`
 		Inputs *EmbedInputs `json:"inputs,omitempty"`
+
+		// MatchTerms Specifies which terms must be present in the text of each search hit based on the specified strategy. The match is performed
+		// against the text field specified in the integrated index `field_map` configuration.
+		//
+		// Terms are normalized and tokenized into single tokens before matching, and order does not matter.
+		//
+		// Example:
+		//
+		//   `"match_terms": {"terms": ["animal", "CHARACTER", "donald Duck"], "strategy": "all"}` will tokenize
+		//   to `["animal", "character", "donald", "duck"]`, and would match
+		//   `"Donald F. Duck is a funny animal character"` but would not match `"A duck is a funny animal"`.
+		//
+		// Match terms filtering is supported only for sparse indexes with [integrated embedding](https://docs.pinecone.io/guides/index-data/indexing-overview#vector-embedding)
+		// configured to use the [pinecone-sparse-english-v0](https://docs.pinecone.io/models/pinecone-sparse-english-v0) model.
+		MatchTerms *SearchMatchTerms `json:"match_terms,omitempty"`
 
 		// TopK The number of similar records to return.
 		TopK   int32                `json:"top_k"`
@@ -379,7 +455,7 @@ type StartImportRequest struct {
 	// IntegrationId The id of the [storage integration](https://docs.pinecone.io/guides/operations/integrations/manage-storage-integrations) that should be used to access the data.
 	IntegrationId *string `json:"integrationId,omitempty"`
 
-	// Uri The URI of the bucket and import directory containing the namespaces and Parquet files you want to import, for example, `s3://BUCKET_NAME/IMPORT_DIR` for Amazong S3 or `gs://BUCKET_NAME/IMPORT_DIR` for Google Cloud Storage. For more information, see [Import directory structure](https://docs.pinecone.io/guides/index-data/import-data#directory-structure).
+	// Uri The URI of the bucket (or container) and import directory containing the namespaces and Parquet files you want to import. For example, `s3://BUCKET_NAME/IMPORT_DIR` for Amazon S3, `gs://BUCKET_NAME/IMPORT_DIR` for Google Cloud Storage, or `https://STORAGE_ACCOUNT.blob.core.windows.net/CONTAINER_NAME/IMPORT_DIR` for Azure Blob Storage. For more information, see [Import records](https://docs.pinecone.io/guides/index-data/import-data#prepare-your-data).
 	Uri string `json:"uri"`
 }
 
@@ -391,8 +467,14 @@ type StartImportResponse struct {
 
 // UpdateRequest The request for the `update` operation.
 type UpdateRequest struct {
+	// DryRun If `true`, return the number of records that match the `filter`, but do not execute the update.  Default is `false`.
+	DryRun *bool `json:"dryRun,omitempty"`
+
+	// Filter A metadata filter expression. When updating metadata across records in a namespace,  the update is applied to all records that match the filter.  See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata).
+	Filter *map[string]interface{} `json:"filter,omitempty"`
+
 	// Id Vector's unique id.
-	Id string `json:"id"`
+	Id *string `json:"id,omitempty"`
 
 	// Namespace The namespace containing the vector to update.
 	Namespace *string `json:"namespace,omitempty"`
@@ -408,7 +490,10 @@ type UpdateRequest struct {
 }
 
 // UpdateResponse The response for the `update` operation.
-type UpdateResponse = map[string]interface{}
+type UpdateResponse struct {
+	// MatchedRecords The number of records that matched the filter (if a filter was provided).
+	MatchedRecords *int32 `json:"matchedRecords,omitempty"`
+}
 
 // UpsertRecord The request for the `upsert` operation.
 type UpsertRecord struct {
@@ -475,6 +560,33 @@ type ListBulkImportsParams struct {
 
 	// PaginationToken Pagination token to continue a previous listing operation.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
+
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// StartBulkImportParams defines parameters for StartBulkImport.
+type StartBulkImportParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// CancelBulkImportParams defines parameters for CancelBulkImport.
+type CancelBulkImportParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DescribeBulkImportParams defines parameters for DescribeBulkImport.
+type DescribeBulkImportParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DescribeIndexStatsParams defines parameters for DescribeIndexStats.
+type DescribeIndexStatsParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
 }
 
 // ListNamespacesOperationParams defines parameters for ListNamespacesOperation.
@@ -484,13 +596,72 @@ type ListNamespacesOperationParams struct {
 
 	// PaginationToken Pagination token to continue a previous listing operation.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
+
+	// Prefix Prefix of the namespaces to list. Acts as a filter to return only namespaces that start with this prefix.
+	Prefix *string `form:"prefix,omitempty" json:"prefix,omitempty"`
+
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// CreateNamespaceParams defines parameters for CreateNamespace.
+type CreateNamespaceParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DeleteNamespaceParams defines parameters for DeleteNamespace.
+type DeleteNamespaceParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DescribeNamespaceParams defines parameters for DescribeNamespace.
+type DescribeNamespaceParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// QueryVectorsParams defines parameters for QueryVectors.
+type QueryVectorsParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// SearchRecordsNamespaceParams defines parameters for SearchRecordsNamespace.
+type SearchRecordsNamespaceParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// UpsertRecordsNamespaceParams defines parameters for UpsertRecordsNamespace.
+type UpsertRecordsNamespaceParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DeleteVectorsParams defines parameters for DeleteVectors.
+type DeleteVectorsParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
 }
 
 // FetchVectorsParams defines parameters for FetchVectors.
 type FetchVectorsParams struct {
 	// Ids The vector IDs to fetch. Does not accept values containing spaces.
-	Ids       []string `form:"ids" json:"ids"`
-	Namespace *string  `form:"namespace,omitempty" json:"namespace,omitempty"`
+	Ids []string `form:"ids" json:"ids"`
+
+	// Namespace The namespace to fetch vectors from. If not provided, the default namespace is used.
+	Namespace *string `form:"namespace,omitempty" json:"namespace,omitempty"`
+
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// FetchVectorsByMetadataParams defines parameters for FetchVectorsByMetadata.
+type FetchVectorsByMetadataParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
 }
 
 // ListVectorsParams defines parameters for ListVectors.
@@ -503,7 +674,24 @@ type ListVectorsParams struct {
 
 	// PaginationToken Pagination token to continue a previous listing operation.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
-	Namespace       *string `form:"namespace,omitempty" json:"namespace,omitempty"`
+
+	// Namespace The namespace to list vectors from. If not provided, the default namespace is used.
+	Namespace *string `form:"namespace,omitempty" json:"namespace,omitempty"`
+
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// UpdateVectorParams defines parameters for UpdateVector.
+type UpdateVectorParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// UpsertVectorsParams defines parameters for UpsertVectors.
+type UpsertVectorsParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
 }
 
 // StartBulkImportJSONRequestBody defines body for StartBulkImport for application/json ContentType.
@@ -511,6 +699,9 @@ type StartBulkImportJSONRequestBody = StartImportRequest
 
 // DescribeIndexStatsJSONRequestBody defines body for DescribeIndexStats for application/json ContentType.
 type DescribeIndexStatsJSONRequestBody = DescribeIndexStatsRequest
+
+// CreateNamespaceJSONRequestBody defines body for CreateNamespace for application/json ContentType.
+type CreateNamespaceJSONRequestBody = CreateNamespaceRequest
 
 // QueryVectorsJSONRequestBody defines body for QueryVectors for application/json ContentType.
 type QueryVectorsJSONRequestBody = QueryRequest
@@ -520,6 +711,9 @@ type SearchRecordsNamespaceJSONRequestBody = SearchRecordsRequest
 
 // DeleteVectorsJSONRequestBody defines body for DeleteVectors for application/json ContentType.
 type DeleteVectorsJSONRequestBody = DeleteRequest
+
+// FetchVectorsByMetadataJSONRequestBody defines body for FetchVectorsByMetadata for application/json ContentType.
+type FetchVectorsByMetadataJSONRequestBody = FetchByMetadataRequest
 
 // UpdateVectorJSONRequestBody defines body for UpdateVector for application/json ContentType.
 type UpdateVectorJSONRequestBody = UpdateRequest
@@ -604,63 +798,73 @@ type ClientInterface interface {
 	ListBulkImports(ctx context.Context, params *ListBulkImportsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// StartBulkImportWithBody request with any body
-	StartBulkImportWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	StartBulkImportWithBody(ctx context.Context, params *StartBulkImportParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	StartBulkImport(ctx context.Context, body StartBulkImportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	StartBulkImport(ctx context.Context, params *StartBulkImportParams, body StartBulkImportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CancelBulkImport request
-	CancelBulkImport(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CancelBulkImport(ctx context.Context, id string, params *CancelBulkImportParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DescribeBulkImport request
-	DescribeBulkImport(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DescribeBulkImport(ctx context.Context, id string, params *DescribeBulkImportParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DescribeIndexStatsWithBody request with any body
-	DescribeIndexStatsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DescribeIndexStatsWithBody(ctx context.Context, params *DescribeIndexStatsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	DescribeIndexStats(ctx context.Context, body DescribeIndexStatsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DescribeIndexStats(ctx context.Context, params *DescribeIndexStatsParams, body DescribeIndexStatsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListNamespacesOperation request
 	ListNamespacesOperation(ctx context.Context, params *ListNamespacesOperationParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateNamespaceWithBody request with any body
+	CreateNamespaceWithBody(ctx context.Context, params *CreateNamespaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateNamespace(ctx context.Context, params *CreateNamespaceParams, body CreateNamespaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteNamespace request
-	DeleteNamespace(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteNamespace(ctx context.Context, namespace string, params *DeleteNamespaceParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DescribeNamespace request
-	DescribeNamespace(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DescribeNamespace(ctx context.Context, namespace string, params *DescribeNamespaceParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// QueryVectorsWithBody request with any body
-	QueryVectorsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	QueryVectorsWithBody(ctx context.Context, params *QueryVectorsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	QueryVectors(ctx context.Context, body QueryVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	QueryVectors(ctx context.Context, params *QueryVectorsParams, body QueryVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SearchRecordsNamespaceWithBody request with any body
-	SearchRecordsNamespaceWithBody(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SearchRecordsNamespaceWithBody(ctx context.Context, namespace string, params *SearchRecordsNamespaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	SearchRecordsNamespace(ctx context.Context, namespace string, body SearchRecordsNamespaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SearchRecordsNamespace(ctx context.Context, namespace string, params *SearchRecordsNamespaceParams, body SearchRecordsNamespaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpsertRecordsNamespaceWithBody request with any body
-	UpsertRecordsNamespaceWithBody(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpsertRecordsNamespaceWithBody(ctx context.Context, namespace string, params *UpsertRecordsNamespaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteVectorsWithBody request with any body
-	DeleteVectorsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteVectorsWithBody(ctx context.Context, params *DeleteVectorsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	DeleteVectors(ctx context.Context, body DeleteVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteVectors(ctx context.Context, params *DeleteVectorsParams, body DeleteVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// FetchVectors request
 	FetchVectors(ctx context.Context, params *FetchVectorsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// FetchVectorsByMetadataWithBody request with any body
+	FetchVectorsByMetadataWithBody(ctx context.Context, params *FetchVectorsByMetadataParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	FetchVectorsByMetadata(ctx context.Context, params *FetchVectorsByMetadataParams, body FetchVectorsByMetadataJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListVectors request
 	ListVectors(ctx context.Context, params *ListVectorsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateVectorWithBody request with any body
-	UpdateVectorWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateVectorWithBody(ctx context.Context, params *UpdateVectorParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpdateVector(ctx context.Context, body UpdateVectorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateVector(ctx context.Context, params *UpdateVectorParams, body UpdateVectorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpsertVectorsWithBody request with any body
-	UpsertVectorsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpsertVectorsWithBody(ctx context.Context, params *UpsertVectorsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpsertVectors(ctx context.Context, body UpsertVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpsertVectors(ctx context.Context, params *UpsertVectorsParams, body UpsertVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) ListBulkImports(ctx context.Context, params *ListBulkImportsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -675,8 +879,8 @@ func (c *Client) ListBulkImports(ctx context.Context, params *ListBulkImportsPar
 	return c.Client.Do(req)
 }
 
-func (c *Client) StartBulkImportWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStartBulkImportRequestWithBody(c.Server, contentType, body)
+func (c *Client) StartBulkImportWithBody(ctx context.Context, params *StartBulkImportParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartBulkImportRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -687,8 +891,8 @@ func (c *Client) StartBulkImportWithBody(ctx context.Context, contentType string
 	return c.Client.Do(req)
 }
 
-func (c *Client) StartBulkImport(ctx context.Context, body StartBulkImportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStartBulkImportRequest(c.Server, body)
+func (c *Client) StartBulkImport(ctx context.Context, params *StartBulkImportParams, body StartBulkImportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartBulkImportRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -699,8 +903,8 @@ func (c *Client) StartBulkImport(ctx context.Context, body StartBulkImportJSONRe
 	return c.Client.Do(req)
 }
 
-func (c *Client) CancelBulkImport(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCancelBulkImportRequest(c.Server, id)
+func (c *Client) CancelBulkImport(ctx context.Context, id string, params *CancelBulkImportParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelBulkImportRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -711,8 +915,8 @@ func (c *Client) CancelBulkImport(ctx context.Context, id string, reqEditors ...
 	return c.Client.Do(req)
 }
 
-func (c *Client) DescribeBulkImport(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDescribeBulkImportRequest(c.Server, id)
+func (c *Client) DescribeBulkImport(ctx context.Context, id string, params *DescribeBulkImportParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDescribeBulkImportRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -723,8 +927,8 @@ func (c *Client) DescribeBulkImport(ctx context.Context, id string, reqEditors .
 	return c.Client.Do(req)
 }
 
-func (c *Client) DescribeIndexStatsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDescribeIndexStatsRequestWithBody(c.Server, contentType, body)
+func (c *Client) DescribeIndexStatsWithBody(ctx context.Context, params *DescribeIndexStatsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDescribeIndexStatsRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -735,8 +939,8 @@ func (c *Client) DescribeIndexStatsWithBody(ctx context.Context, contentType str
 	return c.Client.Do(req)
 }
 
-func (c *Client) DescribeIndexStats(ctx context.Context, body DescribeIndexStatsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDescribeIndexStatsRequest(c.Server, body)
+func (c *Client) DescribeIndexStats(ctx context.Context, params *DescribeIndexStatsParams, body DescribeIndexStatsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDescribeIndexStatsRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -759,8 +963,8 @@ func (c *Client) ListNamespacesOperation(ctx context.Context, params *ListNamesp
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteNamespace(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteNamespaceRequest(c.Server, namespace)
+func (c *Client) CreateNamespaceWithBody(ctx context.Context, params *CreateNamespaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateNamespaceRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -771,8 +975,8 @@ func (c *Client) DeleteNamespace(ctx context.Context, namespace string, reqEdito
 	return c.Client.Do(req)
 }
 
-func (c *Client) DescribeNamespace(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDescribeNamespaceRequest(c.Server, namespace)
+func (c *Client) CreateNamespace(ctx context.Context, params *CreateNamespaceParams, body CreateNamespaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateNamespaceRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -783,8 +987,8 @@ func (c *Client) DescribeNamespace(ctx context.Context, namespace string, reqEdi
 	return c.Client.Do(req)
 }
 
-func (c *Client) QueryVectorsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewQueryVectorsRequestWithBody(c.Server, contentType, body)
+func (c *Client) DeleteNamespace(ctx context.Context, namespace string, params *DeleteNamespaceParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteNamespaceRequest(c.Server, namespace, params)
 	if err != nil {
 		return nil, err
 	}
@@ -795,8 +999,8 @@ func (c *Client) QueryVectorsWithBody(ctx context.Context, contentType string, b
 	return c.Client.Do(req)
 }
 
-func (c *Client) QueryVectors(ctx context.Context, body QueryVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewQueryVectorsRequest(c.Server, body)
+func (c *Client) DescribeNamespace(ctx context.Context, namespace string, params *DescribeNamespaceParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDescribeNamespaceRequest(c.Server, namespace, params)
 	if err != nil {
 		return nil, err
 	}
@@ -807,8 +1011,8 @@ func (c *Client) QueryVectors(ctx context.Context, body QueryVectorsJSONRequestB
 	return c.Client.Do(req)
 }
 
-func (c *Client) SearchRecordsNamespaceWithBody(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSearchRecordsNamespaceRequestWithBody(c.Server, namespace, contentType, body)
+func (c *Client) QueryVectorsWithBody(ctx context.Context, params *QueryVectorsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryVectorsRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -819,8 +1023,8 @@ func (c *Client) SearchRecordsNamespaceWithBody(ctx context.Context, namespace s
 	return c.Client.Do(req)
 }
 
-func (c *Client) SearchRecordsNamespace(ctx context.Context, namespace string, body SearchRecordsNamespaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSearchRecordsNamespaceRequest(c.Server, namespace, body)
+func (c *Client) QueryVectors(ctx context.Context, params *QueryVectorsParams, body QueryVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryVectorsRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -831,8 +1035,8 @@ func (c *Client) SearchRecordsNamespace(ctx context.Context, namespace string, b
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpsertRecordsNamespaceWithBody(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpsertRecordsNamespaceRequestWithBody(c.Server, namespace, contentType, body)
+func (c *Client) SearchRecordsNamespaceWithBody(ctx context.Context, namespace string, params *SearchRecordsNamespaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchRecordsNamespaceRequestWithBody(c.Server, namespace, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -843,8 +1047,8 @@ func (c *Client) UpsertRecordsNamespaceWithBody(ctx context.Context, namespace s
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteVectorsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteVectorsRequestWithBody(c.Server, contentType, body)
+func (c *Client) SearchRecordsNamespace(ctx context.Context, namespace string, params *SearchRecordsNamespaceParams, body SearchRecordsNamespaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchRecordsNamespaceRequest(c.Server, namespace, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -855,8 +1059,32 @@ func (c *Client) DeleteVectorsWithBody(ctx context.Context, contentType string, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteVectors(ctx context.Context, body DeleteVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteVectorsRequest(c.Server, body)
+func (c *Client) UpsertRecordsNamespaceWithBody(ctx context.Context, namespace string, params *UpsertRecordsNamespaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertRecordsNamespaceRequestWithBody(c.Server, namespace, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteVectorsWithBody(ctx context.Context, params *DeleteVectorsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteVectorsRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteVectors(ctx context.Context, params *DeleteVectorsParams, body DeleteVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteVectorsRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -879,6 +1107,30 @@ func (c *Client) FetchVectors(ctx context.Context, params *FetchVectorsParams, r
 	return c.Client.Do(req)
 }
 
+func (c *Client) FetchVectorsByMetadataWithBody(ctx context.Context, params *FetchVectorsByMetadataParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFetchVectorsByMetadataRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FetchVectorsByMetadata(ctx context.Context, params *FetchVectorsByMetadataParams, body FetchVectorsByMetadataJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFetchVectorsByMetadataRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListVectors(ctx context.Context, params *ListVectorsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListVectorsRequest(c.Server, params)
 	if err != nil {
@@ -891,8 +1143,8 @@ func (c *Client) ListVectors(ctx context.Context, params *ListVectorsParams, req
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateVectorWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateVectorRequestWithBody(c.Server, contentType, body)
+func (c *Client) UpdateVectorWithBody(ctx context.Context, params *UpdateVectorParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVectorRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -903,8 +1155,8 @@ func (c *Client) UpdateVectorWithBody(ctx context.Context, contentType string, b
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateVector(ctx context.Context, body UpdateVectorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateVectorRequest(c.Server, body)
+func (c *Client) UpdateVector(ctx context.Context, params *UpdateVectorParams, body UpdateVectorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVectorRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -915,8 +1167,8 @@ func (c *Client) UpdateVector(ctx context.Context, body UpdateVectorJSONRequestB
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpsertVectorsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpsertVectorsRequestWithBody(c.Server, contentType, body)
+func (c *Client) UpsertVectorsWithBody(ctx context.Context, params *UpsertVectorsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertVectorsRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -927,8 +1179,8 @@ func (c *Client) UpsertVectorsWithBody(ctx context.Context, contentType string, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpsertVectors(ctx context.Context, body UpsertVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpsertVectorsRequest(c.Server, body)
+func (c *Client) UpsertVectors(ctx context.Context, params *UpsertVectorsParams, body UpsertVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertVectorsRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1001,22 +1253,35 @@ func NewListBulkImportsRequest(server string, params *ListBulkImportsParams) (*h
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewStartBulkImportRequest calls the generic StartBulkImport builder with application/json body
-func NewStartBulkImportRequest(server string, body StartBulkImportJSONRequestBody) (*http.Request, error) {
+func NewStartBulkImportRequest(server string, params *StartBulkImportParams, body StartBulkImportJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewStartBulkImportRequestWithBody(server, "application/json", bodyReader)
+	return NewStartBulkImportRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewStartBulkImportRequestWithBody generates requests for StartBulkImport with any type of body
-func NewStartBulkImportRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewStartBulkImportRequestWithBody(server string, params *StartBulkImportParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1041,11 +1306,24 @@ func NewStartBulkImportRequestWithBody(server string, contentType string, body i
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewCancelBulkImportRequest generates requests for CancelBulkImport
-func NewCancelBulkImportRequest(server string, id string) (*http.Request, error) {
+func NewCancelBulkImportRequest(server string, id string, params *CancelBulkImportParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1075,11 +1353,24 @@ func NewCancelBulkImportRequest(server string, id string) (*http.Request, error)
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewDescribeBulkImportRequest generates requests for DescribeBulkImport
-func NewDescribeBulkImportRequest(server string, id string) (*http.Request, error) {
+func NewDescribeBulkImportRequest(server string, id string, params *DescribeBulkImportParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1109,22 +1400,35 @@ func NewDescribeBulkImportRequest(server string, id string) (*http.Request, erro
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewDescribeIndexStatsRequest calls the generic DescribeIndexStats builder with application/json body
-func NewDescribeIndexStatsRequest(server string, body DescribeIndexStatsJSONRequestBody) (*http.Request, error) {
+func NewDescribeIndexStatsRequest(server string, params *DescribeIndexStatsParams, body DescribeIndexStatsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewDescribeIndexStatsRequestWithBody(server, "application/json", bodyReader)
+	return NewDescribeIndexStatsRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewDescribeIndexStatsRequestWithBody generates requests for DescribeIndexStats with any type of body
-func NewDescribeIndexStatsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewDescribeIndexStatsRequestWithBody(server string, params *DescribeIndexStatsParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1148,6 +1452,19 @@ func NewDescribeIndexStatsRequestWithBody(server string, contentType string, bod
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
 
 	return req, nil
 }
@@ -1206,6 +1523,22 @@ func NewListNamespacesOperationRequest(server string, params *ListNamespacesOper
 
 		}
 
+		if params.Prefix != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "prefix", runtime.ParamLocationQuery, *params.Prefix); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
@@ -1214,11 +1547,77 @@ func NewListNamespacesOperationRequest(server string, params *ListNamespacesOper
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewCreateNamespaceRequest calls the generic CreateNamespace builder with application/json body
+func NewCreateNamespaceRequest(server string, params *CreateNamespaceParams, body CreateNamespaceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateNamespaceRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateNamespaceRequestWithBody generates requests for CreateNamespace with any type of body
+func NewCreateNamespaceRequestWithBody(server string, params *CreateNamespaceParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/namespaces")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewDeleteNamespaceRequest generates requests for DeleteNamespace
-func NewDeleteNamespaceRequest(server string, namespace string) (*http.Request, error) {
+func NewDeleteNamespaceRequest(server string, namespace string, params *DeleteNamespaceParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1248,11 +1647,24 @@ func NewDeleteNamespaceRequest(server string, namespace string) (*http.Request, 
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewDescribeNamespaceRequest generates requests for DescribeNamespace
-func NewDescribeNamespaceRequest(server string, namespace string) (*http.Request, error) {
+func NewDescribeNamespaceRequest(server string, namespace string, params *DescribeNamespaceParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1282,22 +1694,35 @@ func NewDescribeNamespaceRequest(server string, namespace string) (*http.Request
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewQueryVectorsRequest calls the generic QueryVectors builder with application/json body
-func NewQueryVectorsRequest(server string, body QueryVectorsJSONRequestBody) (*http.Request, error) {
+func NewQueryVectorsRequest(server string, params *QueryVectorsParams, body QueryVectorsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewQueryVectorsRequestWithBody(server, "application/json", bodyReader)
+	return NewQueryVectorsRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewQueryVectorsRequestWithBody generates requests for QueryVectors with any type of body
-func NewQueryVectorsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewQueryVectorsRequestWithBody(server string, params *QueryVectorsParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1322,22 +1747,35 @@ func NewQueryVectorsRequestWithBody(server string, contentType string, body io.R
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewSearchRecordsNamespaceRequest calls the generic SearchRecordsNamespace builder with application/json body
-func NewSearchRecordsNamespaceRequest(server string, namespace string, body SearchRecordsNamespaceJSONRequestBody) (*http.Request, error) {
+func NewSearchRecordsNamespaceRequest(server string, namespace string, params *SearchRecordsNamespaceParams, body SearchRecordsNamespaceJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewSearchRecordsNamespaceRequestWithBody(server, namespace, "application/json", bodyReader)
+	return NewSearchRecordsNamespaceRequestWithBody(server, namespace, params, "application/json", bodyReader)
 }
 
 // NewSearchRecordsNamespaceRequestWithBody generates requests for SearchRecordsNamespace with any type of body
-func NewSearchRecordsNamespaceRequestWithBody(server string, namespace string, contentType string, body io.Reader) (*http.Request, error) {
+func NewSearchRecordsNamespaceRequestWithBody(server string, namespace string, params *SearchRecordsNamespaceParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1369,11 +1807,24 @@ func NewSearchRecordsNamespaceRequestWithBody(server string, namespace string, c
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewUpsertRecordsNamespaceRequestWithBody generates requests for UpsertRecordsNamespace with any type of body
-func NewUpsertRecordsNamespaceRequestWithBody(server string, namespace string, contentType string, body io.Reader) (*http.Request, error) {
+func NewUpsertRecordsNamespaceRequestWithBody(server string, namespace string, params *UpsertRecordsNamespaceParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1405,22 +1856,35 @@ func NewUpsertRecordsNamespaceRequestWithBody(server string, namespace string, c
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewDeleteVectorsRequest calls the generic DeleteVectors builder with application/json body
-func NewDeleteVectorsRequest(server string, body DeleteVectorsJSONRequestBody) (*http.Request, error) {
+func NewDeleteVectorsRequest(server string, params *DeleteVectorsParams, body DeleteVectorsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewDeleteVectorsRequestWithBody(server, "application/json", bodyReader)
+	return NewDeleteVectorsRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewDeleteVectorsRequestWithBody generates requests for DeleteVectors with any type of body
-func NewDeleteVectorsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewDeleteVectorsRequestWithBody(server string, params *DeleteVectorsParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1444,6 +1908,19 @@ func NewDeleteVectorsRequestWithBody(server string, contentType string, body io.
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
 
 	return req, nil
 }
@@ -1504,6 +1981,72 @@ func NewFetchVectorsRequest(server string, params *FetchVectorsParams) (*http.Re
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewFetchVectorsByMetadataRequest calls the generic FetchVectorsByMetadata builder with application/json body
+func NewFetchVectorsByMetadataRequest(server string, params *FetchVectorsByMetadataParams, body FetchVectorsByMetadataJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewFetchVectorsByMetadataRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewFetchVectorsByMetadataRequestWithBody generates requests for FetchVectorsByMetadata with any type of body
+func NewFetchVectorsByMetadataRequestWithBody(server string, params *FetchVectorsByMetadataParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/vectors/fetch_by_metadata")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
 	}
 
 	return req, nil
@@ -1603,22 +2146,35 @@ func NewListVectorsRequest(server string, params *ListVectorsParams) (*http.Requ
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewUpdateVectorRequest calls the generic UpdateVector builder with application/json body
-func NewUpdateVectorRequest(server string, body UpdateVectorJSONRequestBody) (*http.Request, error) {
+func NewUpdateVectorRequest(server string, params *UpdateVectorParams, body UpdateVectorJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpdateVectorRequestWithBody(server, "application/json", bodyReader)
+	return NewUpdateVectorRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewUpdateVectorRequestWithBody generates requests for UpdateVector with any type of body
-func NewUpdateVectorRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewUpdateVectorRequestWithBody(server string, params *UpdateVectorParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1643,22 +2199,35 @@ func NewUpdateVectorRequestWithBody(server string, contentType string, body io.R
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewUpsertVectorsRequest calls the generic UpsertVectors builder with application/json body
-func NewUpsertVectorsRequest(server string, body UpsertVectorsJSONRequestBody) (*http.Request, error) {
+func NewUpsertVectorsRequest(server string, params *UpsertVectorsParams, body UpsertVectorsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpsertVectorsRequestWithBody(server, "application/json", bodyReader)
+	return NewUpsertVectorsRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewUpsertVectorsRequestWithBody generates requests for UpsertVectors with any type of body
-func NewUpsertVectorsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewUpsertVectorsRequestWithBody(server string, params *UpsertVectorsParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1682,6 +2251,19 @@ func NewUpsertVectorsRequestWithBody(server string, contentType string, body io.
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
 
 	return req, nil
 }
@@ -1733,63 +2315,73 @@ type ClientWithResponsesInterface interface {
 	ListBulkImportsWithResponse(ctx context.Context, params *ListBulkImportsParams, reqEditors ...RequestEditorFn) (*ListBulkImportsResponse, error)
 
 	// StartBulkImportWithBodyWithResponse request with any body
-	StartBulkImportWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartBulkImportResponse, error)
+	StartBulkImportWithBodyWithResponse(ctx context.Context, params *StartBulkImportParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartBulkImportResponse, error)
 
-	StartBulkImportWithResponse(ctx context.Context, body StartBulkImportJSONRequestBody, reqEditors ...RequestEditorFn) (*StartBulkImportResponse, error)
+	StartBulkImportWithResponse(ctx context.Context, params *StartBulkImportParams, body StartBulkImportJSONRequestBody, reqEditors ...RequestEditorFn) (*StartBulkImportResponse, error)
 
 	// CancelBulkImportWithResponse request
-	CancelBulkImportWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*CancelBulkImportResponse, error)
+	CancelBulkImportWithResponse(ctx context.Context, id string, params *CancelBulkImportParams, reqEditors ...RequestEditorFn) (*CancelBulkImportResponse, error)
 
 	// DescribeBulkImportWithResponse request
-	DescribeBulkImportWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DescribeBulkImportResponse, error)
+	DescribeBulkImportWithResponse(ctx context.Context, id string, params *DescribeBulkImportParams, reqEditors ...RequestEditorFn) (*DescribeBulkImportResponse, error)
 
 	// DescribeIndexStatsWithBodyWithResponse request with any body
-	DescribeIndexStatsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DescribeIndexStatsResponse, error)
+	DescribeIndexStatsWithBodyWithResponse(ctx context.Context, params *DescribeIndexStatsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DescribeIndexStatsResponse, error)
 
-	DescribeIndexStatsWithResponse(ctx context.Context, body DescribeIndexStatsJSONRequestBody, reqEditors ...RequestEditorFn) (*DescribeIndexStatsResponse, error)
+	DescribeIndexStatsWithResponse(ctx context.Context, params *DescribeIndexStatsParams, body DescribeIndexStatsJSONRequestBody, reqEditors ...RequestEditorFn) (*DescribeIndexStatsResponse, error)
 
 	// ListNamespacesOperationWithResponse request
 	ListNamespacesOperationWithResponse(ctx context.Context, params *ListNamespacesOperationParams, reqEditors ...RequestEditorFn) (*ListNamespacesOperationResponse, error)
 
+	// CreateNamespaceWithBodyWithResponse request with any body
+	CreateNamespaceWithBodyWithResponse(ctx context.Context, params *CreateNamespaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateNamespaceResponse, error)
+
+	CreateNamespaceWithResponse(ctx context.Context, params *CreateNamespaceParams, body CreateNamespaceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateNamespaceResponse, error)
+
 	// DeleteNamespaceWithResponse request
-	DeleteNamespaceWithResponse(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*DeleteNamespaceResponse, error)
+	DeleteNamespaceWithResponse(ctx context.Context, namespace string, params *DeleteNamespaceParams, reqEditors ...RequestEditorFn) (*DeleteNamespaceResponse, error)
 
 	// DescribeNamespaceWithResponse request
-	DescribeNamespaceWithResponse(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*DescribeNamespaceResponse, error)
+	DescribeNamespaceWithResponse(ctx context.Context, namespace string, params *DescribeNamespaceParams, reqEditors ...RequestEditorFn) (*DescribeNamespaceResponse, error)
 
 	// QueryVectorsWithBodyWithResponse request with any body
-	QueryVectorsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryVectorsResponse, error)
+	QueryVectorsWithBodyWithResponse(ctx context.Context, params *QueryVectorsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryVectorsResponse, error)
 
-	QueryVectorsWithResponse(ctx context.Context, body QueryVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryVectorsResponse, error)
+	QueryVectorsWithResponse(ctx context.Context, params *QueryVectorsParams, body QueryVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryVectorsResponse, error)
 
 	// SearchRecordsNamespaceWithBodyWithResponse request with any body
-	SearchRecordsNamespaceWithBodyWithResponse(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchRecordsNamespaceResponse, error)
+	SearchRecordsNamespaceWithBodyWithResponse(ctx context.Context, namespace string, params *SearchRecordsNamespaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchRecordsNamespaceResponse, error)
 
-	SearchRecordsNamespaceWithResponse(ctx context.Context, namespace string, body SearchRecordsNamespaceJSONRequestBody, reqEditors ...RequestEditorFn) (*SearchRecordsNamespaceResponse, error)
+	SearchRecordsNamespaceWithResponse(ctx context.Context, namespace string, params *SearchRecordsNamespaceParams, body SearchRecordsNamespaceJSONRequestBody, reqEditors ...RequestEditorFn) (*SearchRecordsNamespaceResponse, error)
 
 	// UpsertRecordsNamespaceWithBodyWithResponse request with any body
-	UpsertRecordsNamespaceWithBodyWithResponse(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertRecordsNamespaceResponse, error)
+	UpsertRecordsNamespaceWithBodyWithResponse(ctx context.Context, namespace string, params *UpsertRecordsNamespaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertRecordsNamespaceResponse, error)
 
 	// DeleteVectorsWithBodyWithResponse request with any body
-	DeleteVectorsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteVectorsResponse, error)
+	DeleteVectorsWithBodyWithResponse(ctx context.Context, params *DeleteVectorsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteVectorsResponse, error)
 
-	DeleteVectorsWithResponse(ctx context.Context, body DeleteVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteVectorsResponse, error)
+	DeleteVectorsWithResponse(ctx context.Context, params *DeleteVectorsParams, body DeleteVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteVectorsResponse, error)
 
 	// FetchVectorsWithResponse request
 	FetchVectorsWithResponse(ctx context.Context, params *FetchVectorsParams, reqEditors ...RequestEditorFn) (*FetchVectorsResponse, error)
+
+	// FetchVectorsByMetadataWithBodyWithResponse request with any body
+	FetchVectorsByMetadataWithBodyWithResponse(ctx context.Context, params *FetchVectorsByMetadataParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FetchVectorsByMetadataResponse, error)
+
+	FetchVectorsByMetadataWithResponse(ctx context.Context, params *FetchVectorsByMetadataParams, body FetchVectorsByMetadataJSONRequestBody, reqEditors ...RequestEditorFn) (*FetchVectorsByMetadataResponse, error)
 
 	// ListVectorsWithResponse request
 	ListVectorsWithResponse(ctx context.Context, params *ListVectorsParams, reqEditors ...RequestEditorFn) (*ListVectorsResponse, error)
 
 	// UpdateVectorWithBodyWithResponse request with any body
-	UpdateVectorWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVectorResponse, error)
+	UpdateVectorWithBodyWithResponse(ctx context.Context, params *UpdateVectorParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVectorResponse, error)
 
-	UpdateVectorWithResponse(ctx context.Context, body UpdateVectorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVectorResponse, error)
+	UpdateVectorWithResponse(ctx context.Context, params *UpdateVectorParams, body UpdateVectorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVectorResponse, error)
 
 	// UpsertVectorsWithBodyWithResponse request with any body
-	UpsertVectorsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertVectorsResponse, error)
+	UpsertVectorsWithBodyWithResponse(ctx context.Context, params *UpsertVectorsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertVectorsResponse, error)
 
-	UpsertVectorsWithResponse(ctx context.Context, body UpsertVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertVectorsResponse, error)
+	UpsertVectorsWithResponse(ctx context.Context, params *UpsertVectorsParams, body UpsertVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertVectorsResponse, error)
 }
 
 type ListBulkImportsResponse struct {
@@ -1935,6 +2527,32 @@ func (r ListNamespacesOperationResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListNamespacesOperationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateNamespaceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *NamespaceDescription
+	JSON400      *RpcStatus
+	JSON409      *RpcStatus
+	JSON4XX      *RpcStatus
+	JSON5XX      *RpcStatus
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateNamespaceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateNamespaceResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2115,6 +2733,31 @@ func (r FetchVectorsResponse) StatusCode() int {
 	return 0
 }
 
+type FetchVectorsByMetadataResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FetchByMetadataResponse
+	JSON400      *RpcStatus
+	JSON4XX      *RpcStatus
+	JSON5XX      *RpcStatus
+}
+
+// Status returns HTTPResponse.Status
+func (r FetchVectorsByMetadataResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r FetchVectorsByMetadataResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListVectorsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2200,16 +2843,16 @@ func (c *ClientWithResponses) ListBulkImportsWithResponse(ctx context.Context, p
 }
 
 // StartBulkImportWithBodyWithResponse request with arbitrary body returning *StartBulkImportResponse
-func (c *ClientWithResponses) StartBulkImportWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartBulkImportResponse, error) {
-	rsp, err := c.StartBulkImportWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) StartBulkImportWithBodyWithResponse(ctx context.Context, params *StartBulkImportParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartBulkImportResponse, error) {
+	rsp, err := c.StartBulkImportWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseStartBulkImportResponse(rsp)
 }
 
-func (c *ClientWithResponses) StartBulkImportWithResponse(ctx context.Context, body StartBulkImportJSONRequestBody, reqEditors ...RequestEditorFn) (*StartBulkImportResponse, error) {
-	rsp, err := c.StartBulkImport(ctx, body, reqEditors...)
+func (c *ClientWithResponses) StartBulkImportWithResponse(ctx context.Context, params *StartBulkImportParams, body StartBulkImportJSONRequestBody, reqEditors ...RequestEditorFn) (*StartBulkImportResponse, error) {
+	rsp, err := c.StartBulkImport(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2217,8 +2860,8 @@ func (c *ClientWithResponses) StartBulkImportWithResponse(ctx context.Context, b
 }
 
 // CancelBulkImportWithResponse request returning *CancelBulkImportResponse
-func (c *ClientWithResponses) CancelBulkImportWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*CancelBulkImportResponse, error) {
-	rsp, err := c.CancelBulkImport(ctx, id, reqEditors...)
+func (c *ClientWithResponses) CancelBulkImportWithResponse(ctx context.Context, id string, params *CancelBulkImportParams, reqEditors ...RequestEditorFn) (*CancelBulkImportResponse, error) {
+	rsp, err := c.CancelBulkImport(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2226,8 +2869,8 @@ func (c *ClientWithResponses) CancelBulkImportWithResponse(ctx context.Context, 
 }
 
 // DescribeBulkImportWithResponse request returning *DescribeBulkImportResponse
-func (c *ClientWithResponses) DescribeBulkImportWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*DescribeBulkImportResponse, error) {
-	rsp, err := c.DescribeBulkImport(ctx, id, reqEditors...)
+func (c *ClientWithResponses) DescribeBulkImportWithResponse(ctx context.Context, id string, params *DescribeBulkImportParams, reqEditors ...RequestEditorFn) (*DescribeBulkImportResponse, error) {
+	rsp, err := c.DescribeBulkImport(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2235,16 +2878,16 @@ func (c *ClientWithResponses) DescribeBulkImportWithResponse(ctx context.Context
 }
 
 // DescribeIndexStatsWithBodyWithResponse request with arbitrary body returning *DescribeIndexStatsResponse
-func (c *ClientWithResponses) DescribeIndexStatsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DescribeIndexStatsResponse, error) {
-	rsp, err := c.DescribeIndexStatsWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) DescribeIndexStatsWithBodyWithResponse(ctx context.Context, params *DescribeIndexStatsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DescribeIndexStatsResponse, error) {
+	rsp, err := c.DescribeIndexStatsWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseDescribeIndexStatsResponse(rsp)
 }
 
-func (c *ClientWithResponses) DescribeIndexStatsWithResponse(ctx context.Context, body DescribeIndexStatsJSONRequestBody, reqEditors ...RequestEditorFn) (*DescribeIndexStatsResponse, error) {
-	rsp, err := c.DescribeIndexStats(ctx, body, reqEditors...)
+func (c *ClientWithResponses) DescribeIndexStatsWithResponse(ctx context.Context, params *DescribeIndexStatsParams, body DescribeIndexStatsJSONRequestBody, reqEditors ...RequestEditorFn) (*DescribeIndexStatsResponse, error) {
+	rsp, err := c.DescribeIndexStats(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2260,9 +2903,26 @@ func (c *ClientWithResponses) ListNamespacesOperationWithResponse(ctx context.Co
 	return ParseListNamespacesOperationResponse(rsp)
 }
 
+// CreateNamespaceWithBodyWithResponse request with arbitrary body returning *CreateNamespaceResponse
+func (c *ClientWithResponses) CreateNamespaceWithBodyWithResponse(ctx context.Context, params *CreateNamespaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateNamespaceResponse, error) {
+	rsp, err := c.CreateNamespaceWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateNamespaceResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateNamespaceWithResponse(ctx context.Context, params *CreateNamespaceParams, body CreateNamespaceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateNamespaceResponse, error) {
+	rsp, err := c.CreateNamespace(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateNamespaceResponse(rsp)
+}
+
 // DeleteNamespaceWithResponse request returning *DeleteNamespaceResponse
-func (c *ClientWithResponses) DeleteNamespaceWithResponse(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*DeleteNamespaceResponse, error) {
-	rsp, err := c.DeleteNamespace(ctx, namespace, reqEditors...)
+func (c *ClientWithResponses) DeleteNamespaceWithResponse(ctx context.Context, namespace string, params *DeleteNamespaceParams, reqEditors ...RequestEditorFn) (*DeleteNamespaceResponse, error) {
+	rsp, err := c.DeleteNamespace(ctx, namespace, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2270,8 +2930,8 @@ func (c *ClientWithResponses) DeleteNamespaceWithResponse(ctx context.Context, n
 }
 
 // DescribeNamespaceWithResponse request returning *DescribeNamespaceResponse
-func (c *ClientWithResponses) DescribeNamespaceWithResponse(ctx context.Context, namespace string, reqEditors ...RequestEditorFn) (*DescribeNamespaceResponse, error) {
-	rsp, err := c.DescribeNamespace(ctx, namespace, reqEditors...)
+func (c *ClientWithResponses) DescribeNamespaceWithResponse(ctx context.Context, namespace string, params *DescribeNamespaceParams, reqEditors ...RequestEditorFn) (*DescribeNamespaceResponse, error) {
+	rsp, err := c.DescribeNamespace(ctx, namespace, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2279,16 +2939,16 @@ func (c *ClientWithResponses) DescribeNamespaceWithResponse(ctx context.Context,
 }
 
 // QueryVectorsWithBodyWithResponse request with arbitrary body returning *QueryVectorsResponse
-func (c *ClientWithResponses) QueryVectorsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryVectorsResponse, error) {
-	rsp, err := c.QueryVectorsWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) QueryVectorsWithBodyWithResponse(ctx context.Context, params *QueryVectorsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryVectorsResponse, error) {
+	rsp, err := c.QueryVectorsWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseQueryVectorsResponse(rsp)
 }
 
-func (c *ClientWithResponses) QueryVectorsWithResponse(ctx context.Context, body QueryVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryVectorsResponse, error) {
-	rsp, err := c.QueryVectors(ctx, body, reqEditors...)
+func (c *ClientWithResponses) QueryVectorsWithResponse(ctx context.Context, params *QueryVectorsParams, body QueryVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryVectorsResponse, error) {
+	rsp, err := c.QueryVectors(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2296,16 +2956,16 @@ func (c *ClientWithResponses) QueryVectorsWithResponse(ctx context.Context, body
 }
 
 // SearchRecordsNamespaceWithBodyWithResponse request with arbitrary body returning *SearchRecordsNamespaceResponse
-func (c *ClientWithResponses) SearchRecordsNamespaceWithBodyWithResponse(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchRecordsNamespaceResponse, error) {
-	rsp, err := c.SearchRecordsNamespaceWithBody(ctx, namespace, contentType, body, reqEditors...)
+func (c *ClientWithResponses) SearchRecordsNamespaceWithBodyWithResponse(ctx context.Context, namespace string, params *SearchRecordsNamespaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SearchRecordsNamespaceResponse, error) {
+	rsp, err := c.SearchRecordsNamespaceWithBody(ctx, namespace, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseSearchRecordsNamespaceResponse(rsp)
 }
 
-func (c *ClientWithResponses) SearchRecordsNamespaceWithResponse(ctx context.Context, namespace string, body SearchRecordsNamespaceJSONRequestBody, reqEditors ...RequestEditorFn) (*SearchRecordsNamespaceResponse, error) {
-	rsp, err := c.SearchRecordsNamespace(ctx, namespace, body, reqEditors...)
+func (c *ClientWithResponses) SearchRecordsNamespaceWithResponse(ctx context.Context, namespace string, params *SearchRecordsNamespaceParams, body SearchRecordsNamespaceJSONRequestBody, reqEditors ...RequestEditorFn) (*SearchRecordsNamespaceResponse, error) {
+	rsp, err := c.SearchRecordsNamespace(ctx, namespace, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2313,8 +2973,8 @@ func (c *ClientWithResponses) SearchRecordsNamespaceWithResponse(ctx context.Con
 }
 
 // UpsertRecordsNamespaceWithBodyWithResponse request with arbitrary body returning *UpsertRecordsNamespaceResponse
-func (c *ClientWithResponses) UpsertRecordsNamespaceWithBodyWithResponse(ctx context.Context, namespace string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertRecordsNamespaceResponse, error) {
-	rsp, err := c.UpsertRecordsNamespaceWithBody(ctx, namespace, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UpsertRecordsNamespaceWithBodyWithResponse(ctx context.Context, namespace string, params *UpsertRecordsNamespaceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertRecordsNamespaceResponse, error) {
+	rsp, err := c.UpsertRecordsNamespaceWithBody(ctx, namespace, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2322,16 +2982,16 @@ func (c *ClientWithResponses) UpsertRecordsNamespaceWithBodyWithResponse(ctx con
 }
 
 // DeleteVectorsWithBodyWithResponse request with arbitrary body returning *DeleteVectorsResponse
-func (c *ClientWithResponses) DeleteVectorsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteVectorsResponse, error) {
-	rsp, err := c.DeleteVectorsWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) DeleteVectorsWithBodyWithResponse(ctx context.Context, params *DeleteVectorsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteVectorsResponse, error) {
+	rsp, err := c.DeleteVectorsWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseDeleteVectorsResponse(rsp)
 }
 
-func (c *ClientWithResponses) DeleteVectorsWithResponse(ctx context.Context, body DeleteVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteVectorsResponse, error) {
-	rsp, err := c.DeleteVectors(ctx, body, reqEditors...)
+func (c *ClientWithResponses) DeleteVectorsWithResponse(ctx context.Context, params *DeleteVectorsParams, body DeleteVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteVectorsResponse, error) {
+	rsp, err := c.DeleteVectors(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2347,6 +3007,23 @@ func (c *ClientWithResponses) FetchVectorsWithResponse(ctx context.Context, para
 	return ParseFetchVectorsResponse(rsp)
 }
 
+// FetchVectorsByMetadataWithBodyWithResponse request with arbitrary body returning *FetchVectorsByMetadataResponse
+func (c *ClientWithResponses) FetchVectorsByMetadataWithBodyWithResponse(ctx context.Context, params *FetchVectorsByMetadataParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FetchVectorsByMetadataResponse, error) {
+	rsp, err := c.FetchVectorsByMetadataWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFetchVectorsByMetadataResponse(rsp)
+}
+
+func (c *ClientWithResponses) FetchVectorsByMetadataWithResponse(ctx context.Context, params *FetchVectorsByMetadataParams, body FetchVectorsByMetadataJSONRequestBody, reqEditors ...RequestEditorFn) (*FetchVectorsByMetadataResponse, error) {
+	rsp, err := c.FetchVectorsByMetadata(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFetchVectorsByMetadataResponse(rsp)
+}
+
 // ListVectorsWithResponse request returning *ListVectorsResponse
 func (c *ClientWithResponses) ListVectorsWithResponse(ctx context.Context, params *ListVectorsParams, reqEditors ...RequestEditorFn) (*ListVectorsResponse, error) {
 	rsp, err := c.ListVectors(ctx, params, reqEditors...)
@@ -2357,16 +3034,16 @@ func (c *ClientWithResponses) ListVectorsWithResponse(ctx context.Context, param
 }
 
 // UpdateVectorWithBodyWithResponse request with arbitrary body returning *UpdateVectorResponse
-func (c *ClientWithResponses) UpdateVectorWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVectorResponse, error) {
-	rsp, err := c.UpdateVectorWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UpdateVectorWithBodyWithResponse(ctx context.Context, params *UpdateVectorParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVectorResponse, error) {
+	rsp, err := c.UpdateVectorWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseUpdateVectorResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpdateVectorWithResponse(ctx context.Context, body UpdateVectorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVectorResponse, error) {
-	rsp, err := c.UpdateVector(ctx, body, reqEditors...)
+func (c *ClientWithResponses) UpdateVectorWithResponse(ctx context.Context, params *UpdateVectorParams, body UpdateVectorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVectorResponse, error) {
+	rsp, err := c.UpdateVector(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2374,16 +3051,16 @@ func (c *ClientWithResponses) UpdateVectorWithResponse(ctx context.Context, body
 }
 
 // UpsertVectorsWithBodyWithResponse request with arbitrary body returning *UpsertVectorsResponse
-func (c *ClientWithResponses) UpsertVectorsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertVectorsResponse, error) {
-	rsp, err := c.UpsertVectorsWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UpsertVectorsWithBodyWithResponse(ctx context.Context, params *UpsertVectorsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertVectorsResponse, error) {
+	rsp, err := c.UpsertVectorsWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseUpsertVectorsResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpsertVectorsWithResponse(ctx context.Context, body UpsertVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertVectorsResponse, error) {
-	rsp, err := c.UpsertVectors(ctx, body, reqEditors...)
+func (c *ClientWithResponses) UpsertVectorsWithResponse(ctx context.Context, params *UpsertVectorsParams, body UpsertVectorsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertVectorsResponse, error) {
+	rsp, err := c.UpsertVectors(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2645,6 +3322,60 @@ func ParseListNamespacesOperationResponse(rsp *http.Response) (*ListNamespacesOp
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateNamespaceResponse parses an HTTP response from a CreateNamespaceWithResponse call
+func ParseCreateNamespaceResponse(rsp *http.Response) (*CreateNamespaceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateNamespaceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest NamespaceDescription
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest RpcStatus
@@ -2956,6 +3687,53 @@ func ParseFetchVectorsResponse(rsp *http.Response) (*FetchVectorsResponse, error
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest FetchResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseFetchVectorsByMetadataResponse parses an HTTP response from a FetchVectorsByMetadataWithResponse call
+func ParseFetchVectorsByMetadataResponse(rsp *http.Response) (*FetchVectorsByMetadataResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &FetchVectorsByMetadataResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FetchByMetadataResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
