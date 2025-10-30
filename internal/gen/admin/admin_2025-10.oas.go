@@ -72,7 +72,7 @@ type ErrorResponse struct {
 	// Error Detailed information about the error that occurred.
 	Error struct {
 		// Code The error code.
-		// Expected values include: - `OK` - `UNKNOWN` - `INVALID_ARGUMENT` - `DEADLINE_EXCEEDED` - `QUOTA_EXCEEDED` - `NOT_FOUND` - `ALREADY_EXISTS` - `PERMISSION_DENIED` - `UNAUTHENTICATED` - `RESOURCE_EXHAUSTED` - `FAILED_PRECONDITION` - `ABORTED` - `OUT_OF_RANGE` - `UNIMPLEMENTED` - `INTERNAL` - `UNAVAILABLE` - `DATA_LOSS` - `FORBIDDEN` - `UNPROCESSABLE_ENTITY`
+		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `QUOTA_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `UNIMPLEMENTED`, `INTERNAL`, `UNAVAILABLE`, `DATA_LOSS`, `FORBIDDEN`, or `UNPROCESSABLE_ENTITY`.
 		Code string `json:"code"`
 
 		// Details Additional information about the error. This field is not guaranteed to be present.
@@ -82,6 +82,11 @@ type ErrorResponse struct {
 
 	// Status The HTTP status code of the error.
 	Status int `json:"status"`
+}
+
+// ListApiKeysResponse defines model for ListApiKeysResponse.
+type ListApiKeysResponse struct {
+	Data []APIKey `json:"data"`
 }
 
 // Organization The details of an organization.
@@ -105,6 +110,11 @@ type Organization struct {
 	SupportTier string `json:"support_tier"`
 }
 
+// OrganizationList defines model for OrganizationList.
+type OrganizationList struct {
+	Data []Organization `json:"data"`
+}
+
 // Project The details of a project.
 type Project struct {
 	// CreatedAt The date and time when the project was created.
@@ -124,6 +134,11 @@ type Project struct {
 
 	// OrganizationId The unique ID of the organization that the project belongs to.
 	OrganizationId string `json:"organization_id"`
+}
+
+// ProjectList defines model for ProjectList.
+type ProjectList struct {
+	Data []Project `json:"data"`
 }
 
 // UpdateAPIKeyRequest defines model for UpdateAPIKeyRequest.
@@ -152,6 +167,90 @@ type UpdateProjectRequest struct {
 
 	// Name The name of the new project.
 	Name *string `json:"name,omitempty"`
+}
+
+// DeleteApiKeyParams defines parameters for DeleteApiKey.
+type DeleteApiKeyParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// FetchApiKeyParams defines parameters for FetchApiKey.
+type FetchApiKeyParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// UpdateApiKeyParams defines parameters for UpdateApiKey.
+type UpdateApiKeyParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// ListOrganizationsParams defines parameters for ListOrganizations.
+type ListOrganizationsParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DeleteOrganizationParams defines parameters for DeleteOrganization.
+type DeleteOrganizationParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// FetchOrganizationParams defines parameters for FetchOrganization.
+type FetchOrganizationParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// UpdateOrganizationParams defines parameters for UpdateOrganization.
+type UpdateOrganizationParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// ListProjectsParams defines parameters for ListProjects.
+type ListProjectsParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// CreateProjectParams defines parameters for CreateProject.
+type CreateProjectParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DeleteProjectParams defines parameters for DeleteProject.
+type DeleteProjectParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// FetchProjectParams defines parameters for FetchProject.
+type FetchProjectParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// UpdateProjectParams defines parameters for UpdateProject.
+type UpdateProjectParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// ListProjectApiKeysParams defines parameters for ListProjectApiKeys.
+type ListProjectApiKeysParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// CreateApiKeyParams defines parameters for CreateApiKey.
+type CreateApiKeyParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
 }
 
 // UpdateApiKeyJSONRequestBody defines body for UpdateApiKey for application/json ContentType.
@@ -243,60 +342,60 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 	// DeleteApiKey request
-	DeleteApiKey(ctx context.Context, apiKeyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteApiKey(ctx context.Context, apiKeyId openapi_types.UUID, params *DeleteApiKeyParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// FetchApiKey request
-	FetchApiKey(ctx context.Context, apiKeyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	FetchApiKey(ctx context.Context, apiKeyId openapi_types.UUID, params *FetchApiKeyParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateApiKeyWithBody request with any body
-	UpdateApiKeyWithBody(ctx context.Context, apiKeyId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateApiKeyWithBody(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpdateApiKey(ctx context.Context, apiKeyId openapi_types.UUID, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateApiKey(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListOrganizations request
-	ListOrganizations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListOrganizations(ctx context.Context, params *ListOrganizationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteOrganization request
-	DeleteOrganization(ctx context.Context, organizationId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteOrganization(ctx context.Context, organizationId string, params *DeleteOrganizationParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// FetchOrganization request
-	FetchOrganization(ctx context.Context, organizationId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	FetchOrganization(ctx context.Context, organizationId string, params *FetchOrganizationParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateOrganizationWithBody request with any body
-	UpdateOrganizationWithBody(ctx context.Context, organizationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateOrganizationWithBody(ctx context.Context, organizationId string, params *UpdateOrganizationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpdateOrganization(ctx context.Context, organizationId string, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateOrganization(ctx context.Context, organizationId string, params *UpdateOrganizationParams, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProjects request
-	ListProjects(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListProjects(ctx context.Context, params *ListProjectsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateProjectWithBody request with any body
-	CreateProjectWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateProjectWithBody(ctx context.Context, params *CreateProjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateProject(ctx context.Context, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateProject(ctx context.Context, params *CreateProjectParams, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteProject request
-	DeleteProject(ctx context.Context, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteProject(ctx context.Context, projectId openapi_types.UUID, params *DeleteProjectParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// FetchProject request
-	FetchProject(ctx context.Context, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	FetchProject(ctx context.Context, projectId openapi_types.UUID, params *FetchProjectParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateProjectWithBody request with any body
-	UpdateProjectWithBody(ctx context.Context, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateProjectWithBody(ctx context.Context, projectId openapi_types.UUID, params *UpdateProjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpdateProject(ctx context.Context, projectId openapi_types.UUID, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateProject(ctx context.Context, projectId openapi_types.UUID, params *UpdateProjectParams, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListApiKeys request
-	ListApiKeys(ctx context.Context, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListProjectApiKeys request
+	ListProjectApiKeys(ctx context.Context, projectId openapi_types.UUID, params *ListProjectApiKeysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateApiKeyWithBody request with any body
-	CreateApiKeyWithBody(ctx context.Context, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateApiKeyWithBody(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateApiKey(ctx context.Context, projectId openapi_types.UUID, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateApiKey(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) DeleteApiKey(ctx context.Context, apiKeyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteApiKeyRequest(c.Server, apiKeyId)
+func (c *Client) DeleteApiKey(ctx context.Context, apiKeyId openapi_types.UUID, params *DeleteApiKeyParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiKeyRequest(c.Server, apiKeyId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -307,8 +406,8 @@ func (c *Client) DeleteApiKey(ctx context.Context, apiKeyId openapi_types.UUID, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) FetchApiKey(ctx context.Context, apiKeyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewFetchApiKeyRequest(c.Server, apiKeyId)
+func (c *Client) FetchApiKey(ctx context.Context, apiKeyId openapi_types.UUID, params *FetchApiKeyParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFetchApiKeyRequest(c.Server, apiKeyId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -319,8 +418,8 @@ func (c *Client) FetchApiKey(ctx context.Context, apiKeyId openapi_types.UUID, r
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateApiKeyWithBody(ctx context.Context, apiKeyId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateApiKeyRequestWithBody(c.Server, apiKeyId, contentType, body)
+func (c *Client) UpdateApiKeyWithBody(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateApiKeyRequestWithBody(c.Server, apiKeyId, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -331,8 +430,8 @@ func (c *Client) UpdateApiKeyWithBody(ctx context.Context, apiKeyId openapi_type
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateApiKey(ctx context.Context, apiKeyId openapi_types.UUID, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateApiKeyRequest(c.Server, apiKeyId, body)
+func (c *Client) UpdateApiKey(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateApiKeyRequest(c.Server, apiKeyId, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -343,8 +442,8 @@ func (c *Client) UpdateApiKey(ctx context.Context, apiKeyId openapi_types.UUID, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListOrganizations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListOrganizationsRequest(c.Server)
+func (c *Client) ListOrganizations(ctx context.Context, params *ListOrganizationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOrganizationsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -355,8 +454,8 @@ func (c *Client) ListOrganizations(ctx context.Context, reqEditors ...RequestEdi
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteOrganization(ctx context.Context, organizationId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteOrganizationRequest(c.Server, organizationId)
+func (c *Client) DeleteOrganization(ctx context.Context, organizationId string, params *DeleteOrganizationParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrganizationRequest(c.Server, organizationId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -367,8 +466,8 @@ func (c *Client) DeleteOrganization(ctx context.Context, organizationId string, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) FetchOrganization(ctx context.Context, organizationId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewFetchOrganizationRequest(c.Server, organizationId)
+func (c *Client) FetchOrganization(ctx context.Context, organizationId string, params *FetchOrganizationParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFetchOrganizationRequest(c.Server, organizationId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -379,8 +478,8 @@ func (c *Client) FetchOrganization(ctx context.Context, organizationId string, r
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateOrganizationWithBody(ctx context.Context, organizationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateOrganizationRequestWithBody(c.Server, organizationId, contentType, body)
+func (c *Client) UpdateOrganizationWithBody(ctx context.Context, organizationId string, params *UpdateOrganizationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateOrganizationRequestWithBody(c.Server, organizationId, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -391,8 +490,8 @@ func (c *Client) UpdateOrganizationWithBody(ctx context.Context, organizationId 
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateOrganization(ctx context.Context, organizationId string, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateOrganizationRequest(c.Server, organizationId, body)
+func (c *Client) UpdateOrganization(ctx context.Context, organizationId string, params *UpdateOrganizationParams, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateOrganizationRequest(c.Server, organizationId, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -403,8 +502,8 @@ func (c *Client) UpdateOrganization(ctx context.Context, organizationId string, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListProjects(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListProjectsRequest(c.Server)
+func (c *Client) ListProjects(ctx context.Context, params *ListProjectsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -415,8 +514,8 @@ func (c *Client) ListProjects(ctx context.Context, reqEditors ...RequestEditorFn
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateProjectWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateProjectRequestWithBody(c.Server, contentType, body)
+func (c *Client) CreateProjectWithBody(ctx context.Context, params *CreateProjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -427,8 +526,8 @@ func (c *Client) CreateProjectWithBody(ctx context.Context, contentType string, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateProject(ctx context.Context, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateProjectRequest(c.Server, body)
+func (c *Client) CreateProject(ctx context.Context, params *CreateProjectParams, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProjectRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -439,8 +538,8 @@ func (c *Client) CreateProject(ctx context.Context, body CreateProjectJSONReques
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteProject(ctx context.Context, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteProjectRequest(c.Server, projectId)
+func (c *Client) DeleteProject(ctx context.Context, projectId openapi_types.UUID, params *DeleteProjectParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteProjectRequest(c.Server, projectId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -451,8 +550,8 @@ func (c *Client) DeleteProject(ctx context.Context, projectId openapi_types.UUID
 	return c.Client.Do(req)
 }
 
-func (c *Client) FetchProject(ctx context.Context, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewFetchProjectRequest(c.Server, projectId)
+func (c *Client) FetchProject(ctx context.Context, projectId openapi_types.UUID, params *FetchProjectParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFetchProjectRequest(c.Server, projectId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -463,8 +562,8 @@ func (c *Client) FetchProject(ctx context.Context, projectId openapi_types.UUID,
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateProjectWithBody(ctx context.Context, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateProjectRequestWithBody(c.Server, projectId, contentType, body)
+func (c *Client) UpdateProjectWithBody(ctx context.Context, projectId openapi_types.UUID, params *UpdateProjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProjectRequestWithBody(c.Server, projectId, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -475,8 +574,8 @@ func (c *Client) UpdateProjectWithBody(ctx context.Context, projectId openapi_ty
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateProject(ctx context.Context, projectId openapi_types.UUID, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateProjectRequest(c.Server, projectId, body)
+func (c *Client) UpdateProject(ctx context.Context, projectId openapi_types.UUID, params *UpdateProjectParams, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProjectRequest(c.Server, projectId, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -487,8 +586,8 @@ func (c *Client) UpdateProject(ctx context.Context, projectId openapi_types.UUID
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListApiKeys(ctx context.Context, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListApiKeysRequest(c.Server, projectId)
+func (c *Client) ListProjectApiKeys(ctx context.Context, projectId openapi_types.UUID, params *ListProjectApiKeysParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectApiKeysRequest(c.Server, projectId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -499,8 +598,8 @@ func (c *Client) ListApiKeys(ctx context.Context, projectId openapi_types.UUID, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateApiKeyWithBody(ctx context.Context, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateApiKeyRequestWithBody(c.Server, projectId, contentType, body)
+func (c *Client) CreateApiKeyWithBody(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateApiKeyRequestWithBody(c.Server, projectId, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -511,8 +610,8 @@ func (c *Client) CreateApiKeyWithBody(ctx context.Context, projectId openapi_typ
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateApiKey(ctx context.Context, projectId openapi_types.UUID, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateApiKeyRequest(c.Server, projectId, body)
+func (c *Client) CreateApiKey(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateApiKeyRequest(c.Server, projectId, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -524,7 +623,7 @@ func (c *Client) CreateApiKey(ctx context.Context, projectId openapi_types.UUID,
 }
 
 // NewDeleteApiKeyRequest generates requests for DeleteApiKey
-func NewDeleteApiKeyRequest(server string, apiKeyId openapi_types.UUID) (*http.Request, error) {
+func NewDeleteApiKeyRequest(server string, apiKeyId openapi_types.UUID, params *DeleteApiKeyParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -554,11 +653,24 @@ func NewDeleteApiKeyRequest(server string, apiKeyId openapi_types.UUID) (*http.R
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewFetchApiKeyRequest generates requests for FetchApiKey
-func NewFetchApiKeyRequest(server string, apiKeyId openapi_types.UUID) (*http.Request, error) {
+func NewFetchApiKeyRequest(server string, apiKeyId openapi_types.UUID, params *FetchApiKeyParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -588,22 +700,35 @@ func NewFetchApiKeyRequest(server string, apiKeyId openapi_types.UUID) (*http.Re
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewUpdateApiKeyRequest calls the generic UpdateApiKey builder with application/json body
-func NewUpdateApiKeyRequest(server string, apiKeyId openapi_types.UUID, body UpdateApiKeyJSONRequestBody) (*http.Request, error) {
+func NewUpdateApiKeyRequest(server string, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, body UpdateApiKeyJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpdateApiKeyRequestWithBody(server, apiKeyId, "application/json", bodyReader)
+	return NewUpdateApiKeyRequestWithBody(server, apiKeyId, params, "application/json", bodyReader)
 }
 
 // NewUpdateApiKeyRequestWithBody generates requests for UpdateApiKey with any type of body
-func NewUpdateApiKeyRequestWithBody(server string, apiKeyId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+func NewUpdateApiKeyRequestWithBody(server string, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -635,11 +760,24 @@ func NewUpdateApiKeyRequestWithBody(server string, apiKeyId openapi_types.UUID, 
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewListOrganizationsRequest generates requests for ListOrganizations
-func NewListOrganizationsRequest(server string) (*http.Request, error) {
+func NewListOrganizationsRequest(server string, params *ListOrganizationsParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -662,11 +800,24 @@ func NewListOrganizationsRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewDeleteOrganizationRequest generates requests for DeleteOrganization
-func NewDeleteOrganizationRequest(server string, organizationId string) (*http.Request, error) {
+func NewDeleteOrganizationRequest(server string, organizationId string, params *DeleteOrganizationParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -694,13 +845,26 @@ func NewDeleteOrganizationRequest(server string, organizationId string) (*http.R
 	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
 	}
 
 	return req, nil
 }
 
 // NewFetchOrganizationRequest generates requests for FetchOrganization
-func NewFetchOrganizationRequest(server string, organizationId string) (*http.Request, error) {
+func NewFetchOrganizationRequest(server string, organizationId string, params *FetchOrganizationParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -730,22 +894,35 @@ func NewFetchOrganizationRequest(server string, organizationId string) (*http.Re
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewUpdateOrganizationRequest calls the generic UpdateOrganization builder with application/json body
-func NewUpdateOrganizationRequest(server string, organizationId string, body UpdateOrganizationJSONRequestBody) (*http.Request, error) {
+func NewUpdateOrganizationRequest(server string, organizationId string, params *UpdateOrganizationParams, body UpdateOrganizationJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpdateOrganizationRequestWithBody(server, organizationId, "application/json", bodyReader)
+	return NewUpdateOrganizationRequestWithBody(server, organizationId, params, "application/json", bodyReader)
 }
 
 // NewUpdateOrganizationRequestWithBody generates requests for UpdateOrganization with any type of body
-func NewUpdateOrganizationRequestWithBody(server string, organizationId string, contentType string, body io.Reader) (*http.Request, error) {
+func NewUpdateOrganizationRequestWithBody(server string, organizationId string, params *UpdateOrganizationParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -777,11 +954,24 @@ func NewUpdateOrganizationRequestWithBody(server string, organizationId string, 
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewListProjectsRequest generates requests for ListProjects
-func NewListProjectsRequest(server string) (*http.Request, error) {
+func NewListProjectsRequest(server string, params *ListProjectsParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -804,22 +994,35 @@ func NewListProjectsRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewCreateProjectRequest calls the generic CreateProject builder with application/json body
-func NewCreateProjectRequest(server string, body CreateProjectJSONRequestBody) (*http.Request, error) {
+func NewCreateProjectRequest(server string, params *CreateProjectParams, body CreateProjectJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateProjectRequestWithBody(server, "application/json", bodyReader)
+	return NewCreateProjectRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewCreateProjectRequestWithBody generates requests for CreateProject with any type of body
-func NewCreateProjectRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreateProjectRequestWithBody(server string, params *CreateProjectParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -844,11 +1047,24 @@ func NewCreateProjectRequestWithBody(server string, contentType string, body io.
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewDeleteProjectRequest generates requests for DeleteProject
-func NewDeleteProjectRequest(server string, projectId openapi_types.UUID) (*http.Request, error) {
+func NewDeleteProjectRequest(server string, projectId openapi_types.UUID, params *DeleteProjectParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -878,11 +1094,24 @@ func NewDeleteProjectRequest(server string, projectId openapi_types.UUID) (*http
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewFetchProjectRequest generates requests for FetchProject
-func NewFetchProjectRequest(server string, projectId openapi_types.UUID) (*http.Request, error) {
+func NewFetchProjectRequest(server string, projectId openapi_types.UUID, params *FetchProjectParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -912,22 +1141,35 @@ func NewFetchProjectRequest(server string, projectId openapi_types.UUID) (*http.
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewUpdateProjectRequest calls the generic UpdateProject builder with application/json body
-func NewUpdateProjectRequest(server string, projectId openapi_types.UUID, body UpdateProjectJSONRequestBody) (*http.Request, error) {
+func NewUpdateProjectRequest(server string, projectId openapi_types.UUID, params *UpdateProjectParams, body UpdateProjectJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpdateProjectRequestWithBody(server, projectId, "application/json", bodyReader)
+	return NewUpdateProjectRequestWithBody(server, projectId, params, "application/json", bodyReader)
 }
 
 // NewUpdateProjectRequestWithBody generates requests for UpdateProject with any type of body
-func NewUpdateProjectRequestWithBody(server string, projectId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+func NewUpdateProjectRequestWithBody(server string, projectId openapi_types.UUID, params *UpdateProjectParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -959,11 +1201,24 @@ func NewUpdateProjectRequestWithBody(server string, projectId openapi_types.UUID
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
-// NewListApiKeysRequest generates requests for ListApiKeys
-func NewListApiKeysRequest(server string, projectId openapi_types.UUID) (*http.Request, error) {
+// NewListProjectApiKeysRequest generates requests for ListProjectApiKeys
+func NewListProjectApiKeysRequest(server string, projectId openapi_types.UUID, params *ListProjectApiKeysParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -993,22 +1248,35 @@ func NewListApiKeysRequest(server string, projectId openapi_types.UUID) (*http.R
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewCreateApiKeyRequest calls the generic CreateApiKey builder with application/json body
-func NewCreateApiKeyRequest(server string, projectId openapi_types.UUID, body CreateApiKeyJSONRequestBody) (*http.Request, error) {
+func NewCreateApiKeyRequest(server string, projectId openapi_types.UUID, params *CreateApiKeyParams, body CreateApiKeyJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateApiKeyRequestWithBody(server, projectId, "application/json", bodyReader)
+	return NewCreateApiKeyRequestWithBody(server, projectId, params, "application/json", bodyReader)
 }
 
 // NewCreateApiKeyRequestWithBody generates requests for CreateApiKey with any type of body
-func NewCreateApiKeyRequestWithBody(server string, projectId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreateApiKeyRequestWithBody(server string, projectId openapi_types.UUID, params *CreateApiKeyParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1039,6 +1307,19 @@ func NewCreateApiKeyRequestWithBody(server string, projectId openapi_types.UUID,
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
 
 	return req, nil
 }
@@ -1087,56 +1368,56 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 	// DeleteApiKeyWithResponse request
-	DeleteApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteApiKeyResponse, error)
+	DeleteApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *DeleteApiKeyParams, reqEditors ...RequestEditorFn) (*DeleteApiKeyResponse, error)
 
 	// FetchApiKeyWithResponse request
-	FetchApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*FetchApiKeyResponse, error)
+	FetchApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *FetchApiKeyParams, reqEditors ...RequestEditorFn) (*FetchApiKeyResponse, error)
 
 	// UpdateApiKeyWithBodyWithResponse request with any body
-	UpdateApiKeyWithBodyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error)
+	UpdateApiKeyWithBodyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error)
 
-	UpdateApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error)
+	UpdateApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error)
 
 	// ListOrganizationsWithResponse request
-	ListOrganizationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOrganizationsResponse, error)
+	ListOrganizationsWithResponse(ctx context.Context, params *ListOrganizationsParams, reqEditors ...RequestEditorFn) (*ListOrganizationsResponse, error)
 
 	// DeleteOrganizationWithResponse request
-	DeleteOrganizationWithResponse(ctx context.Context, organizationId string, reqEditors ...RequestEditorFn) (*DeleteOrganizationResponse, error)
+	DeleteOrganizationWithResponse(ctx context.Context, organizationId string, params *DeleteOrganizationParams, reqEditors ...RequestEditorFn) (*DeleteOrganizationResponse, error)
 
 	// FetchOrganizationWithResponse request
-	FetchOrganizationWithResponse(ctx context.Context, organizationId string, reqEditors ...RequestEditorFn) (*FetchOrganizationResponse, error)
+	FetchOrganizationWithResponse(ctx context.Context, organizationId string, params *FetchOrganizationParams, reqEditors ...RequestEditorFn) (*FetchOrganizationResponse, error)
 
 	// UpdateOrganizationWithBodyWithResponse request with any body
-	UpdateOrganizationWithBodyWithResponse(ctx context.Context, organizationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error)
+	UpdateOrganizationWithBodyWithResponse(ctx context.Context, organizationId string, params *UpdateOrganizationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error)
 
-	UpdateOrganizationWithResponse(ctx context.Context, organizationId string, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error)
+	UpdateOrganizationWithResponse(ctx context.Context, organizationId string, params *UpdateOrganizationParams, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error)
 
 	// ListProjectsWithResponse request
-	ListProjectsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListProjectsResponse, error)
+	ListProjectsWithResponse(ctx context.Context, params *ListProjectsParams, reqEditors ...RequestEditorFn) (*ListProjectsResponse, error)
 
 	// CreateProjectWithBodyWithResponse request with any body
-	CreateProjectWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error)
+	CreateProjectWithBodyWithResponse(ctx context.Context, params *CreateProjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error)
 
-	CreateProjectWithResponse(ctx context.Context, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error)
+	CreateProjectWithResponse(ctx context.Context, params *CreateProjectParams, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error)
 
 	// DeleteProjectWithResponse request
-	DeleteProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProjectResponse, error)
+	DeleteProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *DeleteProjectParams, reqEditors ...RequestEditorFn) (*DeleteProjectResponse, error)
 
 	// FetchProjectWithResponse request
-	FetchProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*FetchProjectResponse, error)
+	FetchProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *FetchProjectParams, reqEditors ...RequestEditorFn) (*FetchProjectResponse, error)
 
 	// UpdateProjectWithBodyWithResponse request with any body
-	UpdateProjectWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error)
+	UpdateProjectWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *UpdateProjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error)
 
-	UpdateProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error)
+	UpdateProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *UpdateProjectParams, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error)
 
-	// ListApiKeysWithResponse request
-	ListApiKeysWithResponse(ctx context.Context, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListApiKeysResponse, error)
+	// ListProjectApiKeysWithResponse request
+	ListProjectApiKeysWithResponse(ctx context.Context, projectId openapi_types.UUID, params *ListProjectApiKeysParams, reqEditors ...RequestEditorFn) (*ListProjectApiKeysResponse, error)
 
 	// CreateApiKeyWithBodyWithResponse request with any body
-	CreateApiKeyWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error)
+	CreateApiKeyWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error)
 
-	CreateApiKeyWithResponse(ctx context.Context, projectId openapi_types.UUID, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error)
+	CreateApiKeyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error)
 }
 
 type DeleteApiKeyResponse struct {
@@ -1194,7 +1475,7 @@ func (r FetchApiKeyResponse) StatusCode() int {
 type UpdateApiKeyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *APIKeyWithSecret
+	JSON200      *APIKey
 	JSON400      *ErrorResponse
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
@@ -1221,12 +1502,10 @@ func (r UpdateApiKeyResponse) StatusCode() int {
 type ListOrganizationsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		Data *[]Organization `json:"data,omitempty"`
-	}
-	JSON401 *ErrorResponse
-	JSON4XX *ErrorResponse
-	JSON500 *ErrorResponse
+	JSON200      *OrganizationList
+	JSON401      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1328,12 +1607,10 @@ func (r UpdateOrganizationResponse) StatusCode() int {
 type ListProjectsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		Data *[]Project `json:"data,omitempty"`
-	}
-	JSON401 *ErrorResponse
-	JSON4XX *ErrorResponse
-	JSON500 *ErrorResponse
+	JSON200      *ProjectList
+	JSON401      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1460,19 +1737,17 @@ func (r UpdateProjectResponse) StatusCode() int {
 	return 0
 }
 
-type ListApiKeysResponse struct {
+type ListProjectApiKeysResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		Data *[]APIKey `json:"data,omitempty"`
-	}
-	JSON401 *ErrorResponse
-	JSON4XX *ErrorResponse
-	JSON500 *ErrorResponse
+	JSON200      *ListApiKeysResponse
+	JSON401      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
-func (r ListApiKeysResponse) Status() string {
+func (r ListProjectApiKeysResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1480,7 +1755,7 @@ func (r ListApiKeysResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListApiKeysResponse) StatusCode() int {
+func (r ListProjectApiKeysResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1515,8 +1790,8 @@ func (r CreateApiKeyResponse) StatusCode() int {
 }
 
 // DeleteApiKeyWithResponse request returning *DeleteApiKeyResponse
-func (c *ClientWithResponses) DeleteApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteApiKeyResponse, error) {
-	rsp, err := c.DeleteApiKey(ctx, apiKeyId, reqEditors...)
+func (c *ClientWithResponses) DeleteApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *DeleteApiKeyParams, reqEditors ...RequestEditorFn) (*DeleteApiKeyResponse, error) {
+	rsp, err := c.DeleteApiKey(ctx, apiKeyId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1524,8 +1799,8 @@ func (c *ClientWithResponses) DeleteApiKeyWithResponse(ctx context.Context, apiK
 }
 
 // FetchApiKeyWithResponse request returning *FetchApiKeyResponse
-func (c *ClientWithResponses) FetchApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*FetchApiKeyResponse, error) {
-	rsp, err := c.FetchApiKey(ctx, apiKeyId, reqEditors...)
+func (c *ClientWithResponses) FetchApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *FetchApiKeyParams, reqEditors ...RequestEditorFn) (*FetchApiKeyResponse, error) {
+	rsp, err := c.FetchApiKey(ctx, apiKeyId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1533,16 +1808,16 @@ func (c *ClientWithResponses) FetchApiKeyWithResponse(ctx context.Context, apiKe
 }
 
 // UpdateApiKeyWithBodyWithResponse request with arbitrary body returning *UpdateApiKeyResponse
-func (c *ClientWithResponses) UpdateApiKeyWithBodyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error) {
-	rsp, err := c.UpdateApiKeyWithBody(ctx, apiKeyId, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UpdateApiKeyWithBodyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error) {
+	rsp, err := c.UpdateApiKeyWithBody(ctx, apiKeyId, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseUpdateApiKeyResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpdateApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error) {
-	rsp, err := c.UpdateApiKey(ctx, apiKeyId, body, reqEditors...)
+func (c *ClientWithResponses) UpdateApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error) {
+	rsp, err := c.UpdateApiKey(ctx, apiKeyId, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1550,8 +1825,8 @@ func (c *ClientWithResponses) UpdateApiKeyWithResponse(ctx context.Context, apiK
 }
 
 // ListOrganizationsWithResponse request returning *ListOrganizationsResponse
-func (c *ClientWithResponses) ListOrganizationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOrganizationsResponse, error) {
-	rsp, err := c.ListOrganizations(ctx, reqEditors...)
+func (c *ClientWithResponses) ListOrganizationsWithResponse(ctx context.Context, params *ListOrganizationsParams, reqEditors ...RequestEditorFn) (*ListOrganizationsResponse, error) {
+	rsp, err := c.ListOrganizations(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1559,8 +1834,8 @@ func (c *ClientWithResponses) ListOrganizationsWithResponse(ctx context.Context,
 }
 
 // DeleteOrganizationWithResponse request returning *DeleteOrganizationResponse
-func (c *ClientWithResponses) DeleteOrganizationWithResponse(ctx context.Context, organizationId string, reqEditors ...RequestEditorFn) (*DeleteOrganizationResponse, error) {
-	rsp, err := c.DeleteOrganization(ctx, organizationId, reqEditors...)
+func (c *ClientWithResponses) DeleteOrganizationWithResponse(ctx context.Context, organizationId string, params *DeleteOrganizationParams, reqEditors ...RequestEditorFn) (*DeleteOrganizationResponse, error) {
+	rsp, err := c.DeleteOrganization(ctx, organizationId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1568,8 +1843,8 @@ func (c *ClientWithResponses) DeleteOrganizationWithResponse(ctx context.Context
 }
 
 // FetchOrganizationWithResponse request returning *FetchOrganizationResponse
-func (c *ClientWithResponses) FetchOrganizationWithResponse(ctx context.Context, organizationId string, reqEditors ...RequestEditorFn) (*FetchOrganizationResponse, error) {
-	rsp, err := c.FetchOrganization(ctx, organizationId, reqEditors...)
+func (c *ClientWithResponses) FetchOrganizationWithResponse(ctx context.Context, organizationId string, params *FetchOrganizationParams, reqEditors ...RequestEditorFn) (*FetchOrganizationResponse, error) {
+	rsp, err := c.FetchOrganization(ctx, organizationId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1577,16 +1852,16 @@ func (c *ClientWithResponses) FetchOrganizationWithResponse(ctx context.Context,
 }
 
 // UpdateOrganizationWithBodyWithResponse request with arbitrary body returning *UpdateOrganizationResponse
-func (c *ClientWithResponses) UpdateOrganizationWithBodyWithResponse(ctx context.Context, organizationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error) {
-	rsp, err := c.UpdateOrganizationWithBody(ctx, organizationId, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UpdateOrganizationWithBodyWithResponse(ctx context.Context, organizationId string, params *UpdateOrganizationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error) {
+	rsp, err := c.UpdateOrganizationWithBody(ctx, organizationId, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseUpdateOrganizationResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpdateOrganizationWithResponse(ctx context.Context, organizationId string, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error) {
-	rsp, err := c.UpdateOrganization(ctx, organizationId, body, reqEditors...)
+func (c *ClientWithResponses) UpdateOrganizationWithResponse(ctx context.Context, organizationId string, params *UpdateOrganizationParams, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error) {
+	rsp, err := c.UpdateOrganization(ctx, organizationId, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1594,8 +1869,8 @@ func (c *ClientWithResponses) UpdateOrganizationWithResponse(ctx context.Context
 }
 
 // ListProjectsWithResponse request returning *ListProjectsResponse
-func (c *ClientWithResponses) ListProjectsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListProjectsResponse, error) {
-	rsp, err := c.ListProjects(ctx, reqEditors...)
+func (c *ClientWithResponses) ListProjectsWithResponse(ctx context.Context, params *ListProjectsParams, reqEditors ...RequestEditorFn) (*ListProjectsResponse, error) {
+	rsp, err := c.ListProjects(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1603,16 +1878,16 @@ func (c *ClientWithResponses) ListProjectsWithResponse(ctx context.Context, reqE
 }
 
 // CreateProjectWithBodyWithResponse request with arbitrary body returning *CreateProjectResponse
-func (c *ClientWithResponses) CreateProjectWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error) {
-	rsp, err := c.CreateProjectWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateProjectWithBodyWithResponse(ctx context.Context, params *CreateProjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error) {
+	rsp, err := c.CreateProjectWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCreateProjectResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateProjectWithResponse(ctx context.Context, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error) {
-	rsp, err := c.CreateProject(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreateProjectWithResponse(ctx context.Context, params *CreateProjectParams, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error) {
+	rsp, err := c.CreateProject(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1620,8 +1895,8 @@ func (c *ClientWithResponses) CreateProjectWithResponse(ctx context.Context, bod
 }
 
 // DeleteProjectWithResponse request returning *DeleteProjectResponse
-func (c *ClientWithResponses) DeleteProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProjectResponse, error) {
-	rsp, err := c.DeleteProject(ctx, projectId, reqEditors...)
+func (c *ClientWithResponses) DeleteProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *DeleteProjectParams, reqEditors ...RequestEditorFn) (*DeleteProjectResponse, error) {
+	rsp, err := c.DeleteProject(ctx, projectId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1629,8 +1904,8 @@ func (c *ClientWithResponses) DeleteProjectWithResponse(ctx context.Context, pro
 }
 
 // FetchProjectWithResponse request returning *FetchProjectResponse
-func (c *ClientWithResponses) FetchProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*FetchProjectResponse, error) {
-	rsp, err := c.FetchProject(ctx, projectId, reqEditors...)
+func (c *ClientWithResponses) FetchProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *FetchProjectParams, reqEditors ...RequestEditorFn) (*FetchProjectResponse, error) {
+	rsp, err := c.FetchProject(ctx, projectId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1638,42 +1913,42 @@ func (c *ClientWithResponses) FetchProjectWithResponse(ctx context.Context, proj
 }
 
 // UpdateProjectWithBodyWithResponse request with arbitrary body returning *UpdateProjectResponse
-func (c *ClientWithResponses) UpdateProjectWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error) {
-	rsp, err := c.UpdateProjectWithBody(ctx, projectId, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UpdateProjectWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *UpdateProjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error) {
+	rsp, err := c.UpdateProjectWithBody(ctx, projectId, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseUpdateProjectResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpdateProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error) {
-	rsp, err := c.UpdateProject(ctx, projectId, body, reqEditors...)
+func (c *ClientWithResponses) UpdateProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *UpdateProjectParams, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error) {
+	rsp, err := c.UpdateProject(ctx, projectId, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseUpdateProjectResponse(rsp)
 }
 
-// ListApiKeysWithResponse request returning *ListApiKeysResponse
-func (c *ClientWithResponses) ListApiKeysWithResponse(ctx context.Context, projectId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListApiKeysResponse, error) {
-	rsp, err := c.ListApiKeys(ctx, projectId, reqEditors...)
+// ListProjectApiKeysWithResponse request returning *ListProjectApiKeysResponse
+func (c *ClientWithResponses) ListProjectApiKeysWithResponse(ctx context.Context, projectId openapi_types.UUID, params *ListProjectApiKeysParams, reqEditors ...RequestEditorFn) (*ListProjectApiKeysResponse, error) {
+	rsp, err := c.ListProjectApiKeys(ctx, projectId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListApiKeysResponse(rsp)
+	return ParseListProjectApiKeysResponse(rsp)
 }
 
 // CreateApiKeyWithBodyWithResponse request with arbitrary body returning *CreateApiKeyResponse
-func (c *ClientWithResponses) CreateApiKeyWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error) {
-	rsp, err := c.CreateApiKeyWithBody(ctx, projectId, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateApiKeyWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error) {
+	rsp, err := c.CreateApiKeyWithBody(ctx, projectId, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCreateApiKeyResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateApiKeyWithResponse(ctx context.Context, projectId openapi_types.UUID, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error) {
-	rsp, err := c.CreateApiKey(ctx, projectId, body, reqEditors...)
+func (c *ClientWithResponses) CreateApiKeyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error) {
+	rsp, err := c.CreateApiKey(ctx, projectId, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1802,12 +2077,12 @@ func ParseUpdateApiKeyResponse(rsp *http.Response) (*UpdateApiKeyResponse, error
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest APIKeyWithSecret
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest APIKey
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON201 = &dest
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorResponse
@@ -1864,9 +2139,7 @@ func ParseListOrganizationsResponse(rsp *http.Response) (*ListOrganizationsRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			Data *[]Organization `json:"data,omitempty"`
-		}
+		var dest OrganizationList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2089,9 +2362,7 @@ func ParseListProjectsResponse(rsp *http.Response) (*ListProjectsResponse, error
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			Data *[]Project `json:"data,omitempty"`
-		}
+		var dest ProjectList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2367,24 +2638,22 @@ func ParseUpdateProjectResponse(rsp *http.Response) (*UpdateProjectResponse, err
 	return response, nil
 }
 
-// ParseListApiKeysResponse parses an HTTP response from a ListApiKeysWithResponse call
-func ParseListApiKeysResponse(rsp *http.Response) (*ListApiKeysResponse, error) {
+// ParseListProjectApiKeysResponse parses an HTTP response from a ListProjectApiKeysWithResponse call
+func ParseListProjectApiKeysResponse(rsp *http.Response) (*ListProjectApiKeysResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListApiKeysResponse{
+	response := &ListProjectApiKeysResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			Data *[]APIKey `json:"data,omitempty"`
-		}
+		var dest ListApiKeysResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
