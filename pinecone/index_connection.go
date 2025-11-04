@@ -1584,6 +1584,23 @@ func (idx *IndexConnection) CancelImport(ctx context.Context, id string) error {
 	return nil
 }
 
+type CreateNamespaceParams struct {
+	Name   string
+	Schema *db_data_grpc.MetadataSchema
+}
+
+func (idx *IndexConnection) CreateNamespace(ctx context.Context, in *CreateNamespaceParams) (*NamespaceDescription, error) {
+	req := db_data_grpc.CreateNamespaceRequest{
+		Name:   in.Name,
+		Schema: in.Schema,
+	}
+	res, err := (*idx.grpcClient).CreateNamespace(idx.akCtx(ctx), &req)
+	if err != nil {
+		return nil, err
+	}
+	return &NamespaceDescription{Name: res.Name, RecordCount: res.RecordCount}, nil
+}
+
 // [IndexConnection.DescribeNamespace] describes a namespace within a serverless index.
 //
 // Returns a pointer to a [NamespaceDescription] object or an error if the request fails.
@@ -1644,6 +1661,7 @@ func (idx *IndexConnection) DescribeNamespace(ctx context.Context, namespace str
 type ListNamespacesResponse struct {
 	Namespaces []*NamespaceDescription
 	Pagination *Pagination
+	TotalCount int32
 }
 
 // [ListNamespacesParams] holds the parameters for the [IndexConnection.ListNamespaces] method.
@@ -1651,9 +1669,11 @@ type ListNamespacesResponse struct {
 // Fields:
 //   - PaginationToken: The token to retrieve the next page of namespaces, if available.
 //   - Limit: The maximum number of namespaces to return.
+//   - Prefix: The prefix of the namespaces to list.
 type ListNamespacesParams struct {
 	PaginationToken *string
 	Limit           *uint32
+	Prefix          *string
 }
 
 // [IndexConnection.DescribeNamespace] lists namespaces within a serverless index.
@@ -1700,6 +1720,7 @@ func (idx *IndexConnection) ListNamespaces(ctx context.Context, in *ListNamespac
 		listRequest = &db_data_grpc.ListNamespacesRequest{
 			PaginationToken: in.PaginationToken,
 			Limit:           in.Limit,
+			Prefix:          in.Prefix,
 		}
 	}
 	res, err := (*idx.grpcClient).ListNamespaces(idx.akCtx(ctx), listRequest)
@@ -1982,6 +2003,7 @@ func toListNamespacesResponse(listNamespacesResponse *db_data_grpc.ListNamespace
 	return &ListNamespacesResponse{
 		Namespaces: namespaces,
 		Pagination: pagination,
+		TotalCount: listNamespacesResponse.TotalCount,
 	}
 }
 

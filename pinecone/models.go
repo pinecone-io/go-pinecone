@@ -65,6 +65,7 @@ type IndexStatus struct {
 type IndexSpec struct {
 	Pod        *PodSpec        `json:"pod,omitempty"`
 	Serverless *ServerlessSpec `json:"serverless,omitempty"`
+	BYOC       *BYOCSpec       `json:"byoc,omitempty"`
 }
 
 // [IndexEmbed] represents the embedding model configured for an index,
@@ -185,9 +186,102 @@ type PodSpec struct {
 //   - Region: The region where the index is hosted.
 //   - SourceCollection: The name of the [Collection] used as a source for the index.
 type ServerlessSpec struct {
-	Cloud            Cloud   `json:"cloud"`
-	Region           string  `json:"region"`
-	SourceCollection *string `json:"source_collection,omitempty"`
+	Cloud            Cloud           `json:"cloud"`
+	Region           string          `json:"region"`
+	Schema           *MetadataSchema `json:"schema,omitempty"`
+	SourceCollection *string         `json:"source_collection,omitempty"`
+	ReadCapacity     *ReadCapacity   `json:"read_capacity,omitempty"`
+}
+
+type BYOCSpec struct {
+	Environment string          `json:"environment"`
+	Schema      *MetadataSchema `json:"schema,omitempty"`
+}
+
+// [ReadCapacityRequest] represents the read capacity configuration for creating or configuring a serverless index.
+// This is used in CreateIndex and ConfigureIndex operations.
+//
+// Fields:
+//   - Dedicated: Dedicated read capacity mode. Requires node_type and scaling configuration.
+type ReadCapacityRequest struct {
+	Dedicated *ReadCapacityDedicatedConfig `json:"dedicated,omitempty"`
+}
+
+// [ReadCapacityDedicatedRequest] represents Dedicated read capacity configuration for requests.
+//
+// Fields:
+//   - NodeType: The type of machines to use. Available options: "b1" and "t1".
+//     "t1" includes increased processing power and memory.
+//   - Scaling: The scaling strategy configuration. Currently supports manual scaling.
+type ReadCapacityDedicatedConfig struct {
+	NodeType string               `json:"node_type"`
+	Scaling  *ReadCapacityScaling `json:"scaling,omitempty"`
+}
+
+// [ReadCapacity] represents the read capacity configuration returned from the API.
+// This is used in DescribeIndex responses.
+//
+// Fields:
+//   - OnDemand: OnDemand read capacity mode with current status.
+//   - Dedicated: Dedicated read capacity mode with current status.
+type ReadCapacity struct {
+	OnDemand  *ReadCapacityOnDemand  `json:"on_demand,omitempty"`
+	Dedicated *ReadCapacityDedicated `json:"dedicated,omitempty"`
+}
+
+// [ReadCapacityOnDemand] represents OnDemand read capacity mode with status information.
+//
+// Fields:
+//   - Status: The current status of the read capacity configuration.
+type ReadCapacityOnDemand struct {
+	Status ReadCapacityStatus `json:"status"`
+}
+
+// [ReadCapacityDedicated] represents Dedicated read capacity configuration with status information.
+//
+// Fields:
+//   - NodeType: The type of machines in use.
+//   - Scaling: The scaling strategy configuration.
+//   - Status: The current status of the read capacity configuration.
+type ReadCapacityDedicated struct {
+	NodeType string               `json:"node_type"`
+	Scaling  *ReadCapacityScaling `json:"scaling,omitempty"`
+	Status   ReadCapacityStatus   `json:"status"`
+}
+
+// [ReadCapacityScaling] represents the scaling configuration for dedicated read capacity.
+//
+// Fields:
+//   - Manual: Manual scaling configuration with fixed replicas and shards.
+type ReadCapacityScaling struct {
+	Manual *ReadCapacityManualScaling `json:"manual,omitempty"`
+}
+
+// [ReadCapacityManualScaling] represents manual scaling configuration.
+//
+// Fields:
+//   - Replicas: The number of replicas to use. Replicas duplicate the compute resources
+//     and data of an index, allowing higher query throughput and availability.
+//     Setting replicas to 0 disables the index but can be used to reduce costs while usage is paused.
+//   - Shards: The number of shards to use. Shards determine the storage capacity of an index,
+//     with each shard providing 250 GB of storage.
+type ReadCapacityManualScaling struct {
+	Replicas int32 `json:"replicas"`
+	Shards   int32 `json:"shards"`
+}
+
+// [ReadCapacityStatus] represents the current status of factors affecting the read capacity of a serverless index.
+//
+// Fields:
+//   - State: The overall status state. Available values: "Ready", "Scaling", "Migrating", or "Error".
+//   - CurrentReplicas: The current number of replicas.
+//   - CurrentShards: The current number of shards.
+//   - ErrorMessage: An optional error message if there are issues with the read capacity configuration.
+type ReadCapacityStatus struct {
+	State           string  `json:"state"`
+	CurrentReplicas *int32  `json:"current_replicas,omitempty"`
+	CurrentShards   *int32  `json:"current_shards,omitempty"`
+	ErrorMessage    *string `json:"error_message,omitempty"`
 }
 
 // [Vector] is a [dense or sparse vector object] with optional metadata.
@@ -233,6 +327,7 @@ type NamespaceSummary struct {
 type NamespaceDescription struct {
 	Name        string `json:"name"`
 	RecordCount uint64 `json:"record_count"`
+	TotalCount  int32  `json:"total_count"`
 }
 
 // [Usage] is the usage stats ([Read Units]) for a Pinecone [Index].
@@ -571,21 +666,22 @@ func (spv *SupportedParameterValue) UnmarshalJSON(data []byte) error {
 //   - Status: Current status of the backup (e.g., Initializing, Ready, Failed).
 //   - Tags: Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'. Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to an empty string.
 type Backup struct {
-	BackupId        string       `json:"backup_id"`
-	Cloud           string       `json:"cloud"`
-	CreatedAt       *string      `json:"created_at,omitempty"`
-	Description     *string      `json:"description,omitempty"`
-	Dimension       *int32       `json:"dimension,omitempty"`
-	Metric          *IndexMetric `json:"metric,omitempty"`
-	Name            *string      `json:"name,omitempty"`
-	NamespaceCount  *int         `json:"namespace_count,omitempty"`
-	RecordCount     *int         `json:"record_count,omitempty"`
-	Region          string       `json:"region"`
-	SizeBytes       *int         `json:"size_bytes,omitempty"`
-	SourceIndexId   string       `json:"source_index_id"`
-	SourceIndexName string       `json:"source_index_name"`
-	Status          string       `json:"status"`
-	Tags            *IndexTags   `json:"tags,omitempty"`
+	BackupId        string          `json:"backup_id"`
+	Cloud           string          `json:"cloud"`
+	CreatedAt       *string         `json:"created_at,omitempty"`
+	Description     *string         `json:"description,omitempty"`
+	Dimension       *int32          `json:"dimension,omitempty"`
+	Metric          *IndexMetric    `json:"metric,omitempty"`
+	Name            *string         `json:"name,omitempty"`
+	NamespaceCount  *int            `json:"namespace_count,omitempty"`
+	RecordCount     *int            `json:"record_count,omitempty"`
+	Region          string          `json:"region"`
+	Schema          *MetadataSchema `json:"schema,omitempty"`
+	SizeBytes       *int            `json:"size_bytes,omitempty"`
+	SourceIndexId   string          `json:"source_index_id"`
+	SourceIndexName string          `json:"source_index_name"`
+	Status          string          `json:"status"`
+	Tags            *IndexTags      `json:"tags,omitempty"`
 }
 
 // [BackupList] contains a paginated list of backups.
@@ -695,4 +791,12 @@ type APIKeyWithSecret struct {
 	// The value to use as an API key. New keys will have the format `"pckey_<public-label>_<unique-key>"`.
 	// The entire string should be used when authenticating.
 	Value string `json:"value"`
+}
+
+type MetadataSchema struct {
+	Fields map[string]MetadataSchemaField `json:"fields"`
+}
+
+type MetadataSchemaField struct {
+	Filterable *bool `json:"filterable"`
 }

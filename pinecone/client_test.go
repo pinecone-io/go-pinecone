@@ -937,7 +937,7 @@ func TestNewClientParamsNoApiKeyNoAuthorizationHeaderUnit(t *testing.T) {
 	client, err := NewClient(NewClientParams{})
 	require.NotNil(t, err, "Expected error when creating client without an API key or Authorization header")
 	if !strings.Contains(err.Error(), "no API key provided, please pass an API key for authorization") {
-		t.Errorf(fmt.Sprintf("Expected error to contain 'no API key provided, please pass an API key for authorization', but got '%s'", err.Error()))
+		t.Errorf("Expected error to contain 'no API key provided, please pass an API key for authorization', but got '%s'", err.Error())
 	}
 
 	require.Nil(t, client, "Expected client to be nil when creating client without an API key or Authorization header")
@@ -1482,11 +1482,14 @@ func TestToIndexUnit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			input := toIndex(tt.originalInput)
-			if diff := cmp.Diff(tt.expectedOutput, input); diff != "" {
+			output, err := toIndex(tt.originalInput)
+			if err != nil {
+				t.Errorf("toIndex() error: %v", err)
+			}
+			if diff := cmp.Diff(tt.expectedOutput, output); diff != "" {
 				t.Errorf("toIndex() mismatch (-expectedOutput +input):\n%s", diff)
 			}
-			assert.EqualValues(t, tt.expectedOutput, input)
+			assert.EqualValues(t, tt.expectedOutput, output)
 		})
 	}
 }

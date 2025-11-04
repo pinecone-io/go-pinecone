@@ -6,6 +6,7 @@ package pinecone
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -392,7 +393,11 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	if indexList.Indexes != nil {
 		indexes = make([]*Index, len(*indexList.Indexes))
 		for i, idx := range *indexList.Indexes {
-			indexes[i] = toIndex(&idx)
+			index, err := toIndex(&idx)
+			if err != nil {
+				return nil, err
+			}
+			indexes[i] = index
 		}
 	} else {
 		indexes = make([]*Index, 0)
@@ -629,6 +634,7 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //   - Dimension: (Optional) The [dimensionality] of the vectors to be inserted in the [Index].
 //   - VectorType: (Optional) The index vector type. You can use `dense` or `sparse`. If `dense`, the vector dimension must be specified.
 //     If `sparse`, the vector dimension should not be specified, and the Metric must be set to `dotproduct`. Defaults to `dense`.
+//   - Schema: (Optional) Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
 //   - Tags: (Optional) A map of tags to associate with the Index.
 //   - SourceCollection: (Optional) The name of the [Collection] to use as the source for the index. NOTE: Collections can only be created
 //     from pods-based indexes.
@@ -681,6 +687,8 @@ type CreateServerlessIndexRequest struct {
 	DeletionProtection *DeletionProtection
 	Dimension          *int32
 	VectorType         *string
+	ReadCapacity       *ReadCapacityRequest
+	Schema             *MetadataSchema
 	Tags               *IndexTags
 	SourceCollection   *string
 }
@@ -761,11 +769,18 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 		tags = (*db_control.IndexTags)(in.Tags)
 	}
 
+	readCapacity, err := readCapacityRequestToReadCapacity(in.ReadCapacity)
+	if err != nil {
+		return nil, err
+	}
+
 	serverlessSpec := db_control.IndexSpec0{
 		Serverless: db_control.ServerlessSpec{
 			Cloud:            string(in.Cloud),
 			Region:           in.Region,
 			SourceCollection: in.SourceCollection,
+			Schema:           fromMetadataSchema(in.Schema),
+			ReadCapacity:     readCapacity,
 		},
 	}
 
@@ -778,7 +793,7 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 		Tags:               tags,
 	}
 
-	err := req.Spec.FromIndexSpec0(serverlessSpec)
+	err = req.Spec.FromIndexSpec0(serverlessSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -814,6 +829,7 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 //   - Model: The name of the embedding model to use for the index.
 //   - ReadParameters: The read parameters for the embedding model.
 //   - WriteParameters: The write parameters for the embedding model.
+//   - Schema: (Optional) Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
 //   - Tags: (Optional) Custom user tags added to an index.
 //     Keys must be 80 characters or less, values must be 120 characters or less.
 //     Keys must be alphanumeric, '_', or '-'. Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '.
@@ -863,6 +879,8 @@ type CreateIndexForModelRequest struct {
 	Region             string
 	DeletionProtection *DeletionProtection
 	Embed              CreateIndexForModelEmbed
+	ReadCapacity       *ReadCapacityRequest
+	Schema             *MetadataSchema
 	Tags               *IndexTags
 }
 
@@ -921,12 +939,15 @@ type CreateIndexForModelEmbed struct {
 //
 //	    indexName := "my-serverless-index"
 //
-//	    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+//	    idx, err := pc.CreateIndexForModel(ctx, &pinecone.CreateIndexForModelRequest{
 //		    Name:    indexName,
 //		    Dimension: 3,
-//		    Metric:  pinecone.Cosine,
 //		    Cloud:   pinecone.Aws,
 //		    Region:  "us-east-1",
+//		    Embed: pinecone.CreateIndexForModelEmbed{
+//			    Model:    "multilingual-e5-large",
+//			    FieldMap: map[string]interface{}{"text": "chunk_text"},
+//			},
 //		})
 //
 //		if err != nil {
@@ -944,6 +965,11 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 	var tags *db_control.IndexTags
 	if in.Tags != nil {
 		tags = (*db_control.IndexTags)(in.Tags)
+	}
+
+	readCapacity, err := readCapacityRequestToReadCapacity(in.ReadCapacity)
+	if err != nil {
+		return nil, err
 	}
 
 	req := db_control.CreateIndexForModelRequest{
@@ -966,6 +992,8 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 			WriteParameters: in.Embed.WriteParameters,
 		},
 		DeletionProtection: (*db_control.DeletionProtection)(&deletionProtection),
+		Schema:             fromMetadataSchema(in.Schema),
+		ReadCapacity:       readCapacity,
 		Tags:               tags,
 	}
 
@@ -1126,6 +1154,7 @@ type ConfigureIndexParams struct {
 	DeletionProtection DeletionProtection
 	Tags               IndexTags
 	Embed              *ConfigureIndexEmbed
+	ReadCapacity       *ReadCapacityRequest
 }
 
 // [ConfigureIndexEmbed] contains parameters for configuring the integrated inference embedding settings for an [Index].
@@ -1218,12 +1247,32 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 				Replicas: replicas,
 			},
 		}
+
+		// Apply the pod spec to the request
 		if err := request.Spec.FromConfigureIndexRequestSpec1(podSpec); err != nil {
 			return nil, err
 		}
 	}
 
-	// TODO - Apply serverless configurations
+	// Apply serverless configurations
+	if in.ReadCapacity != nil {
+		var readCapacity *db_control.ReadCapacity
+		readCapacity, err = readCapacityRequestToReadCapacity(in.ReadCapacity)
+		if err != nil {
+			return nil, err
+		}
+		serverLessSpec := db_control.ConfigureIndexRequestSpec0{
+			Serverless: struct {
+				ReadCapacity *db_control.ReadCapacity `json:"read_capacity,omitempty"`
+			}{
+				ReadCapacity: readCapacity,
+			},
+		}
+		// Apply the serverless spec to the request
+		if err := request.Spec.FromConfigureIndexRequestSpec0(serverLessSpec); err != nil {
+			return nil, err
+		}
+	}
 
 	// Apply embedding configurations
 	if in.Embed != nil {
@@ -2086,7 +2135,7 @@ func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedR
 	}
 
 	// convert embedding parameters to expected type
-	if &in.Parameters != nil {
+	if in.Parameters != nil {
 		params := map[string]interface{}(in.Parameters)
 		req.Parameters = &params
 	}
@@ -2380,9 +2429,9 @@ func getIndexSpecType(spec db_control.IndexModel_Spec) string {
 	return "unknown"
 }
 
-func toIndex(idx *db_control.IndexModel) *Index {
+func toIndex(idx *db_control.IndexModel) (*Index, error) {
 	if idx == nil {
-		return nil
+		return nil, nil
 	}
 
 	spec := &IndexSpec{}
@@ -2391,7 +2440,6 @@ func toIndex(idx *db_control.IndexModel) *Index {
 	switch specType {
 	case "pod":
 		if podSpec, err := idx.Spec.AsIndexModelSpec1(); err == nil {
-			fmt.Printf("SUCCESSFULLY unmarshaled pod spec: podSpec: %+v\n", podSpec)
 			spec.Pod = &PodSpec{
 				Environment:      podSpec.Pod.Environment,
 				PodType:          podSpec.Pod.PodType,
@@ -2406,14 +2454,25 @@ func toIndex(idx *db_control.IndexModel) *Index {
 		}
 	case "serverless":
 		if serverlessSpec, err := idx.Spec.AsIndexModelSpec0(); err == nil {
-			fmt.Printf("SUCCESSFULLY unmarshaled serverless spec: serverlessSpec: %+v\n", serverlessSpec)
+
+			readCapacity, err := toReadCapacity(&serverlessSpec.Serverless.ReadCapacity)
+			if err != nil {
+				return nil, err
+			}
 			spec.Serverless = &ServerlessSpec{
 				Cloud:            Cloud(serverlessSpec.Serverless.Cloud),
 				Region:           serverlessSpec.Serverless.Region,
 				SourceCollection: serverlessSpec.Serverless.SourceCollection,
+				ReadCapacity:     readCapacity,
 			}
 		}
-		// TODO - Add BYOC support
+	case "byoc":
+		if byocSpec, err := idx.Spec.AsIndexModelSpec2(); err == nil {
+			spec.BYOC = &BYOCSpec{
+				Environment: byocSpec.Byoc.Environment,
+				Schema:      toMetadataSchema(byocSpec.Byoc.Schema),
+			}
+		}
 	}
 
 	status := &IndexStatus{
@@ -2455,17 +2514,20 @@ func toIndex(idx *db_control.IndexModel) *Index {
 		Status:             status,
 		Tags:               tags,
 		Embed:              embed,
-	}
+	}, nil
 }
 
 func decodeIndex(resBody io.ReadCloser) (*Index, error) {
 	var idx db_control.IndexModel
 	err := json.NewDecoder(resBody).Decode(&idx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode idx response: %w", err)
+		return nil, fmt.Errorf("failed to decode IndexModel response: %w", err)
 	}
-
-	return toIndex(&idx), nil
+	index, err := toIndex(&idx)
+	if err != nil {
+		return nil, err
+	}
+	return index, nil
 }
 
 func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
@@ -2700,7 +2762,7 @@ func formatError(errMap errorResponseMap) error {
 	if err != nil {
 		return err
 	}
-	baseError := fmt.Errorf(string(jsonString))
+	baseError := errors.New(string(jsonString))
 
 	return &PineconeError{Code: errMap.StatusCode, Msg: baseError}
 }
@@ -2844,4 +2906,151 @@ func minOne(x int32) int32 {
 		return 1
 	}
 	return x
+}
+
+func toMetadataSchema(schema *struct {
+	Fields map[string]struct {
+		Filterable *bool `json:"filterable,omitempty"`
+	} `json:"fields"`
+}) *MetadataSchema {
+	if schema == nil {
+		return nil
+	}
+
+	fields := make(map[string]MetadataSchemaField)
+	for key, value := range schema.Fields {
+		fields[key] = MetadataSchemaField{
+			Filterable: value.Filterable,
+		}
+	}
+
+	return &MetadataSchema{
+		Fields: fields,
+	}
+}
+
+func fromMetadataSchema(schema *MetadataSchema) *struct {
+	Fields map[string]struct {
+		Filterable *bool `json:"filterable,omitempty"`
+	} `json:"fields"`
+} {
+	if schema == nil {
+		return nil
+	}
+
+	fields := make(map[string]struct {
+		Filterable *bool `json:"filterable,omitempty"`
+	})
+	for key, value := range schema.Fields {
+		fields[key] = struct {
+			Filterable *bool `json:"filterable,omitempty"`
+		}{Filterable: value.Filterable}
+	}
+
+	return &struct {
+		Fields map[string]struct {
+			Filterable *bool `json:"filterable,omitempty"`
+		} `json:"fields"`
+	}{
+		Fields: fields,
+	}
+}
+
+// Converts the ReadCapacityRequest to db_control.ReadCapacity - used in CreateIndex, CreateIndexForModel, and ConfigureIndex
+func readCapacityRequestToReadCapacity(request *ReadCapacityRequest) (*db_control.ReadCapacity, error) {
+	// OnDemand - default if Dedicated is nil
+	if request == nil || request.Dedicated == nil {
+		var result db_control.ReadCapacity
+		onDemandSpec := db_control.ReadCapacityOnDemandSpec{
+			Mode: "OnDemand",
+		}
+		if err := result.FromReadCapacityOnDemandSpec(onDemandSpec); err != nil {
+			return nil, err
+		}
+		return &result, nil
+	}
+
+	// Dedicated
+	var result db_control.ReadCapacity
+	dedicatedConfig := db_control.ReadCapacityDedicatedConfig{
+		NodeType: request.Dedicated.NodeType,
+	}
+
+	// Scaling if provided
+	if request.Dedicated.Scaling != nil && request.Dedicated.Scaling.Manual != nil {
+		dedicatedConfig.Manual = &db_control.ScalingConfigManual{
+			Replicas: request.Dedicated.Scaling.Manual.Replicas,
+			Shards:   request.Dedicated.Scaling.Manual.Shards,
+		}
+	}
+
+	// Dedicated spec
+	dedicatedSpec := db_control.ReadCapacityDedicatedSpec{
+		Dedicated: dedicatedConfig,
+		Mode:      "Dedicated",
+	}
+	if err := result.FromReadCapacityDedicatedSpec(dedicatedSpec); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) {
+	if rc == nil {
+		return nil, nil
+	}
+
+	mode, err := rc.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+
+	switch mode {
+	case "OnDemand":
+		onDemandSpec, err := rc.AsReadCapacityOnDemandSpecResponse()
+		if err != nil {
+			return nil, err
+		}
+
+		return &ReadCapacity{
+			OnDemand: &ReadCapacityOnDemand{
+				Status: ReadCapacityStatus{
+					State:           onDemandSpec.Status.State,
+					CurrentReplicas: onDemandSpec.Status.CurrentReplicas,
+					CurrentShards:   onDemandSpec.Status.CurrentShards,
+					ErrorMessage:    onDemandSpec.Status.ErrorMessage,
+				},
+			},
+		}, nil
+	case "Dedicated":
+		dedicatedSpec, err := rc.AsReadCapacityDedicatedSpecResponse()
+		if err != nil {
+			return nil, err
+		}
+
+		dedicated := &ReadCapacityDedicated{
+			NodeType: dedicatedSpec.Dedicated.NodeType,
+			Status: ReadCapacityStatus{
+				State:           dedicatedSpec.Status.State,
+				CurrentReplicas: dedicatedSpec.Status.CurrentReplicas,
+				CurrentShards:   dedicatedSpec.Status.CurrentShards,
+				ErrorMessage:    dedicatedSpec.Status.ErrorMessage,
+			},
+		}
+
+		// Scaling if present
+		if strings.ToLower(dedicatedSpec.Dedicated.Scaling) == "manual" {
+			dedicated.Scaling = &ReadCapacityScaling{
+				Manual: &ReadCapacityManualScaling{
+					Replicas: dedicatedSpec.Dedicated.Manual.Replicas,
+					Shards:   dedicatedSpec.Dedicated.Manual.Shards,
+				},
+			}
+		}
+		return &ReadCapacity{
+			Dedicated: dedicated,
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown read capacity mode: %s", mode)
+	}
 }
