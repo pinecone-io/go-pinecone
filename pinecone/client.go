@@ -2454,7 +2454,6 @@ func toIndex(idx *db_control.IndexModel) (*Index, error) {
 		}
 	case "serverless":
 		if serverlessSpec, err := idx.Spec.AsIndexModelSpec0(); err == nil {
-
 			readCapacity, err := toReadCapacity(&serverlessSpec.Serverless.ReadCapacity)
 			if err != nil {
 				return nil, err
@@ -3050,7 +3049,6 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 		return &ReadCapacity{
 			Dedicated: dedicated,
 		}, nil
-	default:
-		return nil, fmt.Errorf("unknown read capacity mode: %s", mode)
 	}
+	return nil, nil
 }
