@@ -17,7 +17,6 @@ import (
 
 	"github.com/pinecone-io/go-pinecone/v4/internal/gen"
 	"github.com/pinecone-io/go-pinecone/v4/internal/gen/db_control"
-	db_data_grpc "github.com/pinecone-io/go-pinecone/v4/internal/gen/db_data/grpc"
 	db_data_rest "github.com/pinecone-io/go-pinecone/v4/internal/gen/db_data/rest"
 	"github.com/pinecone-io/go-pinecone/v4/internal/gen/inference"
 	"github.com/pinecone-io/go-pinecone/v4/internal/provider"
@@ -2930,23 +2929,6 @@ func toMetadataSchemaRest(schema *struct {
 	}
 }
 
-func toMetadataSchemaGrpc(schema *db_data_grpc.MetadataSchema) *MetadataSchema {
-	if schema == nil {
-		return nil
-	}
-
-	fields := make(map[string]MetadataSchemaField)
-	for key, value := range schema.Fields {
-		fields[key] = MetadataSchemaField{
-			Filterable: value.Filterable,
-		}
-	}
-
-	return &MetadataSchema{
-		Fields: fields,
-	}
-}
-
 func fromMetadataSchemaToRest(schema *MetadataSchema) *struct {
 	Fields map[string]struct {
 		Filterable *bool `json:"filterable,omitempty"`
@@ -2970,23 +2952,6 @@ func fromMetadataSchemaToRest(schema *MetadataSchema) *struct {
 			Filterable *bool `json:"filterable,omitempty"`
 		} `json:"fields"`
 	}{
-		Fields: fields,
-	}
-}
-
-func fromMetadataSchemaToGrpc(schema *MetadataSchema) *db_data_grpc.MetadataSchema {
-	if schema == nil {
-		return nil
-	}
-
-	fields := make(map[string]*db_data_grpc.MetadataFieldProperties)
-	for key, value := range schema.Fields {
-		fields[key] = &db_data_grpc.MetadataFieldProperties{
-			Filterable: value.Filterable,
-		}
-	}
-
-	return &db_data_grpc.MetadataSchema{
 		Fields: fields,
 	}
 }

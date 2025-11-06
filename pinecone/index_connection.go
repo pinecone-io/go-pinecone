@@ -431,6 +431,142 @@ func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*Fe
 	}, nil
 }
 
+// [FetchVectorsByMetadataRequest] holds the parameters passed into the [IndexConnection.FetchVectorsByMetadata] method.
+//
+// Fields:
+//   - Filter: (Required) The metadata filter used to match vectors.
+//   - Limit: (Optional) The maximum number of vectors to return. If unspecified, the server will use a default value.
+//   - PaginationToken: (Optional) The token for paginating through results. Use this to continue a previous listing operation.
+//   - Namespace: (Optional) The namespace from which to fetch vectors. If unspecified, the [IndexConnection]'s default namespace is used.
+type FetchVectorsByMetadataRequest struct {
+	Filter          *MetadataFilter
+	Limit           *uint32
+	PaginationToken *string
+	Namespace       *string
+}
+
+// [FetchVectorsByMetadataResponse] is returned by the [IndexConnection.FetchVectorsByMetadata] method.
+//
+// Fields:
+//   - Vectors: The fetched vectors, in the form of a map between the fetched ids and the fetched vectors.
+//   - Usage: The usage information for the request.
+//   - Namespace: The namespace from which the vectors were fetched.
+//   - Pagination: The pagination information for continuing past this listing, if more results are available.
+type FetchVectorsByMetadataResponse struct {
+	Vectors    map[string]*Vector `json:"vectors,omitempty"`
+	Usage      *Usage             `json:"usage,omitempty"`
+	Namespace  string             `json:"namespace"`
+	Pagination *Pagination        `json:"pagination,omitempty"`
+}
+
+// [IndexConnection.FetchVectorsByMetadata] fetches vectors matching a metadata filter. You can filter vectors
+// by metadata, limit the number of vectors returned, and paginate through results.
+//
+// Returns a pointer to a [FetchVectorsByMetadataResponse] object or an error if the request fails.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - in: A [FetchVectorsByMetadataRequest] object with the parameters for the request. The Filter field is required.
+//
+// Example:
+//
+//	    ctx := context.Background()
+//
+//	    clientParams := pinecone.NewClientParams{
+//		       ApiKey:    "YOUR_API_KEY",
+//		       SourceTag: "your_source_identifier", // optional
+//	    }
+//
+//	    pc, err := pinecone.NewClient(clientParams)
+//
+//	    if err != nil {
+//		       log.Fatalf("Failed to create Client: %v", err)
+//	    }
+//
+//	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//
+//	    if err != nil {
+//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	    }
+//
+//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
+//
+//	    if err != nil {
+//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	    }
+//
+//	    limit := uint32(10)
+//
+//	    metadataMap := map[string]interface{}{
+//		       "genre": map[string]interface{}{
+//			          "$eq": "action",
+//		       },
+//	    }
+//
+//	    filter, err := structpb.NewStruct(metadataMap)
+//	    if err != nil {
+//		       log.Fatalf("Failed to create metadata filter. Error: %v", err)
+//	    }
+//
+//	    res, err := idxConnection.FetchVectorsByMetadata(ctx, &pinecone.FetchVectorsByMetadataRequest{
+//		       Filter: filter,
+//		       Limit:  &limit,
+//	    })
+//	    if err != nil {
+//		       log.Fatalf("Failed to fetch vectors by metadata, error: %+v", err)
+//	    }
+//
+//	    if len(res.Vectors) != 0 {
+//		       fmt.Printf("Found %d vector(s)\n", len(res.Vectors))
+//	    } else {
+//		       fmt.Println("No vectors found")
+//	    }
+func (idx *IndexConnection) FetchVectorsByMetadata(ctx context.Context, in *FetchVectorsByMetadataRequest) (*FetchVectorsByMetadataResponse, error) {
+	if in == nil {
+		return nil, fmt.Errorf("FetchVectorsByMetadataRequest is nil")
+	}
+	if in.Filter == nil {
+		return nil, fmt.Errorf("Filter is required to fetch vectors by metadata")
+	}
+
+	namespace := idx.namespace
+	if in.Namespace != nil {
+		namespace = *in.Namespace
+	}
+
+	req := &db_data_grpc.FetchByMetadataRequest{
+		Namespace:       namespace,
+		Filter:          in.Filter,
+		Limit:           in.Limit,
+		PaginationToken: in.PaginationToken,
+	}
+
+	res, err := (*idx.grpcClient).FetchByMetadata(idx.akCtx(ctx), req)
+	if err != nil {
+		return nil, err
+	}
+
+	vectors := make(map[string]*Vector, len(res.Vectors))
+	for id, vector := range res.Vectors {
+		vectors[id] = toVector(vector)
+	}
+
+	var pagination *Pagination
+	if res.Pagination != nil {
+		pagination = &Pagination{
+			Next: res.Pagination.Next,
+		}
+	}
+
+	return &FetchVectorsByMetadataResponse{
+		Vectors:    vectors,
+		Usage:      toUsage(res.Usage),
+		Namespace:  namespace,
+		Pagination: pagination,
+	}, nil
+}
+
 // [ListVectorsRequest] holds the parameters passed into the [IndexConnection.ListVectors] method.
 //
 // Fields:
@@ -2065,4 +2201,38 @@ func normalizeHost(host string) (string, bool) {
 	}
 
 	return host, isSecure
+}
+
+func fromMetadataSchemaToGrpc(schema *MetadataSchema) *db_data_grpc.MetadataSchema {
+	if schema == nil {
+		return nil
+	}
+
+	fields := make(map[string]*db_data_grpc.MetadataFieldProperties)
+	for key, value := range schema.Fields {
+		fields[key] = &db_data_grpc.MetadataFieldProperties{
+			Filterable: value.Filterable,
+		}
+	}
+
+	return &db_data_grpc.MetadataSchema{
+		Fields: fields,
+	}
+}
+
+func toMetadataSchemaGrpc(schema *db_data_grpc.MetadataSchema) *MetadataSchema {
+	if schema == nil {
+		return nil
+	}
+
+	fields := make(map[string]MetadataSchemaField)
+	for key, value := range schema.Fields {
+		fields[key] = MetadataSchemaField{
+			Filterable: value.Filterable,
+		}
+	}
+
+	return &MetadataSchema{
+		Fields: fields,
+	}
 }
