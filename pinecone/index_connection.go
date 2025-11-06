@@ -1586,13 +1586,13 @@ func (idx *IndexConnection) CancelImport(ctx context.Context, id string) error {
 
 type CreateNamespaceParams struct {
 	Name   string
-	Schema *db_data_grpc.MetadataSchema
+	Schema *MetadataSchema
 }
 
 func (idx *IndexConnection) CreateNamespace(ctx context.Context, in *CreateNamespaceParams) (*NamespaceDescription, error) {
 	req := db_data_grpc.CreateNamespaceRequest{
 		Name:   in.Name,
-		Schema: in.Schema,
+		Schema: fromMetadataSchemaToGrpc(in.Schema),
 	}
 	res, err := (*idx.grpcClient).CreateNamespace(idx.akCtx(ctx), &req)
 	if err != nil {
@@ -1647,10 +1647,19 @@ func (idx *IndexConnection) DescribeNamespace(ctx context.Context, namespace str
 		return nil, nil
 	}
 
-	return &NamespaceDescription{
+	nsDesc := &NamespaceDescription{
 		Name:        res.Name,
 		RecordCount: res.RecordCount,
-	}, nil
+		Schema:      toMetadataSchemaGrpc(res.Schema),
+	}
+
+	if res.IndexedFields != nil {
+		nsDesc.IndexedFields = &IndexedFields{
+			Fields: res.IndexedFields.Fields,
+		}
+	}
+
+	return nsDesc, nil
 }
 
 // [ListNamespacesResponse] is returned by the [IndexConnection.ListNamespaces] method.

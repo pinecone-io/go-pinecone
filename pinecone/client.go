@@ -17,6 +17,7 @@ import (
 
 	"github.com/pinecone-io/go-pinecone/v4/internal/gen"
 	"github.com/pinecone-io/go-pinecone/v4/internal/gen/db_control"
+	db_data_grpc "github.com/pinecone-io/go-pinecone/v4/internal/gen/db_data/grpc"
 	db_data_rest "github.com/pinecone-io/go-pinecone/v4/internal/gen/db_data/rest"
 	"github.com/pinecone-io/go-pinecone/v4/internal/gen/inference"
 	"github.com/pinecone-io/go-pinecone/v4/internal/provider"
@@ -779,7 +780,7 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 			Cloud:            string(in.Cloud),
 			Region:           in.Region,
 			SourceCollection: in.SourceCollection,
-			Schema:           fromMetadataSchema(in.Schema),
+			Schema:           fromMetadataSchemaToRest(in.Schema),
 			ReadCapacity:     readCapacity,
 		},
 	}
@@ -992,7 +993,7 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 			WriteParameters: in.Embed.WriteParameters,
 		},
 		DeletionProtection: (*db_control.DeletionProtection)(&deletionProtection),
-		Schema:             fromMetadataSchema(in.Schema),
+		Schema:             fromMetadataSchemaToRest(in.Schema),
 		ReadCapacity:       readCapacity,
 		Tags:               tags,
 	}
@@ -2469,7 +2470,7 @@ func toIndex(idx *db_control.IndexModel) (*Index, error) {
 		if byocSpec, err := idx.Spec.AsIndexModelSpec2(); err == nil {
 			spec.BYOC = &BYOCSpec{
 				Environment: byocSpec.Byoc.Environment,
-				Schema:      toMetadataSchema(byocSpec.Byoc.Schema),
+				Schema:      toMetadataSchemaRest(byocSpec.Byoc.Schema),
 			}
 		}
 	}
@@ -2583,6 +2584,7 @@ func toBackup(backup *db_control.BackupModel) *Backup {
 		NamespaceCount:  backup.NamespaceCount,
 		RecordCount:     backup.RecordCount,
 		Region:          backup.Region,
+		Schema:          toMetadataSchemaRest(backup.Schema),
 		SizeBytes:       backup.SizeBytes,
 		SourceIndexId:   backup.SourceIndexId,
 		SourceIndexName: backup.SourceIndexName,
@@ -2907,11 +2909,28 @@ func minOne(x int32) int32 {
 	return x
 }
 
-func toMetadataSchema(schema *struct {
+func toMetadataSchemaRest(schema *struct {
 	Fields map[string]struct {
 		Filterable *bool `json:"filterable,omitempty"`
 	} `json:"fields"`
 }) *MetadataSchema {
+	if schema == nil {
+		return nil
+	}
+
+	fields := make(map[string]MetadataSchemaField)
+	for key, value := range schema.Fields {
+		fields[key] = MetadataSchemaField{
+			Filterable: derefOrDefault(value.Filterable, false),
+		}
+	}
+
+	return &MetadataSchema{
+		Fields: fields,
+	}
+}
+
+func toMetadataSchemaGrpc(schema *db_data_grpc.MetadataSchema) *MetadataSchema {
 	if schema == nil {
 		return nil
 	}
@@ -2928,7 +2947,7 @@ func toMetadataSchema(schema *struct {
 	}
 }
 
-func fromMetadataSchema(schema *MetadataSchema) *struct {
+func fromMetadataSchemaToRest(schema *MetadataSchema) *struct {
 	Fields map[string]struct {
 		Filterable *bool `json:"filterable,omitempty"`
 	} `json:"fields"`
@@ -2943,7 +2962,7 @@ func fromMetadataSchema(schema *MetadataSchema) *struct {
 	for key, value := range schema.Fields {
 		fields[key] = struct {
 			Filterable *bool `json:"filterable,omitempty"`
-		}{Filterable: value.Filterable}
+		}{Filterable: &value.Filterable}
 	}
 
 	return &struct {
@@ -2951,6 +2970,23 @@ func fromMetadataSchema(schema *MetadataSchema) *struct {
 			Filterable *bool `json:"filterable,omitempty"`
 		} `json:"fields"`
 	}{
+		Fields: fields,
+	}
+}
+
+func fromMetadataSchemaToGrpc(schema *MetadataSchema) *db_data_grpc.MetadataSchema {
+	if schema == nil {
+		return nil
+	}
+
+	fields := make(map[string]*db_data_grpc.MetadataFieldProperties)
+	for key, value := range schema.Fields {
+		fields[key] = &db_data_grpc.MetadataFieldProperties{
+			Filterable: value.Filterable,
+		}
+	}
+
+	return &db_data_grpc.MetadataSchema{
 		Fields: fields,
 	}
 }

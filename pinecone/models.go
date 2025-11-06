@@ -324,10 +324,21 @@ type NamespaceSummary struct {
 // Fields:
 //   - Name: The name of the namespace.
 //   - RecordCount: The number of records in the namespace.
+//   - TotalCount: The total number of namespaces in the index matching the prefix
+//   - IndexedFields: A list of all indexed metatadata fields in the namespace
+//   - Schema: Schema for the behavior of Pinecone's internal metadata index.
 type NamespaceDescription struct {
-	Name        string `json:"name"`
-	RecordCount uint64 `json:"record_count"`
-	TotalCount  int32  `json:"total_count"`
+	Name          string          `json:"name"`
+	RecordCount   uint64          `json:"record_count"`
+	IndexedFields *IndexedFields  `json:"indexed_fields,omitempty"`
+	Schema        *MetadataSchema `json:"schema,omitempty"`
+}
+
+// [IndexedFields] is a list of all indexed metatadata fields in the namespace
+// Fields:
+//   - Fields: A list of all indexed metatadata fields in the namespace
+type IndexedFields struct {
+	Fields []string `json:"fields,omitempty"`
 }
 
 // [Usage] is the usage stats ([Read Units]) for a Pinecone [Index].
@@ -793,10 +804,13 @@ type APIKeyWithSecret struct {
 	Value string `json:"value"`
 }
 
+// Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
 type MetadataSchema struct {
 	Fields map[string]MetadataSchemaField `json:"fields"`
 }
 
+// A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique.
 type MetadataSchemaField struct {
-	Filterable *bool `json:"filterable"`
+	// Whether the field is filterable. If true, the field is indexed and can be used in filters. Only true values are allowed.
+	Filterable bool `json:"filterable,omitempty"`
 }
