@@ -275,15 +275,19 @@ func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (ui
 // [UpdateVectorRequest] holds the parameters for the [IndexConnection.UpdateVector] method.
 //
 // Fields:
-//   - Id: (Required) The unique ID of the vector to update.
+//   - Id: The unique ID of the vector to update.
+//   - Filter: The metadata filter used to match vectors.
 //   - Values: The values with which you want to update the vector.
 //   - SparseValues: The sparse values with which you want to update the vector.
 //   - Metadata: The metadata with which you want to update the vector.
+//   - DryRun: If true, return the number of vectors that match the filter, but do not execute the update. Default is false.
 type UpdateVectorRequest struct {
 	Id           string
+	Filter       *MetadataFilter
 	Values       []float32
 	SparseValues *SparseValues
 	Metadata     *Metadata
+	DryRun       *bool
 }
 
 // [IndexConnection.UpdateVector] updates a vector in a Pinecone [Index] by ID.
@@ -333,15 +337,42 @@ type UpdateVectorRequest struct {
 //		       log.Fatalf("Failed to update vector with ID %s. Error: %s", id, err)
 //	    }
 func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRequest) error {
-	if in.Id == "" {
-		return fmt.Errorf("a vector ID plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
+	hasId := in.Id != ""
+	hasFilter := in.Filter != nil
+
+	// Validate mutual exclusivity of Id and Filter
+	if !hasId && !hasFilter {
+		return fmt.Errorf("either an Id or a Filter must be provided, but not both")
+	}
+
+	if hasId && hasFilter {
+		return fmt.Errorf("Id and Filter are mutually exclusive; please provide one or the other")
+	}
+
+	// Validate Id-based filtering
+	if hasId {
+		if in.Values == nil && in.SparseValues == nil && in.Metadata == nil {
+			return fmt.Errorf("a vector Id plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
+		}
+		if in.DryRun != nil {
+			return fmt.Errorf("DryRun is not supported when updating a vector by Id")
+		}
+	}
+
+	// Validate Filter-based filtering
+	if hasFilter {
+		if in.Values != nil || in.SparseValues != nil || in.Metadata != nil {
+			return fmt.Errorf("Values, SparseValues, and Metadata are not supported when updating vectors by Filter")
+		}
 	}
 
 	req := &db_data_grpc.UpdateRequest{
 		Id:           in.Id,
+		Filter:       in.Filter,
 		Values:       in.Values,
 		SparseValues: sparseValToGrpc(in.SparseValues),
 		SetMetadata:  in.Metadata,
+		DryRun:       in.DryRun,
 		Namespace:    idx.namespace,
 	}
 
