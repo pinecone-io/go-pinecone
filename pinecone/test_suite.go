@@ -142,6 +142,22 @@ func (ts *integrationTests) SetupSuite() {
 		log.Fatalf("Vector freshness failed in SetupSuite: %v", err)
 	}
 
+	// Wait for classical vectors to be fresh (needed for TestFetchVectorsByMetadata)
+	if len(classicalVectorIds) > 0 {
+		err = pollIndexForFreshness(ts, ctx, classicalVectorIds[0])
+		if err != nil {
+			log.Fatalf("Classical vector freshness failed in SetupSuite: %v", err)
+		}
+	}
+
+	// Wait for rock vectors to be fresh (needed for TestUpdateVectorsByMetadata)
+	if len(rockVectorIds) > 0 {
+		err = pollIndexForFreshness(ts, ctx, rockVectorIds[0])
+		if err != nil {
+			log.Fatalf("Rock vector freshness failed in SetupSuite: %v", err)
+		}
+	}
+
 	// Create collection for pod index suite
 	if ts.indexType == "pods" {
 		createCollection(ts, ctx)
