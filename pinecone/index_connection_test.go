@@ -316,7 +316,7 @@ func (ts *integrationTests) TestUpdateVectorSparseValues() {
 }
 
 func (ts *integrationTests) TestFetchVectorsByMetadata() {
-	if ts.indexType == "pod" {
+	if ts.indexType == "pods" {
 		ts.T().Skip("Skipping fetch vectors by metadata test for pod index")
 	}
 
@@ -367,7 +367,7 @@ func (ts *integrationTests) TestFetchVectorsByMetadata() {
 }
 
 func (ts *integrationTests) TestUpdateVectorsByMetadata() {
-	if ts.indexType == "pod" {
+	if ts.indexType == "pods" {
 		ts.T().Skip("Skipping update vectors by metadata test for non-serverless index")
 	}
 
