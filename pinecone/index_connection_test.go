@@ -513,7 +513,7 @@ func TestUpdateVectorMissingReqdFieldsUnit(t *testing.T) {
 	idxConn := &IndexConnection{}
 	err := idxConn.UpdateVector(ctx, &UpdateVectorRequest{})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "a vector ID plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
+	assert.Contains(t, err.Error(), "either an Id or a Filter must be provided, but not both")
 }
 
 func TestNewIndexConnection(t *testing.T) {
