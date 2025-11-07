@@ -15,20 +15,22 @@ import (
 
 type integrationTests struct {
 	suite.Suite
-	apiKey         string
-	client         *Client
-	host           string
-	dimension      *int32
-	indexType      string
-	vectorIds      []string
-	idxName        string
-	backupId       string
-	idxConn        *IndexConnection
-	collectionName string
-	sourceTag      string
-	indexTags      *IndexTags
-	schema         *MetadataSchema
-	namespaces     []string
+	apiKey                       string
+	client                       *Client
+	host                         string
+	dimension                    *int32
+	indexType                    string
+	vectorIds                    []string
+	idxName                      string
+	backupId                     string
+	idxConn                      *IndexConnection
+	collectionName               string
+	sourceTag                    string
+	indexTags                    *IndexTags
+	schema                       *MetadataSchema
+	namespaces                   []string
+	vectorsWithClassicalMetadata []string
+	vectorsWithRockMetadata      []string
 }
 
 type adminIntegrationTests struct {
@@ -67,20 +69,72 @@ func (ts *integrationTests) SetupSuite() {
 	// Deterministically create vectors
 	vectors := generateVectors(10, dim, false, nil)
 
+	// Create vectors with classical metadata for testing
+	classicalVectors := make([]*Vector, 5)
+	classicalVectorIds := make([]string, 5)
+	for i := 0; i < 5; i++ {
+		metadataMap := map[string]interface{}{
+			"genre": "classical",
+			"year":  2020 + i,
+		}
+		metadata, err := NewMetadata(metadataMap)
+		if err != nil {
+			log.Fatalf("Failed to create classical metadata in SetupSuite: %v", err)
+		}
+
+		values := generateVectorValues(dim)
+		classicalVectors[i] = &Vector{
+			Id:       fmt.Sprintf("classical-vector-%d", i),
+			Values:   values,
+			Metadata: metadata,
+		}
+		classicalVectorIds[i] = classicalVectors[i].Id
+	}
+
+	// Create vectors with rock metadata for testing
+	rockVectors := make([]*Vector, 3)
+	rockVectorIds := make([]string, 3)
+	for i := 0; i < 3; i++ {
+		metadataMap := map[string]interface{}{
+			"genre": "rock",
+			"year":  2021,
+		}
+		metadata, err := NewMetadata(metadataMap)
+		if err != nil {
+			log.Fatalf("Failed to create rock metadata in SetupSuite: %v", err)
+		}
+
+		values := generateVectorValues(dim)
+		rockVectors[i] = &Vector{
+			Id:       fmt.Sprintf("rock-vector-%d", i),
+			Values:   values,
+			Metadata: metadata,
+		}
+		rockVectorIds[i] = rockVectors[i].Id
+	}
+
+	// Combine all vectors
+	allVectors := append(vectors, classicalVectors...)
+	allVectors = append(allVectors, rockVectors...)
+
 	// Add vector ids to the suite
 	vectorIds := make([]string, len(vectors))
 	for i, v := range vectors {
 		vectorIds[i] = v.Id
 	}
 
-	// Upsert vectors into each namespace
+	// Upsert all vectors into each namespace
 	for _, ns := range namespaces {
 		idxConnNamespaced := ts.idxConn.WithNamespace(ns)
-		_, err = idxConnNamespaced.UpsertVectors(ctx, vectors)
+		_, err = idxConnNamespaced.UpsertVectors(ctx, allVectors)
 		if err != nil {
 			log.Fatalf("Failed to upsert vectors in SetupSuite: %v to namespace: %v", err, idxConnNamespaced.namespace)
 		}
 	}
+
+	// Store metadata vector IDs
+	ts.vectorsWithClassicalMetadata = classicalVectorIds
+	ts.vectorsWithRockMetadata = rockVectorIds
 
 	// Wait for vector freshness
 	err = pollIndexForFreshness(ts, ctx, vectorIds[0])

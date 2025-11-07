@@ -315,6 +315,141 @@ func (ts *integrationTests) TestUpdateVectorSparseValues() {
 	})
 }
 
+func (ts *integrationTests) TestFetchVectorsByMetadata() {
+	ctx := context.Background()
+
+	// Create filter to match vectors with genre="classical"
+	filterMap := map[string]interface{}{
+		"genre": map[string]interface{}{
+			"$eq": "classical",
+		},
+	}
+	filter, err := NewMetadataFilter(filterMap)
+	assert.NoError(ts.T(), err)
+
+	limit := uint32(10)
+
+	// Use pre-existing vectors with classical metadata from SetupSuite
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		res, err := ts.idxConn.FetchVectorsByMetadata(ctx, &FetchVectorsByMetadataRequest{
+			Filter: filter,
+			Limit:  &limit,
+		})
+		assert.NoError(ts.T(), err, "Failed to fetch vectors by metadata")
+		assert.NotNil(ts.T(), res, "FetchVectorsByMetadata response is nil")
+
+		// Verify response structure
+		assert.NotNil(ts.T(), res.Vectors, "Vectors map is nil")
+		assert.Greater(ts.T(), len(res.Vectors), 0, "No vectors found matching filter")
+
+		// Verify all returned vectors have the expected metadata
+		for id, vector := range res.Vectors {
+			assert.NotNil(ts.T(), vector, "Vector %s is nil", id)
+			assert.NotNil(ts.T(), vector.Metadata, "Vector %s has nil metadata", id)
+
+			genreField, ok := vector.Metadata.Fields["genre"]
+			assert.True(ts.T(), ok, "Vector %s missing genre field", id)
+
+			genre := genreField.GetStringValue()
+			assert.Equal(ts.T(), "classical", genre, "Vector %s has incorrect genre", id)
+		}
+
+		// Verify namespace is set
+		assert.NotEmpty(ts.T(), res.Namespace, "Namespace is empty")
+		assert.NotNil(ts.T(), res.Usage, "Usage is nil")
+
+		return nil
+	})
+}
+
+func (ts *integrationTests) TestUpdateVectorsByMetadata() {
+	ctx := context.Background()
+
+	// Use pre-existing vectors with rock metadata from SetupSuite
+	filterMap := map[string]interface{}{
+		"genre": map[string]interface{}{
+			"$eq": "rock",
+		},
+	}
+	filter, err := NewMetadataFilter(filterMap)
+	require.NoError(ts.T(), err)
+
+	// Create metadata for DryRun test (required by validation)
+	dryRunMetadataMap := map[string]interface{}{
+		"genre": "rock",
+		"year":  2021,
+	}
+	dryRunMetadata, err := NewMetadata(dryRunMetadataMap)
+	require.NoError(ts.T(), err)
+
+	// DryRun with Filter
+	dryRun := true
+	dryRunRes, err := ts.idxConn.UpdateVectorsByMetadata(ctx, &UpdateVectorsByMetadataRequest{
+		Filter:   filter,
+		Metadata: dryRunMetadata,
+		DryRun:   &dryRun,
+	})
+	assert.NoError(ts.T(), err)
+	assert.NotNil(ts.T(), dryRunRes)
+	assert.Greater(ts.T(), dryRunRes.MatchedRecords, int32(0), "DryRun should return matched records count")
+
+	// Update metadata with Filter
+	updateMetadataMap := map[string]interface{}{
+		"genre":   "rock",
+		"year":    2021,
+		"updated": true,
+	}
+	updateMetadata, err := NewMetadata(updateMetadataMap)
+	require.NoError(ts.T(), err)
+
+	dryRun = false
+	updateRes, err := ts.idxConn.UpdateVectorsByMetadata(ctx, &UpdateVectorsByMetadataRequest{
+		Filter:   filter,
+		Metadata: updateMetadata,
+		DryRun:   &dryRun,
+	})
+	assert.NoError(ts.T(), err)
+	assert.NotNil(ts.T(), updateRes)
+	assert.Greater(ts.T(), updateRes.MatchedRecords, int32(0), "Update should return matched records count")
+
+	// Verify the update worked by fetching vectors and checking their metadata
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		// Fetch the vectors that should have been updated
+		fetched, err := ts.idxConn.FetchVectors(ctx, ts.vectorsWithRockMetadata)
+		if err != nil {
+			return fmt.Errorf("Failed to fetch vectors: %v", err)
+		}
+
+		if len(fetched.Vectors) == 0 {
+			return fmt.Errorf("No vectors found")
+		}
+
+		// Verify all vectors have the updated metadata
+		for id, vector := range fetched.Vectors {
+			assert.NotNil(ts.T(), vector, "Vector %s is nil", id)
+			assert.NotNil(ts.T(), vector.Metadata, "Vector %s has nil metadata", id)
+
+			// Check that the updated field is present
+			updatedField, ok := vector.Metadata.Fields["updated"]
+			assert.True(ts.T(), ok, "Vector %s missing updated field", id)
+			if ok {
+				updated := updatedField.GetBoolValue()
+				assert.True(ts.T(), updated, "Vector %s updated field should be true", id)
+			}
+
+			// Verify genre is still rock
+			genreField, ok := vector.Metadata.Fields["genre"]
+			assert.True(ts.T(), ok, "Vector %s missing genre field", id)
+			if ok {
+				genre := genreField.GetStringValue()
+				assert.Equal(ts.T(), "rock", genre, "Vector %s genre should still be rock", id)
+			}
+		}
+
+		return nil
+	})
+}
+
 func (ts *integrationTests) TestImportFlowHappyPath() {
 	if ts.indexType != "serverless" {
 		ts.T().Skip("Skipping import flow test for non-serverless index")

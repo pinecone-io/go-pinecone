@@ -276,18 +276,14 @@ func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (ui
 //
 // Fields:
 //   - Id: The unique ID of the vector to update.
-//   - Filter: The metadata filter used to match vectors.
 //   - Values: The values with which you want to update the vector.
 //   - SparseValues: The sparse values with which you want to update the vector.
 //   - Metadata: The metadata with which you want to update the vector.
-//   - DryRun: If true, return the number of vectors that match the filter, but do not execute the update. Default is false.
 type UpdateVectorRequest struct {
 	Id           string
-	Filter       *MetadataFilter
 	Values       []float32
 	SparseValues *SparseValues
 	Metadata     *Metadata
-	DryRun       *bool
 }
 
 // [IndexConnection.UpdateVector] updates a vector in a Pinecone [Index] by ID.
@@ -338,46 +334,152 @@ type UpdateVectorRequest struct {
 //	    }
 func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRequest) error {
 	hasId := in.Id != ""
-	hasFilter := in.Filter != nil
 
 	// Validate mutual exclusivity of Id and Filter
-	if !hasId && !hasFilter {
-		return fmt.Errorf("either an Id or a Filter must be provided, but not both")
-	}
-
-	if hasId && hasFilter {
-		return fmt.Errorf("Id and Filter are mutually exclusive; please provide one or the other")
+	if !hasId {
+		return fmt.Errorf("an Id value must be provided to update a vector")
 	}
 
 	// Validate Id-based filtering
-	if hasId {
-		if in.Values == nil && in.SparseValues == nil && in.Metadata == nil {
-			return fmt.Errorf("a vector Id plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
-		}
-		if in.DryRun != nil {
-			return fmt.Errorf("DryRun is not supported when updating a vector by Id")
-		}
-	}
-
-	// Validate Filter-based filtering
-	if hasFilter {
-		if in.Values != nil || in.SparseValues != nil || in.Metadata != nil {
-			return fmt.Errorf("Values, SparseValues, and Metadata are not supported when updating vectors by Filter")
-		}
+	if in.Values == nil && in.SparseValues == nil && in.Metadata == nil {
+		return fmt.Errorf("a vector Id plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
 	}
 
 	req := &db_data_grpc.UpdateRequest{
 		Id:           in.Id,
-		Filter:       in.Filter,
 		Values:       in.Values,
 		SparseValues: sparseValToGrpc(in.SparseValues),
 		SetMetadata:  in.Metadata,
-		DryRun:       in.DryRun,
 		Namespace:    idx.namespace,
 	}
 
+	// Updating a vector by Id without a filter makes the UpdateResponse empty, so we ignore it here
 	_, err := (*idx.grpcClient).Update(idx.akCtx(ctx), req)
 	return err
+}
+
+// [UpdateVectorsByMetadataRequest] holds the parameters for the [IndexConnection.UpdateVectorsByMetadata] method.
+//
+// Fields:
+//   - Filter: (Required) The metadata filter used to match vectors.
+//   - Metadata: (Required) The metadata with which you want to update the matched vectors.
+//   - DryRun: (Optional) If true, return the number of vectors that match the filter, but do not execute the update. Default is false.
+type UpdateVectorsByMetadataRequest struct {
+	Filter   *MetadataFilter
+	Metadata *Metadata
+	DryRun   *bool
+}
+
+// [UpdateVectorsByMetadataResponse] is returned by the [IndexConnection.UpdateVectorsByMetadata] method.
+//
+// Fields:
+//   - MatchedRecords: The number of vectors that matched the filter.
+type UpdateVectorsByMetadataResponse struct {
+	MatchedRecords int32 `json:"matched_records,omitempty"`
+}
+
+// [IndexConnection.UpdateVectorsByMetadata] updates vectors in a Pinecone [Index] that match a metadata filter.
+// You can update metadata for all vectors that match the filter criteria, and optionally use DryRun to
+// count how many vectors would be updated without actually performing the update.
+//
+// Returns a pointer to an [UpdateVectorsByMetadataResponse] object or an error if the request fails.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - in: An [UpdateVectorsByMetadataRequest] object with the parameters for the request. The Filter and Metadata fields are required.
+//
+// Example:
+//
+//	    ctx := context.Background()
+//
+//	    clientParams := pinecone.NewClientParams{
+//		       ApiKey:    "YOUR_API_KEY",
+//		       SourceTag: "your_source_identifier", // optional
+//	    }
+//
+//	    pc, err := pinecone.NewClient(clientParams)
+//
+//	    if err != nil {
+//		       log.Fatalf("Failed to create Client: %v", err)
+//	    }
+//
+//	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//
+//	    if err != nil {
+//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	    }
+//
+//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
+//
+//	    if err != nil {
+//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	    }
+//
+//	    filterMap := map[string]interface{}{
+//		       "genre": map[string]interface{}{
+//			          "$eq": "rock",
+//		       },
+//	    }
+//
+//	    filter, err := pinecone.NewMetadataFilter(filterMap)
+//	    if err != nil {
+//		       log.Fatalf("Failed to create metadata filter. Error: %v", err)
+//	    }
+//
+//	    metadataMap := map[string]interface{}{
+//		       "genre":   "rock",
+//		       "year":    2021,
+//		       "updated": true,
+//	    }
+//
+//	    metadata, err := pinecone.NewMetadata(metadataMap)
+//	    if err != nil {
+//		       log.Fatalf("Failed to create metadata. Error: %v", err)
+//	    }
+//
+//	    res, err := idxConnection.UpdateVectorsByMetadata(ctx, &pinecone.UpdateVectorsByMetadataRequest{
+//		       Filter:   filter,
+//		       Metadata: metadata,
+//	    })
+//
+//	    if err != nil {
+//		       log.Fatalf("Failed to update vectors by metadata. Error: %s", err)
+//	    }
+//
+//	    fmt.Printf("Updated %d vector(s)\n", res.MatchedRecords)
+func (idx *IndexConnection) UpdateVectorsByMetadata(ctx context.Context, in *UpdateVectorsByMetadataRequest) (*UpdateVectorsByMetadataResponse, error) {
+	if in == nil {
+		return nil, fmt.Errorf("UpdateVectorsByMetadataRequest is nil")
+	}
+	if in.Filter == nil {
+		return nil, fmt.Errorf("Filter is required to update vectors by metadata")
+	}
+	if in.Metadata == nil {
+		return nil, fmt.Errorf("Metadata is required to update vectors by metadata")
+	}
+
+	req := &db_data_grpc.UpdateRequest{
+		Filter:      in.Filter,
+		SetMetadata: in.Metadata,
+		DryRun:      in.DryRun,
+		Namespace:   idx.namespace,
+	}
+
+	res, err := (*idx.grpcClient).Update(idx.akCtx(ctx), req)
+	if err != nil {
+		return nil, err
+	}
+
+	if res != nil && res.MatchedRecords != nil {
+		return &UpdateVectorsByMetadataResponse{
+			MatchedRecords: *res.MatchedRecords,
+		}, nil
+	} else {
+		return &UpdateVectorsByMetadataResponse{
+			MatchedRecords: 0,
+		}, nil
+	}
 }
 
 // [FetchVectorsResponse] is returned by the [IndexConnection.FetchVectors] method.
