@@ -24,13 +24,13 @@ import (
 )
 
 // Integration tests:
-func (ts *IntegrationTests) TestListIndexes() {
+func (ts *integrationTests) TestListIndexes() {
 	indexes, err := ts.client.ListIndexes(context.Background())
 	require.NoError(ts.T(), err)
 	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
 }
 
-func (ts *IntegrationTests) TestCreatePodIndexDense() {
+func (ts *integrationTests) TestCreatePodIndexDense() {
 	if ts.indexType == "serverless" {
 		ts.T().Skip("Skipping pod index tests for serverless suite")
 	}
@@ -38,7 +38,7 @@ func (ts *IntegrationTests) TestCreatePodIndexDense() {
 	name := uuid.New().String()
 	metric := Cosine
 
-	defer func(ts *IntegrationTests, name string) {
+	defer func(ts *integrationTests, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -56,7 +56,7 @@ func (ts *IntegrationTests) TestCreatePodIndexDense() {
 	require.Equal(ts.T(), "dense", idx.VectorType, "Index vector type does not match")
 }
 
-func (ts *IntegrationTests) TestCreateServerlessIndexDense() {
+func (ts *integrationTests) TestCreateServerlessIndexDense() {
 	if ts.indexType == "pod" {
 		ts.T().Skip("Skipping serverless index tests for pod suite")
 	}
@@ -65,7 +65,7 @@ func (ts *IntegrationTests) TestCreateServerlessIndexDense() {
 	dimension := int32(10)
 	metric := Cosine
 
-	defer func(ts *IntegrationTests, name string) {
+	defer func(ts *integrationTests, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -83,7 +83,7 @@ func (ts *IntegrationTests) TestCreateServerlessIndexDense() {
 	require.Equal(ts.T(), "dense", idx.VectorType, "Index vector type does not match")
 }
 
-func (ts *IntegrationTests) TestCreateServerlessIndexSparse() {
+func (ts *integrationTests) TestCreateServerlessIndexSparse() {
 	if ts.indexType == "pod" {
 		ts.T().Skip("Skipping serverless index tests for pod suite")
 	}
@@ -92,7 +92,7 @@ func (ts *IntegrationTests) TestCreateServerlessIndexSparse() {
 	vectorType := "sparse"
 	metric := Dotproduct
 
-	defer func(ts *IntegrationTests, name string) {
+	defer func(ts *integrationTests, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -109,7 +109,7 @@ func (ts *IntegrationTests) TestCreateServerlessIndexSparse() {
 	require.Equal(ts.T(), vectorType, idx.VectorType, "Index vector type does not match")
 }
 
-func (ts *IntegrationTests) TestCreateServerlessIndexInvalidDimension() {
+func (ts *integrationTests) TestCreateServerlessIndexInvalidDimension() {
 	if ts.indexType == "pod" {
 		ts.T().Skip("Skipping serverless index tests for pod suite")
 	}
@@ -129,19 +129,19 @@ func (ts *IntegrationTests) TestCreateServerlessIndexInvalidDimension() {
 	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
 }
 
-func (ts *IntegrationTests) TestDescribeIndex() {
+func (ts *integrationTests) TestDescribeIndex() {
 	index, err := ts.client.DescribeIndex(context.Background(), ts.idxName)
 	require.NoError(ts.T(), err)
 	require.Equal(ts.T(), ts.idxName, index.Name, "Index name does not match")
 }
 
-func (ts *IntegrationTests) TestDescribeNonExistentIndex() {
+func (ts *integrationTests) TestDescribeNonExistentIndex() {
 	_, err := ts.client.DescribeIndex(context.Background(), "non-existent-index")
 	require.Error(ts.T(), err)
 	require.Equal(ts.T(), reflect.TypeOf(err), reflect.TypeOf(&PineconeError{}), "Expected error to be of type PineconeError")
 }
 
-func (ts *IntegrationTests) TestListCollections() {
+func (ts *integrationTests) TestListCollections() {
 	if ts.indexType == "serverless" {
 		ts.T().Skip("No pod index to test")
 	}
@@ -162,7 +162,7 @@ func (ts *IntegrationTests) TestListCollections() {
 	require.True(ts.T(), found, "Collection %v not found in list of collections", ts.collectionName)
 }
 
-func (ts *IntegrationTests) TestDescribeCollection() {
+func (ts *integrationTests) TestDescribeCollection() {
 	if ts.indexType == "serverless" {
 		ts.T().Skip("No pod index to test")
 	}
@@ -173,7 +173,7 @@ func (ts *IntegrationTests) TestDescribeCollection() {
 	require.Equal(ts.T(), ts.collectionName, collection.Name, "Collection name does not match")
 }
 
-func (ts *IntegrationTests) TestDeletionProtection() {
+func (ts *integrationTests) TestDeletionProtection() {
 	// configure index to enable deletion protection
 	index, err := ts.client.ConfigureIndex(context.Background(), ts.idxName, ConfigureIndexParams{DeletionProtection: "enabled"})
 	require.NoError(ts.T(), err)
@@ -192,11 +192,11 @@ func (ts *IntegrationTests) TestDeletionProtection() {
 	require.NoError(ts.T(), err)
 }
 
-func (ts *IntegrationTests) TestConfigureIndexIllegalScaleDown() {
+func (ts *integrationTests) TestConfigureIndexIllegalScaleDown() {
 	name := uuid.New().String()
 	metric := Cosine
 
-	defer func(ts *IntegrationTests, name string) {
+	defer func(ts *integrationTests, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -216,7 +216,7 @@ func (ts *IntegrationTests) TestConfigureIndexIllegalScaleDown() {
 	require.ErrorContainsf(ts.T(), err, "Cannot scale down", err.Error())
 }
 
-func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
+func (ts *integrationTests) TestConfigureIndexScaleUpNoPods() {
 	name := uuid.New().String()
 	metric := Cosine
 
@@ -241,7 +241,7 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoPods() {
 	require.NoError(ts.T(), err)
 }
 
-func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
+func (ts *integrationTests) TestConfigureIndexScaleUpNoReplicas() {
 	name := uuid.New().String()
 	metric := Cosine
 
@@ -266,16 +266,16 @@ func (ts *IntegrationTests) TestConfigureIndexScaleUpNoReplicas() {
 	require.NoError(ts.T(), err)
 }
 
-func (ts *IntegrationTests) TestConfigureIndexIllegalNoPodsOrReplicasOrDeletionProtection() {
+func (ts *integrationTests) TestConfigureIndexIllegalNoPodsOrReplicasOrDeletionProtection() {
 	_, err := ts.client.ConfigureIndex(context.Background(), ts.idxName, ConfigureIndexParams{})
 	require.ErrorContainsf(ts.T(), err, "must specify PodType, Replicas, DeletionProtection, or Tags", err.Error())
 }
 
-func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
+func (ts *integrationTests) TestConfigureIndexHitPodLimit() {
 	name := uuid.New().String()
 	metric := Cosine
 
-	defer func(ts *IntegrationTests, name string) {
+	defer func(ts *integrationTests, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
 	}(ts, name)
@@ -295,7 +295,7 @@ func (ts *IntegrationTests) TestConfigureIndexHitPodLimit() {
 	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
 }
 
-func (ts *IntegrationTests) TestDescribeEmbedModel() {
+func (ts *integrationTests) TestDescribeEmbedModel() {
 	ctx := context.Background()
 	modelName := "multilingual-e5-large"
 	paramQuery := "query"
@@ -341,7 +341,7 @@ func (ts *IntegrationTests) TestDescribeEmbedModel() {
 	require.Equal(ts.T(), supportedParameters, *model.SupportedParameters, "Expected model supported parameters to match")
 }
 
-func (ts *IntegrationTests) TestDescribeRerankModel() {
+func (ts *integrationTests) TestDescribeRerankModel() {
 	ctx := context.Background()
 	modelName := "pinecone-rerank-v0"
 	paramEND := "END"
@@ -376,7 +376,7 @@ func (ts *IntegrationTests) TestDescribeRerankModel() {
 	require.Nil(ts.T(), model.DefaultDimension, "Expected model default dimension to be nil")
 }
 
-func (ts *IntegrationTests) TestListAllModels() {
+func (ts *integrationTests) TestListAllModels() {
 	ctx := context.Background()
 
 	allModels, err := ts.client.Inference.ListModels(ctx, nil)
@@ -407,7 +407,7 @@ func (ts *IntegrationTests) TestListAllModels() {
 	require.True(ts.T(), returnsDense, "Expected at least one dense embed model to be listed")
 }
 
-func (ts *IntegrationTests) TestListRerankModels() {
+func (ts *integrationTests) TestListRerankModels() {
 	ctx := context.Background()
 	rerank := "rerank"
 
@@ -434,7 +434,7 @@ func (ts *IntegrationTests) TestListRerankModels() {
 	require.Equal(ts.T(), false, returnsEmbed, "Expected no embed models to be listed in rerank models")
 }
 
-func (ts *IntegrationTests) TestListEmbeddingModels() {
+func (ts *integrationTests) TestListEmbeddingModels() {
 	ctx := context.Background()
 	embed := "embed"
 	sparse := "sparse"
@@ -484,7 +484,7 @@ func (ts *IntegrationTests) TestListEmbeddingModels() {
 	require.Equal(ts.T(), true, allDenseModels, "Expected all listed models to be of vector type 'dense'")
 }
 
-func (ts *IntegrationTests) TestGenerateEmbeddingsDense() {
+func (ts *integrationTests) TestGenerateEmbeddingsDense() {
 	// Run Embed tests once rather than duplicating across serverless & pods
 	if ts.indexType == "pod" {
 		ts.T().Skip("Skipping Embed tests for pods")
@@ -512,7 +512,7 @@ func (ts *IntegrationTests) TestGenerateEmbeddingsDense() {
 	require.Equal(ts.T(), 1024, len(denseEmbeddings.Data[0].DenseEmbedding.Values), "Expected embeddings to have length 1024")
 }
 
-func (ts *IntegrationTests) TestGenerateEmbeddingsSparse() {
+func (ts *integrationTests) TestGenerateEmbeddingsSparse() {
 	// Run Embed tests once rather than duplicating across serverless & pods
 	if ts.indexType == "pod" {
 		ts.T().Skip("Skipping Embed tests for pods")
@@ -542,7 +542,7 @@ func (ts *IntegrationTests) TestGenerateEmbeddingsSparse() {
 	require.NotNil(ts.T(), sparseEmbeddings.Data[0].SparseEmbedding.SparseValues, "Expected SparseValues to be non-nil")
 }
 
-func (ts *IntegrationTests) TestGenerateEmbeddingsInvalidInputs() {
+func (ts *integrationTests) TestGenerateEmbeddingsInvalidInputs() {
 	ctx := context.Background()
 	embeddingModel := "multilingual-e5-large"
 	_, err := ts.client.Inference.Embed(ctx, &EmbedRequest{
@@ -557,7 +557,7 @@ func (ts *IntegrationTests) TestGenerateEmbeddingsInvalidInputs() {
 	require.Contains(ts.T(), err.Error(), "TextInputs must contain at least one value")
 }
 
-func (ts *IntegrationTests) TestRerankDocumentDefaultField() {
+func (ts *integrationTests) TestRerankDocumentDefaultField() {
 	// Run Rerank tests once rather than duplicating across serverless & pods
 	if ts.indexType == "pod" {
 		ts.T().Skip("Skipping Rerank tests for pods")
@@ -590,7 +590,7 @@ func (ts *IntegrationTests) TestRerankDocumentDefaultField() {
 	require.True(ts.T(), exists, "Expected '%s' to exist in Document map", "id")
 }
 
-func (ts *IntegrationTests) TestRerankDocumentCustomField() {
+func (ts *integrationTests) TestRerankDocumentCustomField() {
 	// Run Rerank tests once rather than duplicating across serverless & pods
 	if ts.indexType == "pod" {
 		ts.T().Skip("Skipping Rerank tests for pods")
@@ -624,7 +624,7 @@ func (ts *IntegrationTests) TestRerankDocumentCustomField() {
 	require.True(ts.T(), exists, "Expected '%s' to exist in Document map", "id")
 }
 
-func (ts *IntegrationTests) TestRerankDocumentAllDefaults() {
+func (ts *integrationTests) TestRerankDocumentAllDefaults() {
 	// Run Rerank tests once rather than duplicating across serverless & pods
 	if ts.indexType == "pod" {
 		ts.T().Skip("Skipping Rerank tests for pods")
@@ -653,7 +653,7 @@ func (ts *IntegrationTests) TestRerankDocumentAllDefaults() {
 	require.True(ts.T(), exists, "Expected '%s' to exist in Document map", "id")
 }
 
-func (ts *IntegrationTests) TestRerankDocumentsMultipleRankFields() {
+func (ts *integrationTests) TestRerankDocumentsMultipleRankFields() {
 	// Run Rerank tests once rather than duplicating across serverless & pods
 	if ts.indexType == "pod" {
 		ts.T().Skip("Skipping Rerank tests for pods")
@@ -692,7 +692,7 @@ func (ts *IntegrationTests) TestRerankDocumentsMultipleRankFields() {
 	require.Contains(ts.T(), err.Error(), "Only one rank field is supported for model")
 }
 
-func (ts *IntegrationTests) TestRerankDocumentFieldError() {
+func (ts *integrationTests) TestRerankDocumentFieldError() {
 	// Run Rerank tests once rather than duplicating across serverless & pods
 	if ts.indexType == "pod" {
 		ts.T().Skip("Skipping Rerank tests for pods")
@@ -715,7 +715,7 @@ func (ts *IntegrationTests) TestRerankDocumentFieldError() {
 	require.Contains(ts.T(), err.Error(), "field 'custom-field' not found in document")
 }
 
-func (ts *IntegrationTests) TestIndexTags() {
+func (ts *integrationTests) TestIndexTags() {
 	// Validate that index tags are set
 	index, err := ts.client.DescribeIndex(context.Background(), ts.idxName)
 	require.NoError(ts.T(), err)
@@ -746,11 +746,11 @@ func (ts *IntegrationTests) TestIndexTags() {
 	ts.indexTags = &updatedTags
 }
 
-func (ts *IntegrationTests) TestListAndDescribeIndexBackups() {
+func (ts *integrationTests) TestListAndDescribeIndexBackups() {
 	if ts.indexType != "serverless" {
 		ts.T().Skip("Skipping backup tests for non-serverless indexes")
 	}
-	// CreateBackup and DeleteBackup are tested as a part of IntegrationTests.SetupSuite(), so not explicitly tested here
+	// CreateBackup and DeleteBackup are tested as a part of integrationTests.SetupSuite(), so not explicitly tested here
 	limit := 5
 
 	// list project backups
@@ -770,7 +770,7 @@ func (ts *IntegrationTests) TestListAndDescribeIndexBackups() {
 	}
 }
 
-func (ts *IntegrationTests) TestCreateIndexFromBackupViaRestore() {
+func (ts *integrationTests) TestCreateIndexFromBackupViaRestore() {
 	if ts.indexType != "serverless" {
 		ts.T().Skip("Skipping backup tests for non-serverless indexes")
 	}
@@ -807,7 +807,7 @@ func (ts *IntegrationTests) TestCreateIndexFromBackupViaRestore() {
 
 	// validate describing the restored index
 	index, err := ts.client.DescribeIndex(context.Background(), restoredIndexName)
-	defer func(ts *IntegrationTests, name string) {
+	defer func(ts *integrationTests, name string) {
 		err := ts.client.DeleteIndex(context.Background(), name)
 		require.NoError(ts.T(), err)
 	}(ts, restoredIndexName)
@@ -1372,8 +1372,8 @@ func TestEnsureURLSchemeUnit(t *testing.T) {
 }
 
 func TestToIndexUnit(t *testing.T) {
-	deletionProtectionEnabled := db_control.Enabled
-	deletionProtectionDisabled := db_control.Disabled
+	deletionProtectionEnabled := "enabled"
+	deletionProtectionDisabled := "disabled"
 	pods := 1
 	replicas := int32(1)
 	shards := int32(1)
@@ -1397,26 +1397,20 @@ func TestToIndexUnit(t *testing.T) {
 				Host:               "test-host",
 				Metric:             "cosine",
 				DeletionProtection: &deletionProtectionDisabled,
-				Spec: struct {
-					Byoc       *db_control.ByocSpec       `json:"byoc,omitempty"`
-					Pod        *db_control.PodSpec        `json:"pod,omitempty"`
-					Serverless *db_control.ServerlessSpec `json:"serverless,omitempty"`
-				}(struct {
-					Byoc       *db_control.ByocSpec `json:"byoc,omitempty"`
-					Pod        *db_control.PodSpec
-					Serverless *db_control.ServerlessSpec
-				}{Pod: &db_control.PodSpec{
-					Environment:      "test-environ",
-					PodType:          "p1.x2",
-					Pods:             &pods,
-					Replicas:         &replicas,
-					Shards:           &shards,
-					SourceCollection: nil,
-					MetadataConfig:   nil,
-				}}),
+				Spec: newPodIndexModelSpec(t, db_control.IndexModelSpec1{
+					Pod: db_control.PodSpec{
+						Environment:      "test-environ",
+						PodType:          "p1.x2",
+						Pods:             &pods,
+						Replicas:         &replicas,
+						Shards:           &shards,
+						SourceCollection: nil,
+						MetadataConfig:   nil,
+					},
+				}),
 				Status: struct {
-					Ready bool                             `json:"ready"`
-					State db_control.IndexModelStatusState `json:"state"`
+					Ready bool   `json:"ready"`
+					State string `json:"state"`
 				}{
 					Ready: true,
 					State: "active",
@@ -1452,21 +1446,15 @@ func TestToIndexUnit(t *testing.T) {
 				Host:               "test-host",
 				Metric:             "cosine",
 				DeletionProtection: &deletionProtectionEnabled,
-				Spec: struct {
-					Byoc       *db_control.ByocSpec       `json:"byoc,omitempty"`
-					Pod        *db_control.PodSpec        `json:"pod,omitempty"`
-					Serverless *db_control.ServerlessSpec `json:"serverless,omitempty"`
-				}(struct {
-					Byoc       *db_control.ByocSpec `json:"byoc,omitempty"`
-					Pod        *db_control.PodSpec
-					Serverless *db_control.ServerlessSpec
-				}{Serverless: &db_control.ServerlessSpec{
-					Cloud:  "test-environ",
-					Region: "test-region",
-				}}),
+				Spec: newServerlessIndexModelSpec(t, db_control.IndexModelSpec0{
+					Serverless: db_control.ServerlessSpecResponse{
+						Cloud:  "test-environ",
+						Region: "test-region",
+					},
+				}),
 				Status: struct {
-					Ready bool                             `json:"ready"`
-					State db_control.IndexModelStatusState `json:"state"`
+					Ready bool   `json:"ready"`
+					State string `json:"state"`
 				}{
 					Ready: true,
 					State: "active",
@@ -1804,11 +1792,38 @@ func TestEnsureHostHasHttpsUnit(t *testing.T) {
 }
 
 // Helper functions:
-func (ts *IntegrationTests) deleteIndex(name string) error {
+func (ts *integrationTests) deleteIndex(name string) error {
 	_, err := waitUntilIndexReady(ts, context.Background())
 	require.NoError(ts.T(), err)
 
 	return ts.client.DeleteIndex(context.Background(), name)
+}
+
+func newPodIndexModelSpec(t *testing.T, in db_control.IndexModelSpec1) db_control.IndexModel_Spec {
+	spec := db_control.IndexModel_Spec{}
+	err := spec.FromIndexModelSpec1(in)
+	if err != nil {
+		t.Fatalf("Failed to convert pod IndexModelSpec1 to IndexModel_Spec: %v", err)
+	}
+	return spec
+}
+
+func newServerlessIndexModelSpec(t *testing.T, in db_control.IndexModelSpec0) db_control.IndexModel_Spec {
+	spec := db_control.IndexModel_Spec{}
+	err := spec.FromIndexModelSpec0(in)
+	if err != nil {
+		t.Fatalf("Failed to convert serverless IndexModelSpec0 to IndexModel_Spec: %v", err)
+	}
+	return spec
+}
+
+func newByocIndexModelSpec(t *testing.T, in db_control.IndexModelSpec2) db_control.IndexModel_Spec {
+	spec := db_control.IndexModel_Spec{}
+	err := spec.FromIndexModelSpec2(in)
+	if err != nil {
+		t.Fatalf("Failed to convert byoc IndexModelSpec2 to IndexModel_Spec: %v", err)
+	}
+	return spec
 }
 
 func mockResponse(body string, statusCode int) *http.Response {

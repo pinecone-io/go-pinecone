@@ -18,14 +18,14 @@ import (
 )
 
 // Integration tests
-func (ts *IntegrationTests) TestFetchVectors() {
+func (ts *integrationTests) TestFetchVectors() {
 	ctx := context.Background()
 	res, err := ts.idxConn.FetchVectors(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IntegrationTests) TestQueryByVector() {
+func (ts *integrationTests) TestQueryByVector() {
 	vec := make([]float32, derefOrDefault(ts.dimension, 0))
 	for i := range vec {
 		vec[i] = 0.01
@@ -54,7 +54,7 @@ func (ts *IntegrationTests) TestQueryByVector() {
 	})
 }
 
-func (ts *IntegrationTests) TestQueryById() {
+func (ts *integrationTests) TestQueryById() {
 	req := &QueryByVectorIdRequest{
 		VectorId: ts.vectorIds[0],
 		TopK:     5,
@@ -66,7 +66,7 @@ func (ts *IntegrationTests) TestQueryById() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IntegrationTests) TestDeleteVectorsById() {
+func (ts *integrationTests) TestDeleteVectorsById() {
 	ctx := context.Background()
 	err := ts.idxConn.DeleteVectorsById(ctx, ts.vectorIds)
 	assert.NoError(ts.T(), err)
@@ -87,7 +87,7 @@ func (ts *IntegrationTests) TestDeleteVectorsById() {
 	ts.vectorIds = append(ts.vectorIds, vectorIds...)
 }
 
-func (ts *IntegrationTests) TestDeleteVectorsByFilter() {
+func (ts *integrationTests) TestDeleteVectorsByFilter() {
 	metadataFilter := map[string]interface{}{
 		"genre": "classical",
 	}
@@ -116,7 +116,7 @@ func (ts *IntegrationTests) TestDeleteVectorsByFilter() {
 	ts.vectorIds = append(ts.vectorIds, vectorIds...)
 }
 
-func (ts *IntegrationTests) TestDeleteAllVectorsInNamespace() {
+func (ts *integrationTests) TestDeleteAllVectorsInNamespace() {
 	ctx := context.Background()
 	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
 	assert.NoError(ts.T(), err)
@@ -138,21 +138,21 @@ func (ts *IntegrationTests) TestDeleteAllVectorsInNamespace() {
 
 }
 
-func (ts *IntegrationTests) TestDescribeIndexStats() {
+func (ts *integrationTests) TestDescribeIndexStats() {
 	ctx := context.Background()
 	res, err := ts.idxConn.DescribeIndexStats(ctx)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IntegrationTests) TestDescribeIndexStatsFiltered() {
+func (ts *integrationTests) TestDescribeIndexStatsFiltered() {
 	ctx := context.Background()
 	res, err := ts.idxConn.DescribeIndexStatsFiltered(ctx, &MetadataFilter{})
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IntegrationTests) TestListVectors() {
+func (ts *integrationTests) TestListVectors() {
 	ts.T().Skip()
 	req := &ListVectorsRequest{}
 
@@ -162,7 +162,7 @@ func (ts *IntegrationTests) TestListVectors() {
 	assert.NotNil(ts.T(), res)
 }
 
-func (ts *IntegrationTests) TestMetadataAppliedToRequests() {
+func (ts *integrationTests) TestMetadataAppliedToRequests() {
 	apiKey := "test-api-key"
 	namespace := "test-namespace"
 	sourceTag := "test-source-tag"
@@ -194,7 +194,7 @@ func (ts *IntegrationTests) TestMetadataAppliedToRequests() {
 	require.NotNil(ts.T(), stats)
 }
 
-func (ts *IntegrationTests) TestUpdateVectorValues() {
+func (ts *integrationTests) TestUpdateVectorValues() {
 	ctx := context.Background()
 
 	expectedVals := []float32{7.2, 7.2, 7.2, 7.2, 7.2}
@@ -227,7 +227,7 @@ func (ts *IntegrationTests) TestUpdateVectorValues() {
 	})
 }
 
-func (ts *IntegrationTests) TestUpdateVectorMetadata() {
+func (ts *integrationTests) TestUpdateVectorMetadata() {
 	ctx := context.Background()
 
 	expectedMetadata := map[string]interface{}{
@@ -272,7 +272,7 @@ func (ts *IntegrationTests) TestUpdateVectorMetadata() {
 	})
 }
 
-func (ts *IntegrationTests) TestUpdateVectorSparseValues() {
+func (ts *integrationTests) TestUpdateVectorSparseValues() {
 	ctx := context.Background()
 
 	dims := int32(derefOrDefault(ts.dimension, 0))
@@ -314,7 +314,7 @@ func (ts *IntegrationTests) TestUpdateVectorSparseValues() {
 	})
 }
 
-func (ts *IntegrationTests) TestImportFlowHappyPath() {
+func (ts *integrationTests) TestImportFlowHappyPath() {
 	if ts.indexType != "serverless" {
 		ts.T().Skip("Skipping import flow test for non-serverless index")
 	}
@@ -323,7 +323,7 @@ func (ts *IntegrationTests) TestImportFlowHappyPath() {
 	ctx := context.Background()
 	errorMode := "continue"
 
-	startRes, err := ts.idxConn.StartImport(ctx, testImportUri, nil, (*ImportErrorMode)(&errorMode))
+	startRes, err := ts.idxConn.StartImport(ctx, testImportUri, nil, &errorMode)
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), startRes)
 
@@ -342,7 +342,7 @@ func (ts *IntegrationTests) TestImportFlowHappyPath() {
 	assert.NoError(ts.T(), err)
 }
 
-func (ts *IntegrationTests) TestImportFlowNoUriError() {
+func (ts *integrationTests) TestImportFlowNoUriError() {
 	if ts.indexType != "serverless" {
 		ts.T().Skip("Skipping import flow test for non-serverless index")
 	}
@@ -353,7 +353,7 @@ func (ts *IntegrationTests) TestImportFlowNoUriError() {
 	assert.Contains(ts.T(), err.Error(), "must specify a uri")
 }
 
-func (ts *IntegrationTests) TestIntegratedInference() {
+func (ts *integrationTests) TestIntegratedInference() {
 	if ts.indexType != "serverless" {
 		ts.T().Skip("Running TestIntegratedInference once")
 	}
@@ -373,7 +373,7 @@ func (ts *IntegrationTests) TestIntegratedInference() {
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), index)
 
-	defer func(ts *IntegrationTests, name string) {
+	defer func(ts *integrationTests, name string) {
 		err := ts.deleteIndex(name)
 
 		require.NoError(ts.T(), err)
@@ -444,7 +444,7 @@ func (ts *IntegrationTests) TestIntegratedInference() {
 	})
 }
 
-func (ts *IntegrationTests) TestDescribeNamespace() {
+func (ts *integrationTests) TestDescribeNamespace() {
 	if ts.indexType != "serverless" {
 		ts.T().Skip("Namespace operations are only supported in serverless indexes")
 	}
@@ -458,7 +458,7 @@ func (ts *IntegrationTests) TestDescribeNamespace() {
 	require.Equal(ts.T(), namespace, namespaceDesc.Name, "Namespace name should match the requested namespace")
 }
 
-func (ts *IntegrationTests) TestListNamespaces() {
+func (ts *integrationTests) TestListNamespaces() {
 	if ts.indexType != "serverless" {
 		ts.T().Skip("Namespace operations are only supported in serverless indexes")
 	}
@@ -482,7 +482,7 @@ func (ts *IntegrationTests) TestListNamespaces() {
 	require.Greater(ts.T(), len(namespaces.Namespaces), 0, "ListNamespaces should return the second page of results")
 }
 
-func (ts *IntegrationTests) TestDeleteNamespace() {
+func (ts *integrationTests) TestDeleteNamespace() {
 	if ts.indexType != "serverless" {
 		ts.T().Skip("Namespace operations are only supported in serverless indexes")
 	}

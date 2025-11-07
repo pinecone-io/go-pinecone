@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/pinecone-io/go-pinecone/v4/internal/gen"
 	db_data_grpc "github.com/pinecone-io/go-pinecone/v4/internal/gen/db_data/grpc"
 	db_data_rest "github.com/pinecone-io/go-pinecone/v4/internal/gen/db_data/rest"
 	"github.com/pinecone-io/go-pinecone/v4/internal/useragent"
@@ -845,7 +846,7 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 		}
 	}
 
-	_, err := idx.restClient.UpsertRecordsNamespaceWithBody(ctx, idx.namespace, "application/x-ndjson", &buffer)
+	_, err := idx.restClient.UpsertRecordsNamespaceWithBody(ctx, idx.namespace, &db_data_rest.UpsertRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, "application/x-ndjson", &buffer)
 	if err != nil {
 		return fmt.Errorf("failed to upsert records: %v", err)
 	}
@@ -960,17 +961,18 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 	req := db_data_rest.SearchRecordsRequest{
 		Fields: in.Fields,
 		Query: struct {
-			Filter *map[string]interface{}           `json:"filter,omitempty"`
-			Id     *string                           `json:"id,omitempty"`
-			Inputs *map[string]interface{}           `json:"inputs,omitempty"`
-			TopK   int32                             `json:"top_k"`
-			Vector *db_data_rest.SearchRecordsVector `json:"vector,omitempty"`
+			Filter     *map[string]interface{}           `json:"filter,omitempty"`
+			Id         *string                           `json:"id,omitempty"`
+			Inputs     *db_data_rest.EmbedInputs         `json:"inputs,omitempty"`
+			MatchTerms *db_data_rest.SearchMatchTerms    `json:"match_terms,omitempty"`
+			TopK       int32                             `json:"top_k"`
+			Vector     *db_data_rest.SearchRecordsVector `json:"vector,omitempty"`
 		}{
 			Filter: in.Query.Filter,
 			Id:     in.Query.Id,
-			Inputs: in.Query.Inputs,
 			TopK:   in.Query.TopK,
-			Vector: convertedVector},
+			Vector: convertedVector,
+		},
 	}
 
 	if in.Rerank != nil {
@@ -989,7 +991,7 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 		}
 	}
 
-	res, err := (*idx.restClient).SearchRecordsNamespace(idx.akCtx(ctx), idx.namespace, req)
+	res, err := (*idx.restClient).SearchRecordsNamespace(idx.akCtx(ctx), idx.namespace, &db_data_rest.SearchRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 	if err != nil {
 		return nil, err
 	}
@@ -1364,7 +1366,7 @@ type StartImportResponse struct {
 //	     fmt.Printf("Import started with ID: %s", importRes.Id)
 //
 // [storage integration]: https://docs.pinecone.io/guides/operations/integrations/manage-storage-integrations
-func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integrationId *string, errorMode *ImportErrorMode) (*StartImportResponse, error) {
+func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integrationId *string, errorMode *string) (*StartImportResponse, error) {
 	if uri == "" {
 		return nil, fmt.Errorf("must specify a uri to start an import")
 	}
@@ -1376,11 +1378,11 @@ func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integra
 
 	if errorMode != nil {
 		req.ErrorMode = &db_data_rest.ImportErrorMode{
-			OnError: pointerOrNil(db_data_rest.ImportErrorModeOnError(*errorMode)),
+			OnError: errorMode,
 		}
 	}
 
-	res, err := (*idx.restClient).StartBulkImport(idx.akCtx(ctx), req)
+	res, err := (*idx.restClient).StartBulkImport(idx.akCtx(ctx), &db_data_rest.StartBulkImportParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 	if err != nil {
 		return nil, err
 	}
@@ -1432,7 +1434,7 @@ func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integra
 //	    }
 //	    fmt.Printf("Import ID: %s, Status: %s", importDesc.Id, importDesc.Status)
 func (idx *IndexConnection) DescribeImport(ctx context.Context, id string) (*Import, error) {
-	res, err := (*idx.restClient).DescribeBulkImport(idx.akCtx(ctx), id)
+	res, err := (*idx.restClient).DescribeBulkImport(idx.akCtx(ctx), id, &db_data_rest.DescribeBulkImportParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -1569,7 +1571,7 @@ func (idx *IndexConnection) ListImports(ctx context.Context, limit *int32, pagin
 //	         log.Fatalf("Failed to cancel import: %s", "your-import-id")
 //	    }
 func (idx *IndexConnection) CancelImport(ctx context.Context, id string) error {
-	res, err := (*idx.restClient).CancelBulkImport(idx.akCtx(ctx), id)
+	res, err := (*idx.restClient).CancelBulkImport(idx.akCtx(ctx), id, &db_data_rest.CancelBulkImportParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return err
 	}
@@ -1895,12 +1897,12 @@ func toImport(importModel *db_data_rest.ImportModel) *Import {
 	}
 
 	return &Import{
-		Id:         *importModel.Id,
-		Uri:        *importModel.Uri,
-		Status:     ImportStatus(*importModel.Status),
-		CreatedAt:  importModel.CreatedAt,
-		FinishedAt: importModel.FinishedAt,
-		Error:      importModel.Error,
+		Id:              *importModel.Id,
+		Uri:             *importModel.Uri,
+		Status:          ImportStatus(*importModel.Status),
+		CreatedAt:       importModel.CreatedAt,
+		FinishedAt:      importModel.FinishedAt,
+		Error:           importModel.Error,
 		PercentComplete: derefOrDefault(importModel.PercentComplete, 0),
 		RecordsImported: derefOrDefault(importModel.RecordsImported, 0),
 	}

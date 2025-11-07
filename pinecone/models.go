@@ -183,9 +183,11 @@ type PodSpec struct {
 // Fields:
 //   - Cloud: The public cloud provider where the index is hosted.
 //   - Region: The region where the index is hosted.
+//   - SourceCollection: The name of the [Collection] used as a source for the index.
 type ServerlessSpec struct {
-	Cloud  Cloud  `json:"cloud"`
-	Region string `json:"region"`
+	Cloud            Cloud   `json:"cloud"`
+	Region           string  `json:"region"`
+	SourceCollection *string `json:"source_collection,omitempty"`
 }
 
 // [Vector] is a [dense or sparse vector object] with optional metadata.

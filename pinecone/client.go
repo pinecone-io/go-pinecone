@@ -372,7 +372,7 @@ func ensureHostHasHttps(host string) string {
 //
 // [project]: https://docs.pinecone.io/guides/projects/understanding-projects
 func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
-	res, err := c.restClient.ListIndexes(ctx)
+	res, err := c.restClient.ListIndexes(ctx, &db_control.ListIndexesParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -558,11 +558,6 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 		deletionProtection = pointerOrNil(db_control.DeletionProtection(*in.DeletionProtection))
 	}
 
-	var metric *db_control.CreateIndexRequestMetric
-	if in.Metric != nil {
-		metric = pointerOrNil(db_control.CreateIndexRequestMetric(*in.Metric))
-	}
-
 	pods := in.TotalCount()
 	replicas := in.ReplicaCount()
 	shards := in.ShardCount()
@@ -576,32 +571,36 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 	req := db_control.CreateIndexRequest{
 		Name:               in.Name,
 		Dimension:          &in.Dimension,
-		Metric:             metric,
+		Metric:             (*string)(in.Metric),
 		DeletionProtection: deletionProtection,
 		Tags:               tags,
 		VectorType:         &vectorType,
 	}
 
-	req.Spec = db_control.IndexSpec{
-		Pod: &db_control.PodSpec{
+	podSpec := db_control.IndexSpec1{
+		Pod: db_control.PodSpec{
 			Environment:      in.Environment,
 			PodType:          in.PodType,
 			Pods:             &pods,
 			Replicas:         &replicas,
 			Shards:           &shards,
 			SourceCollection: in.SourceCollection,
-		},
-	}
+		}}
 
 	if in.MetadataConfig != nil {
-		req.Spec.Pod.MetadataConfig = &struct {
+		podSpec.Pod.MetadataConfig = &struct {
 			Indexed *[]string `json:"indexed,omitempty"`
 		}{
 			Indexed: in.MetadataConfig.Indexed,
 		}
 	}
 
-	res, err := c.restClient.CreateIndex(ctx, req)
+	err := req.Spec.FromIndexSpec1(podSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := c.restClient.CreateIndex(ctx, &db_control.CreateIndexParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 	if err != nil {
 		return nil, err
 	}
@@ -631,6 +630,8 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //   - VectorType: (Optional) The index vector type. You can use `dense` or `sparse`. If `dense`, the vector dimension must be specified.
 //     If `sparse`, the vector dimension should not be specified, and the Metric must be set to `dotproduct`. Defaults to `dense`.
 //   - Tags: (Optional) A map of tags to associate with the Index.
+//   - SourceCollection: (Optional) The name of the [Collection] to use as the source for the index. NOTE: Collections can only be created
+//     from pods-based indexes.
 //
 // To create a new Serverless Index, use the [Client.CreateServerlessIndex] method.
 //
@@ -681,6 +682,7 @@ type CreateServerlessIndexRequest struct {
 	Dimension          *int32
 	VectorType         *string
 	Tags               *IndexTags
+	SourceCollection   *string
 }
 
 // [Client.CreateServerlessIndex] creates and initializes a new serverless Index via the specified [Client].
@@ -759,27 +761,29 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 		tags = (*db_control.IndexTags)(in.Tags)
 	}
 
-	var metric *db_control.CreateIndexRequestMetric
-	if in.Metric != nil {
-		metric = pointerOrNil(db_control.CreateIndexRequestMetric(*in.Metric))
+	serverlessSpec := db_control.IndexSpec0{
+		Serverless: db_control.ServerlessSpec{
+			Cloud:            string(in.Cloud),
+			Region:           in.Region,
+			SourceCollection: in.SourceCollection,
+		},
 	}
 
 	req := db_control.CreateIndexRequest{
 		Name:               in.Name,
 		Dimension:          in.Dimension,
-		Metric:             metric,
+		Metric:             (*string)(in.Metric),
 		DeletionProtection: deletionProtection,
 		VectorType:         vectorType,
-		Spec: db_control.IndexSpec{
-			Serverless: &db_control.ServerlessSpec{
-				Cloud:  db_control.ServerlessSpecCloud(in.Cloud),
-				Region: in.Region,
-			},
-		},
-		Tags: tags,
+		Tags:               tags,
 	}
 
-	res, err := c.restClient.CreateIndex(ctx, req)
+	err := req.Spec.FromIndexSpec0(serverlessSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := c.restClient.CreateIndex(ctx, &db_control.CreateIndexParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 	if err != nil {
 		return nil, err
 	}
@@ -945,18 +949,18 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 	req := db_control.CreateIndexForModelRequest{
 		Name:   in.Name,
 		Region: in.Region,
-		Cloud:  db_control.CreateIndexForModelRequestCloud(in.Cloud),
+		Cloud:  string(in.Cloud),
 		Embed: struct {
-			Dimension       *int                                              `json:"dimension,omitempty"`
-			FieldMap        map[string]interface{}                            `json:"field_map"`
-			Metric          *db_control.CreateIndexForModelRequestEmbedMetric `json:"metric,omitempty"`
-			Model           string                                            `json:"model"`
-			ReadParameters  *map[string]interface{}                           `json:"read_parameters,omitempty"`
-			WriteParameters *map[string]interface{}                           `json:"write_parameters,omitempty"`
+			Dimension       *int                    `json:"dimension,omitempty"`
+			FieldMap        map[string]interface{}  `json:"field_map"`
+			Metric          *string                 `json:"metric,omitempty"`
+			Model           string                  `json:"model"`
+			ReadParameters  *map[string]interface{} `json:"read_parameters,omitempty"`
+			WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
 		}{
 			Dimension:       in.Embed.Dimension,
 			FieldMap:        in.Embed.FieldMap,
-			Metric:          (*db_control.CreateIndexForModelRequestEmbedMetric)(in.Embed.Metric),
+			Metric:          (*string)(in.Embed.Metric),
 			Model:           in.Embed.Model,
 			ReadParameters:  in.Embed.ReadParameters,
 			WriteParameters: in.Embed.WriteParameters,
@@ -965,7 +969,7 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 		Tags:               tags,
 	}
 
-	res, err := c.restClient.CreateIndexForModel(ctx, req)
+	res, err := c.restClient.CreateIndexForModel(ctx, &db_control.CreateIndexForModelParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 	if err != nil {
 		return nil, err
 	}
@@ -1017,7 +1021,7 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 //		    fmt.Println(desc)
 //	    }
 func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, error) {
-	res, err := c.restClient.DescribeIndex(ctx, idxName)
+	res, err := c.restClient.DescribeIndex(ctx, idxName, &db_control.DescribeIndexParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -1064,7 +1068,7 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 //	        fmt.Printf("Index \"%s\" deleted successfully", indexName)
 //	    }
 func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
-	res, err := c.restClient.DeleteIndex(ctx, idxName)
+	res, err := c.restClient.DeleteIndex(ctx, idxName, &db_control.DeleteIndexParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return err
 	}
@@ -1201,23 +1205,27 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	existingTags := idxDesc.Tags
 
 	var request db_control.ConfigureIndexRequest
+	request.Spec = &db_control.ConfigureIndexRequest_Spec{}
+
+	// Apply pod configurations
 	if podType != nil || replicas != nil {
-		request.Spec =
-			&struct {
-				Pod struct {
-					PodType  *string `json:"pod_type,omitempty"`
-					Replicas *int32  `json:"replicas,omitempty"`
-				} `json:"pod"`
+		podSpec := db_control.ConfigureIndexRequestSpec1{
+			Pod: struct {
+				PodType  *string `json:"pod_type,omitempty"`
+				Replicas *int32  `json:"replicas,omitempty"`
 			}{
-				Pod: struct {
-					PodType  *string `json:"pod_type,omitempty"`
-					Replicas *int32  `json:"replicas,omitempty"`
-				}{
-					PodType:  podType,
-					Replicas: replicas,
-				},
-			}
+				PodType:  podType,
+				Replicas: replicas,
+			},
+		}
+		if err := request.Spec.FromConfigureIndexRequestSpec1(podSpec); err != nil {
+			return nil, err
+		}
 	}
+
+	// TODO - Apply serverless configurations
+
+	// Apply embedding configurations
 	if in.Embed != nil {
 		request.Embed =
 			&struct {
@@ -1236,7 +1244,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	request.DeletionProtection = (*db_control.DeletionProtection)(deletionProtection)
 	request.Tags = (*db_control.IndexTags)(mergeIndexTags(existingTags, in.Tags))
 
-	res, err := c.restClient.ConfigureIndex(ctx, name, request)
+	res, err := c.restClient.ConfigureIndex(ctx, name, &db_control.ConfigureIndexParams{XPineconeApiVersion: gen.PineconeApiVersion}, request)
 	if err != nil {
 		return nil, err
 	}
@@ -1293,7 +1301,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 // [project]: https://docs.pinecone.io/guides/projects/understanding-projects
 // [understanding collections]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
-	res, err := c.restClient.ListCollections(ctx)
+	res, err := c.restClient.ListCollections(ctx, &db_control.ListCollectionsParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -1362,7 +1370,7 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 // [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
 // [understanding collections]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) DescribeCollection(ctx context.Context, collectionName string) (*Collection, error) {
-	res, err := c.restClient.DescribeCollection(ctx, collectionName)
+	res, err := c.restClient.DescribeCollection(ctx, collectionName, &db_control.DescribeCollectionParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -1460,7 +1468,7 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 		Name:   in.Name,
 		Source: in.Source,
 	}
-	res, err := c.restClient.CreateCollection(ctx, req)
+	res, err := c.restClient.CreateCollection(ctx, &db_control.CreateCollectionParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 
 	if err != nil {
 		return nil, err
@@ -1510,7 +1518,7 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 //		       log.Printf("Successfully deleted collection \"%s\"\n", collectionName)
 //	    }
 func (c *Client) DeleteCollection(ctx context.Context, collectionName string) error {
-	res, err := c.restClient.DeleteCollection(ctx, collectionName)
+	res, err := c.restClient.DeleteCollection(ctx, collectionName, &db_control.DeleteCollectionParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return err
 	}
@@ -1586,7 +1594,7 @@ func (c *Client) CreateBackup(ctx context.Context, in *CreateBackupParams) (*Bac
 		return nil, fmt.Errorf("IndexName must be included in CreateBackupRequest")
 	}
 
-	res, err := c.restClient.CreateBackup(ctx, in.IndexName, db_control.CreateBackupRequest{
+	res, err := c.restClient.CreateBackup(ctx, in.IndexName, &db_control.CreateBackupParams{XPineconeApiVersion: gen.PineconeApiVersion}, db_control.CreateBackupRequest{
 		Description: in.Description,
 		Name:        in.Name,
 	})
@@ -1675,7 +1683,7 @@ func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromB
 		return nil, fmt.Errorf("Name must be included in CreateIndexFromBackupRequest")
 	}
 
-	res, err := c.restClient.CreateIndexFromBackupOperation(ctx, in.BackupId, db_control.CreateIndexFromBackupRequest{
+	res, err := c.restClient.CreateIndexFromBackupOperation(ctx, in.BackupId, &db_control.CreateIndexFromBackupOperationParams{XPineconeApiVersion: gen.PineconeApiVersion}, db_control.CreateIndexFromBackupRequest{
 		Name:               in.Name,
 		DeletionProtection: (*db_control.DeletionProtection)(in.DeletionProtection),
 		Tags:               (*db_control.IndexTags)(in.Tags),
@@ -1733,7 +1741,7 @@ func (c *Client) DescribeBackup(ctx context.Context, backupId string) (*Backup, 
 		return nil, fmt.Errorf("you must provide a backupId to describe a backup")
 	}
 
-	res, err := c.restClient.DescribeBackup(ctx, backupId)
+	res, err := c.restClient.DescribeBackup(ctx, backupId, &db_control.DescribeBackupParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -1848,7 +1856,7 @@ func (c *Client) DeleteBackup(ctx context.Context, backupId string) error {
 		return fmt.Errorf("you must provide a backupId to delete a backup")
 	}
 
-	res, err := c.restClient.DeleteBackup(ctx, backupId)
+	res, err := c.restClient.DeleteBackup(ctx, backupId, &db_control.DeleteBackupParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return err
 	}
@@ -1892,7 +1900,7 @@ func (c *Client) DescribeRestoreJob(ctx context.Context, restoreJobId string) (*
 		return nil, fmt.Errorf("you must provide a restoreJobId to describe a restore job")
 	}
 
-	res, err := c.restClient.DescribeRestoreJob(ctx, restoreJobId)
+	res, err := c.restClient.DescribeRestoreJob(ctx, restoreJobId, &db_control.DescribeRestoreJobParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -2083,7 +2091,7 @@ func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedR
 		req.Parameters = &params
 	}
 
-	res, err := i.client.Embed(ctx, req)
+	res, err := i.client.Embed(ctx, &inference.EmbedParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 	if err != nil {
 		return nil, err
 	}
@@ -2211,7 +2219,7 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 		TopN:            in.TopN,
 		Parameters:      in.Parameters,
 	}
-	res, err := i.client.Rerank(ctx, req)
+	res, err := i.client.Rerank(ctx, &inference.RerankParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 	if err != nil {
 		return nil, err
 	}
@@ -2252,7 +2260,7 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 //
 //	     fmt.Printf("Model (multilingual-e5-large): %+v\n", model)
 func (i *InferenceService) DescribeModel(ctx context.Context, modelName string) (*ModelInfo, error) {
-	res, err := i.client.GetModel(ctx, modelName)
+	res, err := i.client.GetModel(ctx, modelName, &inference.GetModelParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -2352,35 +2360,67 @@ func (c *Client) extractAuthHeader() map[string]string {
 	return nil
 }
 
+func getIndexSpecType(spec db_control.IndexModel_Spec) string {
+	rawJSON, err := spec.MarshalJSON()
+	if err != nil {
+		return "unknown"
+	}
+	var rawData map[string]interface{}
+	err = json.Unmarshal(rawJSON, &rawData)
+	if err != nil {
+		return "unknown"
+	}
+	if _, ok := rawData["pod"]; ok {
+		return "pod"
+	} else if _, ok := rawData["serverless"]; ok {
+		return "serverless"
+	} else if _, ok := rawData["byoc"]; ok {
+		return "byoc"
+	}
+	return "unknown"
+}
+
 func toIndex(idx *db_control.IndexModel) *Index {
 	if idx == nil {
 		return nil
 	}
 
 	spec := &IndexSpec{}
-	if idx.Spec.Pod != nil {
-		spec.Pod = &PodSpec{
-			Environment:      idx.Spec.Pod.Environment,
-			PodType:          idx.Spec.Pod.PodType,
-			PodCount:         derefOrDefault(idx.Spec.Pod.Pods, 1),
-			Replicas:         derefOrDefault(idx.Spec.Pod.Replicas, 1),
-			ShardCount:       derefOrDefault(idx.Spec.Pod.Shards, 1),
-			SourceCollection: idx.Spec.Pod.SourceCollection,
+	specType := getIndexSpecType(idx.Spec)
+
+	switch specType {
+	case "pod":
+		if podSpec, err := idx.Spec.AsIndexModelSpec1(); err == nil {
+			fmt.Printf("SUCCESSFULLY unmarshaled pod spec: podSpec: %+v\n", podSpec)
+			spec.Pod = &PodSpec{
+				Environment:      podSpec.Pod.Environment,
+				PodType:          podSpec.Pod.PodType,
+				PodCount:         derefOrDefault(podSpec.Pod.Pods, 1),
+				Replicas:         derefOrDefault(podSpec.Pod.Replicas, 1),
+				ShardCount:       derefOrDefault(podSpec.Pod.Shards, 1),
+				SourceCollection: podSpec.Pod.SourceCollection,
+			}
+			if podSpec.Pod.MetadataConfig != nil {
+				spec.Pod.MetadataConfig = &PodSpecMetadataConfig{Indexed: podSpec.Pod.MetadataConfig.Indexed}
+			}
 		}
-		if idx.Spec.Pod.MetadataConfig != nil {
-			spec.Pod.MetadataConfig = &PodSpecMetadataConfig{Indexed: idx.Spec.Pod.MetadataConfig.Indexed}
+	case "serverless":
+		if serverlessSpec, err := idx.Spec.AsIndexModelSpec0(); err == nil {
+			fmt.Printf("SUCCESSFULLY unmarshaled serverless spec: serverlessSpec: %+v\n", serverlessSpec)
+			spec.Serverless = &ServerlessSpec{
+				Cloud:            Cloud(serverlessSpec.Serverless.Cloud),
+				Region:           serverlessSpec.Serverless.Region,
+				SourceCollection: serverlessSpec.Serverless.SourceCollection,
+			}
 		}
+		// TODO - Add BYOC support
 	}
-	if idx.Spec.Serverless != nil {
-		spec.Serverless = &ServerlessSpec{
-			Cloud:  Cloud(idx.Spec.Serverless.Cloud),
-			Region: idx.Spec.Serverless.Region,
-		}
-	}
+
 	status := &IndexStatus{
 		Ready: idx.Status.Ready,
 		State: IndexStatusState(idx.Status.State),
 	}
+
 	var embed *IndexEmbed
 	if idx.Embed != nil {
 		var metric *IndexMetric

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,107 +22,9 @@ const (
 	ApiKeyAuthScopes = "ApiKeyAuth.Scopes"
 )
 
-// Defines values for BackupModelMetric.
-const (
-	BackupModelMetricCosine     BackupModelMetric = "cosine"
-	BackupModelMetricDotproduct BackupModelMetric = "dotproduct"
-	BackupModelMetricEuclidean  BackupModelMetric = "euclidean"
-)
-
-// Defines values for CollectionModelStatus.
-const (
-	CollectionModelStatusInitializing CollectionModelStatus = "Initializing"
-	CollectionModelStatusReady        CollectionModelStatus = "Ready"
-	CollectionModelStatusTerminating  CollectionModelStatus = "Terminating"
-)
-
-// Defines values for CreateIndexForModelRequestCloud.
-const (
-	CreateIndexForModelRequestCloudAws   CreateIndexForModelRequestCloud = "aws"
-	CreateIndexForModelRequestCloudAzure CreateIndexForModelRequestCloud = "azure"
-	CreateIndexForModelRequestCloudGcp   CreateIndexForModelRequestCloud = "gcp"
-)
-
-// Defines values for CreateIndexForModelRequestEmbedMetric.
-const (
-	CreateIndexForModelRequestEmbedMetricCosine     CreateIndexForModelRequestEmbedMetric = "cosine"
-	CreateIndexForModelRequestEmbedMetricDotproduct CreateIndexForModelRequestEmbedMetric = "dotproduct"
-	CreateIndexForModelRequestEmbedMetricEuclidean  CreateIndexForModelRequestEmbedMetric = "euclidean"
-)
-
-// Defines values for CreateIndexRequestMetric.
-const (
-	CreateIndexRequestMetricCosine     CreateIndexRequestMetric = "cosine"
-	CreateIndexRequestMetricDotproduct CreateIndexRequestMetric = "dotproduct"
-	CreateIndexRequestMetricEuclidean  CreateIndexRequestMetric = "euclidean"
-)
-
-// Defines values for DeletionProtection.
-const (
-	Disabled DeletionProtection = "disabled"
-	Enabled  DeletionProtection = "enabled"
-)
-
-// Defines values for ErrorResponseErrorCode.
-const (
-	ABORTED             ErrorResponseErrorCode = "ABORTED"
-	ALREADYEXISTS       ErrorResponseErrorCode = "ALREADY_EXISTS"
-	DATALOSS            ErrorResponseErrorCode = "DATA_LOSS"
-	DEADLINEEXCEEDED    ErrorResponseErrorCode = "DEADLINE_EXCEEDED"
-	FAILEDPRECONDITION  ErrorResponseErrorCode = "FAILED_PRECONDITION"
-	FORBIDDEN           ErrorResponseErrorCode = "FORBIDDEN"
-	INTERNAL            ErrorResponseErrorCode = "INTERNAL"
-	INVALIDARGUMENT     ErrorResponseErrorCode = "INVALID_ARGUMENT"
-	NOTFOUND            ErrorResponseErrorCode = "NOT_FOUND"
-	OK                  ErrorResponseErrorCode = "OK"
-	OUTOFRANGE          ErrorResponseErrorCode = "OUT_OF_RANGE"
-	PAYMENTREQUIRED     ErrorResponseErrorCode = "PAYMENT_REQUIRED"
-	PERMISSIONDENIED    ErrorResponseErrorCode = "PERMISSION_DENIED"
-	QUOTAEXCEEDED       ErrorResponseErrorCode = "QUOTA_EXCEEDED"
-	RESOURCEEXHAUSTED   ErrorResponseErrorCode = "RESOURCE_EXHAUSTED"
-	UNAUTHENTICATED     ErrorResponseErrorCode = "UNAUTHENTICATED"
-	UNAVAILABLE         ErrorResponseErrorCode = "UNAVAILABLE"
-	UNIMPLEMENTED       ErrorResponseErrorCode = "UNIMPLEMENTED"
-	UNKNOWN             ErrorResponseErrorCode = "UNKNOWN"
-	UNPROCESSABLEENTITY ErrorResponseErrorCode = "UNPROCESSABLE_ENTITY"
-)
-
-// Defines values for IndexModelMetric.
-const (
-	IndexModelMetricCosine     IndexModelMetric = "cosine"
-	IndexModelMetricDotproduct IndexModelMetric = "dotproduct"
-	IndexModelMetricEuclidean  IndexModelMetric = "euclidean"
-)
-
-// Defines values for IndexModelStatusState.
-const (
-	IndexModelStatusStateDisabled             IndexModelStatusState = "Disabled"
-	IndexModelStatusStateInitializationFailed IndexModelStatusState = "InitializationFailed"
-	IndexModelStatusStateInitializing         IndexModelStatusState = "Initializing"
-	IndexModelStatusStateReady                IndexModelStatusState = "Ready"
-	IndexModelStatusStateScalingDown          IndexModelStatusState = "ScalingDown"
-	IndexModelStatusStateScalingDownPodSize   IndexModelStatusState = "ScalingDownPodSize"
-	IndexModelStatusStateScalingUp            IndexModelStatusState = "ScalingUp"
-	IndexModelStatusStateScalingUpPodSize     IndexModelStatusState = "ScalingUpPodSize"
-	IndexModelStatusStateTerminating          IndexModelStatusState = "Terminating"
-)
-
-// Defines values for ModelIndexEmbedMetric.
-const (
-	Cosine     ModelIndexEmbedMetric = "cosine"
-	Dotproduct ModelIndexEmbedMetric = "dotproduct"
-	Euclidean  ModelIndexEmbedMetric = "euclidean"
-)
-
-// Defines values for ServerlessSpecCloud.
-const (
-	ServerlessSpecCloudAws   ServerlessSpecCloud = "aws"
-	ServerlessSpecCloudAzure ServerlessSpecCloud = "azure"
-	ServerlessSpecCloudGcp   ServerlessSpecCloud = "gcp"
-)
-
 // BackupList The list of backups that exist in the project.
 type BackupList struct {
+	// Data List of backup objects
 	Data *[]BackupModel `json:"data,omitempty"`
 
 	// Pagination The pagination object that is returned with paginated responses.
@@ -146,7 +49,8 @@ type BackupModel struct {
 	Dimension *int32 `json:"dimension,omitempty"`
 
 	// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If the 'vector_type' is 'sparse', the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric defaults to 'cosine'.
-	Metric *BackupModelMetric `json:"metric,omitempty"`
+	// Possible values: `cosine`, `euclidean`, or `dotproduct`.
+	Metric *string `json:"metric,omitempty"`
 
 	// Name Optional user-defined name for the backup.
 	Name *string `json:"name,omitempty"`
@@ -159,6 +63,15 @@ type BackupModel struct {
 
 	// Region Cloud region where the backup is stored.
 	Region string `json:"region"`
+
+	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
+	Schema *struct {
+		// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique.
+		Fields map[string]struct {
+			// Filterable Whether the field is filterable. If true, the field is indexed and can be used in filters. Only true values are allowed.
+			Filterable *bool `json:"filterable,omitempty"`
+		} `json:"fields"`
+	} `json:"schema,omitempty"`
 
 	// SizeBytes Size of the backup in bytes.
 	SizeBytes *int `json:"size_bytes,omitempty"`
@@ -176,17 +89,24 @@ type BackupModel struct {
 	Tags *IndexTags `json:"tags,omitempty"`
 }
 
-// BackupModelMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If the 'vector_type' is 'sparse', the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric defaults to 'cosine'.
-type BackupModelMetric string
-
 // ByocSpec Configuration needed to deploy an index in a BYOC environment.
 type ByocSpec struct {
 	// Environment The environment where the index is hosted.
 	Environment string `json:"environment"`
+
+	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
+	Schema *struct {
+		// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique.
+		Fields map[string]struct {
+			// Filterable Whether the field is filterable. If true, the field is indexed and can be used in filters. Only true values are allowed.
+			Filterable *bool `json:"filterable,omitempty"`
+		} `json:"fields"`
+	} `json:"schema,omitempty"`
 }
 
 // CollectionList The list of collections that exist in the project.
 type CollectionList struct {
+	// Collections List of collections in the project
 	Collections *[]CollectionModel `json:"collections,omitempty"`
 }
 
@@ -205,18 +125,17 @@ type CollectionModel struct {
 	Size *int64 `json:"size,omitempty"`
 
 	// Status The status of the collection.
-	Status CollectionModelStatus `json:"status"`
+	// Possible values: `Initializing`, `Ready`, or `Terminating`.
+	Status string `json:"status"`
 
 	// VectorCount The number of records stored in the collection.
 	VectorCount *int32 `json:"vector_count,omitempty"`
 }
 
-// CollectionModelStatus The status of the collection.
-type CollectionModelStatus string
-
 // ConfigureIndexRequest Configuration used to scale an index.
 type ConfigureIndexRequest struct {
 	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	// Possible values: `disabled` or `enabled`.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 
 	// Embed Configure the integrated inference embedding settings for this index.
@@ -237,18 +156,38 @@ type ConfigureIndexRequest struct {
 		// WriteParameters The write parameters for the embedding model.
 		WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
 	} `json:"embed,omitempty"`
-	Spec *struct {
-		Pod struct {
-			// PodType The type of pod to use. One of `s1`, `p1`, or `p2` appended with `.` and one of `x1`, `x2`, `x4`, or `x8`.
-			PodType *string `json:"pod_type,omitempty"`
 
-			// Replicas The number of replicas. Replicas duplicate your index. They provide higher availability and throughput. Replicas can be scaled up or down as your needs change.
-			Replicas *int32 `json:"replicas,omitempty"`
-		} `json:"pod"`
-	} `json:"spec,omitempty"`
+	// Spec The spec object defines how the index should be deployed.  Only some attributes of an index's spec may be updated.  In general, you can modify settings related to scaling and  configuration but you cannot change the cloud or region  where the index is hosted.
+	Spec *ConfigureIndexRequest_Spec `json:"spec,omitempty"`
 
 	// Tags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
 	Tags *IndexTags `json:"tags,omitempty"`
+}
+
+// ConfigureIndexRequestSpec0 defines model for .
+type ConfigureIndexRequestSpec0 struct {
+	// Serverless Updated configuration for serverless indexes
+	Serverless struct {
+		// ReadCapacity By default the index will be created with read capacity  mode `OnDemand`. If you prefer to allocate dedicated read  nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
+		ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
+	} `json:"serverless"`
+}
+
+// ConfigureIndexRequestSpec1 defines model for .
+type ConfigureIndexRequestSpec1 struct {
+	// Pod Updated configuration for pod-based indexes
+	Pod struct {
+		// PodType The type of pod to use. One of `s1`, `p1`, or `p2` appended with `.` and one of `x1`, `x2`, `x4`, or `x8`.
+		PodType *string `json:"pod_type,omitempty"`
+
+		// Replicas The number of replicas. Replicas duplicate your index. They provide higher availability and throughput. Replicas can be scaled up or down as your needs change.
+		Replicas *int32 `json:"replicas,omitempty"`
+	} `json:"pod"`
+}
+
+// ConfigureIndexRequest_Spec The spec object defines how the index should be deployed.  Only some attributes of an index's spec may be updated.  In general, you can modify settings related to scaling and  configuration but you cannot change the cloud or region  where the index is hosted.
+type ConfigureIndexRequest_Spec struct {
+	union json.RawMessage
 }
 
 // CreateBackupRequest The configuration needed to create a backup of an index.
@@ -272,9 +211,11 @@ type CreateCollectionRequest struct {
 // CreateIndexForModelRequest The desired configuration for the index and associated embedding model.
 type CreateIndexForModelRequest struct {
 	// Cloud The public cloud where you would like your index hosted.
-	Cloud CreateIndexForModelRequestCloud `json:"cloud"`
+	// Possible values: `gcp`, `aws`, or `azure`.
+	Cloud string `json:"cloud"`
 
 	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	// Possible values: `disabled` or `enabled`.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 
 	// Embed Specify the integrated inference embedding configuration for the index.
@@ -290,7 +231,8 @@ type CreateIndexForModelRequest struct {
 		FieldMap map[string]interface{} `json:"field_map"`
 
 		// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If not specified, the metric will be defaulted according to the model. Cannot be updated once set.
-		Metric *CreateIndexForModelRequestEmbedMetric `json:"metric,omitempty"`
+		// Possible values: `cosine`, `euclidean`, or `dotproduct`.
+		Metric *string `json:"metric,omitempty"`
 
 		// Model The name of the embedding model to use for the index.
 		Model string `json:"model"`
@@ -305,22 +247,29 @@ type CreateIndexForModelRequest struct {
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
+	// ReadCapacity By default the index will be created with read capacity  mode `OnDemand`. If you prefer to allocate dedicated read  nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
+	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
+
 	// Region The region where you would like your index to be created.
 	Region string `json:"region"`
+
+	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
+	Schema *struct {
+		// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique.
+		Fields map[string]struct {
+			// Filterable Whether the field is filterable. If true, the field is indexed and can be used in filters. Only true values are allowed.
+			Filterable *bool `json:"filterable,omitempty"`
+		} `json:"fields"`
+	} `json:"schema,omitempty"`
 
 	// Tags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
 	Tags *IndexTags `json:"tags,omitempty"`
 }
 
-// CreateIndexForModelRequestCloud The public cloud where you would like your index hosted.
-type CreateIndexForModelRequestCloud string
-
-// CreateIndexForModelRequestEmbedMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If not specified, the metric will be defaulted according to the model. Cannot be updated once set.
-type CreateIndexForModelRequestEmbedMetric string
-
 // CreateIndexFromBackupRequest The configuration needed to create a Pinecone index from a backup.
 type CreateIndexFromBackupRequest struct {
 	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	// Possible values: `disabled` or `enabled`.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
@@ -342,20 +291,22 @@ type CreateIndexFromBackupResponse struct {
 // CreateIndexRequest The configuration needed to create a Pinecone index.
 type CreateIndexRequest struct {
 	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	// Possible values: `disabled` or `enabled`.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 
 	// Dimension The dimensions of the vectors to be inserted in the index.
 	Dimension *int32 `json:"dimension,omitempty"`
 
 	// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If the 'vector_type' is 'sparse', the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric defaults to 'cosine'.
-	Metric *CreateIndexRequestMetric `json:"metric,omitempty"`
+	// Possible values: `cosine`, `euclidean`, or `dotproduct`.
+	Metric *string `json:"metric,omitempty"`
 
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
 	// Spec The spec object defines how the index should be deployed.
 	//
-	// For serverless indexes, you set only the [cloud and region](http://docs.pinecone.io/guides/index-data/create-an-index#cloud-regions) where the index should be hosted. For pod-based indexes, you set the [environment](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-environments) where the index should be hosted, the [pod type and size](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-types) to use, and other index characteristics. For [BYOC indexes](http://docs.pinecone.io/guides/production/bring-your-own-cloud), you set the environment name provided to you during onboarding.
+	// For serverless indexes, you define only the [cloud and region](http://docs.pinecone.io/guides/index-data/create-an-index#cloud-regions) where the index should be hosted. For pod-based indexes, you define the [environment](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-environments) where the index should be hosted, the [pod type and size](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-types) to use, and other index characteristics.
 	Spec IndexSpec `json:"spec"`
 
 	// Tags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
@@ -365,38 +316,39 @@ type CreateIndexRequest struct {
 	VectorType *string `json:"vector_type,omitempty"`
 }
 
-// CreateIndexRequestMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If the 'vector_type' is 'sparse', the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric defaults to 'cosine'.
-type CreateIndexRequestMetric string
-
 // DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
-type DeletionProtection string
+// Possible values: `disabled` or `enabled`.
+type DeletionProtection = string
 
 // ErrorResponse The response shape used for all error responses.
 type ErrorResponse struct {
 	// Error Detailed information about the error that occurred.
 	Error struct {
-		Code ErrorResponseErrorCode `json:"code"`
+		// Code The error code.
+		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `QUOTA_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `UNIMPLEMENTED`, `INTERNAL`, `UNAVAILABLE`, `DATA_LOSS`, `FORBIDDEN`, `UNPROCESSABLE_ENTITY`, or `PAYMENT_REQUIRED`.
+		Code string `json:"code"`
 
 		// Details Additional information about the error. This field is not guaranteed to be present.
 		Details *map[string]interface{} `json:"details,omitempty"`
-		Message string                  `json:"message"`
+
+		// Message A human-readable description of the error
+		Message string `json:"message"`
 	} `json:"error"`
 
 	// Status The HTTP status code of the error.
 	Status int `json:"status"`
 }
 
-// ErrorResponseErrorCode defines model for ErrorResponse.Error.Code.
-type ErrorResponseErrorCode string
-
 // IndexList The list of indexes that exist in the project.
 type IndexList struct {
+	// Indexes List of indexes in the project
 	Indexes *[]IndexModel `json:"indexes,omitempty"`
 }
 
 // IndexModel The IndexModel describes the configuration and status of a Pinecone index.
 type IndexModel struct {
 	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	// Possible values: `disabled` or `enabled`.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 
 	// Dimension The dimensions of the vectors to be inserted in the index.
@@ -409,26 +361,26 @@ type IndexModel struct {
 	Host string `json:"host"`
 
 	// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If the 'vector_type' is 'sparse', the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric defaults to 'cosine'.
-	Metric IndexModelMetric `json:"metric"`
+	// Possible values: `cosine`, `euclidean`, or `dotproduct`.
+	Metric string `json:"metric"`
 
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
 	// PrivateHost The private endpoint URL of an index.
 	PrivateHost *string `json:"private_host,omitempty"`
-	Spec        struct {
-		// Byoc Configuration needed to deploy an index in a BYOC environment.
-		Byoc *ByocSpec `json:"byoc,omitempty"`
 
-		// Pod Configuration needed to deploy a pod-based index.
-		Pod *PodSpec `json:"pod,omitempty"`
+	// Spec The spec object defines how the index should be deployed.
+	Spec IndexModel_Spec `json:"spec"`
 
-		// Serverless Configuration needed to deploy a serverless index.
-		Serverless *ServerlessSpec `json:"serverless,omitempty"`
-	} `json:"spec"`
+	// Status The current status of the index
 	Status struct {
-		Ready bool                  `json:"ready"`
-		State IndexModelStatusState `json:"state"`
+		// Ready Whether the index is ready for use
+		Ready bool `json:"ready"`
+
+		// State The state of the index.
+		// Possible values: `Initializing`, `InitializationFailed`, `ScalingUp`, `ScalingDown`, `ScalingUpPodSize`, `ScalingDownPodSize`, `Terminating`, `Ready`, or `Disabled`.
+		State string `json:"state"`
 	} `json:"status"`
 
 	// Tags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
@@ -438,35 +390,53 @@ type IndexModel struct {
 	VectorType string `json:"vector_type"`
 }
 
-// IndexModelMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If the 'vector_type' is 'sparse', the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric defaults to 'cosine'.
-type IndexModelMetric string
+// IndexModelSpec0 defines model for .
+type IndexModelSpec0 struct {
+	// Serverless Configuration needed to deploy a serverless index.
+	Serverless ServerlessSpecResponse `json:"serverless"`
+}
 
-// IndexModelStatusState defines model for IndexModel.Status.State.
-type IndexModelStatusState string
+// IndexModelSpec1 defines model for .
+type IndexModelSpec1 struct {
+	// Pod Configuration needed to deploy a pod-based index.
+	Pod PodSpec `json:"pod"`
+}
+
+// IndexModelSpec2 defines model for .
+type IndexModelSpec2 struct {
+	// Byoc Configuration needed to deploy an index in a BYOC environment.
+	Byoc ByocSpec `json:"byoc"`
+}
+
+// IndexModel_Spec The spec object defines how the index should be deployed.
+type IndexModel_Spec struct {
+	union json.RawMessage
+}
 
 // IndexSpec The spec object defines how the index should be deployed.
 //
-// For serverless indexes, you set only the [cloud and region](http://docs.pinecone.io/guides/index-data/create-an-index#cloud-regions) where the index should be hosted. For pod-based indexes, you set the [environment](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-environments) where the index should be hosted, the [pod type and size](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-types) to use, and other index characteristics. For [BYOC indexes](http://docs.pinecone.io/guides/production/bring-your-own-cloud), you set the environment name provided to you during onboarding.
+// For serverless indexes, you define only the [cloud and region](http://docs.pinecone.io/guides/index-data/create-an-index#cloud-regions) where the index should be hosted. For pod-based indexes, you define the [environment](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-environments) where the index should be hosted, the [pod type and size](http://docs.pinecone.io/guides/indexes/pods/understanding-pod-based-indexes#pod-types) to use, and other index characteristics.
 type IndexSpec struct {
-	// Byoc Configuration needed to deploy an index in a BYOC environment.
-	Byoc *ByocSpec `json:"byoc,omitempty"`
-
-	// Pod Configuration needed to deploy a pod-based index.
-	Pod *PodSpec `json:"pod,omitempty"`
-
-	// Serverless Configuration needed to deploy a serverless index.
-	Serverless *ServerlessSpec `json:"serverless,omitempty"`
-	union      json.RawMessage
+	union json.RawMessage
 }
 
 // IndexSpec0 defines model for .
-type IndexSpec0 = interface{}
+type IndexSpec0 struct {
+	// Serverless Configuration needed to deploy a serverless index.
+	Serverless ServerlessSpec `json:"serverless"`
+}
 
 // IndexSpec1 defines model for .
-type IndexSpec1 = interface{}
+type IndexSpec1 struct {
+	// Pod Configuration needed to deploy a pod-based index.
+	Pod PodSpec `json:"pod"`
+}
 
 // IndexSpec2 defines model for .
-type IndexSpec2 = interface{}
+type IndexSpec2 struct {
+	// Byoc Configuration needed to deploy an index in a BYOC environment.
+	Byoc ByocSpec `json:"byoc"`
+}
 
 // IndexTags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
 type IndexTags map[string]string
@@ -480,7 +450,8 @@ type ModelIndexEmbed struct {
 	FieldMap *map[string]interface{} `json:"field_map,omitempty"`
 
 	// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If not specified, the metric will be defaulted according to the model. Cannot be updated once set.
-	Metric *ModelIndexEmbedMetric `json:"metric,omitempty"`
+	// Possible values: `cosine`, `euclidean`, or `dotproduct`.
+	Metric *string `json:"metric,omitempty"`
 
 	// Model The name of the embedding model used to create the index.
 	Model string `json:"model"`
@@ -494,9 +465,6 @@ type ModelIndexEmbed struct {
 	// WriteParameters The write parameters for the embedding model.
 	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
 }
-
-// ModelIndexEmbedMetric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If not specified, the metric will be defaulted according to the model. Cannot be updated once set.
-type ModelIndexEmbedMetric string
 
 // PaginationResponse The pagination object that is returned with paginated responses.
 type PaginationResponse struct {
@@ -531,8 +499,89 @@ type PodSpec struct {
 	SourceCollection *string `json:"source_collection,omitempty"`
 }
 
+// ReadCapacity By default the index will be created with read capacity  mode `OnDemand`. If you prefer to allocate dedicated read  nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
+type ReadCapacity struct {
+	union json.RawMessage
+}
+
+// ReadCapacityDedicatedConfig Configuration for dedicated read capacity. See  [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on  how to configure dedicated read capacity.
+type ReadCapacityDedicatedConfig struct {
+	// Manual The config to use for manual read capacity scaling.
+	Manual *ScalingConfigManual `json:"manual,omitempty"`
+
+	// NodeType The type of machines to use. Available options: `b1` and `t1`. `t1` includes increased processing power and memory.
+	NodeType string `json:"node_type"`
+
+	// Scaling The type of scaling strategy to use.
+	Scaling string `json:"scaling"`
+}
+
+// ReadCapacityDedicatedSpec defines model for ReadCapacityDedicatedSpec.
+type ReadCapacityDedicatedSpec struct {
+	// Dedicated Configuration for dedicated read capacity. See  [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on  how to configure dedicated read capacity.
+	Dedicated ReadCapacityDedicatedConfig `json:"dedicated"`
+
+	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, and `dedicated.scaling` must be specified.
+	Mode                 string                 `json:"mode"`
+	AdditionalProperties map[string]interface{} `json:"-"`
+}
+
+// ReadCapacityDedicatedSpecResponse defines model for ReadCapacityDedicatedSpecResponse.
+type ReadCapacityDedicatedSpecResponse struct {
+	// Dedicated Configuration for dedicated read capacity. See  [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on  how to configure dedicated read capacity.
+	Dedicated ReadCapacityDedicatedConfig `json:"dedicated"`
+
+	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, and `dedicated.scaling` must be specified.
+	Mode string `json:"mode"`
+
+	// Status The current status of factors affecting the read capacity of a serverless index
+	Status ReadCapacityStatus `json:"status"`
+}
+
+// ReadCapacityOnDemandSpec defines model for ReadCapacityOnDemandSpec.
+type ReadCapacityOnDemandSpec struct {
+	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, and `dedicated.scaling` must be specified.
+	Mode string `json:"mode"`
+}
+
+// ReadCapacityOnDemandSpecResponse defines model for ReadCapacityOnDemandSpecResponse.
+type ReadCapacityOnDemandSpecResponse struct {
+	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, and `dedicated.scaling` must be specified.
+	Mode string `json:"mode"`
+
+	// Status The current status of factors affecting the read capacity of a serverless index
+	Status ReadCapacityStatus `json:"status"`
+}
+
+// ReadCapacityResponse Response containing read capacity configuration
+type ReadCapacityResponse struct {
+	union json.RawMessage
+}
+
+// ReadCapacityStatus The current status of factors affecting the read capacity of a serverless index
+type ReadCapacityStatus struct {
+	// CurrentReplicas The number of replicas. Each replica has dedicated  compute resources and data storage. Increasing this number  will increase the total throughput of the index.
+	CurrentReplicas *int32 `json:"current_replicas,omitempty"`
+
+	// CurrentShards The number of shards. Each shard has dedicated storage.  Increasing shards alleiviates index fullness.
+	CurrentShards *int32 `json:"current_shards,omitempty"`
+
+	// ErrorMessage An optional error message indicating any issues with your read capacity configuration
+	ErrorMessage *string `json:"error_message,omitempty"`
+
+	// State The `state` describes the overall status of factors relating to the read capacity of an index.
+	//
+	// Available values:
+	// - `Ready` is the state most of the time
+	// - `Scaling` if the number of replicas or shards has been recently updated by calling the [configure index endpoint](https://docs.pinecone.io/reference/api/2025-10/control-plane/configure_index)
+	// - `Migrating` if the index is being migrated to a new `node_type`
+	// - `Error` if there is an error with the read capacity configuration. In that case, see `error_message` for more details.
+	State string `json:"state"`
+}
+
 // RestoreJobList The list of restore jobs that exist in the project.
 type RestoreJobList struct {
+	// Data List of restore job objects
 	Data []RestoreJobModel `json:"data"`
 
 	// Pagination The pagination object that is returned with paginated responses.
@@ -566,17 +615,64 @@ type RestoreJobModel struct {
 	TargetIndexName string `json:"target_index_name"`
 }
 
+// ScalingConfigManual The config to use for manual read capacity scaling.
+type ScalingConfigManual struct {
+	// Replicas The number of replicas to use. Replicas duplicate the compute resources and data of an index, allowing higher query throughput and availability. Setting replicas to 0 disables the index but can be used to reduce costs while usage is paused.
+	Replicas int32 `json:"replicas"`
+
+	// Shards The number of shards to use. Shards determine the storage capacity of an index, with each shard providing 250 GB of storage.
+	Shards int32 `json:"shards"`
+}
+
 // ServerlessSpec Configuration needed to deploy a serverless index.
 type ServerlessSpec struct {
 	// Cloud The public cloud where you would like your index hosted.
-	Cloud ServerlessSpecCloud `json:"cloud"`
+	// Possible values: `gcp`, `aws`, or `azure`.
+	Cloud string `json:"cloud"`
+
+	// ReadCapacity By default the index will be created with read capacity  mode `OnDemand`. If you prefer to allocate dedicated read  nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
+	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Region The region where you would like your index to be created.
 	Region string `json:"region"`
+
+	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
+	Schema *struct {
+		// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique.
+		Fields map[string]struct {
+			// Filterable Whether the field is filterable. If true, the field is indexed and can be used in filters. Only true values are allowed.
+			Filterable *bool `json:"filterable,omitempty"`
+		} `json:"fields"`
+	} `json:"schema,omitempty"`
+
+	// SourceCollection The name of the collection to be used as the source for the index.
+	SourceCollection *string `json:"source_collection,omitempty"`
 }
 
-// ServerlessSpecCloud The public cloud where you would like your index hosted.
-type ServerlessSpecCloud string
+// ServerlessSpecResponse Configuration needed to deploy a serverless index.
+type ServerlessSpecResponse struct {
+	// Cloud The public cloud where you would like your index hosted.
+	// Possible values: `gcp`, `aws`, or `azure`.
+	Cloud string `json:"cloud"`
+
+	// ReadCapacity Response containing read capacity configuration
+	ReadCapacity ReadCapacityResponse `json:"read_capacity"`
+
+	// Region The region where you would like your index to be created.
+	Region string `json:"region"`
+
+	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
+	Schema *struct {
+		// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique.
+		Fields map[string]struct {
+			// Filterable Whether the field is filterable. If true, the field is indexed and can be used in filters. Only true values are allowed.
+			Filterable *bool `json:"filterable,omitempty"`
+		} `json:"fields"`
+	} `json:"schema,omitempty"`
+
+	// SourceCollection The name of the collection to be used as the source for the index.
+	SourceCollection *string `json:"source_collection,omitempty"`
+}
 
 // ListProjectBackupsParams defines parameters for ListProjectBackups.
 type ListProjectBackupsParams struct {
@@ -585,6 +681,87 @@ type ListProjectBackupsParams struct {
 
 	// PaginationToken The token to use to retrieve the next page of results.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
+
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DeleteBackupParams defines parameters for DeleteBackup.
+type DeleteBackupParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DescribeBackupParams defines parameters for DescribeBackup.
+type DescribeBackupParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// CreateIndexFromBackupOperationParams defines parameters for CreateIndexFromBackupOperation.
+type CreateIndexFromBackupOperationParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// ListCollectionsParams defines parameters for ListCollections.
+type ListCollectionsParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// CreateCollectionParams defines parameters for CreateCollection.
+type CreateCollectionParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DeleteCollectionParams defines parameters for DeleteCollection.
+type DeleteCollectionParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DescribeCollectionParams defines parameters for DescribeCollection.
+type DescribeCollectionParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// ListIndexesParams defines parameters for ListIndexes.
+type ListIndexesParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// CreateIndexParams defines parameters for CreateIndex.
+type CreateIndexParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// CreateIndexForModelParams defines parameters for CreateIndexForModel.
+type CreateIndexForModelParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DeleteIndexParams defines parameters for DeleteIndex.
+type DeleteIndexParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DescribeIndexParams defines parameters for DescribeIndex.
+type DescribeIndexParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// ConfigureIndexParams defines parameters for ConfigureIndex.
+type ConfigureIndexParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
 }
 
 // ListIndexBackupsParams defines parameters for ListIndexBackups.
@@ -594,6 +771,15 @@ type ListIndexBackupsParams struct {
 
 	// PaginationToken The token to use to retrieve the next page of results.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
+
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// CreateBackupParams defines parameters for CreateBackup.
+type CreateBackupParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
 }
 
 // ListRestoreJobsParams defines parameters for ListRestoreJobs.
@@ -603,6 +789,15 @@ type ListRestoreJobsParams struct {
 
 	// PaginationToken The token to use to retrieve the next page of results.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
+
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DescribeRestoreJobParams defines parameters for DescribeRestoreJob.
+type DescribeRestoreJobParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
 }
 
 // CreateIndexFromBackupOperationJSONRequestBody defines body for CreateIndexFromBackupOperation for application/json ContentType.
@@ -622,6 +817,235 @@ type ConfigureIndexJSONRequestBody = ConfigureIndexRequest
 
 // CreateBackupJSONRequestBody defines body for CreateBackup for application/json ContentType.
 type CreateBackupJSONRequestBody = CreateBackupRequest
+
+// Getter for additional properties for ReadCapacityDedicatedSpec. Returns the specified
+// element and whether it was found
+func (a ReadCapacityDedicatedSpec) Get(fieldName string) (value interface{}, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for ReadCapacityDedicatedSpec
+func (a *ReadCapacityDedicatedSpec) Set(fieldName string, value interface{}) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]interface{})
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for ReadCapacityDedicatedSpec to handle AdditionalProperties
+func (a *ReadCapacityDedicatedSpec) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["dedicated"]; found {
+		err = json.Unmarshal(raw, &a.Dedicated)
+		if err != nil {
+			return fmt.Errorf("error reading 'dedicated': %w", err)
+		}
+		delete(object, "dedicated")
+	}
+
+	if raw, found := object["mode"]; found {
+		err = json.Unmarshal(raw, &a.Mode)
+		if err != nil {
+			return fmt.Errorf("error reading 'mode': %w", err)
+		}
+		delete(object, "mode")
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]interface{})
+		for fieldName, fieldBuf := range object {
+			var fieldVal interface{}
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for ReadCapacityDedicatedSpec to handle AdditionalProperties
+func (a ReadCapacityDedicatedSpec) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	object["dedicated"], err = json.Marshal(a.Dedicated)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'dedicated': %w", err)
+	}
+
+	object["mode"], err = json.Marshal(a.Mode)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'mode': %w", err)
+	}
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
+
+// AsConfigureIndexRequestSpec0 returns the union data inside the ConfigureIndexRequest_Spec as a ConfigureIndexRequestSpec0
+func (t ConfigureIndexRequest_Spec) AsConfigureIndexRequestSpec0() (ConfigureIndexRequestSpec0, error) {
+	var body ConfigureIndexRequestSpec0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromConfigureIndexRequestSpec0 overwrites any union data inside the ConfigureIndexRequest_Spec as the provided ConfigureIndexRequestSpec0
+func (t *ConfigureIndexRequest_Spec) FromConfigureIndexRequestSpec0(v ConfigureIndexRequestSpec0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeConfigureIndexRequestSpec0 performs a merge with any union data inside the ConfigureIndexRequest_Spec, using the provided ConfigureIndexRequestSpec0
+func (t *ConfigureIndexRequest_Spec) MergeConfigureIndexRequestSpec0(v ConfigureIndexRequestSpec0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsConfigureIndexRequestSpec1 returns the union data inside the ConfigureIndexRequest_Spec as a ConfigureIndexRequestSpec1
+func (t ConfigureIndexRequest_Spec) AsConfigureIndexRequestSpec1() (ConfigureIndexRequestSpec1, error) {
+	var body ConfigureIndexRequestSpec1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromConfigureIndexRequestSpec1 overwrites any union data inside the ConfigureIndexRequest_Spec as the provided ConfigureIndexRequestSpec1
+func (t *ConfigureIndexRequest_Spec) FromConfigureIndexRequestSpec1(v ConfigureIndexRequestSpec1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeConfigureIndexRequestSpec1 performs a merge with any union data inside the ConfigureIndexRequest_Spec, using the provided ConfigureIndexRequestSpec1
+func (t *ConfigureIndexRequest_Spec) MergeConfigureIndexRequestSpec1(v ConfigureIndexRequestSpec1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ConfigureIndexRequest_Spec) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ConfigureIndexRequest_Spec) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsIndexModelSpec0 returns the union data inside the IndexModel_Spec as a IndexModelSpec0
+func (t IndexModel_Spec) AsIndexModelSpec0() (IndexModelSpec0, error) {
+	var body IndexModelSpec0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromIndexModelSpec0 overwrites any union data inside the IndexModel_Spec as the provided IndexModelSpec0
+func (t *IndexModel_Spec) FromIndexModelSpec0(v IndexModelSpec0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeIndexModelSpec0 performs a merge with any union data inside the IndexModel_Spec, using the provided IndexModelSpec0
+func (t *IndexModel_Spec) MergeIndexModelSpec0(v IndexModelSpec0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsIndexModelSpec1 returns the union data inside the IndexModel_Spec as a IndexModelSpec1
+func (t IndexModel_Spec) AsIndexModelSpec1() (IndexModelSpec1, error) {
+	var body IndexModelSpec1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromIndexModelSpec1 overwrites any union data inside the IndexModel_Spec as the provided IndexModelSpec1
+func (t *IndexModel_Spec) FromIndexModelSpec1(v IndexModelSpec1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeIndexModelSpec1 performs a merge with any union data inside the IndexModel_Spec, using the provided IndexModelSpec1
+func (t *IndexModel_Spec) MergeIndexModelSpec1(v IndexModelSpec1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsIndexModelSpec2 returns the union data inside the IndexModel_Spec as a IndexModelSpec2
+func (t IndexModel_Spec) AsIndexModelSpec2() (IndexModelSpec2, error) {
+	var body IndexModelSpec2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromIndexModelSpec2 overwrites any union data inside the IndexModel_Spec as the provided IndexModelSpec2
+func (t *IndexModel_Spec) FromIndexModelSpec2(v IndexModelSpec2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeIndexModelSpec2 performs a merge with any union data inside the IndexModel_Spec, using the provided IndexModelSpec2
+func (t *IndexModel_Spec) MergeIndexModelSpec2(v IndexModelSpec2) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t IndexModel_Spec) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *IndexModel_Spec) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // AsIndexSpec0 returns the union data inside the IndexSpec as a IndexSpec0
 func (t IndexSpec) AsIndexSpec0() (IndexSpec0, error) {
@@ -703,73 +1127,189 @@ func (t *IndexSpec) MergeIndexSpec2(v IndexSpec2) error {
 
 func (t IndexSpec) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	object := make(map[string]json.RawMessage)
-	if t.union != nil {
-		err = json.Unmarshal(b, &object)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if t.Byoc != nil {
-		object["byoc"], err = json.Marshal(t.Byoc)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'byoc': %w", err)
-		}
-	}
-
-	if t.Pod != nil {
-		object["pod"], err = json.Marshal(t.Pod)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'pod': %w", err)
-		}
-	}
-
-	if t.Serverless != nil {
-		object["serverless"], err = json.Marshal(t.Serverless)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'serverless': %w", err)
-		}
-	}
-	b, err = json.Marshal(object)
 	return b, err
 }
 
 func (t *IndexSpec) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsReadCapacityOnDemandSpec returns the union data inside the ReadCapacity as a ReadCapacityOnDemandSpec
+func (t ReadCapacity) AsReadCapacityOnDemandSpec() (ReadCapacityOnDemandSpec, error) {
+	var body ReadCapacityOnDemandSpec
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromReadCapacityOnDemandSpec overwrites any union data inside the ReadCapacity as the provided ReadCapacityOnDemandSpec
+func (t *ReadCapacity) FromReadCapacityOnDemandSpec(v ReadCapacityOnDemandSpec) error {
+	v.Mode = "OnDemand"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeReadCapacityOnDemandSpec performs a merge with any union data inside the ReadCapacity, using the provided ReadCapacityOnDemandSpec
+func (t *ReadCapacity) MergeReadCapacityOnDemandSpec(v ReadCapacityOnDemandSpec) error {
+	v.Mode = "OnDemand"
+	b, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
-	object := make(map[string]json.RawMessage)
-	err = json.Unmarshal(b, &object)
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsReadCapacityDedicatedSpec returns the union data inside the ReadCapacity as a ReadCapacityDedicatedSpec
+func (t ReadCapacity) AsReadCapacityDedicatedSpec() (ReadCapacityDedicatedSpec, error) {
+	var body ReadCapacityDedicatedSpec
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromReadCapacityDedicatedSpec overwrites any union data inside the ReadCapacity as the provided ReadCapacityDedicatedSpec
+func (t *ReadCapacity) FromReadCapacityDedicatedSpec(v ReadCapacityDedicatedSpec) error {
+	v.Mode = "Dedicated"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeReadCapacityDedicatedSpec performs a merge with any union data inside the ReadCapacity, using the provided ReadCapacityDedicatedSpec
+func (t *ReadCapacity) MergeReadCapacityDedicatedSpec(v ReadCapacityDedicatedSpec) error {
+	v.Mode = "Dedicated"
+	b, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
 
-	if raw, found := object["byoc"]; found {
-		err = json.Unmarshal(raw, &t.Byoc)
-		if err != nil {
-			return fmt.Errorf("error reading 'byoc': %w", err)
-		}
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ReadCapacity) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"mode"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ReadCapacity) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "Dedicated":
+		return t.AsReadCapacityDedicatedSpec()
+	case "OnDemand":
+		return t.AsReadCapacityOnDemandSpec()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ReadCapacity) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ReadCapacity) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsReadCapacityOnDemandSpecResponse returns the union data inside the ReadCapacityResponse as a ReadCapacityOnDemandSpecResponse
+func (t ReadCapacityResponse) AsReadCapacityOnDemandSpecResponse() (ReadCapacityOnDemandSpecResponse, error) {
+	var body ReadCapacityOnDemandSpecResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromReadCapacityOnDemandSpecResponse overwrites any union data inside the ReadCapacityResponse as the provided ReadCapacityOnDemandSpecResponse
+func (t *ReadCapacityResponse) FromReadCapacityOnDemandSpecResponse(v ReadCapacityOnDemandSpecResponse) error {
+	v.Mode = "OnDemand"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeReadCapacityOnDemandSpecResponse performs a merge with any union data inside the ReadCapacityResponse, using the provided ReadCapacityOnDemandSpecResponse
+func (t *ReadCapacityResponse) MergeReadCapacityOnDemandSpecResponse(v ReadCapacityOnDemandSpecResponse) error {
+	v.Mode = "OnDemand"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
 	}
 
-	if raw, found := object["pod"]; found {
-		err = json.Unmarshal(raw, &t.Pod)
-		if err != nil {
-			return fmt.Errorf("error reading 'pod': %w", err)
-		}
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsReadCapacityDedicatedSpecResponse returns the union data inside the ReadCapacityResponse as a ReadCapacityDedicatedSpecResponse
+func (t ReadCapacityResponse) AsReadCapacityDedicatedSpecResponse() (ReadCapacityDedicatedSpecResponse, error) {
+	var body ReadCapacityDedicatedSpecResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromReadCapacityDedicatedSpecResponse overwrites any union data inside the ReadCapacityResponse as the provided ReadCapacityDedicatedSpecResponse
+func (t *ReadCapacityResponse) FromReadCapacityDedicatedSpecResponse(v ReadCapacityDedicatedSpecResponse) error {
+	v.Mode = "Dedicated"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeReadCapacityDedicatedSpecResponse performs a merge with any union data inside the ReadCapacityResponse, using the provided ReadCapacityDedicatedSpecResponse
+func (t *ReadCapacityResponse) MergeReadCapacityDedicatedSpecResponse(v ReadCapacityDedicatedSpecResponse) error {
+	v.Mode = "Dedicated"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
 	}
 
-	if raw, found := object["serverless"]; found {
-		err = json.Unmarshal(raw, &t.Serverless)
-		if err != nil {
-			return fmt.Errorf("error reading 'serverless': %w", err)
-		}
-	}
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
 
+func (t ReadCapacityResponse) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"mode"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ReadCapacityResponse) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "Dedicated":
+		return t.AsReadCapacityDedicatedSpecResponse()
+	case "OnDemand":
+		return t.AsReadCapacityOnDemandSpecResponse()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ReadCapacityResponse) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ReadCapacityResponse) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
 	return err
 }
 
@@ -850,67 +1390,67 @@ type ClientInterface interface {
 	ListProjectBackups(ctx context.Context, params *ListProjectBackupsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteBackup request
-	DeleteBackup(ctx context.Context, backupId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteBackup(ctx context.Context, backupId string, params *DeleteBackupParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DescribeBackup request
-	DescribeBackup(ctx context.Context, backupId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DescribeBackup(ctx context.Context, backupId string, params *DescribeBackupParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateIndexFromBackupOperationWithBody request with any body
-	CreateIndexFromBackupOperationWithBody(ctx context.Context, backupId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateIndexFromBackupOperationWithBody(ctx context.Context, backupId string, params *CreateIndexFromBackupOperationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateIndexFromBackupOperation(ctx context.Context, backupId string, body CreateIndexFromBackupOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateIndexFromBackupOperation(ctx context.Context, backupId string, params *CreateIndexFromBackupOperationParams, body CreateIndexFromBackupOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListCollections request
-	ListCollections(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListCollections(ctx context.Context, params *ListCollectionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateCollectionWithBody request with any body
-	CreateCollectionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateCollectionWithBody(ctx context.Context, params *CreateCollectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateCollection(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateCollection(ctx context.Context, params *CreateCollectionParams, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteCollection request
-	DeleteCollection(ctx context.Context, collectionName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteCollection(ctx context.Context, collectionName string, params *DeleteCollectionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DescribeCollection request
-	DescribeCollection(ctx context.Context, collectionName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DescribeCollection(ctx context.Context, collectionName string, params *DescribeCollectionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListIndexes request
-	ListIndexes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListIndexes(ctx context.Context, params *ListIndexesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateIndexWithBody request with any body
-	CreateIndexWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateIndexWithBody(ctx context.Context, params *CreateIndexParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateIndex(ctx context.Context, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateIndex(ctx context.Context, params *CreateIndexParams, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateIndexForModelWithBody request with any body
-	CreateIndexForModelWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateIndexForModelWithBody(ctx context.Context, params *CreateIndexForModelParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateIndexForModel(ctx context.Context, body CreateIndexForModelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateIndexForModel(ctx context.Context, params *CreateIndexForModelParams, body CreateIndexForModelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteIndex request
-	DeleteIndex(ctx context.Context, indexName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteIndex(ctx context.Context, indexName string, params *DeleteIndexParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DescribeIndex request
-	DescribeIndex(ctx context.Context, indexName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DescribeIndex(ctx context.Context, indexName string, params *DescribeIndexParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ConfigureIndexWithBody request with any body
-	ConfigureIndexWithBody(ctx context.Context, indexName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ConfigureIndexWithBody(ctx context.Context, indexName string, params *ConfigureIndexParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	ConfigureIndex(ctx context.Context, indexName string, body ConfigureIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ConfigureIndex(ctx context.Context, indexName string, params *ConfigureIndexParams, body ConfigureIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListIndexBackups request
 	ListIndexBackups(ctx context.Context, indexName string, params *ListIndexBackupsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateBackupWithBody request with any body
-	CreateBackupWithBody(ctx context.Context, indexName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateBackupWithBody(ctx context.Context, indexName string, params *CreateBackupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateBackup(ctx context.Context, indexName string, body CreateBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateBackup(ctx context.Context, indexName string, params *CreateBackupParams, body CreateBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListRestoreJobs request
 	ListRestoreJobs(ctx context.Context, params *ListRestoreJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DescribeRestoreJob request
-	DescribeRestoreJob(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DescribeRestoreJob(ctx context.Context, jobId string, params *DescribeRestoreJobParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) ListProjectBackups(ctx context.Context, params *ListProjectBackupsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -925,8 +1465,8 @@ func (c *Client) ListProjectBackups(ctx context.Context, params *ListProjectBack
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteBackup(ctx context.Context, backupId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteBackupRequest(c.Server, backupId)
+func (c *Client) DeleteBackup(ctx context.Context, backupId string, params *DeleteBackupParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteBackupRequest(c.Server, backupId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -937,8 +1477,8 @@ func (c *Client) DeleteBackup(ctx context.Context, backupId string, reqEditors .
 	return c.Client.Do(req)
 }
 
-func (c *Client) DescribeBackup(ctx context.Context, backupId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDescribeBackupRequest(c.Server, backupId)
+func (c *Client) DescribeBackup(ctx context.Context, backupId string, params *DescribeBackupParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDescribeBackupRequest(c.Server, backupId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -949,8 +1489,8 @@ func (c *Client) DescribeBackup(ctx context.Context, backupId string, reqEditors
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateIndexFromBackupOperationWithBody(ctx context.Context, backupId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateIndexFromBackupOperationRequestWithBody(c.Server, backupId, contentType, body)
+func (c *Client) CreateIndexFromBackupOperationWithBody(ctx context.Context, backupId string, params *CreateIndexFromBackupOperationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIndexFromBackupOperationRequestWithBody(c.Server, backupId, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -961,8 +1501,8 @@ func (c *Client) CreateIndexFromBackupOperationWithBody(ctx context.Context, bac
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateIndexFromBackupOperation(ctx context.Context, backupId string, body CreateIndexFromBackupOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateIndexFromBackupOperationRequest(c.Server, backupId, body)
+func (c *Client) CreateIndexFromBackupOperation(ctx context.Context, backupId string, params *CreateIndexFromBackupOperationParams, body CreateIndexFromBackupOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIndexFromBackupOperationRequest(c.Server, backupId, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -973,8 +1513,8 @@ func (c *Client) CreateIndexFromBackupOperation(ctx context.Context, backupId st
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListCollections(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListCollectionsRequest(c.Server)
+func (c *Client) ListCollections(ctx context.Context, params *ListCollectionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListCollectionsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -985,8 +1525,8 @@ func (c *Client) ListCollections(ctx context.Context, reqEditors ...RequestEdito
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateCollectionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateCollectionRequestWithBody(c.Server, contentType, body)
+func (c *Client) CreateCollectionWithBody(ctx context.Context, params *CreateCollectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCollectionRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -997,8 +1537,8 @@ func (c *Client) CreateCollectionWithBody(ctx context.Context, contentType strin
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateCollection(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateCollectionRequest(c.Server, body)
+func (c *Client) CreateCollection(ctx context.Context, params *CreateCollectionParams, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCollectionRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1009,8 +1549,8 @@ func (c *Client) CreateCollection(ctx context.Context, body CreateCollectionJSON
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteCollection(ctx context.Context, collectionName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteCollectionRequest(c.Server, collectionName)
+func (c *Client) DeleteCollection(ctx context.Context, collectionName string, params *DeleteCollectionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteCollectionRequest(c.Server, collectionName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1021,8 +1561,8 @@ func (c *Client) DeleteCollection(ctx context.Context, collectionName string, re
 	return c.Client.Do(req)
 }
 
-func (c *Client) DescribeCollection(ctx context.Context, collectionName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDescribeCollectionRequest(c.Server, collectionName)
+func (c *Client) DescribeCollection(ctx context.Context, collectionName string, params *DescribeCollectionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDescribeCollectionRequest(c.Server, collectionName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1033,8 +1573,8 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListIndexes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListIndexesRequest(c.Server)
+func (c *Client) ListIndexes(ctx context.Context, params *ListIndexesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListIndexesRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1045,8 +1585,8 @@ func (c *Client) ListIndexes(ctx context.Context, reqEditors ...RequestEditorFn)
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateIndexWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateIndexRequestWithBody(c.Server, contentType, body)
+func (c *Client) CreateIndexWithBody(ctx context.Context, params *CreateIndexParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIndexRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1057,8 +1597,8 @@ func (c *Client) CreateIndexWithBody(ctx context.Context, contentType string, bo
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateIndex(ctx context.Context, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateIndexRequest(c.Server, body)
+func (c *Client) CreateIndex(ctx context.Context, params *CreateIndexParams, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIndexRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1069,8 +1609,8 @@ func (c *Client) CreateIndex(ctx context.Context, body CreateIndexJSONRequestBod
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateIndexForModelWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateIndexForModelRequestWithBody(c.Server, contentType, body)
+func (c *Client) CreateIndexForModelWithBody(ctx context.Context, params *CreateIndexForModelParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIndexForModelRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1081,8 +1621,8 @@ func (c *Client) CreateIndexForModelWithBody(ctx context.Context, contentType st
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateIndexForModel(ctx context.Context, body CreateIndexForModelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateIndexForModelRequest(c.Server, body)
+func (c *Client) CreateIndexForModel(ctx context.Context, params *CreateIndexForModelParams, body CreateIndexForModelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIndexForModelRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1093,8 +1633,8 @@ func (c *Client) CreateIndexForModel(ctx context.Context, body CreateIndexForMod
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteIndex(ctx context.Context, indexName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteIndexRequest(c.Server, indexName)
+func (c *Client) DeleteIndex(ctx context.Context, indexName string, params *DeleteIndexParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteIndexRequest(c.Server, indexName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1105,8 +1645,8 @@ func (c *Client) DeleteIndex(ctx context.Context, indexName string, reqEditors .
 	return c.Client.Do(req)
 }
 
-func (c *Client) DescribeIndex(ctx context.Context, indexName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDescribeIndexRequest(c.Server, indexName)
+func (c *Client) DescribeIndex(ctx context.Context, indexName string, params *DescribeIndexParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDescribeIndexRequest(c.Server, indexName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1117,8 +1657,8 @@ func (c *Client) DescribeIndex(ctx context.Context, indexName string, reqEditors
 	return c.Client.Do(req)
 }
 
-func (c *Client) ConfigureIndexWithBody(ctx context.Context, indexName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewConfigureIndexRequestWithBody(c.Server, indexName, contentType, body)
+func (c *Client) ConfigureIndexWithBody(ctx context.Context, indexName string, params *ConfigureIndexParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewConfigureIndexRequestWithBody(c.Server, indexName, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1129,8 +1669,8 @@ func (c *Client) ConfigureIndexWithBody(ctx context.Context, indexName string, c
 	return c.Client.Do(req)
 }
 
-func (c *Client) ConfigureIndex(ctx context.Context, indexName string, body ConfigureIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewConfigureIndexRequest(c.Server, indexName, body)
+func (c *Client) ConfigureIndex(ctx context.Context, indexName string, params *ConfigureIndexParams, body ConfigureIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewConfigureIndexRequest(c.Server, indexName, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1153,8 +1693,8 @@ func (c *Client) ListIndexBackups(ctx context.Context, indexName string, params 
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateBackupWithBody(ctx context.Context, indexName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateBackupRequestWithBody(c.Server, indexName, contentType, body)
+func (c *Client) CreateBackupWithBody(ctx context.Context, indexName string, params *CreateBackupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBackupRequestWithBody(c.Server, indexName, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1165,8 +1705,8 @@ func (c *Client) CreateBackupWithBody(ctx context.Context, indexName string, con
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateBackup(ctx context.Context, indexName string, body CreateBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateBackupRequest(c.Server, indexName, body)
+func (c *Client) CreateBackup(ctx context.Context, indexName string, params *CreateBackupParams, body CreateBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBackupRequest(c.Server, indexName, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1189,8 +1729,8 @@ func (c *Client) ListRestoreJobs(ctx context.Context, params *ListRestoreJobsPar
 	return c.Client.Do(req)
 }
 
-func (c *Client) DescribeRestoreJob(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDescribeRestoreJobRequest(c.Server, jobId)
+func (c *Client) DescribeRestoreJob(ctx context.Context, jobId string, params *DescribeRestoreJobParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDescribeRestoreJobRequest(c.Server, jobId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1263,11 +1803,24 @@ func NewListProjectBackupsRequest(server string, params *ListProjectBackupsParam
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewDeleteBackupRequest generates requests for DeleteBackup
-func NewDeleteBackupRequest(server string, backupId string) (*http.Request, error) {
+func NewDeleteBackupRequest(server string, backupId string, params *DeleteBackupParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1297,11 +1850,24 @@ func NewDeleteBackupRequest(server string, backupId string) (*http.Request, erro
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewDescribeBackupRequest generates requests for DescribeBackup
-func NewDescribeBackupRequest(server string, backupId string) (*http.Request, error) {
+func NewDescribeBackupRequest(server string, backupId string, params *DescribeBackupParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1331,22 +1897,35 @@ func NewDescribeBackupRequest(server string, backupId string) (*http.Request, er
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewCreateIndexFromBackupOperationRequest calls the generic CreateIndexFromBackupOperation builder with application/json body
-func NewCreateIndexFromBackupOperationRequest(server string, backupId string, body CreateIndexFromBackupOperationJSONRequestBody) (*http.Request, error) {
+func NewCreateIndexFromBackupOperationRequest(server string, backupId string, params *CreateIndexFromBackupOperationParams, body CreateIndexFromBackupOperationJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateIndexFromBackupOperationRequestWithBody(server, backupId, "application/json", bodyReader)
+	return NewCreateIndexFromBackupOperationRequestWithBody(server, backupId, params, "application/json", bodyReader)
 }
 
 // NewCreateIndexFromBackupOperationRequestWithBody generates requests for CreateIndexFromBackupOperation with any type of body
-func NewCreateIndexFromBackupOperationRequestWithBody(server string, backupId string, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreateIndexFromBackupOperationRequestWithBody(server string, backupId string, params *CreateIndexFromBackupOperationParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1378,11 +1957,24 @@ func NewCreateIndexFromBackupOperationRequestWithBody(server string, backupId st
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewListCollectionsRequest generates requests for ListCollections
-func NewListCollectionsRequest(server string) (*http.Request, error) {
+func NewListCollectionsRequest(server string, params *ListCollectionsParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1405,22 +1997,35 @@ func NewListCollectionsRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewCreateCollectionRequest calls the generic CreateCollection builder with application/json body
-func NewCreateCollectionRequest(server string, body CreateCollectionJSONRequestBody) (*http.Request, error) {
+func NewCreateCollectionRequest(server string, params *CreateCollectionParams, body CreateCollectionJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateCollectionRequestWithBody(server, "application/json", bodyReader)
+	return NewCreateCollectionRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewCreateCollectionRequestWithBody generates requests for CreateCollection with any type of body
-func NewCreateCollectionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreateCollectionRequestWithBody(server string, params *CreateCollectionParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1445,11 +2050,24 @@ func NewCreateCollectionRequestWithBody(server string, contentType string, body 
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewDeleteCollectionRequest generates requests for DeleteCollection
-func NewDeleteCollectionRequest(server string, collectionName string) (*http.Request, error) {
+func NewDeleteCollectionRequest(server string, collectionName string, params *DeleteCollectionParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1479,11 +2097,24 @@ func NewDeleteCollectionRequest(server string, collectionName string) (*http.Req
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewDescribeCollectionRequest generates requests for DescribeCollection
-func NewDescribeCollectionRequest(server string, collectionName string) (*http.Request, error) {
+func NewDescribeCollectionRequest(server string, collectionName string, params *DescribeCollectionParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1513,11 +2144,24 @@ func NewDescribeCollectionRequest(server string, collectionName string) (*http.R
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewListIndexesRequest generates requests for ListIndexes
-func NewListIndexesRequest(server string) (*http.Request, error) {
+func NewListIndexesRequest(server string, params *ListIndexesParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1540,22 +2184,35 @@ func NewListIndexesRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewCreateIndexRequest calls the generic CreateIndex builder with application/json body
-func NewCreateIndexRequest(server string, body CreateIndexJSONRequestBody) (*http.Request, error) {
+func NewCreateIndexRequest(server string, params *CreateIndexParams, body CreateIndexJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateIndexRequestWithBody(server, "application/json", bodyReader)
+	return NewCreateIndexRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewCreateIndexRequestWithBody generates requests for CreateIndex with any type of body
-func NewCreateIndexRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreateIndexRequestWithBody(server string, params *CreateIndexParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1580,22 +2237,35 @@ func NewCreateIndexRequestWithBody(server string, contentType string, body io.Re
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewCreateIndexForModelRequest calls the generic CreateIndexForModel builder with application/json body
-func NewCreateIndexForModelRequest(server string, body CreateIndexForModelJSONRequestBody) (*http.Request, error) {
+func NewCreateIndexForModelRequest(server string, params *CreateIndexForModelParams, body CreateIndexForModelJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateIndexForModelRequestWithBody(server, "application/json", bodyReader)
+	return NewCreateIndexForModelRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewCreateIndexForModelRequestWithBody generates requests for CreateIndexForModel with any type of body
-func NewCreateIndexForModelRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreateIndexForModelRequestWithBody(server string, params *CreateIndexForModelParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1620,11 +2290,24 @@ func NewCreateIndexForModelRequestWithBody(server string, contentType string, bo
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewDeleteIndexRequest generates requests for DeleteIndex
-func NewDeleteIndexRequest(server string, indexName string) (*http.Request, error) {
+func NewDeleteIndexRequest(server string, indexName string, params *DeleteIndexParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1654,11 +2337,24 @@ func NewDeleteIndexRequest(server string, indexName string) (*http.Request, erro
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewDescribeIndexRequest generates requests for DescribeIndex
-func NewDescribeIndexRequest(server string, indexName string) (*http.Request, error) {
+func NewDescribeIndexRequest(server string, indexName string, params *DescribeIndexParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1688,22 +2384,35 @@ func NewDescribeIndexRequest(server string, indexName string) (*http.Request, er
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewConfigureIndexRequest calls the generic ConfigureIndex builder with application/json body
-func NewConfigureIndexRequest(server string, indexName string, body ConfigureIndexJSONRequestBody) (*http.Request, error) {
+func NewConfigureIndexRequest(server string, indexName string, params *ConfigureIndexParams, body ConfigureIndexJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewConfigureIndexRequestWithBody(server, indexName, "application/json", bodyReader)
+	return NewConfigureIndexRequestWithBody(server, indexName, params, "application/json", bodyReader)
 }
 
 // NewConfigureIndexRequestWithBody generates requests for ConfigureIndex with any type of body
-func NewConfigureIndexRequestWithBody(server string, indexName string, contentType string, body io.Reader) (*http.Request, error) {
+func NewConfigureIndexRequestWithBody(server string, indexName string, params *ConfigureIndexParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1734,6 +2443,19 @@ func NewConfigureIndexRequestWithBody(server string, indexName string, contentTy
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
 
 	return req, nil
 }
@@ -1807,22 +2529,35 @@ func NewListIndexBackupsRequest(server string, indexName string, params *ListInd
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewCreateBackupRequest calls the generic CreateBackup builder with application/json body
-func NewCreateBackupRequest(server string, indexName string, body CreateBackupJSONRequestBody) (*http.Request, error) {
+func NewCreateBackupRequest(server string, indexName string, params *CreateBackupParams, body CreateBackupJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateBackupRequestWithBody(server, indexName, "application/json", bodyReader)
+	return NewCreateBackupRequestWithBody(server, indexName, params, "application/json", bodyReader)
 }
 
 // NewCreateBackupRequestWithBody generates requests for CreateBackup with any type of body
-func NewCreateBackupRequestWithBody(server string, indexName string, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreateBackupRequestWithBody(server string, indexName string, params *CreateBackupParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1853,6 +2588,19 @@ func NewCreateBackupRequestWithBody(server string, indexName string, contentType
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
 
 	return req, nil
 }
@@ -1919,11 +2667,24 @@ func NewListRestoreJobsRequest(server string, params *ListRestoreJobsParams) (*h
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewDescribeRestoreJobRequest generates requests for DescribeRestoreJob
-func NewDescribeRestoreJobRequest(server string, jobId string) (*http.Request, error) {
+func NewDescribeRestoreJobRequest(server string, jobId string, params *DescribeRestoreJobParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1951,6 +2712,19 @@ func NewDescribeRestoreJobRequest(server string, jobId string) (*http.Request, e
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
 	}
 
 	return req, nil
@@ -2003,67 +2777,67 @@ type ClientWithResponsesInterface interface {
 	ListProjectBackupsWithResponse(ctx context.Context, params *ListProjectBackupsParams, reqEditors ...RequestEditorFn) (*ListProjectBackupsResponse, error)
 
 	// DeleteBackupWithResponse request
-	DeleteBackupWithResponse(ctx context.Context, backupId string, reqEditors ...RequestEditorFn) (*DeleteBackupResponse, error)
+	DeleteBackupWithResponse(ctx context.Context, backupId string, params *DeleteBackupParams, reqEditors ...RequestEditorFn) (*DeleteBackupResponse, error)
 
 	// DescribeBackupWithResponse request
-	DescribeBackupWithResponse(ctx context.Context, backupId string, reqEditors ...RequestEditorFn) (*DescribeBackupResponse, error)
+	DescribeBackupWithResponse(ctx context.Context, backupId string, params *DescribeBackupParams, reqEditors ...RequestEditorFn) (*DescribeBackupResponse, error)
 
 	// CreateIndexFromBackupOperationWithBodyWithResponse request with any body
-	CreateIndexFromBackupOperationWithBodyWithResponse(ctx context.Context, backupId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexFromBackupOperationResponse, error)
+	CreateIndexFromBackupOperationWithBodyWithResponse(ctx context.Context, backupId string, params *CreateIndexFromBackupOperationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexFromBackupOperationResponse, error)
 
-	CreateIndexFromBackupOperationWithResponse(ctx context.Context, backupId string, body CreateIndexFromBackupOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexFromBackupOperationResponse, error)
+	CreateIndexFromBackupOperationWithResponse(ctx context.Context, backupId string, params *CreateIndexFromBackupOperationParams, body CreateIndexFromBackupOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexFromBackupOperationResponse, error)
 
 	// ListCollectionsWithResponse request
-	ListCollectionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListCollectionsResponse, error)
+	ListCollectionsWithResponse(ctx context.Context, params *ListCollectionsParams, reqEditors ...RequestEditorFn) (*ListCollectionsResponse, error)
 
 	// CreateCollectionWithBodyWithResponse request with any body
-	CreateCollectionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error)
+	CreateCollectionWithBodyWithResponse(ctx context.Context, params *CreateCollectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error)
 
-	CreateCollectionWithResponse(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error)
+	CreateCollectionWithResponse(ctx context.Context, params *CreateCollectionParams, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error)
 
 	// DeleteCollectionWithResponse request
-	DeleteCollectionWithResponse(ctx context.Context, collectionName string, reqEditors ...RequestEditorFn) (*DeleteCollectionResponse, error)
+	DeleteCollectionWithResponse(ctx context.Context, collectionName string, params *DeleteCollectionParams, reqEditors ...RequestEditorFn) (*DeleteCollectionResponse, error)
 
 	// DescribeCollectionWithResponse request
-	DescribeCollectionWithResponse(ctx context.Context, collectionName string, reqEditors ...RequestEditorFn) (*DescribeCollectionResponse, error)
+	DescribeCollectionWithResponse(ctx context.Context, collectionName string, params *DescribeCollectionParams, reqEditors ...RequestEditorFn) (*DescribeCollectionResponse, error)
 
 	// ListIndexesWithResponse request
-	ListIndexesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListIndexesResponse, error)
+	ListIndexesWithResponse(ctx context.Context, params *ListIndexesParams, reqEditors ...RequestEditorFn) (*ListIndexesResponse, error)
 
 	// CreateIndexWithBodyWithResponse request with any body
-	CreateIndexWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error)
+	CreateIndexWithBodyWithResponse(ctx context.Context, params *CreateIndexParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error)
 
-	CreateIndexWithResponse(ctx context.Context, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error)
+	CreateIndexWithResponse(ctx context.Context, params *CreateIndexParams, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error)
 
 	// CreateIndexForModelWithBodyWithResponse request with any body
-	CreateIndexForModelWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexForModelResponse, error)
+	CreateIndexForModelWithBodyWithResponse(ctx context.Context, params *CreateIndexForModelParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexForModelResponse, error)
 
-	CreateIndexForModelWithResponse(ctx context.Context, body CreateIndexForModelJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexForModelResponse, error)
+	CreateIndexForModelWithResponse(ctx context.Context, params *CreateIndexForModelParams, body CreateIndexForModelJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexForModelResponse, error)
 
 	// DeleteIndexWithResponse request
-	DeleteIndexWithResponse(ctx context.Context, indexName string, reqEditors ...RequestEditorFn) (*DeleteIndexResponse, error)
+	DeleteIndexWithResponse(ctx context.Context, indexName string, params *DeleteIndexParams, reqEditors ...RequestEditorFn) (*DeleteIndexResponse, error)
 
 	// DescribeIndexWithResponse request
-	DescribeIndexWithResponse(ctx context.Context, indexName string, reqEditors ...RequestEditorFn) (*DescribeIndexResponse, error)
+	DescribeIndexWithResponse(ctx context.Context, indexName string, params *DescribeIndexParams, reqEditors ...RequestEditorFn) (*DescribeIndexResponse, error)
 
 	// ConfigureIndexWithBodyWithResponse request with any body
-	ConfigureIndexWithBodyWithResponse(ctx context.Context, indexName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConfigureIndexResponse, error)
+	ConfigureIndexWithBodyWithResponse(ctx context.Context, indexName string, params *ConfigureIndexParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConfigureIndexResponse, error)
 
-	ConfigureIndexWithResponse(ctx context.Context, indexName string, body ConfigureIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*ConfigureIndexResponse, error)
+	ConfigureIndexWithResponse(ctx context.Context, indexName string, params *ConfigureIndexParams, body ConfigureIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*ConfigureIndexResponse, error)
 
 	// ListIndexBackupsWithResponse request
 	ListIndexBackupsWithResponse(ctx context.Context, indexName string, params *ListIndexBackupsParams, reqEditors ...RequestEditorFn) (*ListIndexBackupsResponse, error)
 
 	// CreateBackupWithBodyWithResponse request with any body
-	CreateBackupWithBodyWithResponse(ctx context.Context, indexName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBackupResponse, error)
+	CreateBackupWithBodyWithResponse(ctx context.Context, indexName string, params *CreateBackupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBackupResponse, error)
 
-	CreateBackupWithResponse(ctx context.Context, indexName string, body CreateBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBackupResponse, error)
+	CreateBackupWithResponse(ctx context.Context, indexName string, params *CreateBackupParams, body CreateBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBackupResponse, error)
 
 	// ListRestoreJobsWithResponse request
 	ListRestoreJobsWithResponse(ctx context.Context, params *ListRestoreJobsParams, reqEditors ...RequestEditorFn) (*ListRestoreJobsResponse, error)
 
 	// DescribeRestoreJobWithResponse request
-	DescribeRestoreJobWithResponse(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*DescribeRestoreJobResponse, error)
+	DescribeRestoreJobWithResponse(ctx context.Context, jobId string, params *DescribeRestoreJobParams, reqEditors ...RequestEditorFn) (*DescribeRestoreJobResponse, error)
 }
 
 type ListProjectBackupsResponse struct {
@@ -2546,8 +3320,8 @@ func (c *ClientWithResponses) ListProjectBackupsWithResponse(ctx context.Context
 }
 
 // DeleteBackupWithResponse request returning *DeleteBackupResponse
-func (c *ClientWithResponses) DeleteBackupWithResponse(ctx context.Context, backupId string, reqEditors ...RequestEditorFn) (*DeleteBackupResponse, error) {
-	rsp, err := c.DeleteBackup(ctx, backupId, reqEditors...)
+func (c *ClientWithResponses) DeleteBackupWithResponse(ctx context.Context, backupId string, params *DeleteBackupParams, reqEditors ...RequestEditorFn) (*DeleteBackupResponse, error) {
+	rsp, err := c.DeleteBackup(ctx, backupId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2555,8 +3329,8 @@ func (c *ClientWithResponses) DeleteBackupWithResponse(ctx context.Context, back
 }
 
 // DescribeBackupWithResponse request returning *DescribeBackupResponse
-func (c *ClientWithResponses) DescribeBackupWithResponse(ctx context.Context, backupId string, reqEditors ...RequestEditorFn) (*DescribeBackupResponse, error) {
-	rsp, err := c.DescribeBackup(ctx, backupId, reqEditors...)
+func (c *ClientWithResponses) DescribeBackupWithResponse(ctx context.Context, backupId string, params *DescribeBackupParams, reqEditors ...RequestEditorFn) (*DescribeBackupResponse, error) {
+	rsp, err := c.DescribeBackup(ctx, backupId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2564,16 +3338,16 @@ func (c *ClientWithResponses) DescribeBackupWithResponse(ctx context.Context, ba
 }
 
 // CreateIndexFromBackupOperationWithBodyWithResponse request with arbitrary body returning *CreateIndexFromBackupOperationResponse
-func (c *ClientWithResponses) CreateIndexFromBackupOperationWithBodyWithResponse(ctx context.Context, backupId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexFromBackupOperationResponse, error) {
-	rsp, err := c.CreateIndexFromBackupOperationWithBody(ctx, backupId, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateIndexFromBackupOperationWithBodyWithResponse(ctx context.Context, backupId string, params *CreateIndexFromBackupOperationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexFromBackupOperationResponse, error) {
+	rsp, err := c.CreateIndexFromBackupOperationWithBody(ctx, backupId, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCreateIndexFromBackupOperationResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateIndexFromBackupOperationWithResponse(ctx context.Context, backupId string, body CreateIndexFromBackupOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexFromBackupOperationResponse, error) {
-	rsp, err := c.CreateIndexFromBackupOperation(ctx, backupId, body, reqEditors...)
+func (c *ClientWithResponses) CreateIndexFromBackupOperationWithResponse(ctx context.Context, backupId string, params *CreateIndexFromBackupOperationParams, body CreateIndexFromBackupOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexFromBackupOperationResponse, error) {
+	rsp, err := c.CreateIndexFromBackupOperation(ctx, backupId, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2581,8 +3355,8 @@ func (c *ClientWithResponses) CreateIndexFromBackupOperationWithResponse(ctx con
 }
 
 // ListCollectionsWithResponse request returning *ListCollectionsResponse
-func (c *ClientWithResponses) ListCollectionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListCollectionsResponse, error) {
-	rsp, err := c.ListCollections(ctx, reqEditors...)
+func (c *ClientWithResponses) ListCollectionsWithResponse(ctx context.Context, params *ListCollectionsParams, reqEditors ...RequestEditorFn) (*ListCollectionsResponse, error) {
+	rsp, err := c.ListCollections(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2590,16 +3364,16 @@ func (c *ClientWithResponses) ListCollectionsWithResponse(ctx context.Context, r
 }
 
 // CreateCollectionWithBodyWithResponse request with arbitrary body returning *CreateCollectionResponse
-func (c *ClientWithResponses) CreateCollectionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error) {
-	rsp, err := c.CreateCollectionWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateCollectionWithBodyWithResponse(ctx context.Context, params *CreateCollectionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error) {
+	rsp, err := c.CreateCollectionWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCreateCollectionResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateCollectionWithResponse(ctx context.Context, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error) {
-	rsp, err := c.CreateCollection(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreateCollectionWithResponse(ctx context.Context, params *CreateCollectionParams, body CreateCollectionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCollectionResponse, error) {
+	rsp, err := c.CreateCollection(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2607,8 +3381,8 @@ func (c *ClientWithResponses) CreateCollectionWithResponse(ctx context.Context, 
 }
 
 // DeleteCollectionWithResponse request returning *DeleteCollectionResponse
-func (c *ClientWithResponses) DeleteCollectionWithResponse(ctx context.Context, collectionName string, reqEditors ...RequestEditorFn) (*DeleteCollectionResponse, error) {
-	rsp, err := c.DeleteCollection(ctx, collectionName, reqEditors...)
+func (c *ClientWithResponses) DeleteCollectionWithResponse(ctx context.Context, collectionName string, params *DeleteCollectionParams, reqEditors ...RequestEditorFn) (*DeleteCollectionResponse, error) {
+	rsp, err := c.DeleteCollection(ctx, collectionName, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2616,8 +3390,8 @@ func (c *ClientWithResponses) DeleteCollectionWithResponse(ctx context.Context, 
 }
 
 // DescribeCollectionWithResponse request returning *DescribeCollectionResponse
-func (c *ClientWithResponses) DescribeCollectionWithResponse(ctx context.Context, collectionName string, reqEditors ...RequestEditorFn) (*DescribeCollectionResponse, error) {
-	rsp, err := c.DescribeCollection(ctx, collectionName, reqEditors...)
+func (c *ClientWithResponses) DescribeCollectionWithResponse(ctx context.Context, collectionName string, params *DescribeCollectionParams, reqEditors ...RequestEditorFn) (*DescribeCollectionResponse, error) {
+	rsp, err := c.DescribeCollection(ctx, collectionName, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2625,8 +3399,8 @@ func (c *ClientWithResponses) DescribeCollectionWithResponse(ctx context.Context
 }
 
 // ListIndexesWithResponse request returning *ListIndexesResponse
-func (c *ClientWithResponses) ListIndexesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListIndexesResponse, error) {
-	rsp, err := c.ListIndexes(ctx, reqEditors...)
+func (c *ClientWithResponses) ListIndexesWithResponse(ctx context.Context, params *ListIndexesParams, reqEditors ...RequestEditorFn) (*ListIndexesResponse, error) {
+	rsp, err := c.ListIndexes(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2634,16 +3408,16 @@ func (c *ClientWithResponses) ListIndexesWithResponse(ctx context.Context, reqEd
 }
 
 // CreateIndexWithBodyWithResponse request with arbitrary body returning *CreateIndexResponse
-func (c *ClientWithResponses) CreateIndexWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error) {
-	rsp, err := c.CreateIndexWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateIndexWithBodyWithResponse(ctx context.Context, params *CreateIndexParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error) {
+	rsp, err := c.CreateIndexWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCreateIndexResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateIndexWithResponse(ctx context.Context, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error) {
-	rsp, err := c.CreateIndex(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreateIndexWithResponse(ctx context.Context, params *CreateIndexParams, body CreateIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexResponse, error) {
+	rsp, err := c.CreateIndex(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2651,16 +3425,16 @@ func (c *ClientWithResponses) CreateIndexWithResponse(ctx context.Context, body 
 }
 
 // CreateIndexForModelWithBodyWithResponse request with arbitrary body returning *CreateIndexForModelResponse
-func (c *ClientWithResponses) CreateIndexForModelWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexForModelResponse, error) {
-	rsp, err := c.CreateIndexForModelWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateIndexForModelWithBodyWithResponse(ctx context.Context, params *CreateIndexForModelParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIndexForModelResponse, error) {
+	rsp, err := c.CreateIndexForModelWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCreateIndexForModelResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateIndexForModelWithResponse(ctx context.Context, body CreateIndexForModelJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexForModelResponse, error) {
-	rsp, err := c.CreateIndexForModel(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreateIndexForModelWithResponse(ctx context.Context, params *CreateIndexForModelParams, body CreateIndexForModelJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIndexForModelResponse, error) {
+	rsp, err := c.CreateIndexForModel(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2668,8 +3442,8 @@ func (c *ClientWithResponses) CreateIndexForModelWithResponse(ctx context.Contex
 }
 
 // DeleteIndexWithResponse request returning *DeleteIndexResponse
-func (c *ClientWithResponses) DeleteIndexWithResponse(ctx context.Context, indexName string, reqEditors ...RequestEditorFn) (*DeleteIndexResponse, error) {
-	rsp, err := c.DeleteIndex(ctx, indexName, reqEditors...)
+func (c *ClientWithResponses) DeleteIndexWithResponse(ctx context.Context, indexName string, params *DeleteIndexParams, reqEditors ...RequestEditorFn) (*DeleteIndexResponse, error) {
+	rsp, err := c.DeleteIndex(ctx, indexName, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2677,8 +3451,8 @@ func (c *ClientWithResponses) DeleteIndexWithResponse(ctx context.Context, index
 }
 
 // DescribeIndexWithResponse request returning *DescribeIndexResponse
-func (c *ClientWithResponses) DescribeIndexWithResponse(ctx context.Context, indexName string, reqEditors ...RequestEditorFn) (*DescribeIndexResponse, error) {
-	rsp, err := c.DescribeIndex(ctx, indexName, reqEditors...)
+func (c *ClientWithResponses) DescribeIndexWithResponse(ctx context.Context, indexName string, params *DescribeIndexParams, reqEditors ...RequestEditorFn) (*DescribeIndexResponse, error) {
+	rsp, err := c.DescribeIndex(ctx, indexName, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2686,16 +3460,16 @@ func (c *ClientWithResponses) DescribeIndexWithResponse(ctx context.Context, ind
 }
 
 // ConfigureIndexWithBodyWithResponse request with arbitrary body returning *ConfigureIndexResponse
-func (c *ClientWithResponses) ConfigureIndexWithBodyWithResponse(ctx context.Context, indexName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConfigureIndexResponse, error) {
-	rsp, err := c.ConfigureIndexWithBody(ctx, indexName, contentType, body, reqEditors...)
+func (c *ClientWithResponses) ConfigureIndexWithBodyWithResponse(ctx context.Context, indexName string, params *ConfigureIndexParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConfigureIndexResponse, error) {
+	rsp, err := c.ConfigureIndexWithBody(ctx, indexName, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseConfigureIndexResponse(rsp)
 }
 
-func (c *ClientWithResponses) ConfigureIndexWithResponse(ctx context.Context, indexName string, body ConfigureIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*ConfigureIndexResponse, error) {
-	rsp, err := c.ConfigureIndex(ctx, indexName, body, reqEditors...)
+func (c *ClientWithResponses) ConfigureIndexWithResponse(ctx context.Context, indexName string, params *ConfigureIndexParams, body ConfigureIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*ConfigureIndexResponse, error) {
+	rsp, err := c.ConfigureIndex(ctx, indexName, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2712,16 +3486,16 @@ func (c *ClientWithResponses) ListIndexBackupsWithResponse(ctx context.Context, 
 }
 
 // CreateBackupWithBodyWithResponse request with arbitrary body returning *CreateBackupResponse
-func (c *ClientWithResponses) CreateBackupWithBodyWithResponse(ctx context.Context, indexName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBackupResponse, error) {
-	rsp, err := c.CreateBackupWithBody(ctx, indexName, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateBackupWithBodyWithResponse(ctx context.Context, indexName string, params *CreateBackupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBackupResponse, error) {
+	rsp, err := c.CreateBackupWithBody(ctx, indexName, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCreateBackupResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateBackupWithResponse(ctx context.Context, indexName string, body CreateBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBackupResponse, error) {
-	rsp, err := c.CreateBackup(ctx, indexName, body, reqEditors...)
+func (c *ClientWithResponses) CreateBackupWithResponse(ctx context.Context, indexName string, params *CreateBackupParams, body CreateBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBackupResponse, error) {
+	rsp, err := c.CreateBackup(ctx, indexName, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -2738,8 +3512,8 @@ func (c *ClientWithResponses) ListRestoreJobsWithResponse(ctx context.Context, p
 }
 
 // DescribeRestoreJobWithResponse request returning *DescribeRestoreJobResponse
-func (c *ClientWithResponses) DescribeRestoreJobWithResponse(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*DescribeRestoreJobResponse, error) {
-	rsp, err := c.DescribeRestoreJob(ctx, jobId, reqEditors...)
+func (c *ClientWithResponses) DescribeRestoreJobWithResponse(ctx context.Context, jobId string, params *DescribeRestoreJobParams, reqEditors ...RequestEditorFn) (*DescribeRestoreJobResponse, error) {
+	rsp, err := c.DescribeRestoreJob(ctx, jobId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
