@@ -316,6 +316,10 @@ func (ts *integrationTests) TestUpdateVectorSparseValues() {
 }
 
 func (ts *integrationTests) TestFetchVectorsByMetadata() {
+	if ts.indexType == "pod" {
+		ts.T().Skip("Skipping fetch vectors by metadata test for pod index")
+	}
+
 	ctx := context.Background()
 
 	// Create filter to match vectors with genre="classical"
@@ -363,6 +367,10 @@ func (ts *integrationTests) TestFetchVectorsByMetadata() {
 }
 
 func (ts *integrationTests) TestUpdateVectorsByMetadata() {
+	if ts.indexType == "pod" {
+		ts.T().Skip("Skipping update vectors by metadata test for non-serverless index")
+	}
+
 	ctx := context.Background()
 
 	// Use pre-existing vectors with rock metadata from SetupSuite
