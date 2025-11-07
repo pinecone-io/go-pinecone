@@ -787,7 +787,7 @@ func (ts *integrationTests) TestCreateServerlessIndexWithReadCapacity() {
 	ctx := context.Background()
 
 	// Test creating index with OnDemand ReadCapacity (default)
-	indexName1 := "test-readcapacity-ondemand-" + generateTestIndexName()
+	indexName1 := "rc-ondemand-" + generateTestIndexName()
 	dimension := int32(setDimensionsForTestIndexes())
 	metric := Cosine
 
@@ -821,7 +821,7 @@ func (ts *integrationTests) TestCreateServerlessIndexWithReadCapacity() {
 	})
 
 	// Test creating index with Dedicated ReadCapacity
-	indexName2 := "test-readcapacity-dedicated-" + generateTestIndexName()
+	indexName2 := "rc-dedicated-" + generateTestIndexName()
 	readCapacity := &ReadCapacityRequest{
 		Dedicated: &ReadCapacityDedicatedConfig{
 			NodeType: "t1",
@@ -873,7 +873,7 @@ func (ts *integrationTests) TestConfigureIndexReadCapacity() {
 	ctx := context.Background()
 
 	// Create a test index with OnDemand ReadCapacity
-	indexName := "test-configure-readcapacity-" + generateTestIndexName()
+	indexName := "configure-rc-" + generateTestIndexName()
 	dimension := int32(setDimensionsForTestIndexes())
 	metric := Cosine
 
