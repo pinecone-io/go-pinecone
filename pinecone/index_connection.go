@@ -1751,11 +1751,54 @@ func (idx *IndexConnection) CancelImport(ctx context.Context, id string) error {
 	return nil
 }
 
+// [CreateNamespaceParams] holds the parameters for creating a new namespace within a serverless index.
+//
+// Fields:
+//   - Name: (Required) The unique name of the namespace to create.
+//   - Schema: (Optional) Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
+//     When `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed.
 type CreateNamespaceParams struct {
 	Name   string
 	Schema *MetadataSchema
 }
 
+// [IndexConnection.CreateNamespace] creates a new namespace within a serverless index.
+//
+// Returns a pointer to a [NamespaceDescription] object or an error if the request fails.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - in: A pointer to a [CreateNamespaceParams] object. See [CreateNamespaceParams] for more information.
+//
+// Example:
+//
+//	    ctx := context.Background()
+//
+//		clientParams := pinecone.NewClientParams{
+//		    ApiKey:    "YOUR_API_KEY",
+//	    }
+//
+//		pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//		    log.Fatalf("Failed to create Client: %v", err)
+//		}
+//
+//		idxConnection, err := pc.Index(pinecone.NewIndexConnParams{
+//		    Host: "your-index-host",
+//		})
+//		if err != nil {
+//		    log.Fatalf("Failed to create IndexConnection: %v", err)
+//		}
+//
+//		namespace, err := idxConnection.CreateNamespace(ctx, &pinecone.CreateNamespaceParams{
+//		    Name: "my-namespace",
+//		})
+//		if err != nil {
+//		    log.Fatalf("Failed to create namespace: %v", err)
+//		} else {
+//		    fmt.Printf("Successfully created namespace: %s with %d records", namespace.Name, namespace.RecordCount)
+//		}
 func (idx *IndexConnection) CreateNamespace(ctx context.Context, in *CreateNamespaceParams) (*NamespaceDescription, error) {
 	req := db_data_grpc.CreateNamespaceRequest{
 		Name:   in.Name,
@@ -1834,6 +1877,7 @@ func (idx *IndexConnection) DescribeNamespace(ctx context.Context, namespace str
 // Fields:
 //   - Namespaces: A slice of [NamespaceDescription] objects.
 //   - Pagination: The [Pagination] object for paginating results.
+//   - TotalCount: The total number of namespaces in the index matching the prefix.
 type ListNamespacesResponse struct {
 	Namespaces []*NamespaceDescription
 	Pagination *Pagination

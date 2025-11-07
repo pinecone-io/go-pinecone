@@ -634,6 +634,8 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //   - Dimension: (Optional) The [dimensionality] of the vectors to be inserted in the [Index].
 //   - VectorType: (Optional) The index vector type. You can use `dense` or `sparse`. If `dense`, the vector dimension must be specified.
 //     If `sparse`, the vector dimension should not be specified, and the Metric must be set to `dotproduct`. Defaults to `dense`.
+//   - ReadCapacity: (Optional) The read capacity configuration for the serverless index. Used to configure dedicated read capacity
+//     with specific node types and scaling strategies.
 //   - Schema: (Optional) Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
 //   - Tags: (Optional) A map of tags to associate with the Index.
 //   - SourceCollection: (Optional) The name of the [Collection] to use as the source for the index. NOTE: Collections can only be created
@@ -829,6 +831,8 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 //   - Model: The name of the embedding model to use for the index.
 //   - ReadParameters: The read parameters for the embedding model.
 //   - WriteParameters: The write parameters for the embedding model.
+//   - ReadCapacity: (Optional) The read capacity configuration for the serverless index. Used to configure dedicated read capacity
+//     with specific node types and scaling strategies.
 //   - Schema: (Optional) Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
 //   - Tags: (Optional) Custom user tags added to an index.
 //     Keys must be 80 characters or less, values must be 120 characters or less.

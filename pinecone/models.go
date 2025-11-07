@@ -61,7 +61,8 @@ type IndexStatus struct {
 	State IndexStatusState `json:"state"`
 }
 
-// [IndexSpec] is the infrastructure specification (pods vs serverless) of a Pinecone [Index].
+// [IndexSpec] is the infrastructure specification (serverless, pod-based, or BYOC ) of a Pinecone [Index].
+// Only one of the following fields will be present: Pod, Serverless, BYOC.
 type IndexSpec struct {
 	Pod        *PodSpec        `json:"pod,omitempty"`
 	Serverless *ServerlessSpec `json:"serverless,omitempty"`
@@ -184,7 +185,10 @@ type PodSpec struct {
 // Fields:
 //   - Cloud: The public cloud provider where the index is hosted.
 //   - Region: The region where the index is hosted.
-//   - SourceCollection: The name of the [Collection] used as a source for the index.
+//   - Schema: (Optional) Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
+//   - SourceCollection: (Optional) The name of the [Collection] used as a source for the index.
+//   - ReadCapacity: (Optional) The read capacity configuration for the serverless index. Used to configure dedicated read capacity
+//     with specific node types and scaling strategies.
 type ServerlessSpec struct {
 	Cloud            Cloud           `json:"cloud"`
 	Region           string          `json:"region"`
@@ -193,6 +197,11 @@ type ServerlessSpec struct {
 	ReadCapacity     *ReadCapacity   `json:"read_capacity,omitempty"`
 }
 
+// [BYOCSpec] is the infrastructure specification of a BYOC Pinecone [Index].
+//
+// Fields:
+//   - Environment: The environment where the index is hosted.
+//   - Schema: Schema for the behavior of Pinecone's internal metadata index.
 type BYOCSpec struct {
 	Environment string          `json:"environment"`
 	Schema      *MetadataSchema `json:"schema,omitempty"`
@@ -219,7 +228,7 @@ type ReadCapacityDedicatedConfig struct {
 }
 
 // [ReadCapacity] represents the read capacity configuration returned from the API.
-// This is used in DescribeIndex responses.
+// Only one of the following fields will be present: OnDemand, Dedicated.
 //
 // Fields:
 //   - OnDemand: OnDemand read capacity mode with current status.
@@ -671,6 +680,7 @@ func (spv *SupportedParameterValue) UnmarshalJSON(data []byte) error {
 //   - NamespaceCount: Number of namespaces in the backup.
 //   - RecordCount: Total number of records in the backup.
 //   - Region: Cloud region where the backup is stored.
+//   - Schema: Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
 //   - SizeBytes: Size of the backup in bytes.
 //   - SourceIndexId: ID of the index.
 //   - SourceIndexName: Name of the index from which the backup was taken.
