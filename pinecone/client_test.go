@@ -1794,6 +1794,471 @@ func TestEnsureHostHasHttpsUnit(t *testing.T) {
 	}
 }
 
+func Test_toMetadataSchemaFromRest_Unit(t *testing.T) {
+	// utility type for the inline representation of MetadataSchema in the REST API
+	type restMetadataSchemaInput = struct {
+		Fields map[string]struct {
+			Filterable *bool `json:"filterable,omitempty"`
+		} `json:"fields"`
+	}
+
+	tests := []struct {
+		name     string
+		input    *restMetadataSchemaInput
+		expected *MetadataSchema
+	}{
+		{
+			name:     "nil input",
+			input:    nil,
+			expected: nil,
+		},
+		{
+			name: "empty fields map",
+			input: &restMetadataSchemaInput{
+				Fields: make(map[string]struct {
+					Filterable *bool `json:"filterable,omitempty"`
+				}),
+			},
+			expected: &MetadataSchema{
+				Fields: make(map[string]MetadataSchemaField),
+			},
+		},
+		{
+			name: "fields with filterable true",
+			input: &restMetadataSchemaInput{
+				Fields: map[string]struct {
+					Filterable *bool `json:"filterable,omitempty"`
+				}{
+					"genre": {Filterable: boolPtr(true)},
+				},
+			},
+			expected: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre": {Filterable: true},
+				},
+			},
+		},
+		{
+			name: "fields with filterable false",
+			input: &restMetadataSchemaInput{
+				Fields: map[string]struct {
+					Filterable *bool `json:"filterable,omitempty"`
+				}{
+					"genre": {Filterable: boolPtr(false)},
+				},
+			},
+			expected: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre": {Filterable: false},
+				},
+			},
+		},
+		{
+			name: "fields with filterable nil (defaults to false)",
+			input: &restMetadataSchemaInput{
+				Fields: map[string]struct {
+					Filterable *bool `json:"filterable,omitempty"`
+				}{
+					"genre": {Filterable: nil},
+				},
+			},
+			expected: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre": {Filterable: false},
+				},
+			},
+		},
+		{
+			name: "multiple fields",
+			input: &restMetadataSchemaInput{
+				Fields: map[string]struct {
+					Filterable *bool `json:"filterable,omitempty"`
+				}{
+					"genre":  {Filterable: boolPtr(true)},
+					"year":   {Filterable: boolPtr(true)},
+					"rating": {Filterable: boolPtr(false)},
+				},
+			},
+			expected: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre":  {Filterable: true},
+					"year":   {Filterable: true},
+					"rating": {Filterable: false},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := toMetadataSchemaFromRest(tt.input)
+			if diff := cmp.Diff(tt.expected, result); diff != "" {
+				t.Errorf("toMetadataSchemaRest() mismatch (-expected +result):\n%s", diff)
+			}
+		})
+	}
+}
+
+func Test_fromMetadataSchemaToRest_Unit(t *testing.T) {
+	// utility type for the inline representation of MetadataSchema in the REST API
+	type restMetadataSchemaOutput = struct {
+		Fields map[string]struct {
+			Filterable *bool `json:"filterable,omitempty"`
+		} `json:"fields"`
+	}
+
+	tests := []struct {
+		name     string
+		input    *MetadataSchema
+		expected *restMetadataSchemaOutput
+	}{
+		{
+			name:     "nil input",
+			input:    nil,
+			expected: nil,
+		},
+		{
+			name: "empty fields map",
+			input: &MetadataSchema{
+				Fields: make(map[string]MetadataSchemaField),
+			},
+			expected: &restMetadataSchemaOutput{
+				Fields: make(map[string]struct {
+					Filterable *bool `json:"filterable,omitempty"`
+				}),
+			},
+		},
+		{
+			name: "fields with filterable true",
+			input: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre": {Filterable: true},
+				},
+			},
+			expected: &restMetadataSchemaOutput{
+				Fields: map[string]struct {
+					Filterable *bool `json:"filterable,omitempty"`
+				}{
+					"genre": {Filterable: boolPtr(true)},
+				},
+			},
+		},
+		{
+			name: "fields with filterable false",
+			input: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre": {Filterable: false},
+				},
+			},
+			expected: &restMetadataSchemaOutput{
+				Fields: map[string]struct {
+					Filterable *bool `json:"filterable,omitempty"`
+				}{
+					"genre": {Filterable: boolPtr(false)},
+				},
+			},
+		},
+		{
+			name: "multiple fields",
+			input: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre":  {Filterable: true},
+					"year":   {Filterable: true},
+					"rating": {Filterable: false},
+				},
+			},
+			expected: &restMetadataSchemaOutput{
+				Fields: map[string]struct {
+					Filterable *bool `json:"filterable,omitempty"`
+				}{
+					"genre":  {Filterable: boolPtr(true)},
+					"year":   {Filterable: boolPtr(true)},
+					"rating": {Filterable: boolPtr(false)},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := fromMetadataSchemaToRest(tt.input)
+			if tt.expected == nil {
+				assert.Nil(t, result)
+				return
+			}
+
+			require.NotNil(t, result)
+			assert.Equal(t, len(tt.expected.Fields), len(result.Fields))
+
+			for key, expectedField := range tt.expected.Fields {
+				actualField, ok := result.Fields[key]
+				require.True(t, ok, "Field %s should exist", key)
+
+				if expectedField.Filterable == nil {
+					assert.Nil(t, actualField.Filterable)
+				} else {
+					require.NotNil(t, actualField.Filterable)
+					assert.Equal(t, *expectedField.Filterable, *actualField.Filterable)
+				}
+			}
+		})
+	}
+}
+
+func Test_readCapacityRequestToReadCapacity_Unit(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     *ReadCapacityRequest
+		wantError bool
+		validate  func(t *testing.T, result *db_control.ReadCapacity)
+	}{
+		{
+			name:      "nil request (should default to OnDemand)",
+			input:     nil,
+			wantError: false,
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				require.NotNil(t, result)
+				mode, err := result.Discriminator()
+
+				require.NoError(t, err)
+				assert.Equal(t, "OnDemand", mode)
+			},
+		},
+		{
+			name: "request with nil Dedicated (should default to OnDemand)",
+			input: &ReadCapacityRequest{
+				Dedicated: nil,
+			},
+			wantError: false,
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				require.NotNil(t, result)
+				mode, err := result.Discriminator()
+
+				require.NoError(t, err)
+				assert.Equal(t, "OnDemand", mode)
+			},
+		},
+		{
+			name: "Dedicated with NodeType only",
+			input: &ReadCapacityRequest{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: "t1",
+				},
+			},
+			wantError: false,
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				require.NotNil(t, result)
+				mode, err := result.Discriminator()
+
+				require.NoError(t, err)
+				assert.Equal(t, "Dedicated", mode)
+
+				dedicatedSpec, err := result.AsReadCapacityDedicatedSpec()
+				require.NoError(t, err)
+				assert.Equal(t, "t1", dedicatedSpec.Dedicated.NodeType)
+			},
+		},
+		{
+			name: "Dedicated with NodeType and Manual scaling",
+			input: &ReadCapacityRequest{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: "b1",
+					Scaling: &ReadCapacityScaling{
+						Manual: &ReadCapacityManualScaling{
+							Replicas: 2,
+							Shards:   3,
+						},
+					},
+				},
+			},
+			wantError: false,
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				require.NotNil(t, result)
+				mode, err := result.Discriminator()
+
+				require.NoError(t, err)
+				assert.Equal(t, "Dedicated", mode)
+
+				dedicatedSpec, err := result.AsReadCapacityDedicatedSpec()
+				require.NoError(t, err)
+				assert.Equal(t, "b1", dedicatedSpec.Dedicated.NodeType)
+				require.NotNil(t, dedicatedSpec.Dedicated.Manual)
+				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Manual.Replicas)
+				assert.Equal(t, int32(3), dedicatedSpec.Dedicated.Manual.Shards)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := readCapacityRequestToReadCapacity(tt.input)
+			if tt.wantError {
+				assert.Error(t, err)
+				assert.Nil(t, result)
+			} else {
+				assert.NoError(t, err)
+				tt.validate(t, result)
+			}
+		})
+	}
+}
+
+func Test_toReadCapacity_Unit(t *testing.T) {
+	replicas := int32(2)
+	shards := int32(3)
+	errorMsg := "test error"
+
+	// utility funcs for creating inputs from generated code types
+	onDemandInput := func() *db_control.ReadCapacityResponse {
+		var result db_control.ReadCapacityResponse
+		onDemandSpec := db_control.ReadCapacityOnDemandSpecResponse{
+			Mode: "OnDemand",
+			Status: db_control.ReadCapacityStatus{
+				State:           "Ready",
+				CurrentReplicas: &replicas,
+				CurrentShards:   &shards,
+				ErrorMessage:    nil,
+			},
+		}
+		err := result.FromReadCapacityOnDemandSpecResponse(onDemandSpec)
+		if err != nil {
+			panic(err)
+		}
+		return &result
+	}()
+
+	dedicatedNoScalingInput := func() *db_control.ReadCapacityResponse {
+		var result db_control.ReadCapacityResponse
+		dedicatedSpec := db_control.ReadCapacityDedicatedSpecResponse{
+			Mode: "Dedicated",
+			Dedicated: db_control.ReadCapacityDedicatedConfig{
+				NodeType: "t1",
+				Scaling:  "",
+			},
+			Status: db_control.ReadCapacityStatus{
+				State:           "Ready",
+				CurrentReplicas: &replicas,
+				CurrentShards:   &shards,
+				ErrorMessage:    nil,
+			},
+		}
+		err := result.FromReadCapacityDedicatedSpecResponse(dedicatedSpec)
+		if err != nil {
+			panic(err)
+		}
+		return &result
+	}()
+
+	dedicatedWithScalingInput := func() *db_control.ReadCapacityResponse {
+		var result db_control.ReadCapacityResponse
+		dedicatedSpec := db_control.ReadCapacityDedicatedSpecResponse{
+			Mode: "Dedicated",
+			Dedicated: db_control.ReadCapacityDedicatedConfig{
+				NodeType: "b1",
+				Scaling:  "Manual",
+				Manual: &db_control.ScalingConfigManual{
+					Replicas: 2,
+					Shards:   3,
+				},
+			},
+			Status: db_control.ReadCapacityStatus{
+				State:           "Scaling",
+				CurrentReplicas: &replicas,
+				CurrentShards:   &shards,
+				ErrorMessage:    &errorMsg,
+			},
+		}
+		err := result.FromReadCapacityDedicatedSpecResponse(dedicatedSpec)
+		if err != nil {
+			panic(err)
+		}
+		return &result
+	}()
+
+	tests := []struct {
+		name      string
+		input     *db_control.ReadCapacityResponse
+		wantError bool
+		expected  *ReadCapacity
+	}{
+		{
+			name:      "nil input",
+			input:     nil,
+			wantError: false,
+			expected:  nil,
+		},
+		{
+			name:      "OnDemand mode",
+			input:     onDemandInput,
+			wantError: false,
+			expected: &ReadCapacity{
+				OnDemand: &ReadCapacityOnDemand{
+					Status: ReadCapacityStatus{
+						State:           "Ready",
+						CurrentReplicas: &replicas,
+						CurrentShards:   &shards,
+						ErrorMessage:    nil,
+					},
+				},
+			},
+		},
+		{
+			name:      "Dedicated mode without scaling",
+			input:     dedicatedNoScalingInput,
+			wantError: false,
+			expected: &ReadCapacity{
+				Dedicated: &ReadCapacityDedicated{
+					NodeType: "t1",
+					Scaling:  nil,
+					Status: ReadCapacityStatus{
+						State:           "Ready",
+						CurrentReplicas: &replicas,
+						CurrentShards:   &shards,
+						ErrorMessage:    nil,
+					},
+				},
+			},
+		},
+		{
+			name:      "Dedicated mode with manual scaling",
+			input:     dedicatedWithScalingInput,
+			wantError: false,
+			expected: &ReadCapacity{
+				Dedicated: &ReadCapacityDedicated{
+					NodeType: "b1",
+					Scaling: &ReadCapacityScaling{
+						Manual: &ReadCapacityManualScaling{
+							Replicas: 2,
+							Shards:   3,
+						},
+					},
+					Status: ReadCapacityStatus{
+						State:           "Scaling",
+						CurrentReplicas: &replicas,
+						CurrentShards:   &shards,
+						ErrorMessage:    &errorMsg,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := toReadCapacity(tt.input)
+			if tt.wantError {
+				assert.Error(t, err)
+				assert.Nil(t, result)
+			} else {
+				assert.NoError(t, err)
+				if diff := cmp.Diff(tt.expected, result); diff != "" {
+					t.Errorf("toReadCapacity() mismatch (-expected +result):\n%s", diff)
+				}
+			}
+		})
+	}
+}
+
 // Helper functions:
 func (ts *integrationTests) deleteIndex(name string) error {
 	_, err := waitUntilIndexReady(ts, context.Background())
@@ -1827,6 +2292,10 @@ func newByocIndexModelSpec(t *testing.T, in db_control.IndexModelSpec2) db_contr
 		t.Fatalf("Failed to convert byoc IndexModelSpec2 to IndexModel_Spec: %v", err)
 	}
 	return spec
+}
+
+func boolPtr(b bool) *bool {
+	return &b
 }
 
 func mockResponse(body string, statusCode int) *http.Response {

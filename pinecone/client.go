@@ -2473,7 +2473,7 @@ func toIndex(idx *db_control.IndexModel) (*Index, error) {
 		if byocSpec, err := idx.Spec.AsIndexModelSpec2(); err == nil {
 			spec.BYOC = &BYOCSpec{
 				Environment: byocSpec.Byoc.Environment,
-				Schema:      toMetadataSchemaRest(byocSpec.Byoc.Schema),
+				Schema:      toMetadataSchemaFromRest(byocSpec.Byoc.Schema),
 			}
 		}
 	}
@@ -2587,7 +2587,7 @@ func toBackup(backup *db_control.BackupModel) *Backup {
 		NamespaceCount:  backup.NamespaceCount,
 		RecordCount:     backup.RecordCount,
 		Region:          backup.Region,
-		Schema:          toMetadataSchemaRest(backup.Schema),
+		Schema:          toMetadataSchemaFromRest(backup.Schema),
 		SizeBytes:       backup.SizeBytes,
 		SourceIndexId:   backup.SourceIndexId,
 		SourceIndexName: backup.SourceIndexName,
@@ -2912,7 +2912,7 @@ func minOne(x int32) int32 {
 	return x
 }
 
-func toMetadataSchemaRest(schema *struct {
+func toMetadataSchemaFromRest(schema *struct {
 	Fields map[string]struct {
 		Filterable *bool `json:"filterable,omitempty"`
 	} `json:"fields"`
@@ -2945,10 +2945,14 @@ func fromMetadataSchemaToRest(schema *MetadataSchema) *struct {
 	fields := make(map[string]struct {
 		Filterable *bool `json:"filterable,omitempty"`
 	})
+
 	for key, value := range schema.Fields {
+		filterable := value.Filterable
 		fields[key] = struct {
 			Filterable *bool `json:"filterable,omitempty"`
-		}{Filterable: &value.Filterable}
+		}{
+			Filterable: &filterable,
+		}
 	}
 
 	return &struct {

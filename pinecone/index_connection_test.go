@@ -7,6 +7,7 @@ import (
 	"log"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	db_data_grpc "github.com/pinecone-io/go-pinecone/v4/internal/gen/db_data/grpc"
 	"github.com/pinecone-io/go-pinecone/v4/internal/utils"
 	"google.golang.org/grpc"
@@ -1299,6 +1300,167 @@ func TestToPaginationTokenGrpc(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := toPaginationTokenGrpc(tt.token)
 			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+}
+
+func Test_fromMetadataSchemaToGrpc_Unit(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    *MetadataSchema
+		expected *db_data_grpc.MetadataSchema
+	}{
+		{
+			name:     "nil input",
+			input:    nil,
+			expected: nil,
+		},
+		{
+			name: "empty fields map",
+			input: &MetadataSchema{
+				Fields: make(map[string]MetadataSchemaField),
+			},
+			expected: &db_data_grpc.MetadataSchema{
+				Fields: make(map[string]*db_data_grpc.MetadataFieldProperties),
+			},
+		},
+		{
+			name: "fields with filterable true",
+			input: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre": {Filterable: true},
+				},
+			},
+			expected: &db_data_grpc.MetadataSchema{
+				Fields: map[string]*db_data_grpc.MetadataFieldProperties{
+					"genre": {Filterable: true},
+				},
+			},
+		},
+		{
+			name: "fields with filterable false",
+			input: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre": {Filterable: false},
+				},
+			},
+			expected: &db_data_grpc.MetadataSchema{
+				Fields: map[string]*db_data_grpc.MetadataFieldProperties{
+					"genre": {Filterable: false},
+				},
+			},
+		},
+		{
+			name: "multiple fields",
+			input: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre":  {Filterable: true},
+					"year":   {Filterable: true},
+					"rating": {Filterable: false},
+				},
+			},
+			expected: &db_data_grpc.MetadataSchema{
+				Fields: map[string]*db_data_grpc.MetadataFieldProperties{
+					"genre":  {Filterable: true},
+					"year":   {Filterable: true},
+					"rating": {Filterable: false},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := fromMetadataSchemaToGrpc(tt.input)
+			if tt.expected == nil {
+				assert.Nil(t, result)
+				return
+			}
+
+			require.NotNil(t, result)
+			assert.Equal(t, len(tt.expected.Fields), len(result.Fields))
+
+			for key, expectedField := range tt.expected.Fields {
+				actualField, ok := result.Fields[key]
+				require.True(t, ok, "Field %s should exist", key)
+				require.NotNil(t, actualField)
+				assert.Equal(t, expectedField.Filterable, actualField.Filterable)
+			}
+		})
+	}
+}
+
+func Test_toMetadataSchemaGrpc_Unit(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    *db_data_grpc.MetadataSchema
+		expected *MetadataSchema
+	}{
+		{
+			name:     "nil input",
+			input:    nil,
+			expected: nil,
+		},
+		{
+			name: "empty fields map",
+			input: &db_data_grpc.MetadataSchema{
+				Fields: make(map[string]*db_data_grpc.MetadataFieldProperties),
+			},
+			expected: &MetadataSchema{
+				Fields: make(map[string]MetadataSchemaField),
+			},
+		},
+		{
+			name: "fields with filterable true",
+			input: &db_data_grpc.MetadataSchema{
+				Fields: map[string]*db_data_grpc.MetadataFieldProperties{
+					"genre": {Filterable: true},
+				},
+			},
+			expected: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre": {Filterable: true},
+				},
+			},
+		},
+		{
+			name: "fields with filterable false",
+			input: &db_data_grpc.MetadataSchema{
+				Fields: map[string]*db_data_grpc.MetadataFieldProperties{
+					"genre": {Filterable: false},
+				},
+			},
+			expected: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre": {Filterable: false},
+				},
+			},
+		},
+		{
+			name: "multiple fields",
+			input: &db_data_grpc.MetadataSchema{
+				Fields: map[string]*db_data_grpc.MetadataFieldProperties{
+					"genre":  {Filterable: true},
+					"year":   {Filterable: true},
+					"rating": {Filterable: false},
+				},
+			},
+			expected: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre":  {Filterable: true},
+					"year":   {Filterable: true},
+					"rating": {Filterable: false},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := toMetadataSchemaGrpc(tt.input)
+			if diff := cmp.Diff(tt.expected, result); diff != "" {
+				t.Errorf("toMetadataSchemaGrpc() mismatch (-expected +result):\n%s", diff)
+			}
 		})
 	}
 }
