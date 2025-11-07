@@ -265,7 +265,9 @@ func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (ui
 		Namespace: idx.namespace,
 	}
 
-	res, err := (*idx.grpcClient).Upsert(idx.akCtx(ctx), req)
+	// Add Content-Type header for gRPC gateway
+	ctx = metadata.AppendToOutgoingContext(idx.akCtx(ctx), "content-type", "application/json")
+	res, err := (*idx.grpcClient).Upsert(ctx, req)
 	if err != nil {
 		return 0, err
 	}
@@ -353,8 +355,10 @@ func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRe
 		Namespace:    idx.namespace,
 	}
 
+	// Add Content-Type header for gRPC gateway
+	ctx = metadata.AppendToOutgoingContext(idx.akCtx(ctx), "content-type", "application/json")
 	// Updating a vector by Id without a filter makes the UpdateResponse empty, so we ignore it here
-	_, err := (*idx.grpcClient).Update(idx.akCtx(ctx), req)
+	_, err := (*idx.grpcClient).Update(ctx, req)
 	return err
 }
 
@@ -466,7 +470,9 @@ func (idx *IndexConnection) UpdateVectorsByMetadata(ctx context.Context, in *Upd
 		Namespace:   idx.namespace,
 	}
 
-	res, err := (*idx.grpcClient).Update(idx.akCtx(ctx), req)
+	// Add Content-Type header for gRPC gateway
+	ctx = metadata.AppendToOutgoingContext(idx.akCtx(ctx), "content-type", "application/json")
+	res, err := (*idx.grpcClient).Update(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -675,7 +681,9 @@ func (idx *IndexConnection) FetchVectorsByMetadata(ctx context.Context, in *Fetc
 		PaginationToken: in.PaginationToken,
 	}
 
-	res, err := (*idx.grpcClient).FetchByMetadata(idx.akCtx(ctx), req)
+	// Add Content-Type header for gRPC gateway
+	ctx = metadata.AppendToOutgoingContext(idx.akCtx(ctx), "content-type", "application/json")
+	res, err := (*idx.grpcClient).FetchByMetadata(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -1559,7 +1567,9 @@ func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, meta
 	req := &db_data_grpc.DescribeIndexStatsRequest{
 		Filter: metadataFilter,
 	}
-	res, err := (*idx.grpcClient).DescribeIndexStats(idx.akCtx(ctx), req)
+	// Add Content-Type header for gRPC gateway
+	ctx = metadata.AppendToOutgoingContext(idx.akCtx(ctx), "content-type", "application/json")
+	res, err := (*idx.grpcClient).DescribeIndexStats(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -2100,7 +2110,9 @@ func (idx *IndexConnection) DeleteNamespace(ctx context.Context, namespace strin
 }
 
 func (idx *IndexConnection) query(ctx context.Context, req *db_data_grpc.QueryRequest) (*QueryVectorsResponse, error) {
-	res, err := (*idx.grpcClient).Query(idx.akCtx(ctx), req)
+	// Add Content-Type header for gRPC gateway
+	ctx = metadata.AppendToOutgoingContext(idx.akCtx(ctx), "content-type", "application/json")
+	res, err := (*idx.grpcClient).Query(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -2118,7 +2130,9 @@ func (idx *IndexConnection) query(ctx context.Context, req *db_data_grpc.QueryRe
 }
 
 func (idx *IndexConnection) delete(ctx context.Context, req *db_data_grpc.DeleteRequest) error {
-	_, err := (*idx.grpcClient).Delete(idx.akCtx(ctx), req)
+	// Add Content-Type header for gRPC gateway
+	ctx = metadata.AppendToOutgoingContext(idx.akCtx(ctx), "content-type", "application/json")
+	_, err := (*idx.grpcClient).Delete(ctx, req)
 	return err
 }
 
