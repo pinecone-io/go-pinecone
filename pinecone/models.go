@@ -376,6 +376,61 @@ type MetadataFilter = structpb.Struct
 // [attached to, or updated for, a vector]: https://docs.pinecone.io/guides/data/filter-with-metadata#inserting-metadata-into-an-index
 type Metadata = structpb.Struct
 
+// [NewMetadataFilter] creates a [MetadataFilter] from a map of key-value pairs representing metadata filter expressions.
+// This helper function eliminates the need to import and use [structpb.Struct] directly.
+//
+// The input map should contain metadata filter expressions using Pinecone's filtering operators
+// (e.g., $eq, $ne, $gt, $gte, $lt, $lte, $in, $nin, $exists, $and, $or).
+//
+// Example:
+//
+//	filterMap := map[string]interface{}{
+//		"genre": map[string]interface{}{
+//			"$eq": "documentary",
+//		},
+//		"year": map[string]interface{}{
+//			"$gte": 2020,
+//		},
+//	}
+//	filter, err := pinecone.NewMetadataFilter(filterMap)
+//
+// [MetadataFilter]: https://docs.pinecone.io/guides/data/filter-with-metadata#querying-an-index-with-metadata-filters
+func NewMetadataFilter(m map[string]interface{}) (*MetadataFilter, error) {
+	s, err := structpb.NewStruct(m)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+// [NewMetadata] creates [Metadata] from a map of key-value pairs representing metadata fields.
+// This helper function eliminates the need to import and use [structpb.Struct] directly.
+//
+// The input map should contain flat key-value pairs where:
+//   - Keys must be strings and must not start with a $
+//   - Values must be one of: string, integer, floating point, boolean, or list of strings
+//   - Nested JSON objects are not supported
+//   - Null values are not supported (remove keys instead)
+//
+// Example:
+//
+//	metadataMap := map[string]interface{}{
+//		"genre":        "classical",
+//		"year":         2020,
+//		"is_public":    true,
+//		"tags":         []string{"beginner", "database"},
+//	}
+//	metadata, err := pinecone.NewMetadata(metadataMap)
+//
+// [Metadata]: https://docs.pinecone.io/guides/data/filter-with-metadata#inserting-metadata-into-an-index
+func NewMetadata(m map[string]interface{}) (*Metadata, error) {
+	s, err := structpb.NewStruct(m)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
 // [Embedding] represents the embedding of a single input which is returned after [generating embeddings].
 // [Embedding] is a tagged union which can have either a [SparseEmbedding] or a [DenseEmbedding].
 //

@@ -1222,7 +1222,7 @@ type ConfigureIndexEmbed struct {
 //
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
 func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIndexParams) (*Index, error) {
-	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" && in.Tags == nil {
+	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" && in.Tags == nil && in.ReadCapacity == nil {
 		return nil, fmt.Errorf("must specify PodType, Replicas, DeletionProtection, or Tags when configuring an index")
 	}
 
@@ -2987,6 +2987,7 @@ func readCapacityRequestToReadCapacity(request *ReadCapacityRequest) (*db_contro
 
 	// Scaling if provided
 	if request.Dedicated.Scaling != nil && request.Dedicated.Scaling.Manual != nil {
+		dedicatedConfig.Scaling = "Manual"
 		dedicatedConfig.Manual = &db_control.ScalingConfigManual{
 			Replicas: request.Dedicated.Scaling.Manual.Replicas,
 			Shards:   request.Dedicated.Scaling.Manual.Shards,
