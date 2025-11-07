@@ -37,7 +37,14 @@ func RunSuites(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, adminClient, "AdminClient should not be nil after creation")
 
-	serverlessIdx := buildServerlessTestIndex(client, "serverless-"+generateTestIndexName(), indexTags)
+	// Create a test schema with filterable fields
+	testSchema := &MetadataSchema{
+		Fields: map[string]MetadataSchemaField{
+			"genre": {Filterable: true},
+			"year":  {Filterable: true},
+		},
+	}
+	serverlessIdx := buildServerlessTestIndex(client, "serverless-"+generateTestIndexName(), indexTags, testSchema, nil)
 	podIdx := buildPodTestIndex(client, "pods-"+generateTestIndexName(), indexTags)
 
 	podTestSuite := &integrationTests{
@@ -60,6 +67,7 @@ func RunSuites(t *testing.T) {
 		sourceTag: sourceTag,
 		idxName:   serverlessIdx.Name,
 		indexTags: &indexTags,
+		schema:    testSchema,
 	}
 
 	adminTestSuite := &adminIntegrationTests{

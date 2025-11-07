@@ -130,9 +130,42 @@ func (ts *integrationTests) TestCreateServerlessIndexInvalidDimension() {
 }
 
 func (ts *integrationTests) TestDescribeIndex() {
-	index, err := ts.client.DescribeIndex(context.Background(), ts.idxName)
+	ctx := context.Background()
+	index, err := ts.client.DescribeIndex(ctx, ts.idxName)
 	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), ts.idxName, index.Name, "Index name does not match")
+	require.NotNil(ts.T(), index)
+
+	// Assert index name
+	assert.Equal(ts.T(), ts.idxName, index.Name, "Index name should match")
+
+	// Assert index tags
+	if ts.indexTags != nil {
+		assert.Equal(ts.T(), ts.indexTags, index.Tags, "Index tags should match")
+	}
+
+	// Assert Schema for serverless indexes
+	if ts.indexType == "serverless" {
+		assert.NotNil(ts.T(), index.Spec, "Index.Spec should not be nil")
+		assert.NotNil(ts.T(), index.Spec.Serverless, "Index.Spec.Serverless should not be nil")
+		assert.NotNil(ts.T(), index.Spec.Serverless.Schema, "Schema should be set on the test index")
+
+		if ts.schema != nil {
+			expectedFields := ts.schema.Fields
+			actualFields := index.Spec.Serverless.Schema.Fields
+
+			// Assert field count matches
+			assert.Equal(ts.T(), len(expectedFields), len(actualFields), "Schema field count should match")
+
+			// Assert each field matches
+			for fieldName, expectedField := range expectedFields {
+				actualField, exists := actualFields[fieldName]
+				assert.True(ts.T(), exists, "Field %s should exist in schema", fieldName)
+				if exists {
+					assert.Equal(ts.T(), expectedField.Filterable, actualField.Filterable, "Field %s Filterable property should match", fieldName)
+				}
+			}
+		}
+	}
 }
 
 func (ts *integrationTests) TestDescribeNonExistentIndex() {
@@ -744,6 +777,160 @@ func (ts *integrationTests) TestIndexTags() {
 
 	assert.Equal(ts.T(), &updatedTags, index.Tags, "Expected index tags to match")
 	ts.indexTags = &updatedTags
+}
+
+func (ts *integrationTests) TestCreateServerlessIndexWithReadCapacity() {
+	if ts.indexType != "serverless" {
+		ts.T().Skip("ReadCapacity is only supported in serverless indexes")
+	}
+
+	ctx := context.Background()
+
+	// Test creating index with OnDemand ReadCapacity (default)
+	indexName1 := "test-readcapacity-ondemand-" + generateTestIndexName()
+	dimension := int32(setDimensionsForTestIndexes())
+	metric := Cosine
+
+	index1, err := ts.client.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
+		Name:      indexName1,
+		Dimension: &dimension,
+		Metric:    &metric,
+		Region:    "us-east-1",
+		Cloud:     "aws",
+		// ReadCapacity is nil, which should default to OnDemand
+	})
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), index1)
+
+	defer func(ts *integrationTests, name string) {
+		err := ts.deleteIndex(name)
+		require.NoError(ts.T(), err)
+	}(ts, indexName1)
+
+	// Verify OnDemand ReadCapacity is returned
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		describedIndex, err := ts.client.DescribeIndex(ctx, indexName1)
+		if err != nil {
+			return fmt.Errorf("DescribeIndex failed: %v", err)
+		}
+		assert.NotNil(ts.T(), describedIndex.Spec, "Index.Spec should not be nil")
+		assert.NotNil(ts.T(), describedIndex.Spec.Serverless, "Index.Spec.Serverless should not be nil")
+		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.ReadCapacity, "ReadCapacity should not be nil")
+		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.ReadCapacity.OnDemand, "ReadCapacity should be OnDemand by default")
+		return nil
+	})
+
+	// Test creating index with Dedicated ReadCapacity
+	indexName2 := "test-readcapacity-dedicated-" + generateTestIndexName()
+	readCapacity := &ReadCapacityRequest{
+		Dedicated: &ReadCapacityDedicatedConfig{
+			NodeType: "t1",
+			Scaling: &ReadCapacityScaling{
+				Manual: &ReadCapacityManualScaling{
+					Replicas: 1,
+					Shards:   1,
+				},
+			},
+		},
+	}
+
+	index2, err := ts.client.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
+		Name:         indexName2,
+		Dimension:    &dimension,
+		Metric:       &metric,
+		Region:       "us-east-1",
+		Cloud:        "aws",
+		ReadCapacity: readCapacity,
+	})
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), index2)
+
+	defer func(ts *integrationTests, name string) {
+		err := ts.deleteIndex(name)
+		require.NoError(ts.T(), err)
+	}(ts, indexName2)
+
+	// Verify Dedicated ReadCapacity is returned
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		describedIndex, err := ts.client.DescribeIndex(ctx, indexName2)
+		if err != nil {
+			return fmt.Errorf("DescribeIndex failed: %v", err)
+		}
+		assert.NotNil(ts.T(), describedIndex.Spec, "Index.Spec should not be nil")
+		assert.NotNil(ts.T(), describedIndex.Spec.Serverless, "Index.Spec.Serverless should not be nil")
+		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.ReadCapacity, "ReadCapacity should not be nil")
+		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.ReadCapacity.Dedicated, "ReadCapacity should be Dedicated")
+		assert.Equal(ts.T(), "t1", describedIndex.Spec.Serverless.ReadCapacity.Dedicated.NodeType, "NodeType should be t1")
+		return nil
+	})
+}
+
+func (ts *integrationTests) TestConfigureIndexReadCapacity() {
+	if ts.indexType != "serverless" {
+		ts.T().Skip("ReadCapacity is only supported in serverless indexes")
+	}
+
+	ctx := context.Background()
+
+	// Create a test index with OnDemand ReadCapacity
+	indexName := "test-configure-readcapacity-" + generateTestIndexName()
+	dimension := int32(setDimensionsForTestIndexes())
+	metric := Cosine
+
+	index, err := ts.client.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
+		Name:      indexName,
+		Dimension: &dimension,
+		Metric:    &metric,
+		Region:    "us-east-1",
+		Cloud:     "aws",
+	})
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), index)
+
+	defer func(ts *integrationTests, name string) {
+		err := ts.deleteIndex(name)
+		require.NoError(ts.T(), err)
+	}(ts, indexName)
+
+	// Wait for index to be ready
+	_, err = waitUntilIndexReady(ts, ctx)
+	require.NoError(ts.T(), err)
+
+	// Configure index to use Dedicated ReadCapacity
+	readCapacity := &ReadCapacityRequest{
+		Dedicated: &ReadCapacityDedicatedConfig{
+			NodeType: "t1",
+			Scaling: &ReadCapacityScaling{
+				Manual: &ReadCapacityManualScaling{
+					Replicas: 1,
+					Shards:   1,
+				},
+			},
+		},
+	}
+
+	configuredIndex, err := ts.client.ConfigureIndex(ctx, indexName, ConfigureIndexParams{
+		ReadCapacity: readCapacity,
+	})
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), configuredIndex)
+
+	// Verify ReadCapacity was updated
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		describedIndex, err := ts.client.DescribeIndex(ctx, indexName)
+		if err != nil {
+			return fmt.Errorf("DescribeIndex failed: %v", err)
+		}
+		assert.NotNil(ts.T(), describedIndex.Spec, "Index.Spec should not be nil")
+		assert.NotNil(ts.T(), describedIndex.Spec.Serverless, "Index.Spec.Serverless should not be nil")
+		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.ReadCapacity, "ReadCapacity should not be nil")
+		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.ReadCapacity.Dedicated, "ReadCapacity should be Dedicated after configuration")
+		assert.Equal(ts.T(), "t1", describedIndex.Spec.Serverless.ReadCapacity.Dedicated.NodeType, "NodeType should be t1")
+		// Check status - it may be Ready, Scaling, or Migrating
+		status := describedIndex.Spec.Serverless.ReadCapacity.Dedicated.Status.State
+		assert.Contains(ts.T(), []string{"Ready", "Scaling", "Migrating"}, status, "ReadCapacity status should be Ready, Scaling, or Migrating")
+		return nil
+	})
 }
 
 func (ts *integrationTests) TestListAndDescribeIndexBackups() {

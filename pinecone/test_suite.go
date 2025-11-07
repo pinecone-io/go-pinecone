@@ -27,6 +27,7 @@ type integrationTests struct {
 	collectionName string
 	sourceTag      string
 	indexTags      *IndexTags
+	schema         *MetadataSchema
 	namespaces     []string
 }
 
@@ -281,19 +282,21 @@ func generateVectorValues(dimension int32) *[]float32 {
 	return &values
 }
 
-func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags) *Index {
+func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags, schema *MetadataSchema, readCapacity *ReadCapacityRequest) *Index {
 	ctx := context.Background()
 	dimension := int32(setDimensionsForTestIndexes())
 	metric := Cosine
 
 	fmt.Printf("Creating Serverless index: %s\n", idxName)
 	serverlessIdx, err := in.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
-		Name:      idxName,
-		Dimension: &dimension,
-		Metric:    &metric,
-		Region:    "us-east-1",
-		Cloud:     "aws",
-		Tags:      &tags,
+		Name:         idxName,
+		Dimension:    &dimension,
+		Metric:       &metric,
+		Region:       "us-east-1",
+		Cloud:        "aws",
+		Tags:         &tags,
+		Schema:       schema,
+		ReadCapacity: readCapacity,
 	})
 	if err != nil {
 		log.Fatalf("Failed to create Serverless index \"%s\" in integration test: %v", err, idxName)

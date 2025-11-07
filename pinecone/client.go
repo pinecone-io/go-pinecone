@@ -2466,6 +2466,7 @@ func toIndex(idx *db_control.IndexModel) (*Index, error) {
 				Cloud:            Cloud(serverlessSpec.Serverless.Cloud),
 				Region:           serverlessSpec.Serverless.Region,
 				SourceCollection: serverlessSpec.Serverless.SourceCollection,
+				Schema:           toMetadataSchemaFromRest(serverlessSpec.Serverless.Schema),
 				ReadCapacity:     readCapacity,
 			}
 		}

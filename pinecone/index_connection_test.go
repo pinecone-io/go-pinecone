@@ -360,8 +360,13 @@ func (ts *integrationTests) TestIntegratedInference() {
 	}
 	indexName := "test-integrated-" + generateTestIndexName()
 
-	// create integrated index
+	// create integrated index with Schema
 	ctx := context.Background()
+	testSchema := &MetadataSchema{
+		Fields: map[string]MetadataSchemaField{
+			"category": {Filterable: true},
+		},
+	}
 	index, err := ts.client.CreateIndexForModel(ctx, &CreateIndexForModelRequest{
 		Name:   indexName,
 		Cloud:  "aws",
@@ -370,9 +375,23 @@ func (ts *integrationTests) TestIntegratedInference() {
 			Model:    "multilingual-e5-large",
 			FieldMap: map[string]interface{}{"text": "chunk_text"},
 		},
+		Schema: testSchema,
 	})
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), index)
+
+	// Verify Schema is returned when describing the index
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		describedIndex, err := ts.client.DescribeIndex(ctx, indexName)
+		if err != nil {
+			return fmt.Errorf("DescribeIndex failed: %v", err)
+		}
+		assert.NotNil(ts.T(), describedIndex.Spec, "Index.Spec should not be nil")
+		assert.NotNil(ts.T(), describedIndex.Spec.Serverless, "Index.Spec.Serverless should not be nil")
+		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.Schema, "Schema should not be nil in described index")
+		assert.Equal(ts.T(), len(testSchema.Fields), len(describedIndex.Spec.Serverless.Schema.Fields), "Schema fields count should match")
+		return nil
+	})
 
 	defer func(ts *integrationTests, name string) {
 		err := ts.deleteIndex(name)
@@ -464,23 +483,103 @@ func (ts *integrationTests) TestListNamespaces() {
 		ts.T().Skip("Namespace operations are only supported in serverless indexes")
 	}
 
+	ctx := context.Background()
+
+	// Get all namespaces to determine total count
+	allNamespaces, err := ts.idxConn.ListNamespaces(ctx, nil)
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), allNamespaces, "ListNamespaces response should not be nil")
+	expectedTotalCount := allNamespaces.TotalCount
+	require.Greater(ts.T(), expectedTotalCount, int32(0), "TotalCount should be greater than 0")
+
 	// List one namespace with limit
 	limit := uint32(1)
-	ctx := context.Background()
 	namespaces, err := ts.idxConn.ListNamespaces(ctx, &ListNamespacesParams{
 		Limit: &limit,
 	})
 	require.NoError(ts.T(), err)
 	require.NotNil(ts.T(), namespaces, "ListNamespaces response should not be nil")
 	require.Equal(ts.T(), limit, uint32(len(namespaces.Namespaces)))
+	require.Equal(ts.T(), expectedTotalCount, namespaces.TotalCount, "TotalCount should be consistent across paginated requests")
 
 	// List remaining
-	namespaces, err = ts.idxConn.ListNamespaces(ctx, &ListNamespacesParams{
-		PaginationToken: &namespaces.Pagination.Next,
+	if namespaces.Pagination != nil && namespaces.Pagination.Next != "" {
+		namespaces, err = ts.idxConn.ListNamespaces(ctx, &ListNamespacesParams{
+			PaginationToken: &namespaces.Pagination.Next,
+		})
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), namespaces, "ListNamespaces response should not be nil")
+		require.Greater(ts.T(), len(namespaces.Namespaces), 0, "ListNamespaces should return the second page of results")
+		require.Equal(ts.T(), expectedTotalCount, namespaces.TotalCount, "TotalCount should be consistent across paginated requests")
+	}
+}
+
+func (ts *integrationTests) TestCreateNamespace() {
+	if ts.indexType != "serverless" {
+		ts.T().Skip("Namespace operations are only supported in serverless indexes")
+	}
+
+	ctx := context.Background()
+
+	// Test creating namespace without Schema
+	namespaceName1 := "test-namespace-" + generateTestIndexName()
+	namespace1, err := ts.idxConn.CreateNamespace(ctx, &CreateNamespaceParams{
+		Name: namespaceName1,
 	})
-	require.NoError(ts.T(), err)
-	require.NotNil(ts.T(), namespaces, "ListNamespaces response should not be nil")
-	require.Greater(ts.T(), len(namespaces.Namespaces), 0, "ListNamespaces should return the second page of results")
+	require.NoError(ts.T(), err, "CreateNamespace should not return an error")
+	require.NotNil(ts.T(), namespace1, "Namespace description should not be nil")
+	require.Equal(ts.T(), namespaceName1, namespace1.Name, "Namespace name should match")
+
+	// Verify namespace can be described
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		namespaceDesc, err := ts.idxConn.DescribeNamespace(ctx, namespaceName1)
+		if err != nil {
+			return fmt.Errorf("DescribeNamespace failed: %v", err)
+		}
+		assert.NotNil(ts.T(), namespaceDesc, "Namespace description should not be nil")
+		assert.Equal(ts.T(), namespaceName1, namespaceDesc.Name, "Namespace name should match")
+		return nil
+	})
+
+	// Test creating namespace with Schema
+	namespaceName2 := "test-namespace-" + generateTestIndexName()
+	testSchema := &MetadataSchema{
+		Fields: map[string]MetadataSchemaField{
+			"category": {Filterable: true},
+			"rating":   {Filterable: true},
+		},
+	}
+	namespace2, err := ts.idxConn.CreateNamespace(ctx, &CreateNamespaceParams{
+		Name:   namespaceName2,
+		Schema: testSchema,
+	})
+	require.NoError(ts.T(), err, "CreateNamespace with Schema should not return an error")
+	require.NotNil(ts.T(), namespace2, "Namespace description should not be nil")
+	require.Equal(ts.T(), namespaceName2, namespace2.Name, "Namespace name should match")
+
+	// Verify namespace with schema can be described
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		namespaceDesc, err := ts.idxConn.DescribeNamespace(ctx, namespaceName2)
+		if err != nil {
+			return fmt.Errorf("DescribeNamespace failed: %v", err)
+		}
+		assert.NotNil(ts.T(), namespaceDesc, "Namespace description should not be nil")
+		assert.Equal(ts.T(), namespaceName2, namespaceDesc.Name, "Namespace name should match")
+		if namespaceDesc.Schema != nil {
+			assert.Equal(ts.T(), len(testSchema.Fields), len(namespaceDesc.Schema.Fields), "Schema fields count should match")
+		}
+		return nil
+	})
+
+	// Clean up created namespaces
+	err = ts.idxConn.DeleteNamespace(ctx, namespaceName1)
+	if err != nil {
+		fmt.Printf("Failed to delete namespace %s: %v\n", namespaceName1, err)
+	}
+	err = ts.idxConn.DeleteNamespace(ctx, namespaceName2)
+	if err != nil {
+		fmt.Printf("Failed to delete namespace %s: %v\n", namespaceName2, err)
+	}
 }
 
 func (ts *integrationTests) TestDeleteNamespace() {
