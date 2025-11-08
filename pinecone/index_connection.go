@@ -97,32 +97,27 @@ func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*In
 //	    ctx := context.Background()
 //
 //	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
+//			ApiKey:    "YOUR_API_KEY",
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection: %v", err)
+//			log.Fatalf("Failed to create IndexConnection: %v", err)
 //	    }
 //
 //	    err = idxConnection.Close()
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to close index connection. Error: %v", err)
+//			log.Fatalf("Failed to close index connection. Error: %v", err)
 //	    }
 func (idx *IndexConnection) Close() error {
 	err := idx.grpcConn.Close()
@@ -141,47 +136,48 @@ func (idx *IndexConnection) Namespace() string {
 //
 //	    ctx := context.Background()
 //		clientParams := pinecone.NewClientParams{
-//				ApiKey:    "YOUR_API_KEY",
-//				SourceTag: "your_source_identifier", // optional
+//			ApiKey:    "YOUR_API_KEY",
 //		}
+//
 //		pc, err := pinecone.NewClient(clientParams)
-//		if err != nil {
-//				log.Fatalf("Failed to create Client: %v", err)
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
 //		}
 //		idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //		if err != nil {
-//				log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //		}
 //
 //		idxConnNs1, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "namespace1"})
 //		if err != nil {
-//				log.Fatalf("Failed to create IndexConnection: %v", err)
+//			log.Fatalf("Failed to create IndexConnection: %v", err)
 //		}
 //
 //		metadataMap := map[string]interface{}{
-//				"genre": "classical",
+//			"genre": "classical",
 //		}
-//		metadata, err := structpb.NewStruct(metadataMap)
+//		metadata, err := pinecone.NewMetadata(metadataMap)
 //		if err != nil {
 //				log.Fatalf("Failed to create metadata map. Error: %v", err)
 //		}
+//
 //		values := []float32{1.0, 2.0}
 //		vectors := []*pinecone.Vector{
-//				{
-//					Id:       "abc-1",
-//					Values:   &values,
-//					Metadata: metadata,
-//				},
+//			{
+//				Id:       "abc-1",
+//				Values:   values,
+//				Metadata: metadata,
+//			},
 //		}
 //
 //		_, err = idxConnNs1.UpsertVectors(ctx, vectors)
 //		if err != nil {
-//				log.Fatalf("Failed to upsert vectors in %s. Error: %v", idxConnNs1.Namespace, err)
+//			log.Fatalf("Failed to upsert vectors in %s. Error: %v", idxConnNs1.Namespace, err)
 //		}
 //		idxConnNs2 := idxConnNs1.WithNamespace("namespace2")
 //		_, err = idxConnNs2.UpsertVectors(ctx, vectors)
 //		if err != nil {
-//				log.Fatalf("Failed to upsert vectors in %s. Error: %v", idxConnNs2.Namespace, err)
+//			log.Fatalf("Failed to upsert vectors in %s. Error: %v", idxConnNs2.Namespace, err)
 //		}
 func (idx *IndexConnection) WithNamespace(namespace string) *IndexConnection {
 	return &IndexConnection{
@@ -206,46 +202,45 @@ func (idx *IndexConnection) WithNamespace(namespace string) *IndexConnection {
 //
 //		ctx := context.Background()
 //		clientParams := pinecone.NewClientParams{
-//			   ApiKey:    "YOUR_API_KEY",
-//			   SourceTag: "your_source_identifier", // optional
+//			ApiKey:    "YOUR_API_KEY",
 //		}
 //
 //		pc, err := pinecone.NewClient(clientParams)
-//		if err != nil {
-//			   log.Fatalf("Failed to create Client: %v", err)
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
 //		}
 //
 //		idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //		if err != nil {
-//			   log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //		}
 //
 //		idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
 //		if err != nil {
-//			   log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //		}
 //
 //		metadataMap := map[string]interface{}{
-//			   "genre": "classical",
+//			"genre": "classical",
 //		}
 //		metadata, err := structpb.NewStruct(metadataMap)
 //		if err != nil {
-//			   log.Fatalf("Failed to create metadata map. Error: %v", err)
+//			log.Fatalf("Failed to create metadata map. Error: %v", err)
 //		}
 //	   	denseValues := []float32{1.0, 2.0}
 //
 //		sparseValues := pinecone.SparseValues{
-//			   Indices: []uint32{0, 1},
-//			   Values:  []float32{1.0, 2.0},
+//			Indices: []uint32{0, 1},
+//			Values:  []float32{1.0, 2.0},
 //		}
 //
 //		vectors := []*pinecone.Vector{
-//				{
-//			    	Id:           "abc-1",
-//				    Values:       &denseValues,
-//				    Metadata:     metadata,
-//				    SparseValues: &sparseValues,
-//			    },
+//			{
+//				Id:           "abc-1",
+//				Values:       &denseValues,
+//				Metadata:     metadata,
+//				SparseValues: &sparseValues,
+//			},
 //		}
 //
 //		count, err := idxConnection.UpsertVectors(ctx, vectors)
@@ -302,37 +297,33 @@ type UpdateVectorRequest struct {
 //	    ctx := context.Background()
 //
 //	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
+//			ApiKey:    "YOUR_API_KEY",
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	    }
 //
 //	    id := "abc-1"
 //
 //	    err = idxConnection.UpdateVector(ctx, &pinecone.UpdateVectorRequest{
-//		       Id:     id,
-//		       Values: []float32{7.0, 8.0},
+//			Id:     id,
+//			Values: []float32{7.0, 8.0},
 //	    })
 //
 //	    if err != nil {
-//		       log.Fatalf("Failed to update vector with ID %s. Error: %s", id, err)
+//			log.Fatalf("Failed to update vector with ID %s. Error: %s", id, err)
 //	    }
 func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRequest) error {
 	hasId := in.Id != ""
@@ -398,57 +389,53 @@ type UpdateVectorsByMetadataResponse struct {
 //	    ctx := context.Background()
 //
 //	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
+//			ApiKey:    "YOUR_API_KEY",
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	    }
 //
 //	    filterMap := map[string]interface{}{
-//		       "genre": map[string]interface{}{
-//			          "$eq": "rock",
-//		       },
+//			"genre": map[string]interface{}{
+//				"$eq": "rock",
+//		    },
 //	    }
 //
 //	    filter, err := pinecone.NewMetadataFilter(filterMap)
 //	    if err != nil {
-//		       log.Fatalf("Failed to create metadata filter. Error: %v", err)
+//			log.Fatalf("Failed to create metadata filter. Error: %v", err)
 //	    }
 //
 //	    metadataMap := map[string]interface{}{
-//		       "genre":   "rock",
-//		       "year":    2021,
-//		       "updated": true,
+//			"genre":   "rock",
+//			"year":    2021,
+//			"updated": true,
 //	    }
 //
 //	    metadata, err := pinecone.NewMetadata(metadataMap)
 //	    if err != nil {
-//		       log.Fatalf("Failed to create metadata. Error: %v", err)
+//			log.Fatalf("Failed to create metadata. Error: %v", err)
 //	    }
 //
 //	    res, err := idxConnection.UpdateVectorsByMetadata(ctx, &pinecone.UpdateVectorsByMetadataRequest{
-//		       Filter:   filter,
-//		       Metadata: metadata,
+//			Filter:   filter,
+//			Metadata: metadata,
 //	    })
 //
 //	    if err != nil {
-//		       log.Fatalf("Failed to update vectors by metadata. Error: %s", err)
+//			log.Fatalf("Failed to update vectors by metadata. Error: %s", err)
 //	    }
 //
 //	    fmt.Printf("Updated %d vector(s)\n", res.MatchedRecords)
@@ -514,38 +501,33 @@ type FetchVectorsResponse struct {
 //	    ctx := context.Background()
 //
 //	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
+//			ApiKey:    "YOUR_API_KEY",
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	    }
 //
 //	    res, err := idxConnection.FetchVectors(ctx, []string{"abc-1"})
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to fetch vectors, error: %+v", err)
+//			log.Fatalf("Failed to fetch vectors, error: %+v", err)
 //	    }
 //
 //	    if len(res.Vectors) != 0 {
-//		       fmt.Println(res)
+//			fmt.Println(res)
 //	    } else {
-//		       fmt.Println("No vectors found")
+//			fmt.Println("No vectors found")
 //	    }
 func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*FetchVectorsResponse, error) {
 	req := &db_data_grpc.FetchRequest{
@@ -613,53 +595,49 @@ type FetchVectorsByMetadataResponse struct {
 //	    ctx := context.Background()
 //
 //	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
+//			ApiKey:    "YOUR_API_KEY",
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	    }
 //
 //	    limit := uint32(10)
 //
 //	    metadataMap := map[string]interface{}{
-//		       "genre": map[string]interface{}{
-//			          "$eq": "action",
-//		       },
+//			"genre": map[string]interface{}{
+//				"$eq": "action",
+//			},
 //	    }
 //
 //	    filter, err := structpb.NewStruct(metadataMap)
 //	    if err != nil {
-//		       log.Fatalf("Failed to create metadata filter. Error: %v", err)
+//			log.Fatalf("Failed to create metadata filter. Error: %v", err)
 //	    }
 //
 //	    res, err := idxConnection.FetchVectorsByMetadata(ctx, &pinecone.FetchVectorsByMetadataRequest{
-//		       Filter: filter,
-//		       Limit:  &limit,
+//			Filter: filter,
+//			Limit:  &limit,
 //	    })
 //	    if err != nil {
-//		       log.Fatalf("Failed to fetch vectors by metadata, error: %+v", err)
+//			log.Fatalf("Failed to fetch vectors by metadata, error: %+v", err)
 //	    }
 //
 //	    if len(res.Vectors) != 0 {
-//		       fmt.Printf("Found %d vector(s)\n", len(res.Vectors))
+//			fmt.Printf("Found %d vector(s)\n", len(res.Vectors))
 //	    } else {
-//		       fmt.Println("No vectors found")
+//			fmt.Println("No vectors found")
 //	    }
 func (idx *IndexConnection) FetchVectorsByMetadata(ctx context.Context, in *FetchVectorsByMetadataRequest) (*FetchVectorsByMetadataResponse, error) {
 	if in == nil {
@@ -752,44 +730,42 @@ type ListVectorsResponse struct {
 //	    ctx := context.Background()
 //
 //	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
+//			ApiKey:    "YOUR_API_KEY",
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
 //
 //	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	    }
 //
 //	    prefix := "abc"
 //	    limit := uint32(10)
 //
 //	    res, err := idxConnection.ListVectors(ctx, &pinecone.ListVectorsRequest{
-//		       Prefix: &prefix,
-//		       Limit:  &limit,
+//			Prefix: &prefix,
+//			Limit:  &limit,
 //	    })
 //
 //	    if err != nil {
-//		       log.Fatalf("Failed to list vectors in index: %s. Error: %s\n", idx.Name, err)
+//			log.Fatalf("Failed to list vectors in index: %s. Error: %s\n", idx.Name, err)
 //	    }
 //
 //	    if len(res.VectorIds) == 0 {
-//		       fmt.Println("No vectors found")
+//			fmt.Println("No vectors found")
 //	    } else {
-//		       fmt.Printf("Found %d vector(s)\n", len(res.VectorIds))
+//			fmt.Printf("Found %d vector(s)\n", len(res.VectorIds))
 //	    }
 func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequest) (*ListVectorsResponse, error) {
 	req := &db_data_grpc.ListRequest{
@@ -863,61 +839,55 @@ type QueryVectorsResponse struct {
 //	    ctx := context.Background()
 //
 //	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
+//			ApiKey:    "YOUR_API_KEY",
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	    }
 //
 //	    queryVector := []float32{1.0, 2.0}
 //	    topK := uint32(10)
 //
 //	    metadataMap := map[string]interface{}{
-//		       "genre": "classical",
+//			"genre": "classical",
 //	    }
 //
-//	    MetadataFilter, err := structpb.NewStruct(metadataMap)
-//
+//	    MetadataFilter, err := pinecone.NewMetadataFilter(metadataMap)
 //	    if err != nil {
-//		       log.Fatalf("Failed to create metadata map. Error: %v", err)
+//			log.Fatalf("Failed to create metadata map. Error: %v", err)
 //	    }
 //
 //	    sparseValues := pinecone.SparseValues{
-//		       Indices: []uint32{0, 1},
-//		       Values:  []float32{1.0, 2.0},
+//			Indices: []uint32{0, 1},
+//			Values:  []float32{1.0, 2.0},
 //	    }
 //
 //	    res, err := idxConnection.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
-//		       Vector:          queryVector,
-//		       TopK:            topK, // number of vectors to be returned
-//		       MetadataFilter:          MetadataFilter,
-//		       SparseValues:    &sparseValues,
-//		       IncludeValues:   true,
-//		       IncludeMetadata: true,
+//			Vector:          queryVector,
+//			TopK:            topK, // number of vectors to be returned
+//			MetadataFilter:          MetadataFilter,
+//			SparseValues:    &sparseValues,
+//			IncludeValues:   true,
+//			IncludeMetadata: true,
 //	    })
-//
 //	    if err != nil {
-//		       log.Fatalf("Error encountered when querying by vector: %v", err)
+//			log.Fatalf("Error encountered when querying by vector: %v", err)
 //	    } else {
-//		       for _, match := range res.Matches {
-//			       fmt.Printf("Match vector `%s`, with score %f\n", match.Vector.Id, match.Score)
-//		       }
+//			for _, match := range res.Matches {
+//				fmt.Printf("Match vector `%s`, with score %f\n", match.Vector.Id, match.Score)
+//			}
 //	    }
 func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryByVectorValuesRequest) (*QueryVectorsResponse, error) {
 	req := &db_data_grpc.QueryRequest{
@@ -969,44 +939,40 @@ type QueryByVectorIdRequest struct {
 //	    ctx := context.Background()
 //
 //	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
+//			ApiKey:    "YOUR_API_KEY",
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	    }
 //
 //	    vectorId := "abc-1"
 //	    topK := uint32(10)
 //
 //	    res, err := idxConnection.QueryByVectorId(ctx, &pinecone.QueryByVectorIdRequest{
-//		       VectorId:        vectorId,
-//		       TopK:            topK, // number of vectors you want returned
-//		       IncludeValues:   true,
-//		       IncludeMetadata: true,
+//			VectorId:        vectorId,
+//			TopK:            topK, // number of vectors you want returned
+//			IncludeValues:   true,
+//			IncludeMetadata: true,
 //	    })
 //
 //	    if err != nil {
-//		       log.Fatalf("Error encountered when querying by vector ID `%s`. Error: %s", vectorId, err)
+//			log.Fatalf("Error encountered when querying by vector ID `%s`. Error: %s", vectorId, err)
 //	    } else {
-//		       for _, match := range res.Matches {
-//			       fmt.Printf("Match vector with ID `%s`, with score %f\n", match.Vector.Id, match.Score)
-//		       }
+//			for _, match := range res.Matches {
+//				fmt.Printf("Match vector with ID `%s`, with score %f\n", match.Vector.Id, match.Score)
+//			}
 //	    }
 func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVectorIdRequest) (*QueryVectorsResponse, error) {
 	req := &db_data_grpc.QueryRequest{
@@ -1033,76 +999,76 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 //
 // Example:
 //
-//	     ctx := context.Background()
+//	    ctx := context.Background()
 //
-//	     clientParams := pinecone.NewClientParams{
-//		     ApiKey:    "YOUR_API_KEY",
-//		     SourceTag: "your_source_identifier", // optional
-//	     }
+//	    clientParams := pinecone.NewClientParams{
+//			ApiKey:    "YOUR_API_KEY",
+//	    }
 //
-//	     pc, err := pinecone.NewClient(clientParams)
+//	    pc, err := pinecone.NewClient(clientParams)
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
-//	     if err != nil {
-//		     log.Fatalf("Failed to create Client: %v", err)
-//	     }
+//	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	    if err != nil {
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	    }
 //
-//	     idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "my-namespace"})
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err))
+//	    }
 //
-//	     if err != nil {
-//		     log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//	     }
+//	    records := []*pinecone.IntegratedRecord{
+//			{
+//				"_id":        "rec1",
+//				"chunk_text": "Apple's first product, the Apple I, was released in 1976 and was hand-built by co-founder Steve Wozniak.",
+//				"category":   "product",
+//			},
+//			{
+//				"_id":        "rec2",
+//				"chunk_text": "Apples are a great source of dietary fiber, which supports digestion and helps maintain a healthy gut.",
+//				"category":   "nutrition",
+//			},
+//			{
+//				"_id":        "rec3",
+//				"chunk_text": "Apples originated in Central Asia and have been cultivated for thousands of years, with over 7,500 varieties available today.",
+//				"category":   "cultivation",
+//			},
+//			{
+//				"_id":        "rec4",
+//				"chunk_text": "In 2001, Apple released the iPod, which transformed the music industry by making portable music widely accessible.",
+//				"category":   "product",
+//			},
+//			{
+//				"_id":        "rec5",
+//				"chunk_text": "Apple went public in 1980, making history with one of the largest IPOs at that time.",
+//				"category":   "milestone",
+//			},
+//			{
+//				"_id":        "rec6",
+//				"chunk_text": "Rich in vitamin C and other antioxidants, apples contribute to immune health and may reduce the risk of chronic diseases.",
+//				"category":   "nutrition",
+//			},
+//			{
+//				"_id":        "rec7",
+//				"chunk_text": "Known for its design-forward products, Apple's branding and market strategy have greatly influenced the technology sector and popularized minimalist design worldwide.",
+//				"category":   "influence",
+//			},
+//			{
+//				"_id":        "rec8",
+//				"chunk_text": "The high fiber content in apples can also help regulate blood sugar levels, making them a favorable snack for people with diabetes.",
+//				"category":   "nutrition",
+//			},
+//	    }
 //
-//	     idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "my-namespace"})
-//
-//	     records := []*IntegratedRecord{
-//		     {
-//			     "_id":        "rec1",
-//			     "chunk_text": "Apple's first product, the Apple I, was released in 1976 and was hand-built by co-founder Steve Wozniak.",
-//			     "category":   "product",
-//		     },
-//		     {
-//			     "_id":        "rec2",
-//			     "chunk_text": "Apples are a great source of dietary fiber, which supports digestion and helps maintain a healthy gut.",
-//			     "category":   "nutrition",
-//		     },
-//		     {
-//			     "_id":        "rec3",
-//			     "chunk_text": "Apples originated in Central Asia and have been cultivated for thousands of years, with over 7,500 varieties available today.",
-//			     "category":   "cultivation",
-//		     },
-//		     {
-//			     "_id":        "rec4",
-//			     "chunk_text": "In 2001, Apple released the iPod, which transformed the music industry by making portable music widely accessible.",
-//			     "category":   "product",
-//		     },
-//		     {
-//			     "_id":        "rec5",
-//			     "chunk_text": "Apple went public in 1980, making history with one of the largest IPOs at that time.",
-//			     "category":   "milestone",
-//		     },
-//		     {
-//			     "_id":        "rec6",
-//			     "chunk_text": "Rich in vitamin C and other antioxidants, apples contribute to immune health and may reduce the risk of chronic diseases.",
-//			     "category":   "nutrition",
-//		     },
-//		     {
-//			     "_id":        "rec7",
-//			     "chunk_text": "Known for its design-forward products, Apple's branding and market strategy have greatly influenced the technology sector and popularized minimalist design worldwide.",
-//			     "category":   "influence",
-//		     },
-//		     {
-//			     "_id":        "rec8",
-//			     "chunk_text": "The high fiber content in apples can also help regulate blood sugar levels, making them a favorable snack for people with diabetes.",
-//			     "category":   "nutrition",
-//		     },
-//	     }
-//
-//	     err = idxConnection.UpsertRecords(ctx, &records)
-//	     if err != nil {
-//		     log.Fatalf("Failed to upsert vectors. Error: %v", err)
-//	     } else {
-//		     log.Fatalf("Successfully upserted %d vector(s)!\n", count)
-//	     }
+//	    err = idxConnection.UpsertRecords(ctx, &records)
+//	    if err != nil {
+//			log.Fatalf("Failed to upsert vectors. Error: %v", err)
+//	    } else {
+//			log.Fatalf("Successfully upserted %d vector(s)!\n", count)
+//	    }
 //
 // [Pinecone Index]: https://docs.pinecone.io/reference/api/2025-01/control-plane/create_for_model
 func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*IntegratedRecord) error {
@@ -1130,99 +1096,86 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 	return nil
 }
 
-// [IndexConnection.SearchRecords] converts a query to a vector embedding and then searches a namespace in an integrated index.
-// You can optionally provide a reranking operation as part of the search.
-//
-// Parameters:
-//   - ctx: A context.Context object controls the request's lifetime,
-//     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - in: The [IntegratedRecord] objects to upsert.
-//
-// Returns an error if the request fails.
-//
 // Example:
 //
-//		   ctx := context.Background()
+//	    ctx := context.Background()
 //
-//		   clientParams := pinecone.NewClientParams{
-//			   ApiKey:    "YOUR_API_KEY",
-//			   SourceTag: "your_source_identifier", // optional
-//		   }
+//	    clientParams := pinecone.NewClientParams{
+//			ApiKey:    "YOUR_API_KEY",
+//	    }
 //
-//		   pc, err := pinecone.NewClient(clientParams)
+//	    pc, err := pinecone.NewClient(clientParams)
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
-//		   if err != nil {
-//			   log.Fatalf("Failed to create Client: %v", err)
-//		   }
+//	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	    if err != nil {
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//		}
 //
-//		   idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "my-namespace"})
 //
-//		   if err != nil {
-//			   log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//		   }
+//	    records := []*IntegratedRecord{
+//			{
+//				"_id":        "rec1",
+//				"chunk_text": "Apple's first product, the Apple I, was released in 1976 and was hand-built by co-founder Steve Wozniak.",
+//				"category":   "product",
+//			},
+//			{
+//				"_id":        "rec2",
+//				"chunk_text": "Apples are a great source of dietary fiber, which supports digestion and helps maintain a healthy gut.",
+//				"category":   "nutrition",
+//			},
+//			{
+//				"_id":        "rec3",
+//				"chunk_text": "Apples originated in Central Asia and have been cultivated for thousands of years, with over 7,500 varieties available today.",
+//				"category":   "cultivation",
+//			},
+//			{
+//				"_id":        "rec4",
+//				"chunk_text": "In 2001, Apple released the iPod, which transformed the music industry by making portable music widely accessible.",
+//				"category":   "product",
+//			},
+//			{
+//				"_id":        "rec5",
+//				"chunk_text": "Apple went public in 1980, making history with one of the largest IPOs at that time.",
+//				"category":   "milestone",
+//			},
+//			{
+//				"_id":        "rec6",
+//				"chunk_text": "Rich in vitamin C and other antioxidants, apples contribute to immune health and may reduce the risk of chronic diseases.",
+//				"category":   "nutrition",
+//			},
+//			{
+//				"_id":        "rec7",
+//				"chunk_text": "Known for its design-forward products, Apple's branding and market strategy have greatly influenced the technology sector and popularized minimalist design worldwide.",
+//				"category":   "influence",
+//			},
+//			{
+//				"_id":        "rec8",
+//				"chunk_text": "The high fiber content in apples can also help regulate blood sugar levels, making them a favorable snack for people with diabetes.",
+//				"category":   "nutrition",
+//			},
+//	    }
 //
-//		   idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "my-namespace"})
+//	    err = idxConnection.UpsertRecords(ctx, records)
+//	    if err != nil {
+//			log.Fatalf("Failed to upsert vectors. Error: %v", err)
+//	    }
 //
-//		   records := []*IntegratedRecord{
-//			     {
-//				     "_id":        "rec1",
-//				     "chunk_text": "Apple's first product, the Apple I, was released in 1976 and was hand-built by co-founder Steve Wozniak.",
-//				     "category":   "product",
-//			     },
-//			     {
-//				     "_id":        "rec2",
-//				     "chunk_text": "Apples are a great source of dietary fiber, which supports digestion and helps maintain a healthy gut.",
-//				     "category":   "nutrition",
-//			     },
-//			     {
-//				     "_id":        "rec3",
-//				     "chunk_text": "Apples originated in Central Asia and have been cultivated for thousands of years, with over 7,500 varieties available today.",
-//				     "category":   "cultivation",
-//			     },
-//			     {
-//				     "_id":        "rec4",
-//				     "chunk_text": "In 2001, Apple released the iPod, which transformed the music industry by making portable music widely accessible.",
-//				     "category":   "product",
-//			     },
-//			     {
-//				     "_id":        "rec5",
-//				     "chunk_text": "Apple went public in 1980, making history with one of the largest IPOs at that time.",
-//				     "category":   "milestone",
-//			     },
-//			     {
-//				     "_id":        "rec6",
-//				     "chunk_text": "Rich in vitamin C and other antioxidants, apples contribute to immune health and may reduce the risk of chronic diseases.",
-//				     "category":   "nutrition",
-//			     },
-//			     {
-//				     "_id":        "rec7",
-//				     "chunk_text": "Known for its design-forward products, Apple's branding and market strategy have greatly influenced the technology sector and popularized minimalist design worldwide.",
-//				     "category":   "influence",
-//			     },
-//			     {
-//				     "_id":        "rec8",
-//				     "chunk_text": "The high fiber content in apples can also help regulate blood sugar levels, making them a favorable snack for people with diabetes.",
-//				     "category":   "nutrition",
-//			     },
-//		     }
-//
-//	      err = idxConnection.UpsertRecords(ctx, records)
-//	      if err != nil {
-//		         log.Fatalf("Failed to upsert vectors. Error: %v", err)
-//	      }
-//
-//	      res, err := idxConnection.SearchRecords(ctx, &SearchRecordsRequest{
-//		         Query: SearchRecordsQuery{
-//			         TopK: 5,
-//			         Inputs: &map[string]interface{}{
-//			 	         "text": "Disease prevention",
-//			         },
-//		         },
-//	      })
-//	      if err != nil {
-//		         log.Fatalf("Failed to search records: %v", err)
-//	      }
-//	      fmt.Printf("Search results: %+v\n", res)
+//	    res, err := idxConnection.SearchRecords(ctx, &SearchRecordsRequest{
+//			Query: SearchRecordsQuery{
+//				TopK: 5,
+//				Inputs: &map[string]interface{}{
+//					"text": "Disease prevention",
+//				},
+//			},
+//	    })
+//	    if err != nil {
+//			log.Fatalf("Failed to search records: %v", err)
+//	    }
+//	    fmt.Printf("Search results: %+v\n", res)
 //
 // [Pinecone Index]: https://docs.pinecone.io/reference/api/2025-01/control-plane/create_for_model
 func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecordsRequest) (*SearchRecordsResponse, error) {
@@ -1293,33 +1246,28 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 //	    ctx := context.Background()
 //
 //	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
+//			ApiKey:    "YOUR_API_KEY",
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "custom-namespace"})
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	    }
 //
 //	    vectorId := "your-vector-id"
 //	    err = idxConnection.DeleteVectorsById(ctx, []string{vectorId})
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to delete vector with ID: %s. Error: %s\n", vectorId, err)
+//			log.Fatalf("Failed to delete vector with ID: %s. Error: %s\n", vectorId, err)
 //	    }
 func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string) error {
 	req := db_data_grpc.DeleteRequest{
@@ -1348,42 +1296,36 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 //	    ctx := context.Background()
 //
 //	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
+//			ApiKey:    "YOUR_API_KEY",
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//
 //	    if err != nil {
-//		        log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//			panic(fmt.Errorf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err))
 //	    }
 //
 //	    MetadataFilter := map[string]interface{}{
-//		       "genre": "classical",
+//			"genre": "classical",
 //	    }
 //
-//	    filter, err := structpb.NewStruct(MetadataFilter)
-//
+//	    filter, err := pinecone.NewMetadataFilter(MetadataFilter)
 //	    if err != nil {
-//		       log.Fatalf("Failed to create metadata filter. Error: %v", err)
+//			log.Fatalf("Failed to create metadata filter. Error: %v", err)
 //	    }
 //
 //	    err = idxConnection.DeleteVectorsByFilter(ctx, filter)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to delete vector(s) with filter: %+v. Error: %s\n", filter, err)
+//			log.Fatalf("Failed to delete vector(s) with filter: %+v. Error: %s\n", filter, err)
 //	    }
 func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, metadataFilter *MetadataFilter) error {
 	req := db_data_grpc.DeleteRequest{
@@ -1410,32 +1352,27 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, metadataF
 //	    ctx := context.Background()
 //
 //	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
+//			ApiKey:    "YOUR_API_KEY",
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "your-namespace"})
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//			panic(fmt.Errorf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err))
 //	    }
 //
 //	    err = idxConnection.DeleteAllVectorsInNamespace(ctx)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to delete vectors in namespace: \"%s\". Error: %s", "your-namespace", err)
+//			log.Fatalf("Failed to delete vectors in namespace: \"%s\". Error: %s", "your-namespace", err)
 //	    }
 func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx context.Context) error {
 	req := db_data_grpc.DeleteRequest{
@@ -1473,34 +1410,29 @@ type DescribeIndexStatsResponse struct {
 //	    ctx := context.Background()
 //
 //	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
+//			ApiKey:    "YOUR_API_KEY",
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index:", err)
+//			log.Fatalf("Failed to describe index:", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//			panic(fmt.Errorf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err))
 //	    }
 //
 //	    res, err := idxConnection.DescribeIndexStats(ctx)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error: %s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error: %s", idx.Name, err)
 //	    } else {
-//		       log.Fatalf("%+v", *res)
+//			log.Fatalf("%+v", *res)
 //	    }
 func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIndexStatsResponse, error) {
 	return idx.DescribeIndexStatsFiltered(ctx, nil)
@@ -1522,46 +1454,40 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 //	    ctx := context.Background()
 //
 //	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
+//			ApiKey:    "YOUR_API_KEY",
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//			panic(fmt.Errorf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err))
 //	    }
 //
 //	    MetadataFilter := map[string]interface{}{
-//		       "genre": "classical",
+//			"genre": "classical",
 //	    }
 //
-//	    filter, err := structpb.NewStruct(MetadataFilter)
-//
+//	    filter, err := pinecone.NewMetadataFilter1(MetadataFilter)
 //	    if err != nil {
-//		       log.Fatalf("Failed to create filter %+v. Error: %s", MetadataFilter, err)
+//			log.Fatalf("Failed to create filter %+v. Error: %s", MetadataFilter, err)
 //	    }
 //
 //	    res, err := idxConnection.DescribeIndexStatsFiltered(ctx, filter)
-//
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error: %s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error: %s", idx.Name, err)
 //	    } else {
-//		       for name, summary := range res.Namespaces {
-//			       fmt.Printf("Namespace: \"%s\", has %d vector(s) that match the given filter\n", name, summary.VectorCount)
-//		       }
+//			for name, summary := range res.Namespaces {
+//				fmt.Printf("Namespace: \"%s\", has %d vector(s) that match the given filter\n", name, summary.VectorCount)
+//			}
 //	    }
 func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, metadataFilter *MetadataFilter) (*DescribeIndexStatsResponse, error) {
 	req := &db_data_grpc.DescribeIndexStatsRequest{
@@ -1614,35 +1540,34 @@ type StartImportResponse struct {
 //
 // Example:
 //
-//		 ctx := context.Background()
+//	    ctx := context.Background()
 //
-//		 clientParams := pinecone.NewClientParams{
-//		     ApiKey:    "YOUR_API_KEY",
-//			 SourceTag: "your_source_identifier", // optional
-//	     }
+//	    clientParams := pinecone.NewClientParams{
+//			ApiKey:    "YOUR_API_KEY",
+//	    }
 //
-//	     pc, err := pinecone.NewClient(clientParams)
-//	     if err != nil {
-//		     log.Fatalf("Failed to create Client: %v", err)
-//	     }
+//	    pc, err := pinecone.NewClient(clientParams)
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
-//	     idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//	     if err != nil {
-//		     log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//	     }
+//	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	    if err != nil {
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	    }
 //
-//	     idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-//	     if err != nil {
-//		     log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	     }
+//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
+//	    if err != nil {
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	    }
 //
-//	     uri := "s3://BUCKET_NAME/PATH/TO/DIR"
-//	     errorMode := "continue" // or "abort"
-//	     importRes, err := idxConnection.StartImport(ctx, uri, nil, (*pinecone.ImportErrorMode)(&errorMode))
-//	     if err != nil {
-//	         log.Fatalf("Failed to start import: %v", err)
-//	     }
-//	     fmt.Printf("Import started with ID: %s", importRes.Id)
+//	    uri := "s3://BUCKET_NAME/PATH/TO/DIR"
+//	    errorMode := "continue" // or "abort"
+//	    importRes, err := idxConnection.StartImport(ctx, uri, nil, (*pinecone.ImportErrorMode)(&errorMode))
+//	    if err != nil {
+//			log.Fatalf("Failed to start import: %v", err)
+//	    }
+//	    fmt.Printf("Import started with ID: %s", importRes.Id)
 //
 // [storage integration]: https://docs.pinecone.io/guides/operations/integrations/manage-storage-integrations
 func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integrationId *string, errorMode *string) (*StartImportResponse, error) {
@@ -1689,27 +1614,26 @@ func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integra
 //	    ctx := context.Background()
 //
 //	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
+//			ApiKey:    "YOUR_API_KEY",
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
 //	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
 //	    if err != nil {
-//		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	    }
 //	    importDesc, err := idxConnection.DescribeImport(ctx, "your-import-id")
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe import: %s - %v", "your-import-id", err)
+//			log.Fatalf("Failed to describe import: %s - %v", "your-import-id", err)
 //	    }
 //	    fmt.Printf("Import ID: %s, Status: %s", importDesc.Id, importDesc.Status)
 func (idx *IndexConnection) DescribeImport(ctx context.Context, id string) (*Import, error) {
@@ -1758,41 +1682,40 @@ type ListImportsResponse struct {
 //
 // Example:
 //
-//	     ctx := context.Background()
+//	    ctx := context.Background()
 //
-//	     clientParams := NewClientParams{
-//		     ApiKey:    "YOUR_API_KEY",
-//		     SourceTag: "your_source_identifier", // optional
-//	     }
+//	    clientParams := pinecone.NewClientParams{
+//			ApiKey:    "YOUR_API_KEY",
+//	    }
 //
-//	     pc, err := NewClient(clientParams)
-//	     if err != nil {
-//		     log.Fatalf("Failed to create Client: %v", err)
-//	     }
+//	    pc, err := pinecone.NewClient(clientParams)
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
-//	     idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//	     if err != nil {
-//		     log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//	     }
+//	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	    if err != nil {
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	    }
 //
-//	     idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
-//	     if err != nil {
-//		     log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//	     }
+//	    idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
+//	    if err != nil {
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	    }
 //
-//	     limit := int32(10)
-//	     firstImportPage, err := idxConnection.ListImports(ctx, &limit, nil)
-//	     if err != nil {
-//		     log.Fatalf("Failed to list imports: %v", err)
-//	     }
-//	     fmt.Printf("First page of imports: %+v", firstImportPage.Imports)
+//	    limit := int32(10)
+//	    firstImportPage, err := idxConnection.ListImports(ctx, &limit, nil)
+//	    if err != nil {
+//			log.Fatalf("Failed to list imports: %v", err)
+//	    }
+//	    fmt.Printf("First page of imports: %+v", firstImportPage.Imports)
 //
-//	     paginationToken := firstImportPage.NextPaginationToken
-//	     nextImportPage, err := idxConnection.ListImports(ctx, &limit, paginationToken)
-//	     if err != nil {
-//		     log.Fatalf("Failed to list imports: %v", err)
-//	     }
-//	     fmt.Printf("Second page of imports: %+v", nextImportPage.Imports)
+//	    paginationToken := firstImportPage.NextPaginationToken
+//	    nextImportPage, err := idxConnection.ListImports(ctx, &limit, paginationToken)
+//	    if err != nil {
+//			log.Fatalf("Failed to list imports: %v", err)
+//	    }
+//	    fmt.Printf("Second page of imports: %+v", nextImportPage.Imports)
 func (idx *IndexConnection) ListImports(ctx context.Context, limit *int32, paginationToken *string) (*ListImportsResponse, error) {
 	params := db_data_rest.ListBulkImportsParams{
 		Limit:           limit,
@@ -1823,31 +1746,30 @@ func (idx *IndexConnection) ListImports(ctx context.Context, limit *int32, pagin
 //
 // Example:
 //
-//		ctx := context.Background()
+//	    ctx := context.Background()
 //
-//		clientParams := NewClientParams{
-//	        ApiKey:    "YOUR_API_KEY",
-//			SourceTag: "your_source_identifier", // optional
+//	    clientParams := pinecone.NewClientParams{
+//			ApiKey:    "YOUR_API_KEY",
+//	    }
+//
+//	    pc, err := pinecone.NewClient(clientParams)
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
 //		}
 //
-//		pc, err := NewClient(clientParams)
-//		if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
+//	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	    if err != nil {
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //		}
 //
-//		idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//		if err != nil {
-//			 log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
-//		}
-//
-//		idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
-//		if err != nil {
-//	         log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
+//	    idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
+//	    if err != nil {
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //		}
 //
 //	    err = idxConnection.CancelImport(ctx, "your-import-id")
 //	    if err != nil {
-//	         log.Fatalf("Failed to cancel import: %s", "your-import-id")
+//			log.Fatalf("Failed to cancel import: %s", "your-import-id")
 //	    }
 func (idx *IndexConnection) CancelImport(ctx context.Context, id string) error {
 	res, err := (*idx.restClient).CancelBulkImport(idx.akCtx(ctx), id, &db_data_rest.CancelBulkImportParams{XPineconeApiVersion: gen.PineconeApiVersion})
@@ -1887,13 +1809,13 @@ type CreateNamespaceParams struct {
 //
 //	    ctx := context.Background()
 //
-//		clientParams := pinecone.NewClientParams{
-//		    ApiKey:    "YOUR_API_KEY",
+//	    clientParams := pinecone.NewClientParams{
+//			ApiKey:    "YOUR_API_KEY",
 //	    }
 //
-//		pc, err := pinecone.NewClient(clientParams)
-//		if err != nil {
-//		    log.Fatalf("Failed to create Client: %v", err)
+//	    pc, err := pinecone.NewClient(clientParams)
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
 //		}
 //
 //		idxConnection, err := pc.Index(pinecone.NewIndexConnParams{
@@ -1934,31 +1856,30 @@ func (idx *IndexConnection) CreateNamespace(ctx context.Context, in *CreateNames
 //
 // Example:
 //
-//		ctx := context.Background()
+//	    ctx := context.Background()
 //
-//		clientParams := NewClientParams{
-//	        ApiKey:    "YOUR_API_KEY",
-//			SourceTag: "your_source_identifier", // optional
+//	    clientParams := pinecone.NewClientParams{
+//			ApiKey:    "YOUR_API_KEY",
+//	    }
+//
+//	    pc, err := pinecone.NewClient(clientParams)
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
 //		}
 //
-//		pc, err := NewClient(clientParams)
-//		if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
+//	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	    if err != nil {
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //		}
 //
-//		idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//		if err != nil {
-//			 log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	    idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
+//	    if err != nil {
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //		}
 //
-//		idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
-//		if err != nil {
-//	         log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//		}
-//
-//		namespace, err := idxConnection.DescribeNamespace(ctx, "your-namespace-name")
-//		if err != nil {
-//			 log.Fatalf("Failed to describe namespace \"%s\". Error:%s", "your-namespace-name", err)
+//	    namespace, err := idxConnection.DescribeNamespace(ctx, "your-namespace-name")
+//	    if err != nil {
+//			log.Fatalf("Failed to describe namespace \"%s\". Error:%s", "your-namespace-name", err)
 //		}
 func (idx *IndexConnection) DescribeNamespace(ctx context.Context, namespace string) (*NamespaceDescription, error) {
 	res, err := (*idx.grpcClient).DescribeNamespace(idx.akCtx(ctx), &db_data_grpc.DescribeNamespaceRequest{Namespace: namespace})
@@ -2019,32 +1940,31 @@ type ListNamespacesParams struct {
 //
 // Example:
 //
-//		ctx := context.Background()
+//	    ctx := context.Background()
 //
-//		clientParams := NewClientParams{
-//	        ApiKey:    "YOUR_API_KEY",
-//			SourceTag: "your_source_identifier", // optional
+//	    clientParams := pinecone.NewClientParams{
+//			ApiKey:    "YOUR_API_KEY",
+//	    }
+//
+//	    pc, err := pinecone.NewClient(clientParams)
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
 //		}
 //
-//		pc, err := NewClient(clientParams)
-//		if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
+//	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	    if err != nil {
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //		}
 //
-//		idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//		if err != nil {
-//			 log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	    idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
+//	    if err != nil {
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //		}
 //
-//		idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
-//		if err != nil {
-//	         log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//		}
-//
-//		limit := uint32(10)
-//		namespaces, err := pc.ListNamespaces(ctx, &pinecone.ListNamespacesParams{ Limit: &limit })
-//		if err != nil {
-//			 log.Fatalf("Failed to list namespaces for index \"%s\". Error:%s", idx.Name, err)
+//	    limit := uint32(10)
+//	    namespaces, err := pc.ListNamespaces(ctx, &pinecone.ListNamespacesParams{ Limit: &limit })
+//	    if err != nil {
+//			log.Fatalf("Failed to list namespaces for index \"%s\". Error:%s", idx.Name, err)
 //		}
 func (idx *IndexConnection) ListNamespaces(ctx context.Context, in *ListNamespacesParams) (*ListNamespacesResponse, error) {
 	var listRequest *db_data_grpc.ListNamespacesRequest
@@ -2073,31 +1993,30 @@ func (idx *IndexConnection) ListNamespaces(ctx context.Context, in *ListNamespac
 //
 // Example:
 //
-//		ctx := context.Background()
+//	    ctx := context.Background()
 //
-//		clientParams := NewClientParams{
-//	        ApiKey:    "YOUR_API_KEY",
-//			SourceTag: "your_source_identifier", // optional
+//	    clientParams := pinecone.NewClientParams{
+//			ApiKey:    "YOUR_API_KEY",
+//	    }
+//
+//	    pc, err := pinecone.NewClient(clientParams)
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
 //		}
 //
-//		pc, err := NewClient(clientParams)
-//		if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
+//	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
+//	    if err != nil {
+//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
 //		}
 //
-//		idx, err := pc.DescribeIndex(ctx, "your-index-name")
-//		if err != nil {
-//			 log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//	    idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
+//	    if err != nil {
+//			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //		}
 //
-//		idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
-//		if err != nil {
-//	         log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-//		}
-//
-//		err := pc.DeleteNamespace(ctx, "your-namespace-name")
-//		if err != nil {
-//			 log.Fatalf("Failed to delete namespace \"%s\". Error:%s", "your-namespace-name", err)
+//	    err := pc.DeleteNamespace(ctx, "your-namespace-name")
+//	    if err != nil {
+//			log.Fatalf("Failed to delete namespace \"%s\". Error:%s", "your-namespace-name", err)
 //		}
 func (idx *IndexConnection) DeleteNamespace(ctx context.Context, namespace string) error {
 	_, err := (*idx.grpcClient).DeleteNamespace(idx.akCtx(ctx), &db_data_grpc.DeleteNamespaceRequest{
