@@ -43,10 +43,6 @@ func RunSuites(t *testing.T) {
 		skipServerless = true
 	}
 
-	fmt.Printf("Skipping admin suite: %v\n", skipAdmin)
-	fmt.Printf("Skipping pod suite: %v\n", skipPod)
-	fmt.Printf("Skipping serverless suite: %v\n", skipServerless)
-
 	sourceTag := "pinecone_test_go_sdk"
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: sourceTag})
 	require.NotNil(t, client, "Client should not be nil after creation")
@@ -101,11 +97,17 @@ func RunSuites(t *testing.T) {
 
 	if !skipAdmin {
 		suite.Run(t, adminTestSuite)
+	} else {
+		fmt.Printf("Skipping admin suite. PINECONE_SKIP_ADMIN is set to %v\n", skipAdmin)
 	}
 	if !skipPod {
 		suite.Run(t, podTestSuite)
+	} else {
+		fmt.Printf("Skipping pod suite. PINECONE_SKIP_POD is set to %v\n", skipPod)
 	}
 	if !skipServerless {
 		suite.Run(t, serverlessTestSuite)
+	} else {
+		fmt.Printf("Skipping serverless suite. PINECONE_SKIP_SERVERLESS is set to %v\n", skipServerless)
 	}
 }

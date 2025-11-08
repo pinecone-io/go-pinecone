@@ -134,7 +134,9 @@ func (ts *integrationTests) TestDeleteAllVectorsInNamespace() {
 			return fmt.Errorf("Failed to list vectors: %v", err)
 		}
 		assert.NotNil(ts.T(), res)
-		assert.Empty(ts.T(), res.Vectors)
+		if len(res.Vectors) > 0 {
+			return fmt.Errorf("Vectors were not deleted")
+		}
 		return nil
 	})
 }
