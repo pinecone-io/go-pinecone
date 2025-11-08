@@ -2,6 +2,7 @@
 package pinecone
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -23,6 +24,28 @@ func RunSuites(t *testing.T) {
 	assert.True(t, apiKeyPresent, "PINECONE_API_KEY env variable not set")
 	assert.True(t, clientIdPresent, "PINECONE_CLIENT_ID env variable not set")
 	assert.True(t, clientSecretPresent, "PINECONE_CLIENT_SECRET env variable not set")
+
+	// Check if we're skipping suites via environment variables
+	skipAdminSuite, skipAdminSuitePresent := os.LookupEnv("PINECONE_SKIP_ADMIN")
+	skipPodSuite, skipPodSuitePresent := os.LookupEnv("PINECONE_SKIP_POD")
+	skipServerlessSuite, skipServerlessSuitePresent := os.LookupEnv("PINECONE_SKIP_SERVERLESS")
+
+	skipAdmin := false
+	skipPod := false
+	skipServerless := false
+	if skipAdminSuitePresent && skipAdminSuite == "true" {
+		skipAdmin = true
+	}
+	if skipPodSuitePresent && skipPodSuite == "true" {
+		skipPod = true
+	}
+	if skipServerlessSuitePresent && skipServerlessSuite == "true" {
+		skipServerless = true
+	}
+
+	fmt.Printf("Skipping admin suite: %v\n", skipAdmin)
+	fmt.Printf("Skipping pod suite: %v\n", skipPod)
+	fmt.Printf("Skipping serverless suite: %v\n", skipServerless)
 
 	sourceTag := "pinecone_test_go_sdk"
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: sourceTag})
@@ -76,7 +99,13 @@ func RunSuites(t *testing.T) {
 		adminClient:  adminClient,
 	}
 
-	suite.Run(t, adminTestSuite)
-	suite.Run(t, podTestSuite)
-	suite.Run(t, serverlessTestSuite)
+	if !skipAdmin {
+		suite.Run(t, adminTestSuite)
+	}
+	if !skipPod {
+		suite.Run(t, podTestSuite)
+	}
+	if !skipServerless {
+		suite.Run(t, serverlessTestSuite)
+	}
 }

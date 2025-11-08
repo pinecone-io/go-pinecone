@@ -49,7 +49,8 @@ func (ts *integrationTests) SetupSuite() {
 	namespace1 := uuid.New().String()
 	namespace2 := uuid.New().String()
 	namespace3 := uuid.New().String()
-	namespaces := append([]string{}, namespace1, namespace2, namespace3)
+	namespace4 := uuid.New().String()
+	namespaces := append([]string{}, namespace1, namespace2, namespace3, namespace4)
 
 	idxConn, err := ts.client.Index(NewIndexConnParams{
 		Host:      ts.host,
@@ -122,6 +123,7 @@ func (ts *integrationTests) SetupSuite() {
 	for i, v := range vectors {
 		vectorIds[i] = v.Id
 	}
+	ts.vectorIds = vectorIds
 
 	// Upsert all vectors into each namespace
 	for _, ns := range namespaces {
@@ -142,26 +144,11 @@ func (ts *integrationTests) SetupSuite() {
 		log.Fatalf("Vector freshness failed in SetupSuite: %v", err)
 	}
 
-	// Wait for classical vectors to be fresh (needed for TestFetchVectorsByMetadata)
-	if len(classicalVectorIds) > 0 {
-		err = pollIndexForFreshness(ts, ctx, classicalVectorIds[0])
-		if err != nil {
-			log.Fatalf("Classical vector freshness failed in SetupSuite: %v", err)
-		}
-	}
-
-	// Wait for rock vectors to be fresh (needed for TestUpdateVectorsByMetadata)
-	if len(rockVectorIds) > 0 {
-		err = pollIndexForFreshness(ts, ctx, rockVectorIds[0])
-		if err != nil {
-			log.Fatalf("Rock vector freshness failed in SetupSuite: %v", err)
-		}
-	}
-
 	// Create collection for pod index suite
 	if ts.indexType == "pods" {
 		createCollection(ts, ctx)
 	}
+
 	// Create backup for serverless index suite
 	if ts.indexType == "serverless" {
 		createBackup(ts, ctx)
@@ -217,24 +204,6 @@ func (ts *integrationTests) TearDownSuite() {
 // Helper funcs
 func generateTestIndexName() string {
 	return fmt.Sprintf("index-%d", time.Now().UnixMilli())
-}
-
-func upsertVectors(ts *integrationTests, ctx context.Context, vectors []*Vector) error {
-	_, err := waitUntilIndexReady(ts, ctx)
-	require.NoError(ts.T(), err)
-
-	ids := make([]string, len(vectors))
-	for i, v := range vectors {
-		ids[i] = v.Id
-	}
-
-	upsertVectors, err := ts.idxConn.UpsertVectors(ctx, vectors)
-	require.NoError(ts.T(), err)
-	fmt.Printf("Upserted vectors: %v into host: %s\n", upsertVectors, ts.host)
-
-	ts.vectorIds = append(ts.vectorIds, ids...)
-
-	return nil
 }
 
 func createCollection(ts *integrationTests, ctx context.Context) {

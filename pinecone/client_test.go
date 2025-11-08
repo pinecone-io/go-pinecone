@@ -909,14 +909,17 @@ func (ts *integrationTests) TestConfigureIndexReadCapacity() {
 		},
 	}
 
-	configuredIndex, err := ts.client.ConfigureIndex(ctx, indexName, ConfigureIndexParams{
-		ReadCapacity: readCapacity,
-	})
-	require.NoError(ts.T(), err)
-	require.NotNil(ts.T(), configuredIndex)
-
 	// Verify ReadCapacity was updated
 	retryAssertionsWithDefaults(ts.T(), func() error {
+		configuredIndex, err := ts.client.ConfigureIndex(ctx, indexName, ConfigureIndexParams{
+			ReadCapacity: readCapacity,
+		})
+		if err != nil {
+			return fmt.Errorf("ConfigureIndex failed: %v", err)
+		}
+		assert.NoError(ts.T(), err)
+		assert.NotNil(ts.T(), configuredIndex)
+
 		describedIndex, err := ts.client.DescribeIndex(ctx, indexName)
 		if err != nil {
 			return fmt.Errorf("DescribeIndex failed: %v", err)

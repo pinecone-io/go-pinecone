@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -69,23 +68,25 @@ func (ts *integrationTests) TestQueryById() {
 
 func (ts *integrationTests) TestDeleteVectorsById() {
 	ctx := context.Background()
-	err := ts.idxConn.DeleteVectorsById(ctx, ts.vectorIds)
+
+	// Use second namespace to isolate deletions
+	idxConn := ts.idxConn.WithNamespace(ts.namespaces[1])
+	vecIds := ts.vectorIds[len(ts.vectorIds)-2:]
+
+	err := idxConn.DeleteVectorsById(ctx, vecIds)
 	assert.NoError(ts.T(), err)
-	ts.vectorIds = []string{}
 
-	vectors := generateVectors(5, derefOrDefault(ts.dimension, 0), false, nil)
-
-	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
-	if err != nil {
-		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
-	}
-
-	vectorIds := make([]string, len(vectors))
-	for i, v := range vectors {
-		vectorIds[i] = v.Id
-	}
-
-	ts.vectorIds = append(ts.vectorIds, vectorIds...)
+	// validate the vectors were deleted
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		res, err := idxConn.FetchVectors(ctx, vecIds)
+		if err != nil {
+			return fmt.Errorf("Failed to fetch vectors: %v", err)
+		}
+		if len(res.Vectors) > 0 {
+			return fmt.Errorf("Vectors were not deleted")
+		}
+		return nil
+	})
 }
 
 func (ts *integrationTests) TestDeleteVectorsByFilter() {
@@ -98,45 +99,42 @@ func (ts *integrationTests) TestDeleteVectorsByFilter() {
 	}
 
 	ctx := context.Background()
-	_ = ts.idxConn.DeleteVectorsByFilter(ctx, filter)
 
-	ts.vectorIds = []string{}
+	idxConn := ts.idxConn.WithNamespace(ts.namespaces[1])
+	err = idxConn.DeleteVectorsByFilter(ctx, filter)
+	assert.NoError(ts.T(), err)
 
-	vectors := generateVectors(5, derefOrDefault(ts.dimension, 0), false, nil)
-
-	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
-	if err != nil {
-		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsByFilter test. Error: %v", err)
-	}
-
-	vectorIds := make([]string, len(vectors))
-	for i, v := range vectors {
-		vectorIds[i] = v.Id
-	}
-
-	ts.vectorIds = append(ts.vectorIds, vectorIds...)
+	// validate the vectors were deleted
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		res, err := idxConn.FetchVectorsByMetadata(ctx, &FetchVectorsByMetadataRequest{
+			Filter: filter,
+		})
+		if err != nil {
+			return fmt.Errorf("Failed to fetch vectors: %v", err)
+		}
+		if len(res.Vectors) > 0 {
+			return fmt.Errorf("Vectors were not deleted")
+		}
+		return nil
+	})
 }
 
 func (ts *integrationTests) TestDeleteAllVectorsInNamespace() {
 	ctx := context.Background()
-	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
+	idxConn := ts.idxConn.WithNamespace(ts.namespaces[2])
+	err := idxConn.DeleteAllVectorsInNamespace(ctx)
 	assert.NoError(ts.T(), err)
-	ts.vectorIds = []string{}
 
-	vectors := generateVectors(5, derefOrDefault(ts.dimension, 0), false, nil)
-
-	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
-	if err != nil {
-		log.Fatalf("Failed to upsert vectors in TestDeleteAllVectorsInNamespace test. Error: %v", err)
-	}
-
-	vectorIds := make([]string, len(vectors))
-	for i, v := range vectors {
-		vectorIds[i] = v.Id
-	}
-
-	ts.vectorIds = append(ts.vectorIds, vectorIds...)
-
+	// validate the namespace is empty
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		res, err := idxConn.ListVectors(ctx, &ListVectorsRequest{})
+		if err != nil {
+			return fmt.Errorf("Failed to list vectors: %v", err)
+		}
+		assert.NotNil(ts.T(), res)
+		assert.Empty(ts.T(), res.VectorIds)
+		return nil
+	})
 }
 
 func (ts *integrationTests) TestDescribeIndexStats() {
@@ -397,6 +395,7 @@ func (ts *integrationTests) TestUpdateVectorsByMetadata() {
 		Metadata: dryRunMetadata,
 		DryRun:   &dryRun,
 	})
+
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), dryRunRes)
 	assert.Greater(ts.T(), dryRunRes.MatchedRecords, int32(0), "DryRun should return matched records count")
@@ -416,6 +415,7 @@ func (ts *integrationTests) TestUpdateVectorsByMetadata() {
 		Metadata: updateMetadata,
 		DryRun:   &dryRun,
 	})
+
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), updateRes)
 	assert.Greater(ts.T(), updateRes.MatchedRecords, int32(0), "Update should return matched records count")
@@ -439,7 +439,9 @@ func (ts *integrationTests) TestUpdateVectorsByMetadata() {
 
 			// Check that the updated field is present
 			updatedField, ok := vector.Metadata.Fields["updated"]
-			assert.True(ts.T(), ok, "Vector %s missing updated field", id)
+			if !ok {
+				return fmt.Errorf("Vector did not contain updated field: %s", id)
+			}
 			if ok {
 				updated := updatedField.GetBoolValue()
 				assert.True(ts.T(), updated, "Vector %s updated field should be true", id)
