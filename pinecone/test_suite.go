@@ -321,7 +321,7 @@ func generateVectorValues(dimension int32) *[]float32 {
 	return &values
 }
 
-func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags, schema *MetadataSchema, readCapacity *ReadCapacityRequest) *Index {
+func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags, schema *MetadataSchema, readCapacity *ReadCapacityParams) *Index {
 	ctx := context.Background()
 	dimension := int32(setDimensionsForTestIndexes())
 	metric := Cosine

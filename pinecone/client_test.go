@@ -822,7 +822,7 @@ func (ts *integrationTests) TestCreateServerlessIndexWithReadCapacity() {
 
 	// Test creating index with Dedicated ReadCapacity
 	indexName2 := "rc-dedicated-" + generateTestIndexName()
-	readCapacity := &ReadCapacityRequest{
+	readCapacity := &ReadCapacityParams{
 		Dedicated: &ReadCapacityDedicatedConfig{
 			NodeType: "t1",
 			Scaling: &ReadCapacityScaling{
@@ -897,7 +897,7 @@ func (ts *integrationTests) TestConfigureIndexReadCapacity() {
 	require.NoError(ts.T(), err)
 
 	// Configure index to use Dedicated ReadCapacity
-	readCapacity := &ReadCapacityRequest{
+	readCapacity := &ReadCapacityParams{
 		Dedicated: &ReadCapacityDedicatedConfig{
 			NodeType: "t1",
 			Scaling: &ReadCapacityScaling{
@@ -2195,10 +2195,10 @@ func Test_fromMetadataSchemaToRest_Unit(t *testing.T) {
 	}
 }
 
-func Test_readCapacityRequestToReadCapacity_Unit(t *testing.T) {
+func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 	tests := []struct {
 		name      string
-		input     *ReadCapacityRequest
+		input     *ReadCapacityParams
 		wantError bool
 		validate  func(t *testing.T, result *db_control.ReadCapacity)
 	}{
@@ -2216,7 +2216,7 @@ func Test_readCapacityRequestToReadCapacity_Unit(t *testing.T) {
 		},
 		{
 			name: "request with nil Dedicated (should default to OnDemand)",
-			input: &ReadCapacityRequest{
+			input: &ReadCapacityParams{
 				Dedicated: nil,
 			},
 			wantError: false,
@@ -2230,7 +2230,7 @@ func Test_readCapacityRequestToReadCapacity_Unit(t *testing.T) {
 		},
 		{
 			name: "Dedicated with NodeType only",
-			input: &ReadCapacityRequest{
+			input: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
 					NodeType: "t1",
 				},
@@ -2250,7 +2250,7 @@ func Test_readCapacityRequestToReadCapacity_Unit(t *testing.T) {
 		},
 		{
 			name: "Dedicated with NodeType and Manual scaling",
-			input: &ReadCapacityRequest{
+			input: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
 					NodeType: "b1",
 					Scaling: &ReadCapacityScaling{
@@ -2281,7 +2281,7 @@ func Test_readCapacityRequestToReadCapacity_Unit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := readCapacityRequestToReadCapacity(tt.input)
+			result, err := readCapacityParamsToReadCapacity(tt.input)
 			if tt.wantError {
 				assert.Error(t, err)
 				assert.Nil(t, result)

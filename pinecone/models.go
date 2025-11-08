@@ -207,28 +207,8 @@ type BYOCSpec struct {
 	Schema      *MetadataSchema `json:"schema,omitempty"`
 }
 
-// [ReadCapacityRequest] represents the read capacity configuration for creating or configuring a serverless index.
-// This is used in CreateIndex and ConfigureIndex operations.
-//
-// Fields:
-//   - Dedicated: Dedicated read capacity mode. Requires node_type and scaling configuration.
-type ReadCapacityRequest struct {
-	Dedicated *ReadCapacityDedicatedConfig `json:"dedicated,omitempty"`
-}
-
-// [ReadCapacityDedicatedRequest] represents Dedicated read capacity configuration for requests.
-//
-// Fields:
-//   - NodeType: The type of machines to use. Available options: "b1" and "t1".
-//     "t1" includes increased processing power and memory.
-//   - Scaling: The scaling strategy configuration. Currently supports manual scaling.
-type ReadCapacityDedicatedConfig struct {
-	NodeType string               `json:"node_type"`
-	Scaling  *ReadCapacityScaling `json:"scaling,omitempty"`
-}
-
 // [ReadCapacity] represents the read capacity configuration returned from the API.
-// Only one of the following fields will be present: OnDemand, Dedicated.
+// [ReadCapacity] is a tagged union which can have either [ReadCapacityOnDemand] or [ReadCapacityDedicated].
 //
 // Fields:
 //   - OnDemand: OnDemand read capacity mode with current status.

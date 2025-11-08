@@ -689,10 +689,30 @@ type CreateServerlessIndexRequest struct {
 	DeletionProtection *DeletionProtection
 	Dimension          *int32
 	VectorType         *string
-	ReadCapacity       *ReadCapacityRequest
+	ReadCapacity       *ReadCapacityParams
 	Schema             *MetadataSchema
 	Tags               *IndexTags
 	SourceCollection   *string
+}
+
+// [ReadCapacityParams] represents the read capacity configuration for creating or configuring a serverless or integrated index.
+// If [ReadCapacityParams] or Dedicated are nil, the index will be created with OnDemand read capacity.
+//
+// Fields:
+//   - Dedicated: Dedicated read capacity mode. Requires node_type and scaling configuration.
+type ReadCapacityParams struct {
+	Dedicated *ReadCapacityDedicatedConfig `json:"dedicated,omitempty"`
+}
+
+// [ReadCapacityDedicatedRequest] represents Dedicated read capacity configuration for requests.
+//
+// Fields:
+//   - NodeType: The type of machines to use. Available options: "b1" and "t1".
+//     "t1" includes increased processing power and memory.
+//   - Scaling: The scaling strategy configuration. Currently supports manual scaling.
+type ReadCapacityDedicatedConfig struct {
+	NodeType string               `json:"node_type"`
+	Scaling  *ReadCapacityScaling `json:"scaling,omitempty"`
 }
 
 // [Client.CreateServerlessIndex] creates and initializes a new serverless Index via the specified [Client].
@@ -771,7 +791,7 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 		tags = (*db_control.IndexTags)(in.Tags)
 	}
 
-	readCapacity, err := readCapacityRequestToReadCapacity(in.ReadCapacity)
+	readCapacity, err := readCapacityParamsToReadCapacity(in.ReadCapacity)
 	if err != nil {
 		return nil, err
 	}
@@ -883,7 +903,7 @@ type CreateIndexForModelRequest struct {
 	Region             string
 	DeletionProtection *DeletionProtection
 	Embed              CreateIndexForModelEmbed
-	ReadCapacity       *ReadCapacityRequest
+	ReadCapacity       *ReadCapacityParams
 	Schema             *MetadataSchema
 	Tags               *IndexTags
 }
@@ -971,7 +991,7 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 		tags = (*db_control.IndexTags)(in.Tags)
 	}
 
-	readCapacity, err := readCapacityRequestToReadCapacity(in.ReadCapacity)
+	readCapacity, err := readCapacityParamsToReadCapacity(in.ReadCapacity)
 	if err != nil {
 		return nil, err
 	}
@@ -1158,7 +1178,7 @@ type ConfigureIndexParams struct {
 	DeletionProtection DeletionProtection
 	Tags               IndexTags
 	Embed              *ConfigureIndexEmbed
-	ReadCapacity       *ReadCapacityRequest
+	ReadCapacity       *ReadCapacityParams
 }
 
 // [ConfigureIndexEmbed] contains parameters for configuring the integrated inference embedding settings for an [Index].
@@ -1261,7 +1281,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	// Apply serverless configurations
 	if in.ReadCapacity != nil {
 		var readCapacity *db_control.ReadCapacity
-		readCapacity, err = readCapacityRequestToReadCapacity(in.ReadCapacity)
+		readCapacity, err = readCapacityParamsToReadCapacity(in.ReadCapacity)
 		if err != nil {
 			return nil, err
 		}
@@ -2965,8 +2985,8 @@ func fromMetadataSchemaToRest(schema *MetadataSchema) *struct {
 	}
 }
 
-// Converts the ReadCapacityRequest to db_control.ReadCapacity - used in CreateIndex, CreateIndexForModel, and ConfigureIndex
-func readCapacityRequestToReadCapacity(request *ReadCapacityRequest) (*db_control.ReadCapacity, error) {
+// Converts the ReadCapacityParams to db_control.ReadCapacity - used for CreateIndex, CreateIndexForModel, and ConfigureIndex operations
+func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.ReadCapacity, error) {
 	// OnDemand - default if Dedicated is nil
 	if request == nil || request.Dedicated == nil {
 		var result db_control.ReadCapacity
