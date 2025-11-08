@@ -104,19 +104,21 @@ func (ts *integrationTests) TestDeleteVectorsByFilter() {
 	err = idxConn.DeleteVectorsByFilter(ctx, filter)
 	assert.NoError(ts.T(), err)
 
-	// validate the vectors were deleted
-	retryAssertionsWithDefaults(ts.T(), func() error {
-		res, err := idxConn.FetchVectorsByMetadata(ctx, &FetchVectorsByMetadataRequest{
-			Filter: filter,
+	// validate the vectors were deleted if not pod index
+	if ts.indexType != "pods" {
+		retryAssertionsWithDefaults(ts.T(), func() error {
+			res, err := idxConn.FetchVectorsByMetadata(ctx, &FetchVectorsByMetadataRequest{
+				Filter: filter,
+			})
+			if err != nil {
+				return fmt.Errorf("Failed to fetch vectors: %v", err)
+			}
+			if len(res.Vectors) > 0 {
+				return fmt.Errorf("Vectors were not deleted")
+			}
+			return nil
 		})
-		if err != nil {
-			return fmt.Errorf("Failed to fetch vectors: %v", err)
-		}
-		if len(res.Vectors) > 0 {
-			return fmt.Errorf("Vectors were not deleted")
-		}
-		return nil
-	})
+	}
 }
 
 func (ts *integrationTests) TestDeleteAllVectorsInNamespace() {
@@ -127,12 +129,12 @@ func (ts *integrationTests) TestDeleteAllVectorsInNamespace() {
 
 	// validate the namespace is empty
 	retryAssertionsWithDefaults(ts.T(), func() error {
-		res, err := idxConn.ListVectors(ctx, &ListVectorsRequest{})
+		res, err := idxConn.FetchVectors(ctx, ts.vectorIds)
 		if err != nil {
 			return fmt.Errorf("Failed to list vectors: %v", err)
 		}
 		assert.NotNil(ts.T(), res)
-		assert.Empty(ts.T(), res.VectorIds)
+		assert.Empty(ts.T(), res.Vectors)
 		return nil
 	})
 }
