@@ -2394,6 +2394,7 @@ func normalizeHost(host string) (string, bool) {
 	return host, isSecure
 }
 
+// Converts MetadataSchema to db_data_grpc.MetadataSchema defined in the generated gRPC API
 func fromMetadataSchemaToGrpc(schema *MetadataSchema) *db_data_grpc.MetadataSchema {
 	if schema == nil {
 		return nil
@@ -2411,6 +2412,7 @@ func fromMetadataSchemaToGrpc(schema *MetadataSchema) *db_data_grpc.MetadataSche
 	}
 }
 
+// Converts db_data_grpc.MetadataSchema defined in the generated gRPC API to a MetadataSchema
 func toMetadataSchemaGrpc(schema *db_data_grpc.MetadataSchema) *MetadataSchema {
 	if schema == nil {
 		return nil

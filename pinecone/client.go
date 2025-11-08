@@ -2933,6 +2933,7 @@ func minOne(x int32) int32 {
 	return x
 }
 
+// Converts the inline struct defined in the generated REST API to a MetadataSchema
 func toMetadataSchemaFromRest(schema *struct {
 	Fields map[string]struct {
 		Filterable *bool `json:"filterable,omitempty"`
@@ -2954,6 +2955,7 @@ func toMetadataSchemaFromRest(schema *struct {
 	}
 }
 
+// Converts MetadataSchema to the inline struct defined in the generated REST API
 func fromMetadataSchemaToRest(schema *MetadataSchema) *struct {
 	Fields map[string]struct {
 		Filterable *bool `json:"filterable,omitempty"`
@@ -3025,6 +3027,7 @@ func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.
 	return &result, nil
 }
 
+// Converts the db_control.ReadCapacityResponse to ReadCapacity
 func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) {
 	if rc == nil {
 		return nil, nil
