@@ -61,10 +61,12 @@ type IndexStatus struct {
 	State IndexStatusState `json:"state"`
 }
 
-// [IndexSpec] is the infrastructure specification (pods vs serverless) of a Pinecone [Index].
+// [IndexSpec] is the infrastructure specification (serverless, pod-based, or BYOC ) of a Pinecone [Index].
+// Only one of the following fields will be present: Pod, Serverless, BYOC.
 type IndexSpec struct {
 	Pod        *PodSpec        `json:"pod,omitempty"`
 	Serverless *ServerlessSpec `json:"serverless,omitempty"`
+	BYOC       *BYOCSpec       `json:"byoc,omitempty"`
 }
 
 // [IndexEmbed] represents the embedding model configured for an index,
@@ -183,11 +185,92 @@ type PodSpec struct {
 // Fields:
 //   - Cloud: The public cloud provider where the index is hosted.
 //   - Region: The region where the index is hosted.
-//   - SourceCollection: The name of the [Collection] used as a source for the index.
+//   - Schema: (Optional) Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
+//   - SourceCollection: (Optional) The name of the [Collection] used as a source for the index.
+//   - ReadCapacity: (Optional) The read capacity configuration for the serverless index. Used to configure dedicated read capacity
+//     with specific node types and scaling strategies.
 type ServerlessSpec struct {
-	Cloud            Cloud   `json:"cloud"`
-	Region           string  `json:"region"`
-	SourceCollection *string `json:"source_collection,omitempty"`
+	Cloud            Cloud           `json:"cloud"`
+	Region           string          `json:"region"`
+	Schema           *MetadataSchema `json:"schema,omitempty"`
+	SourceCollection *string         `json:"source_collection,omitempty"`
+	ReadCapacity     *ReadCapacity   `json:"read_capacity,omitempty"`
+}
+
+// [BYOCSpec] is the infrastructure specification of a BYOC Pinecone [Index].
+//
+// Fields:
+//   - Environment: The environment where the index is hosted.
+//   - Schema: Schema for the behavior of Pinecone's internal metadata index.
+type BYOCSpec struct {
+	Environment string          `json:"environment"`
+	Schema      *MetadataSchema `json:"schema,omitempty"`
+}
+
+// [ReadCapacity] represents the read capacity configuration returned from the API.
+// [ReadCapacity] is a tagged union which can have either [ReadCapacityOnDemand] or [ReadCapacityDedicated].
+//
+// Fields:
+//   - OnDemand: OnDemand read capacity mode with current status.
+//   - Dedicated: Dedicated read capacity mode with current status.
+type ReadCapacity struct {
+	OnDemand  *ReadCapacityOnDemand  `json:"on_demand,omitempty"`
+	Dedicated *ReadCapacityDedicated `json:"dedicated,omitempty"`
+}
+
+// [ReadCapacityOnDemand] represents OnDemand read capacity mode with status information.
+//
+// Fields:
+//   - Status: The current status of the read capacity configuration.
+type ReadCapacityOnDemand struct {
+	Status ReadCapacityStatus `json:"status"`
+}
+
+// [ReadCapacityDedicated] represents Dedicated read capacity configuration with status information.
+//
+// Fields:
+//   - NodeType: The type of machines in use.
+//   - Scaling: The scaling strategy configuration.
+//   - Status: The current status of the read capacity configuration.
+type ReadCapacityDedicated struct {
+	NodeType string               `json:"node_type"`
+	Scaling  *ReadCapacityScaling `json:"scaling,omitempty"`
+	Status   ReadCapacityStatus   `json:"status"`
+}
+
+// [ReadCapacityScaling] represents the scaling configuration for dedicated read capacity.
+//
+// Fields:
+//   - Manual: Manual scaling configuration with fixed replicas and shards.
+type ReadCapacityScaling struct {
+	Manual *ReadCapacityManualScaling `json:"manual,omitempty"`
+}
+
+// [ReadCapacityManualScaling] represents manual scaling configuration.
+//
+// Fields:
+//   - Replicas: The number of replicas to use. Replicas duplicate the compute resources
+//     and data of an index, allowing higher query throughput and availability.
+//     Setting replicas to 0 disables the index but can be used to reduce costs while usage is paused.
+//   - Shards: The number of shards to use. Shards determine the storage capacity of an index,
+//     with each shard providing 250 GB of storage.
+type ReadCapacityManualScaling struct {
+	Replicas int32 `json:"replicas"`
+	Shards   int32 `json:"shards"`
+}
+
+// [ReadCapacityStatus] represents the current status of factors affecting the read capacity of a serverless index.
+//
+// Fields:
+//   - State: The overall status state. Available values: "Ready", "Scaling", "Migrating", or "Error".
+//   - CurrentReplicas: The current number of replicas.
+//   - CurrentShards: The current number of shards.
+//   - ErrorMessage: An optional error message if there are issues with the read capacity configuration.
+type ReadCapacityStatus struct {
+	State           string  `json:"state"`
+	CurrentReplicas *int32  `json:"current_replicas,omitempty"`
+	CurrentShards   *int32  `json:"current_shards,omitempty"`
+	ErrorMessage    *string `json:"error_message,omitempty"`
 }
 
 // [Vector] is a [dense or sparse vector object] with optional metadata.
@@ -230,9 +313,21 @@ type NamespaceSummary struct {
 // Fields:
 //   - Name: The name of the namespace.
 //   - RecordCount: The number of records in the namespace.
+//   - TotalCount: The total number of namespaces in the index matching the prefix
+//   - IndexedFields: A list of all indexed metatadata fields in the namespace
+//   - Schema: Schema for the behavior of Pinecone's internal metadata index.
 type NamespaceDescription struct {
-	Name        string `json:"name"`
-	RecordCount uint64 `json:"record_count"`
+	Name          string          `json:"name"`
+	RecordCount   uint64          `json:"record_count"`
+	IndexedFields *IndexedFields  `json:"indexed_fields,omitempty"`
+	Schema        *MetadataSchema `json:"schema,omitempty"`
+}
+
+// [IndexedFields] is a list of all indexed metatadata fields in the namespace
+// Fields:
+//   - Fields: A list of all indexed metatadata fields in the namespace
+type IndexedFields struct {
+	Fields []string `json:"fields,omitempty"`
 }
 
 // [Usage] is the usage stats ([Read Units]) for a Pinecone [Index].
@@ -260,6 +355,61 @@ type MetadataFilter = structpb.Struct
 //
 // [attached to, or updated for, a vector]: https://docs.pinecone.io/guides/data/filter-with-metadata#inserting-metadata-into-an-index
 type Metadata = structpb.Struct
+
+// [NewMetadataFilter] creates a [MetadataFilter] from a map of key-value pairs representing metadata filter expressions.
+// This helper function eliminates the need to import and use [structpb.Struct] directly.
+//
+// The input map should contain metadata filter expressions using Pinecone's filtering operators
+// (e.g., $eq, $ne, $gt, $gte, $lt, $lte, $in, $nin, $exists, $and, $or).
+//
+// Example:
+//
+//	filterMap := map[string]interface{}{
+//		"genre": map[string]interface{}{
+//			"$eq": "documentary",
+//		},
+//		"year": map[string]interface{}{
+//			"$gte": 2020,
+//		},
+//	}
+//	filter, err := pinecone.NewMetadataFilter(filterMap)
+//
+// [MetadataFilter]: https://docs.pinecone.io/guides/data/filter-with-metadata#querying-an-index-with-metadata-filters
+func NewMetadataFilter(m map[string]interface{}) (*MetadataFilter, error) {
+	s, err := structpb.NewStruct(m)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+// [NewMetadata] creates [Metadata] from a map of key-value pairs representing metadata fields.
+// This helper function eliminates the need to import and use [structpb.Struct] directly.
+//
+// The input map should contain flat key-value pairs where:
+//   - Keys must be strings and must not start with a $
+//   - Values must be one of: string, integer, floating point, boolean, or list of strings
+//   - Nested JSON objects are not supported
+//   - Null values are not supported (remove keys instead)
+//
+// Example:
+//
+//	metadataMap := map[string]interface{}{
+//		"genre":        "classical",
+//		"year":         2020,
+//		"is_public":    true,
+//		"tags":         []string{"beginner", "database"},
+//	}
+//	metadata, err := pinecone.NewMetadata(metadataMap)
+//
+// [Metadata]: https://docs.pinecone.io/guides/data/filter-with-metadata#inserting-metadata-into-an-index
+func NewMetadata(m map[string]interface{}) (*Metadata, error) {
+	s, err := structpb.NewStruct(m)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}
 
 // [Embedding] represents the embedding of a single input which is returned after [generating embeddings].
 // [Embedding] is a tagged union which can have either a [SparseEmbedding] or a [DenseEmbedding].
@@ -565,27 +715,29 @@ func (spv *SupportedParameterValue) UnmarshalJSON(data []byte) error {
 //   - NamespaceCount: Number of namespaces in the backup.
 //   - RecordCount: Total number of records in the backup.
 //   - Region: Cloud region where the backup is stored.
+//   - Schema: Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
 //   - SizeBytes: Size of the backup in bytes.
 //   - SourceIndexId: ID of the index.
 //   - SourceIndexName: Name of the index from which the backup was taken.
 //   - Status: Current status of the backup (e.g., Initializing, Ready, Failed).
 //   - Tags: Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'. Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to an empty string.
 type Backup struct {
-	BackupId        string       `json:"backup_id"`
-	Cloud           string       `json:"cloud"`
-	CreatedAt       *string      `json:"created_at,omitempty"`
-	Description     *string      `json:"description,omitempty"`
-	Dimension       *int32       `json:"dimension,omitempty"`
-	Metric          *IndexMetric `json:"metric,omitempty"`
-	Name            *string      `json:"name,omitempty"`
-	NamespaceCount  *int         `json:"namespace_count,omitempty"`
-	RecordCount     *int         `json:"record_count,omitempty"`
-	Region          string       `json:"region"`
-	SizeBytes       *int         `json:"size_bytes,omitempty"`
-	SourceIndexId   string       `json:"source_index_id"`
-	SourceIndexName string       `json:"source_index_name"`
-	Status          string       `json:"status"`
-	Tags            *IndexTags   `json:"tags,omitempty"`
+	BackupId        string          `json:"backup_id"`
+	Cloud           string          `json:"cloud"`
+	CreatedAt       *string         `json:"created_at,omitempty"`
+	Description     *string         `json:"description,omitempty"`
+	Dimension       *int32          `json:"dimension,omitempty"`
+	Metric          *IndexMetric    `json:"metric,omitempty"`
+	Name            *string         `json:"name,omitempty"`
+	NamespaceCount  *int            `json:"namespace_count,omitempty"`
+	RecordCount     *int            `json:"record_count,omitempty"`
+	Region          string          `json:"region"`
+	Schema          *MetadataSchema `json:"schema,omitempty"`
+	SizeBytes       *int            `json:"size_bytes,omitempty"`
+	SourceIndexId   string          `json:"source_index_id"`
+	SourceIndexName string          `json:"source_index_name"`
+	Status          string          `json:"status"`
+	Tags            *IndexTags      `json:"tags,omitempty"`
 }
 
 // [BackupList] contains a paginated list of backups.
@@ -695,4 +847,15 @@ type APIKeyWithSecret struct {
 	// The value to use as an API key. New keys will have the format `"pckey_<public-label>_<unique-key>"`.
 	// The entire string should be used when authenticating.
 	Value string `json:"value"`
+}
+
+// Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
+type MetadataSchema struct {
+	Fields map[string]MetadataSchemaField `json:"fields"`
+}
+
+// A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique.
+type MetadataSchemaField struct {
+	// Whether the field is filterable. If true, the field is indexed and can be used in filters. Only true values are allowed.
+	Filterable bool `json:"filterable,omitempty"`
 }

@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	db_data_grpc "github.com/pinecone-io/go-pinecone/v4/internal/gen/db_data/grpc"
 	"github.com/pinecone-io/go-pinecone/v4/internal/utils"
 	"google.golang.org/grpc"
@@ -68,23 +68,25 @@ func (ts *integrationTests) TestQueryById() {
 
 func (ts *integrationTests) TestDeleteVectorsById() {
 	ctx := context.Background()
-	err := ts.idxConn.DeleteVectorsById(ctx, ts.vectorIds)
+
+	// Use second namespace to isolate deletions
+	idxConn := ts.idxConn.WithNamespace(ts.namespaces[1])
+	vecIds := ts.vectorIds[len(ts.vectorIds)-2:]
+
+	err := idxConn.DeleteVectorsById(ctx, vecIds)
 	assert.NoError(ts.T(), err)
-	ts.vectorIds = []string{}
 
-	vectors := generateVectors(5, derefOrDefault(ts.dimension, 0), false, nil)
-
-	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
-	if err != nil {
-		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsById test. Error: %v", err)
-	}
-
-	vectorIds := make([]string, len(vectors))
-	for i, v := range vectors {
-		vectorIds[i] = v.Id
-	}
-
-	ts.vectorIds = append(ts.vectorIds, vectorIds...)
+	// validate the vectors were deleted
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		res, err := idxConn.FetchVectors(ctx, vecIds)
+		if err != nil {
+			return fmt.Errorf("Failed to fetch vectors: %v", err)
+		}
+		if len(res.Vectors) > 0 {
+			return fmt.Errorf("Vectors were not deleted")
+		}
+		return nil
+	})
 }
 
 func (ts *integrationTests) TestDeleteVectorsByFilter() {
@@ -97,45 +99,46 @@ func (ts *integrationTests) TestDeleteVectorsByFilter() {
 	}
 
 	ctx := context.Background()
-	_ = ts.idxConn.DeleteVectorsByFilter(ctx, filter)
 
-	ts.vectorIds = []string{}
+	idxConn := ts.idxConn.WithNamespace(ts.namespaces[1])
+	err = idxConn.DeleteVectorsByFilter(ctx, filter)
+	assert.NoError(ts.T(), err)
 
-	vectors := generateVectors(5, derefOrDefault(ts.dimension, 0), false, nil)
-
-	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
-	if err != nil {
-		log.Fatalf("Failed to upsert vectors in TestDeleteVectorsByFilter test. Error: %v", err)
+	// validate the vectors were deleted if not pod index
+	if ts.indexType != "pods" {
+		retryAssertionsWithDefaults(ts.T(), func() error {
+			res, err := idxConn.FetchVectorsByMetadata(ctx, &FetchVectorsByMetadataRequest{
+				Filter: filter,
+			})
+			if err != nil {
+				return fmt.Errorf("Failed to fetch vectors: %v", err)
+			}
+			if len(res.Vectors) > 0 {
+				return fmt.Errorf("Vectors were not deleted")
+			}
+			return nil
+		})
 	}
-
-	vectorIds := make([]string, len(vectors))
-	for i, v := range vectors {
-		vectorIds[i] = v.Id
-	}
-
-	ts.vectorIds = append(ts.vectorIds, vectorIds...)
 }
 
 func (ts *integrationTests) TestDeleteAllVectorsInNamespace() {
 	ctx := context.Background()
-	err := ts.idxConn.DeleteAllVectorsInNamespace(ctx)
+	idxConn := ts.idxConn.WithNamespace(ts.namespaces[2])
+	err := idxConn.DeleteAllVectorsInNamespace(ctx)
 	assert.NoError(ts.T(), err)
-	ts.vectorIds = []string{}
 
-	vectors := generateVectors(5, derefOrDefault(ts.dimension, 0), false, nil)
-
-	_, err = ts.idxConn.UpsertVectors(ctx, vectors)
-	if err != nil {
-		log.Fatalf("Failed to upsert vectors in TestDeleteAllVectorsInNamespace test. Error: %v", err)
-	}
-
-	vectorIds := make([]string, len(vectors))
-	for i, v := range vectors {
-		vectorIds[i] = v.Id
-	}
-
-	ts.vectorIds = append(ts.vectorIds, vectorIds...)
-
+	// validate the namespace is empty
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		res, err := idxConn.FetchVectors(ctx, ts.vectorIds)
+		if err != nil {
+			return fmt.Errorf("Failed to list vectors: %v", err)
+		}
+		assert.NotNil(ts.T(), res)
+		if len(res.Vectors) > 0 {
+			return fmt.Errorf("Vectors were not deleted")
+		}
+		return nil
+	})
 }
 
 func (ts *integrationTests) TestDescribeIndexStats() {
@@ -314,6 +317,153 @@ func (ts *integrationTests) TestUpdateVectorSparseValues() {
 	})
 }
 
+func (ts *integrationTests) TestFetchVectorsByMetadata() {
+	if ts.indexType == "pods" {
+		ts.T().Skip("Skipping fetch vectors by metadata test for pod index")
+	}
+
+	ctx := context.Background()
+
+	// Create filter to match vectors with genre="classical"
+	filterMap := map[string]interface{}{
+		"genre": map[string]interface{}{
+			"$eq": "classical",
+		},
+	}
+	filter, err := NewMetadataFilter(filterMap)
+	assert.NoError(ts.T(), err)
+
+	limit := uint32(10)
+
+	// Use pre-existing vectors with classical metadata from SetupSuite
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		res, err := ts.idxConn.FetchVectorsByMetadata(ctx, &FetchVectorsByMetadataRequest{
+			Filter: filter,
+			Limit:  &limit,
+		})
+		assert.NoError(ts.T(), err, "Failed to fetch vectors by metadata")
+		assert.NotNil(ts.T(), res, "FetchVectorsByMetadata response is nil")
+
+		// Verify response structure
+		assert.NotNil(ts.T(), res.Vectors, "Vectors map is nil")
+		assert.Greater(ts.T(), len(res.Vectors), 0, "No vectors found matching filter")
+
+		// Verify all returned vectors have the expected metadata
+		for id, vector := range res.Vectors {
+			assert.NotNil(ts.T(), vector, "Vector %s is nil", id)
+			assert.NotNil(ts.T(), vector.Metadata, "Vector %s has nil metadata", id)
+
+			genreField, ok := vector.Metadata.Fields["genre"]
+			assert.True(ts.T(), ok, "Vector %s missing genre field", id)
+
+			genre := genreField.GetStringValue()
+			assert.Equal(ts.T(), "classical", genre, "Vector %s has incorrect genre", id)
+		}
+
+		// Verify namespace is set
+		assert.NotEmpty(ts.T(), res.Namespace, "Namespace is empty")
+		assert.NotNil(ts.T(), res.Usage, "Usage is nil")
+
+		return nil
+	})
+}
+
+func (ts *integrationTests) TestUpdateVectorsByMetadata() {
+	if ts.indexType == "pods" {
+		ts.T().Skip("Skipping update vectors by metadata test for non-serverless index")
+	}
+
+	ctx := context.Background()
+
+	// Use pre-existing vectors with rock metadata from SetupSuite
+	filterMap := map[string]interface{}{
+		"genre": map[string]interface{}{
+			"$eq": "rock",
+		},
+	}
+	filter, err := NewMetadataFilter(filterMap)
+	require.NoError(ts.T(), err)
+
+	// Create metadata for DryRun test (required by validation)
+	dryRunMetadataMap := map[string]interface{}{
+		"genre": "rock",
+		"year":  2021,
+	}
+	dryRunMetadata, err := NewMetadata(dryRunMetadataMap)
+	require.NoError(ts.T(), err)
+
+	// DryRun with Filter
+	dryRun := true
+	dryRunRes, err := ts.idxConn.UpdateVectorsByMetadata(ctx, &UpdateVectorsByMetadataRequest{
+		Filter:   filter,
+		Metadata: dryRunMetadata,
+		DryRun:   &dryRun,
+	})
+
+	assert.NoError(ts.T(), err)
+	assert.NotNil(ts.T(), dryRunRes)
+	assert.Greater(ts.T(), dryRunRes.MatchedRecords, int32(0), "DryRun should return matched records count")
+
+	// Update metadata with Filter
+	updateMetadataMap := map[string]interface{}{
+		"genre":   "rock",
+		"year":    2021,
+		"updated": true,
+	}
+	updateMetadata, err := NewMetadata(updateMetadataMap)
+	require.NoError(ts.T(), err)
+
+	dryRun = false
+	updateRes, err := ts.idxConn.UpdateVectorsByMetadata(ctx, &UpdateVectorsByMetadataRequest{
+		Filter:   filter,
+		Metadata: updateMetadata,
+		DryRun:   &dryRun,
+	})
+
+	assert.NoError(ts.T(), err)
+	assert.NotNil(ts.T(), updateRes)
+	assert.Greater(ts.T(), updateRes.MatchedRecords, int32(0), "Update should return matched records count")
+
+	// Verify the update worked by fetching vectors and checking their metadata
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		// Fetch the vectors that should have been updated
+		fetched, err := ts.idxConn.FetchVectors(ctx, ts.vectorsWithRockMetadata)
+		if err != nil {
+			return fmt.Errorf("Failed to fetch vectors: %v", err)
+		}
+
+		if len(fetched.Vectors) == 0 {
+			return fmt.Errorf("No vectors found")
+		}
+
+		// Verify all vectors have the updated metadata
+		for id, vector := range fetched.Vectors {
+			assert.NotNil(ts.T(), vector, "Vector %s is nil", id)
+			assert.NotNil(ts.T(), vector.Metadata, "Vector %s has nil metadata", id)
+
+			// Check that the updated field is present
+			updatedField, ok := vector.Metadata.Fields["updated"]
+			if !ok {
+				return fmt.Errorf("Vector did not contain updated field: %s", id)
+			}
+			if ok {
+				updated := updatedField.GetBoolValue()
+				assert.True(ts.T(), updated, "Vector %s updated field should be true", id)
+			}
+
+			// Verify genre is still rock
+			genreField, ok := vector.Metadata.Fields["genre"]
+			assert.True(ts.T(), ok, "Vector %s missing genre field", id)
+			if ok {
+				genre := genreField.GetStringValue()
+				assert.Equal(ts.T(), "rock", genre, "Vector %s genre should still be rock", id)
+			}
+		}
+
+		return nil
+	})
+}
+
 func (ts *integrationTests) TestImportFlowHappyPath() {
 	if ts.indexType != "serverless" {
 		ts.T().Skip("Skipping import flow test for non-serverless index")
@@ -359,8 +509,13 @@ func (ts *integrationTests) TestIntegratedInference() {
 	}
 	indexName := "test-integrated-" + generateTestIndexName()
 
-	// create integrated index
+	// create integrated index with Schema
 	ctx := context.Background()
+	testSchema := &MetadataSchema{
+		Fields: map[string]MetadataSchemaField{
+			"category": {Filterable: true},
+		},
+	}
 	index, err := ts.client.CreateIndexForModel(ctx, &CreateIndexForModelRequest{
 		Name:   indexName,
 		Cloud:  "aws",
@@ -369,9 +524,23 @@ func (ts *integrationTests) TestIntegratedInference() {
 			Model:    "multilingual-e5-large",
 			FieldMap: map[string]interface{}{"text": "chunk_text"},
 		},
+		Schema: testSchema,
 	})
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), index)
+
+	// Verify Schema is returned when describing the index
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		describedIndex, err := ts.client.DescribeIndex(ctx, indexName)
+		if err != nil {
+			return fmt.Errorf("DescribeIndex failed: %v", err)
+		}
+		assert.NotNil(ts.T(), describedIndex.Spec, "Index.Spec should not be nil")
+		assert.NotNil(ts.T(), describedIndex.Spec.Serverless, "Index.Spec.Serverless should not be nil")
+		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.Schema, "Schema should not be nil in described index")
+		assert.Equal(ts.T(), len(testSchema.Fields), len(describedIndex.Spec.Serverless.Schema.Fields), "Schema fields count should match")
+		return nil
+	})
 
 	defer func(ts *integrationTests, name string) {
 		err := ts.deleteIndex(name)
@@ -463,23 +632,103 @@ func (ts *integrationTests) TestListNamespaces() {
 		ts.T().Skip("Namespace operations are only supported in serverless indexes")
 	}
 
+	ctx := context.Background()
+
+	// Get all namespaces to determine total count
+	allNamespaces, err := ts.idxConn.ListNamespaces(ctx, nil)
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), allNamespaces, "ListNamespaces response should not be nil")
+	expectedTotalCount := allNamespaces.TotalCount
+	require.Greater(ts.T(), expectedTotalCount, int32(0), "TotalCount should be greater than 0")
+
 	// List one namespace with limit
 	limit := uint32(1)
-	ctx := context.Background()
 	namespaces, err := ts.idxConn.ListNamespaces(ctx, &ListNamespacesParams{
 		Limit: &limit,
 	})
 	require.NoError(ts.T(), err)
 	require.NotNil(ts.T(), namespaces, "ListNamespaces response should not be nil")
 	require.Equal(ts.T(), limit, uint32(len(namespaces.Namespaces)))
+	require.Equal(ts.T(), expectedTotalCount, namespaces.TotalCount, "TotalCount should be consistent across paginated requests")
 
 	// List remaining
-	namespaces, err = ts.idxConn.ListNamespaces(ctx, &ListNamespacesParams{
-		PaginationToken: &namespaces.Pagination.Next,
+	if namespaces.Pagination != nil && namespaces.Pagination.Next != "" {
+		namespaces, err = ts.idxConn.ListNamespaces(ctx, &ListNamespacesParams{
+			PaginationToken: &namespaces.Pagination.Next,
+		})
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), namespaces, "ListNamespaces response should not be nil")
+		require.Greater(ts.T(), len(namespaces.Namespaces), 0, "ListNamespaces should return the second page of results")
+		require.Equal(ts.T(), expectedTotalCount, namespaces.TotalCount, "TotalCount should be consistent across paginated requests")
+	}
+}
+
+func (ts *integrationTests) TestCreateNamespace() {
+	if ts.indexType != "serverless" {
+		ts.T().Skip("Namespace operations are only supported in serverless indexes")
+	}
+
+	ctx := context.Background()
+
+	// Test creating namespace without Schema
+	namespaceName1 := "test-namespace-" + generateTestIndexName()
+	namespace1, err := ts.idxConn.CreateNamespace(ctx, &CreateNamespaceParams{
+		Name: namespaceName1,
 	})
-	require.NoError(ts.T(), err)
-	require.NotNil(ts.T(), namespaces, "ListNamespaces response should not be nil")
-	require.Greater(ts.T(), len(namespaces.Namespaces), 0, "ListNamespaces should return the second page of results")
+	require.NoError(ts.T(), err, "CreateNamespace should not return an error")
+	require.NotNil(ts.T(), namespace1, "Namespace description should not be nil")
+	require.Equal(ts.T(), namespaceName1, namespace1.Name, "Namespace name should match")
+
+	// Verify namespace can be described
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		namespaceDesc, err := ts.idxConn.DescribeNamespace(ctx, namespaceName1)
+		if err != nil {
+			return fmt.Errorf("DescribeNamespace failed: %v", err)
+		}
+		assert.NotNil(ts.T(), namespaceDesc, "Namespace description should not be nil")
+		assert.Equal(ts.T(), namespaceName1, namespaceDesc.Name, "Namespace name should match")
+		return nil
+	})
+
+	// Test creating namespace with Schema
+	namespaceName2 := "test-namespace-" + generateTestIndexName()
+	testSchema := &MetadataSchema{
+		Fields: map[string]MetadataSchemaField{
+			"category": {Filterable: true},
+			"rating":   {Filterable: true},
+		},
+	}
+	namespace2, err := ts.idxConn.CreateNamespace(ctx, &CreateNamespaceParams{
+		Name:   namespaceName2,
+		Schema: testSchema,
+	})
+	require.NoError(ts.T(), err, "CreateNamespace with Schema should not return an error")
+	require.NotNil(ts.T(), namespace2, "Namespace description should not be nil")
+	require.Equal(ts.T(), namespaceName2, namespace2.Name, "Namespace name should match")
+
+	// Verify namespace with schema can be described
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		namespaceDesc, err := ts.idxConn.DescribeNamespace(ctx, namespaceName2)
+		if err != nil {
+			return fmt.Errorf("DescribeNamespace failed: %v", err)
+		}
+		assert.NotNil(ts.T(), namespaceDesc, "Namespace description should not be nil")
+		assert.Equal(ts.T(), namespaceName2, namespaceDesc.Name, "Namespace name should match")
+		if namespaceDesc.Schema != nil {
+			assert.Equal(ts.T(), len(testSchema.Fields), len(namespaceDesc.Schema.Fields), "Schema fields count should match")
+		}
+		return nil
+	})
+
+	// Clean up created namespaces
+	err = ts.idxConn.DeleteNamespace(ctx, namespaceName1)
+	if err != nil {
+		fmt.Printf("Failed to delete namespace %s: %v\n", namespaceName1, err)
+	}
+	err = ts.idxConn.DeleteNamespace(ctx, namespaceName2)
+	if err != nil {
+		fmt.Printf("Failed to delete namespace %s: %v\n", namespaceName2, err)
+	}
 }
 
 func (ts *integrationTests) TestDeleteNamespace() {
@@ -513,7 +762,7 @@ func TestUpdateVectorMissingReqdFieldsUnit(t *testing.T) {
 	idxConn := &IndexConnection{}
 	err := idxConn.UpdateVector(ctx, &UpdateVectorRequest{})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "a vector ID plus at least one of Values, SparseValues, or Metadata must be provided to update a vector")
+	assert.Contains(t, err.Error(), "an Id value must be provided to update a vector")
 }
 
 func TestNewIndexConnection(t *testing.T) {
@@ -1299,6 +1548,167 @@ func TestToPaginationTokenGrpc(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := toPaginationTokenGrpc(tt.token)
 			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		})
+	}
+}
+
+func Test_fromMetadataSchemaToGrpc_Unit(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    *MetadataSchema
+		expected *db_data_grpc.MetadataSchema
+	}{
+		{
+			name:     "nil input",
+			input:    nil,
+			expected: nil,
+		},
+		{
+			name: "empty fields map",
+			input: &MetadataSchema{
+				Fields: make(map[string]MetadataSchemaField),
+			},
+			expected: &db_data_grpc.MetadataSchema{
+				Fields: make(map[string]*db_data_grpc.MetadataFieldProperties),
+			},
+		},
+		{
+			name: "fields with filterable true",
+			input: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre": {Filterable: true},
+				},
+			},
+			expected: &db_data_grpc.MetadataSchema{
+				Fields: map[string]*db_data_grpc.MetadataFieldProperties{
+					"genre": {Filterable: true},
+				},
+			},
+		},
+		{
+			name: "fields with filterable false",
+			input: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre": {Filterable: false},
+				},
+			},
+			expected: &db_data_grpc.MetadataSchema{
+				Fields: map[string]*db_data_grpc.MetadataFieldProperties{
+					"genre": {Filterable: false},
+				},
+			},
+		},
+		{
+			name: "multiple fields",
+			input: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre":  {Filterable: true},
+					"year":   {Filterable: true},
+					"rating": {Filterable: false},
+				},
+			},
+			expected: &db_data_grpc.MetadataSchema{
+				Fields: map[string]*db_data_grpc.MetadataFieldProperties{
+					"genre":  {Filterable: true},
+					"year":   {Filterable: true},
+					"rating": {Filterable: false},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := fromMetadataSchemaToGrpc(tt.input)
+			if tt.expected == nil {
+				assert.Nil(t, result)
+				return
+			}
+
+			require.NotNil(t, result)
+			assert.Equal(t, len(tt.expected.Fields), len(result.Fields))
+
+			for key, expectedField := range tt.expected.Fields {
+				actualField, ok := result.Fields[key]
+				require.True(t, ok, "Field %s should exist", key)
+				require.NotNil(t, actualField)
+				assert.Equal(t, expectedField.Filterable, actualField.Filterable)
+			}
+		})
+	}
+}
+
+func Test_toMetadataSchemaGrpc_Unit(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    *db_data_grpc.MetadataSchema
+		expected *MetadataSchema
+	}{
+		{
+			name:     "nil input",
+			input:    nil,
+			expected: nil,
+		},
+		{
+			name: "empty fields map",
+			input: &db_data_grpc.MetadataSchema{
+				Fields: make(map[string]*db_data_grpc.MetadataFieldProperties),
+			},
+			expected: &MetadataSchema{
+				Fields: make(map[string]MetadataSchemaField),
+			},
+		},
+		{
+			name: "fields with filterable true",
+			input: &db_data_grpc.MetadataSchema{
+				Fields: map[string]*db_data_grpc.MetadataFieldProperties{
+					"genre": {Filterable: true},
+				},
+			},
+			expected: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre": {Filterable: true},
+				},
+			},
+		},
+		{
+			name: "fields with filterable false",
+			input: &db_data_grpc.MetadataSchema{
+				Fields: map[string]*db_data_grpc.MetadataFieldProperties{
+					"genre": {Filterable: false},
+				},
+			},
+			expected: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre": {Filterable: false},
+				},
+			},
+		},
+		{
+			name: "multiple fields",
+			input: &db_data_grpc.MetadataSchema{
+				Fields: map[string]*db_data_grpc.MetadataFieldProperties{
+					"genre":  {Filterable: true},
+					"year":   {Filterable: true},
+					"rating": {Filterable: false},
+				},
+			},
+			expected: &MetadataSchema{
+				Fields: map[string]MetadataSchemaField{
+					"genre":  {Filterable: true},
+					"year":   {Filterable: true},
+					"rating": {Filterable: false},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := toMetadataSchemaGrpc(tt.input)
+			if diff := cmp.Diff(tt.expected, result); diff != "" {
+				t.Errorf("toMetadataSchemaGrpc() mismatch (-expected +result):\n%s", diff)
+			}
 		})
 	}
 }

@@ -196,6 +196,9 @@ type ListNamespacesResponse struct {
 	// Namespaces The list of namespaces belonging to this index.
 	Namespaces *[]NamespaceDescription `json:"namespaces,omitempty"`
 	Pagination *Pagination             `json:"pagination,omitempty"`
+
+	// TotalCount The total number of namespaces in the index matching the prefix
+	TotalCount *int32 `json:"total_count,omitempty"`
 }
 
 // ListResponse The response for the `list` operation.
@@ -209,6 +212,11 @@ type ListResponse struct {
 
 // NamespaceDescription A description of a namespace, including the name and record count.
 type NamespaceDescription struct {
+	// IndexedFields A list of all indexed metatadata fields in the namespace
+	IndexedFields *struct {
+		Fields *[]string `json:"fields,omitempty"`
+	} `json:"indexed_fields,omitempty"`
+
 	// Name The name of the namespace.
 	Name *string `json:"name,omitempty"`
 
@@ -223,9 +231,6 @@ type NamespaceDescription struct {
 			Filterable *bool `json:"filterable,omitempty"`
 		} `json:"fields"`
 	} `json:"schema,omitempty"`
-
-	// TotalCount The total number of namespaces in the index matching the prefix
-	TotalCount *int32 `json:"total_count,omitempty"`
 }
 
 // NamespaceSummary A summary of the contents of a namespace.
