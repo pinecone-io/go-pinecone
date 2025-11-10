@@ -540,6 +540,9 @@ func (req CreatePodIndexRequest) TotalCount() int {
 //			   fmt.Printf("Successfully created pod index: %s", idx.Name)
 //		}
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreatePodIndexRequest) cannot be nil")
+	}
 	if in.Name == "" || in.Dimension <= 0 || in.Environment == "" || in.PodType == "" {
 		return nil, fmt.Errorf("fields Name, positive Dimension, Environment, and Podtype must be included in CreatePodIndexRequest")
 	}
@@ -739,6 +742,9 @@ type ReadCapacityDedicatedConfig struct {
 //		    fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //		}
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreateServerlessIndexRequest) cannot be nil")
+	}
 	if in.Name == "" || in.Cloud == "" || in.Region == "" {
 		return nil, fmt.Errorf("fields Name, Cloud, and Region must be included in CreateServerlessIndexRequest")
 	}
@@ -959,6 +965,9 @@ type CreateIndexForModelEmbed struct {
 //		    fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //		}
 func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForModelRequest) (*Index, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreateIndexForModelRequest) cannot be nil")
+	}
 	if in.Name == "" || in.Cloud == "" || in.Region == "" || in.Embed.Model == "" {
 		return nil, fmt.Errorf("fields Name, Cloud, Region, and Embed.Model must be included in CreateIndexForModelRequest")
 	}
@@ -1108,6 +1117,9 @@ type CreateBYOCIndexRequest struct {
 //		    fmt.Printf("Successfully created BYOC index: %s", idx.Name)
 //		}
 func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest) (*Index, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreateBYOCIndexRequest) cannot be nil")
+	}
 	if in.Name == "" || in.Environment == "" {
 		return nil, fmt.Errorf("fields Name, and Environment must be included in CreateBYOCIndexRequest")
 	}
@@ -1638,6 +1650,9 @@ type CreateCollectionRequest struct {
 //		       fmt.Printf("Successfully created collection \"%s\".", collection.Name)
 //	    }
 func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionRequest) (*Collection, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreateCollectionRequest) cannot be nil")
+	}
 	if in.Source == "" || in.Name == "" {
 		return nil, fmt.Errorf("fields Name and Source must be included in CreateCollectionRequest")
 	}
@@ -2231,6 +2246,9 @@ type EmbedResponse struct {
 //		       fmt.Printf("Successfully generated embeddings: %+v", res)
 //	    }
 func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedResponse, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*EmbedRequest) cannot be nil")
+	}
 	if len(in.TextInputs) == 0 {
 		return nil, fmt.Errorf("TextInputs must contain at least one value")
 	}
@@ -2371,6 +2389,9 @@ type RerankResponse struct {
 //	     }
 //	     fmt.Printf("Rerank result: %+v\n", ranking)
 func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*RerankResponse, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*RerankRequest) cannot be nil")
+	}
 	convertedDocuments := make([]inference.Document, len(in.Documents))
 	for i, doc := range in.Documents {
 		convertedDocuments[i] = inference.Document(doc)

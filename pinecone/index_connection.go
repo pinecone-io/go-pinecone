@@ -326,6 +326,9 @@ type UpdateVectorRequest struct {
 //			log.Fatalf("Failed to update vector with ID %s. Error: %s", id, err)
 //	    }
 func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRequest) error {
+	if in == nil {
+		return fmt.Errorf("in (*UpdateVectorRequest) cannot be nil")
+	}
 	hasId := in.Id != ""
 
 	// Validate mutual exclusivity of Id and Filter
@@ -441,7 +444,7 @@ type UpdateVectorsByMetadataResponse struct {
 //	    fmt.Printf("Updated %d vector(s)\n", res.MatchedRecords)
 func (idx *IndexConnection) UpdateVectorsByMetadata(ctx context.Context, in *UpdateVectorsByMetadataRequest) (*UpdateVectorsByMetadataResponse, error) {
 	if in == nil {
-		return nil, fmt.Errorf("UpdateVectorsByMetadataRequest is nil")
+		return nil, fmt.Errorf("in (*UpdateVectorsByMetadataRequest) cannot be nil")
 	}
 	if in.Filter == nil {
 		return nil, fmt.Errorf("Filter is required to update vectors by metadata")
@@ -641,7 +644,7 @@ type FetchVectorsByMetadataResponse struct {
 //	    }
 func (idx *IndexConnection) FetchVectorsByMetadata(ctx context.Context, in *FetchVectorsByMetadataRequest) (*FetchVectorsByMetadataResponse, error) {
 	if in == nil {
-		return nil, fmt.Errorf("FetchVectorsByMetadataRequest is nil")
+		return nil, fmt.Errorf("in (*FetchVectorsByMetadataRequest) cannot be nil")
 	}
 	if in.Filter == nil {
 		return nil, fmt.Errorf("Filter is required to fetch vectors by metadata")
@@ -768,6 +771,9 @@ type ListVectorsResponse struct {
 //			fmt.Printf("Found %d vector(s)\n", len(res.VectorIds))
 //	    }
 func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequest) (*ListVectorsResponse, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*ListVectorsRequest) cannot be nil")
+	}
 	req := &db_data_grpc.ListRequest{
 		Prefix:          in.Prefix,
 		Limit:           in.Limit,
@@ -890,6 +896,9 @@ type QueryVectorsResponse struct {
 //			}
 //	    }
 func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryByVectorValuesRequest) (*QueryVectorsResponse, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*QueryByVectorValuesRequest) cannot be nil")
+	}
 	req := &db_data_grpc.QueryRequest{
 		Namespace:       idx.namespace,
 		TopK:            in.TopK,
@@ -975,6 +984,9 @@ type QueryByVectorIdRequest struct {
 //			}
 //	    }
 func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVectorIdRequest) (*QueryVectorsResponse, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*QueryByVectorIdRequest) cannot be nil")
+	}
 	req := &db_data_grpc.QueryRequest{
 		Id:              in.VectorId,
 		Namespace:       idx.namespace,
@@ -1179,6 +1191,9 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 //
 // [Pinecone Index]: https://docs.pinecone.io/reference/api/2025-01/control-plane/create_for_model
 func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecordsRequest) (*SearchRecordsResponse, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*SearchRecordsRequest) cannot be nil")
+	}
 	var convertedVector *db_data_rest.SearchRecordsVector
 	if in.Query.Vector != nil {
 		convertedVector = &db_data_rest.SearchRecordsVector{
@@ -1834,6 +1849,9 @@ type CreateNamespaceParams struct {
 //		    fmt.Printf("Successfully created namespace: %s with %d records", namespace.Name, namespace.RecordCount)
 //		}
 func (idx *IndexConnection) CreateNamespace(ctx context.Context, in *CreateNamespaceParams) (*NamespaceDescription, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreateNamespaceParams) cannot be nil")
+	}
 	req := db_data_grpc.CreateNamespaceRequest{
 		Name:   in.Name,
 		Schema: fromMetadataSchemaToGrpc(in.Schema),
