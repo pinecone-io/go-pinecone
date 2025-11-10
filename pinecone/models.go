@@ -527,11 +527,23 @@ type SearchRecordsRequest struct {
 //   - Inputs: Additional input parameters for the query.
 //   - Vector: The vector representation of the query.
 type SearchRecordsQuery struct {
-	TopK   int32                   `json:"top_k"`
-	Filter *map[string]interface{} `json:"filter,omitempty"`
-	Id     *string                 `json:"id,omitempty"`
-	Inputs *map[string]interface{} `json:"inputs,omitempty"`
-	Vector *SearchRecordsVector    `json:"vector,omitempty"`
+	TopK       int32                   `json:"top_k"`
+	Filter     *map[string]interface{} `json:"filter,omitempty"`
+	Id         *string                 `json:"id,omitempty"`
+	Inputs     *map[string]interface{} `json:"inputs,omitempty"`
+	Vector     *SearchRecordsVector    `json:"vector,omitempty"`
+	MatchTerms *SearchMatchTerms       `json:"match_terms,omitempty"`
+}
+
+// [SearchMatchTerms] represents the terms to match in the text of each search hit.
+//
+// Fields:
+//   - Strategy: The strategy for matching terms in the text. Currently, only `all` is supported, which means all specified terms must be present.
+//     Leaving this empty will default to 'all'.
+//   - Terms: A list of terms that must be present in the text of each search hit based on the specified strategy.
+type SearchMatchTerms struct {
+	Strategy *string   `json:"strategy,omitempty"`
+	Terms    *[]string `json:"terms,omitempty"`
 }
 
 // [SearchRecordsRerank] represents the parameters for reranking search results.
