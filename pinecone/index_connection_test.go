@@ -148,6 +148,8 @@ func (ts *integrationTests) TestDescribeIndexStats() {
 	assert.NotNil(ts.T(), res)
 }
 
+// MetadataFilter on this operation isPods-based indexes only.
+// This primarily just validates passing the MetadataFilter to the method.
 func (ts *integrationTests) TestDescribeIndexStatsFiltered() {
 	ctx := context.Background()
 	res, err := ts.idxConn.DescribeIndexStatsFiltered(ctx, &MetadataFilter{})
