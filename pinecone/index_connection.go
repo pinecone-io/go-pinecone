@@ -1205,8 +1205,12 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 
 	var matchTerms *db_data_rest.SearchMatchTerms
 	if in.Query.MatchTerms != nil {
+		strat := "all"
+		if in.Query.MatchTerms.Strategy != nil {
+			strat = *in.Query.MatchTerms.Strategy
+		}
 		matchTerms = &db_data_rest.SearchMatchTerms{
-			Strategy: in.Query.MatchTerms.Strategy,
+			Strategy: &strat,
 			Terms:    in.Query.MatchTerms.Terms,
 		}
 	}
