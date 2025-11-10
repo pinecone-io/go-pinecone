@@ -7,7 +7,7 @@ This is the official Go SDK for [Pinecone](https://www.pinecone.io).
 To see the latest documentation for `main`, visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone.
 
 To see the latest versioned-release's documentation,
-visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v4/pinecone.
+visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v5/pinecone.
 
 ## Features
 
@@ -25,7 +25,7 @@ See the [Pinecone API Docs](https://docs.pinecone.io/reference/) for more inform
 To upgrade the SDK to the latest version, run:
 
 ```shell
-go get -u github.com/pinecone-io/go-pinecone/v4/pinecone@latest
+go get -u github.com/pinecone-io/go-pinecone/v5/pinecone@latest
 ```
 
 ## Prerequisites
@@ -37,7 +37,7 @@ go get -u github.com/pinecone-io/go-pinecone/v4/pinecone@latest
 To install the Pinecone Go SDK, run the following in your terminal:
 
 ```shell
-go get github.com/pinecone-io/go-pinecone/v4/pinecone
+go get github.com/pinecone-io/go-pinecone/v5/pinecone
 ```
 
 For more information on setting up a Go project, see the [Go documentation](https://golang.org/doc/).
@@ -59,7 +59,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -92,7 +92,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 )
 
@@ -134,7 +134,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 )
 
 func main() {
@@ -199,7 +199,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -248,7 +248,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -298,7 +298,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -346,7 +346,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -401,7 +401,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -442,7 +442,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -483,7 +483,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -523,7 +523,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -616,7 +616,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -669,7 +669,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -758,7 +758,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
@@ -833,7 +833,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
@@ -990,7 +990,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
@@ -1121,7 +1121,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1182,7 +1182,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1230,7 +1230,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
@@ -1285,7 +1285,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1333,7 +1333,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1413,7 +1413,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1469,7 +1469,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1546,7 +1546,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1587,7 +1587,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1632,7 +1632,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1670,7 +1670,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )

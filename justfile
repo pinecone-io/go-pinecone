@@ -39,5 +39,5 @@ gen:
   ./codegen/build-clients.sh {{api_version}}
 
 docs:
-  @echo "Serving docs at http://localhost:6060/pkg/github.com/pinecone-io/go-pinecone/v4/pinecone/"
+  @echo "Serving docs at http://localhost:6060/pkg/github.com/pinecone-io/go-pinecone/v5/pinecone/"
   @godoc -http=:6060 >/dev/null
