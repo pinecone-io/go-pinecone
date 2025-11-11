@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	db_data_grpc "github.com/pinecone-io/go-pinecone/v4/internal/gen/db_data/grpc"
-	"github.com/pinecone-io/go-pinecone/v4/internal/utils"
+	db_data_grpc "github.com/pinecone-io/go-pinecone/v5/internal/gen/db_data/grpc"
+	"github.com/pinecone-io/go-pinecone/v5/internal/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -148,6 +148,8 @@ func (ts *integrationTests) TestDescribeIndexStats() {
 	assert.NotNil(ts.T(), res)
 }
 
+// MetadataFilter on this operation isPods-based indexes only.
+// This primarily just validates passing the MetadataFilter to the method.
 func (ts *integrationTests) TestDescribeIndexStatsFiltered() {
 	ctx := context.Background()
 	res, err := ts.idxConn.DescribeIndexStatsFiltered(ctx, &MetadataFilter{})
@@ -600,6 +602,9 @@ func (ts *integrationTests) TestIntegratedInference() {
 				TopK: 5,
 				Inputs: &map[string]interface{}{
 					"text": "Disease prevention",
+				},
+				MatchTerms: &SearchMatchTerms{
+					Terms: &[]string{"disease", "prevention"},
 				},
 			},
 		})

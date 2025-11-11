@@ -12,10 +12,10 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/pinecone-io/go-pinecone/v4/internal/gen"
-	db_data_grpc "github.com/pinecone-io/go-pinecone/v4/internal/gen/db_data/grpc"
-	db_data_rest "github.com/pinecone-io/go-pinecone/v4/internal/gen/db_data/rest"
-	"github.com/pinecone-io/go-pinecone/v4/internal/useragent"
+	"github.com/pinecone-io/go-pinecone/v5/internal/gen"
+	db_data_grpc "github.com/pinecone-io/go-pinecone/v5/internal/gen/db_data/grpc"
+	db_data_rest "github.com/pinecone-io/go-pinecone/v5/internal/gen/db_data/rest"
+	"github.com/pinecone-io/go-pinecone/v5/internal/useragent"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -1203,6 +1203,18 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 		}
 	}
 
+	var matchTerms *db_data_rest.SearchMatchTerms
+	if in.Query.MatchTerms != nil {
+		strat := "all"
+		if in.Query.MatchTerms.Strategy != nil {
+			strat = *in.Query.MatchTerms.Strategy
+		}
+		matchTerms = &db_data_rest.SearchMatchTerms{
+			Strategy: &strat,
+			Terms:    in.Query.MatchTerms.Terms,
+		}
+	}
+
 	req := db_data_rest.SearchRecordsRequest{
 		Fields: in.Fields,
 		Query: struct {
@@ -1213,10 +1225,11 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 			TopK       int32                             `json:"top_k"`
 			Vector     *db_data_rest.SearchRecordsVector `json:"vector,omitempty"`
 		}{
-			Filter: in.Query.Filter,
-			Id:     in.Query.Id,
-			TopK:   in.Query.TopK,
-			Vector: convertedVector,
+			Filter:     in.Query.Filter,
+			Id:         in.Query.Id,
+			TopK:       in.Query.TopK,
+			Vector:     convertedVector,
+			MatchTerms: matchTerms,
 		},
 	}
 

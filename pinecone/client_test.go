@@ -14,10 +14,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
-	"github.com/pinecone-io/go-pinecone/v4/internal/gen"
-	"github.com/pinecone-io/go-pinecone/v4/internal/gen/db_control"
-	"github.com/pinecone-io/go-pinecone/v4/internal/provider"
-	"github.com/pinecone-io/go-pinecone/v4/internal/utils"
+	"github.com/pinecone-io/go-pinecone/v5/internal/gen"
+	"github.com/pinecone-io/go-pinecone/v5/internal/gen/db_control"
+	"github.com/pinecone-io/go-pinecone/v5/internal/provider"
+	"github.com/pinecone-io/go-pinecone/v5/internal/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

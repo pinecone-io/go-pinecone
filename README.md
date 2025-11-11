@@ -7,16 +7,16 @@ This is the official Go SDK for [Pinecone](https://www.pinecone.io).
 To see the latest documentation for `main`, visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone.
 
 To see the latest versioned-release's documentation,
-visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v4/pinecone.
+visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v5/pinecone.
 
 ## Features
 
 go-pinecone contains
 
-- gRPC bindings for [Data Plane](https://docs.pinecone.io/reference/api/2025-04/data-plane) operations
-- REST bindings for [Control Plane](https://docs.pinecone.io/reference/api/2025-04/control-plane)
+- gRPC bindings for [Data Plane](https://docs.pinecone.io/reference/api/2025-10/data-plane) operations
+- REST bindings for [Control Plane](https://docs.pinecone.io/reference/api/2025-10/control-plane)
   operations
-- REST bindings for [Admin API](https://docs.pinecone.io/reference/api/2025-04/admin/)
+- REST bindings for [Admin API](https://docs.pinecone.io/reference/api/2025-10/admin/)
 
 See the [Pinecone API Docs](https://docs.pinecone.io/reference/) for more information.
 
@@ -25,7 +25,7 @@ See the [Pinecone API Docs](https://docs.pinecone.io/reference/) for more inform
 To upgrade the SDK to the latest version, run:
 
 ```shell
-go get -u github.com/pinecone-io/go-pinecone/v4/pinecone@latest
+go get -u github.com/pinecone-io/go-pinecone/v5/pinecone@latest
 ```
 
 ## Prerequisites
@@ -37,7 +37,7 @@ go get -u github.com/pinecone-io/go-pinecone/v4/pinecone@latest
 To install the Pinecone Go SDK, run the following in your terminal:
 
 ```shell
-go get github.com/pinecone-io/go-pinecone/v4/pinecone
+go get github.com/pinecone-io/go-pinecone/v5/pinecone
 ```
 
 For more information on setting up a Go project, see the [Go documentation](https://golang.org/doc/).
@@ -59,7 +59,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -92,15 +92,15 @@ package main
 
 import (
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 )
 
 func main() {
 	clientParams := pinecone.NewClientBaseParams{
 		Headers: map[string]string{
-			"Authorization": "Bearer " + "<your OAuth token>"
-			"X-Project-Id":  "<Your Pinecone project ID>"
+			"Authorization": "Bearer " + "<your OAuth token>",
+			"X-Project-Id":  "<Your Pinecone project ID>",
 		},
 	}
 
@@ -134,7 +134,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 )
 
 func main() {
@@ -199,7 +199,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -248,7 +248,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -298,7 +298,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -319,7 +319,7 @@ func main() {
 
 	index, err := pc.CreateIndexForModel(ctx, &pinecone.CreateIndexForModelRequest{
 		Name:   "my-integrated-index",
-		Cloud:  "aws",
+		Cloud:  pinecone.Aws,
 		Region: "us-east-1",
 		Embed: pinecone.CreateIndexForModelEmbed{
 			Model:    "multilingual-e5-large",
@@ -330,7 +330,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create serverless integrated index: %v", err)
 	} else {
-		fmt.Printf("Successfully created serverless integrated index: %s", idx.Name)
+		fmt.Printf("Successfully created serverless integrated index: %s", index.Name)
 	}
 }
 ```
@@ -346,7 +346,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -401,7 +401,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -442,7 +442,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -483,7 +483,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -523,7 +523,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -616,7 +616,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -669,7 +669,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -742,7 +742,7 @@ You can list all namespaces in an index in a paginated format, describe a specif
 	}
 
 	// delete a namespace
-	err := idxConnection.DeleteNamespace("my-namespace-1")
+	err = idxConnection.DeleteNamespace(ctx, "my-namespace-1")
 	if err != nil {
 		log.Fatalf("Failed to delete namespace: %v: %v", "my-namespace-1", err)
 	}
@@ -758,7 +758,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
@@ -833,7 +833,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
@@ -938,11 +938,13 @@ The following example imports vectors from an Amazon S3 bucket into a Pinecone s
     }
 
     indexName := "sample-index"
+    dimension := int32(3)
+    metric := pinecone.Cosine
 
     idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
         Name:      indexName,
-        Dimension: 3,
-        Metric:    pinecone.Cosine,
+        Dimension: &dimension,
+        Metric:    &metric,
         Cloud:     pinecone.Aws,
         Region:    "us-east-1",
     })
@@ -966,7 +968,7 @@ The following example imports vectors from an Amazon S3 bucket into a Pinecone s
 
     errorMode := "abort" // Will abort if error encountered; other option: "continue"
 
-    importRes, err := idxConnection.StartImport(ctx, storageURI, nil, (*pinecone.ImportErrorMode)(&errorMode))
+    importRes, err := idxConnection.StartImport(ctx, storageURI, nil, &errorMode)
 
 	if err != nil {
         log.Fatalf("Failed to start import: %v", err)
@@ -990,7 +992,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
@@ -1121,7 +1123,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1182,7 +1184,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1230,7 +1232,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"google.golang.org/protobuf/types/known/structpb"
 	"log"
 	"os"
@@ -1285,7 +1287,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1333,7 +1335,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1413,7 +1415,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1469,7 +1471,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1546,7 +1548,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1587,7 +1589,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1632,7 +1634,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1670,7 +1672,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pinecone-io/go-pinecone/v4/pinecone"
+	"github.com/pinecone-io/go-pinecone/v5/pinecone"
 	"log"
 	"os"
 )
@@ -1717,7 +1719,7 @@ A backup is a static copy of a serverless index that only consumes storage. It i
 	}
 
 	indexName := "my-index"
-	backupName := fmt.Sprintf("backup-%s", )
+	backupName := fmt.Sprintf("backup-%s", indexName)
 	backupDesc := fmt.Sprintf("Backup created for index %s", indexName)
 	fmt.Printf("Creating backup: %s for index: %s\n", backupName, indexName)
 
@@ -1750,14 +1752,17 @@ A backup is a static copy of a serverless index that only consumes storage. It i
 	// create a new serverless index from the backup
 	restoredIndexName := indexName + "-from-backup"
 	restoredIndexTags := pinecone.IndexTags{"restored_on": time.Now().Format("2006-01-02 15:04")}
-	createIndexFromBackupResp, err := pc.CreateIndexFromBackup(context.Background(), &pinecone.CreateIndexFromBackupParams{
-		BackupId: ts.backupId,
+	createIndexFromBackupResp, err := pc.CreateIndexFromBackup(ctx, &pinecone.CreateIndexFromBackupParams{
+		BackupId: backup.BackupId,
 		Name:     restoredIndexName,
 		Tags:     &restoredIndexTags,
 	})
+	if err != nil {
+		log.Fatalf("Failed to create index from backup: %w", err)
+	}
 
 	// check the status of the index restoration
-	restoreJob, err := pc.DescribeRestoreJob(ctx, restoreJob.RestoreJobId)
+	restoreJob, err := pc.DescribeRestoreJob(ctx, createIndexFromBackupResp.RestoreJobId)
 	if err != nil {
 		log.Fatalf("Failed to describe restore job: %w", err)
 	}
@@ -1784,8 +1789,8 @@ Send text to Pinecone's inference API to generate embeddings for documents and q
 
 	embeddingModel := "multilingual-e5-large"
 	documents := []string{
-		"Turkey is a classic meat to eat at American Thanksgiving."
-		"Many people enjoy the beautiful mosques in Turkey."
+		"Turkey is a classic meat to eat at American Thanksgiving.",
+		"Many people enjoy the beautiful mosques in Turkey.",
 	}
 	docParameters := pinecone.EmbedParameters{
 		InputType: "passage",
@@ -1814,7 +1819,7 @@ Send text to Pinecone's inference API to generate embeddings for documents and q
 	queryEmbeddingsResponse, err := pc.Inference.Embed(ctx, &pinecone.EmbedRequest{
 		Model: embeddingModel,
 		TextInputs: userQuery,
-		Parameters: queryParameters
+		Parameters: queryParameters,
 	})
 	if err != nil {
 		log.Fatalf("Failed to embed query: %v", err)
@@ -1970,6 +1975,9 @@ Note the following requirements for each record:
 	}
 
 	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "my-namespace"})
+	if err != nil {
+		log.Fatalf("Failed to create IndexConnection: %v", err)
+	}
 
 	records := []*pinecone.IntegratedRecord{
 			{
