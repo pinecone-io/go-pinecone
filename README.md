@@ -13,10 +13,10 @@ visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v5/pinecone.
 
 go-pinecone contains
 
-- gRPC bindings for [Data Plane](https://docs.pinecone.io/reference/api/2025-04/data-plane) operations
-- REST bindings for [Control Plane](https://docs.pinecone.io/reference/api/2025-04/control-plane)
+- gRPC bindings for [Data Plane](https://docs.pinecone.io/reference/api/2025-10/data-plane) operations
+- REST bindings for [Control Plane](https://docs.pinecone.io/reference/api/2025-10/control-plane)
   operations
-- REST bindings for [Admin API](https://docs.pinecone.io/reference/api/2025-04/admin/)
+- REST bindings for [Admin API](https://docs.pinecone.io/reference/api/2025-10/admin/)
 
 See the [Pinecone API Docs](https://docs.pinecone.io/reference/) for more information.
 
