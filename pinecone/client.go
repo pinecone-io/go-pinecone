@@ -1030,6 +1030,8 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 //   - Environment: (Required) The environment identifier for the BYOC index.
 //   - Metric: (Optional) The metric used to measure the [similarity] between vectors ('euclidean', 'cosine', or 'dotproduct').
 //   - Dimension: (Optional) The [dimensionality] of the vectors to be inserted in the [Index].
+//   - VectorType: (Optional) The index vector type. You can use `dense` or `sparse`. If `dense`, the vector dimension must be specified.
+//     If `sparse`, the vector dimension should not be specified, and the Metric must be set to `dotproduct`. Defaults to `dense`.
 //   - DeletionProtection: (Optional) Determines whether [deletion protection] is "enabled" or "disabled" for the index.
 //     When "enabled", the index cannot be deleted. Defaults to "disabled".
 //   - Tags: (Optional) A map of tags to associate with the Index.
@@ -1073,6 +1075,7 @@ type CreateBYOCIndexRequest struct {
 	Name               string
 	Environment        string
 	Dimension          int32
+	VectorType         *string
 	Metric             *IndexMetric
 	DeletionProtection *DeletionProtection
 	Tags               *IndexTags
