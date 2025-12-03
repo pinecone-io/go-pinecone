@@ -749,25 +749,9 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 		return nil, fmt.Errorf("fields Name, Cloud, and Region must be included in CreateServerlessIndexRequest")
 	}
 
-	// default to "dense" if VectorType is not specified
-	vectorType := in.VectorType
-
-	// validate VectorType options
-	if in.VectorType != nil {
-		switch *in.VectorType {
-		case "sparse":
-			if in.Dimension != nil {
-				return nil, fmt.Errorf("Dimension should not be specified when VectorType is 'sparse'")
-			} else if in.Metric != nil && *in.Metric != Dotproduct {
-				return nil, fmt.Errorf("Metric should be 'dotproduct' when VectorType is 'sparse'")
-			}
-		case "dense":
-			if in.Dimension == nil {
-				return nil, fmt.Errorf("Dimension should be specified when VectorType is 'dense'")
-			}
-		default:
-			return nil, fmt.Errorf("unsupported VectorType: %s", *in.VectorType)
-		}
+	vectorType, err := validateVectorType(in.VectorType, in.Dimension, in.Metric)
+	if err != nil {
+		return nil, err
 	}
 
 	var deletionProtection *db_control.DeletionProtection
@@ -800,7 +784,7 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 		Dimension:          in.Dimension,
 		Metric:             (*string)(in.Metric),
 		DeletionProtection: deletionProtection,
-		VectorType:         vectorType,
+		VectorType:         &vectorType,
 		Tags:               tags,
 	}
 
@@ -1074,7 +1058,7 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 type CreateBYOCIndexRequest struct {
 	Name               string
 	Environment        string
-	Dimension          int32
+	Dimension          *int32
 	VectorType         *string
 	Metric             *IndexMetric
 	DeletionProtection *DeletionProtection
@@ -1141,16 +1125,22 @@ func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest
 		},
 	}
 
+	vectorType, err := validateVectorType(in.VectorType, in.Dimension, in.Metric)
+	if err != nil {
+		return nil, err
+	}
+
 	req := db_control.CreateIndexRequest{
 		Name:               in.Name,
-		Dimension:          &in.Dimension,
+		VectorType:         &vectorType,
+		Dimension:          in.Dimension,
 		Metric:             (*string)(in.Metric),
 		DeletionProtection: (*db_control.DeletionProtection)(&deletionProtection),
 		Tags:               tags,
 	}
 
 	// Apply BYOC spec to the request
-	err := req.Spec.FromIndexSpec2(byocSpec)
+	err = req.Spec.FromIndexSpec2(byocSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -3004,6 +2994,30 @@ func mergeIndexTags(existingTags *IndexTags, newTags IndexTags) *IndexTags {
 	}
 
 	return &merged
+}
+
+func validateVectorType(vectorType *string, dimension *int32, metric *IndexMetric) (string, error) {
+	// Default to dense if vectorType is not specified
+	out := "dense"
+
+	if vectorType != nil {
+		switch *vectorType {
+		case "sparse":
+			if dimension != nil {
+				return "", fmt.Errorf("Dimension should not be specified when VectorType is 'sparse'")
+			} else if metric != nil && *metric != Dotproduct {
+				return "", fmt.Errorf("Metric should be 'dotproduct' when VectorType is 'sparse'")
+			}
+		case "dense":
+			if dimension == nil {
+				return "", fmt.Errorf("Dimension should be specified when VectorType is 'dense'")
+			}
+		default:
+			return "", fmt.Errorf("unsupported VectorType: %s", *vectorType)
+		}
+		out = *vectorType
+	}
+	return out, nil
 }
 
 func ensureURLScheme(inputURL string) (string, error) {
