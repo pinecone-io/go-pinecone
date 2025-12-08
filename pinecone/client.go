@@ -690,20 +690,26 @@ type CreateServerlessIndexRequest struct {
 //   - Dedicated: Dedicated read capacity mode. Requires node_type and scaling configuration.
 type ReadCapacityParams struct {
 	Dedicated *ReadCapacityDedicatedConfig `json:"dedicated,omitempty"`
+	OnDemand  *ReadCapacityOnDemandConfig  `json:"on_demand,omitempty"`
 }
 
-// [ReadCapacityDedicatedRequest] represents Dedicated read capacity configuration for requests.
+// [ReadCapacityDedicatedRequest] represents Dedicated read capacity configuration for indexes.
 //
 // Fields:
 //   - NodeType: The type of machines to use. Available options: "b1" and "t1".
 //     "t1" includes increased processing power and memory.
 //   - Scaling: The scaling strategy configuration. Currently supports manual scaling.
 type ReadCapacityDedicatedConfig struct {
-	NodeType string               `json:"node_type"`
+	NodeType *string              `json:"node_type"`
 	Scaling  *ReadCapacityScaling `json:"scaling,omitempty"`
 }
 
-// [Client.CreateServerlessIndex] creates and initializes a new serverless Index via the specified [Client].
+// [ReadCapacityOnDemandConfig] represents OnDemand read capacity configuration for indexes.
+// The struct is intentionally empty because OnDemand does not support configuration values.
+// When creating an OnDemand index, you can leave [ReadCapacityParams] empty in the create request.
+type ReadCapacityOnDemandConfig struct{}
+
+// [Client.CreateServerlessIndex] creates and initializes a new serverless index via the specified [Client].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1398,12 +1404,11 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 
 	// Apply serverless configurations
 	if in.ReadCapacity != nil {
-		var readCapacity *db_control.ReadCapacity
-		readCapacity, err = readCapacityParamsToReadCapacity(in.ReadCapacity)
+		readCapacity, err := readCapacityParamsToReadCapacity(in.ReadCapacity)
 		if err != nil {
 			return nil, err
 		}
-		serverLessSpec := db_control.ConfigureIndexRequestSpec0{
+		serverlessSpec := db_control.ConfigureIndexRequestSpec0{
 			Serverless: struct {
 				ReadCapacity *db_control.ReadCapacity `json:"read_capacity,omitempty"`
 			}{
@@ -1411,7 +1416,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 			},
 		}
 		// Apply the serverless spec to the request
-		if err := request.Spec.FromConfigureIndexRequestSpec0(serverLessSpec); err != nil {
+		if err := request.Spec.FromConfigureIndexRequestSpec0(serverlessSpec); err != nil {
 			return nil, err
 		}
 	}
@@ -3119,9 +3124,20 @@ func fromMetadataSchemaToRest(schema *MetadataSchema) *struct {
 
 // Converts the ReadCapacityParams to db_control.ReadCapacity - used for CreateIndex, CreateIndexForModel, and ConfigureIndex operations
 func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.ReadCapacity, error) {
-	// OnDemand - default if Dedicated is nil
-	if request == nil || request.Dedicated == nil {
-		var result db_control.ReadCapacity
+
+	// OnDemand - default if no ReadCapacityParams provided with the request
+	if request == nil {
+		return nil, nil
+	}
+
+	if request.Dedicated != nil && request.OnDemand != nil {
+		return nil, fmt.Errorf("both Dedicated and OnDemand cannot be specified in ReadCapacityParams")
+	}
+
+	var result db_control.ReadCapacity
+
+	// OnDemand
+	if request.OnDemand != nil {
 		onDemandSpec := db_control.ReadCapacityOnDemandSpec{
 			Mode: "OnDemand",
 		}
@@ -3132,14 +3148,13 @@ func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.
 	}
 
 	// Dedicated
-	var result db_control.ReadCapacity
 	dedicatedConfig := db_control.ReadCapacityDedicatedConfig{
 		NodeType: request.Dedicated.NodeType,
 	}
 
 	// Scaling if provided
 	if request.Dedicated.Scaling != nil && request.Dedicated.Scaling.Manual != nil {
-		dedicatedConfig.Scaling = "Manual"
+		dedicatedConfig.Scaling = pointerOrNil("Manual")
 		dedicatedConfig.Manual = &db_control.ScalingConfigManual{
 			Replicas: request.Dedicated.Scaling.Manual.Replicas,
 			Shards:   request.Dedicated.Scaling.Manual.Shards,
@@ -3154,6 +3169,7 @@ func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.
 	if err := result.FromReadCapacityDedicatedSpec(dedicatedSpec); err != nil {
 		return nil, err
 	}
+
 	return &result, nil
 }
 
@@ -3201,18 +3217,35 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 			},
 		}
 
-		// Scaling if present
-		if strings.ToLower(dedicatedSpec.Dedicated.Scaling) == "manual" {
-			dedicated.Scaling = &ReadCapacityScaling{
-				Manual: &ReadCapacityManualScaling{
-					Replicas: dedicatedSpec.Dedicated.Manual.Replicas,
-					Shards:   dedicatedSpec.Dedicated.Manual.Shards,
-				},
+		// Scaling
+		if dedicatedSpec.Dedicated.Scaling != nil {
+			if strings.ToLower(*dedicatedSpec.Dedicated.Scaling) == "manual" {
+				dedicated.Scaling = &ReadCapacityScaling{
+					Manual: &ReadCapacityManualScaling{
+						Replicas: dedicatedSpec.Dedicated.Manual.Replicas,
+						Shards:   dedicatedSpec.Dedicated.Manual.Shards,
+					},
+				}
 			}
 		}
+
 		return &ReadCapacity{
 			Dedicated: dedicated,
 		}, nil
 	}
 	return nil, nil
+}
+
+func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*ReadCapacityParams, error) {
+	// nil / OnDemand -> Dedicated
+	if old == nil || old.OnDemand != nil && new.Dedicated != nil {
+		if new.Dedicated.NodeType == nil ||
+			new.Dedicated.Scaling == nil ||
+			new.Dedicated.Scaling.Manual == nil ||
+			new.Dedicated.Scaling.Manual.Replicas == nil ||
+			new.Dedicated.Scaling.Manual.Shards == nil {
+			return nil, fmt.Errorf("Dedicated read capacity must be configured with a node type, scaling strategy, and manual scaling configuration")
+		}
+	}
+	return new, nil
 }

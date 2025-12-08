@@ -233,7 +233,7 @@ type ReadCapacityOnDemand struct {
 //   - Scaling: The scaling strategy configuration.
 //   - Status: The current status of the read capacity configuration.
 type ReadCapacityDedicated struct {
-	NodeType string               `json:"node_type"`
+	NodeType *string              `json:"node_type"`
 	Scaling  *ReadCapacityScaling `json:"scaling,omitempty"`
 	Status   ReadCapacityStatus   `json:"status"`
 }
@@ -255,8 +255,8 @@ type ReadCapacityScaling struct {
 //   - Shards: The number of shards to use. Shards determine the storage capacity of an index,
 //     with each shard providing 250 GB of storage.
 type ReadCapacityManualScaling struct {
-	Replicas int32 `json:"replicas"`
-	Shards   int32 `json:"shards"`
+	Replicas *int32 `json:"replicas"`
+	Shards   *int32 `json:"shards"`
 }
 
 // [ReadCapacityStatus] represents the current status of factors affecting the read capacity of a serverless index.

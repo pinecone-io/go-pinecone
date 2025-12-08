@@ -510,10 +510,10 @@ type ReadCapacityDedicatedConfig struct {
 	Manual *ScalingConfigManual `json:"manual,omitempty"`
 
 	// NodeType The type of machines to use. Available options: `b1` and `t1`. `t1` includes increased processing power and memory.
-	NodeType string `json:"node_type"`
+	NodeType *string `json:"node_type,omitempty"`
 
 	// Scaling The type of scaling strategy to use.
-	Scaling string `json:"scaling"`
+	Scaling *string `json:"scaling,omitempty"`
 }
 
 // ReadCapacityDedicatedSpec defines model for ReadCapacityDedicatedSpec.
@@ -618,10 +618,10 @@ type RestoreJobModel struct {
 // ScalingConfigManual The config to use for manual read capacity scaling.
 type ScalingConfigManual struct {
 	// Replicas The number of replicas to use. Replicas duplicate the compute resources and data of an index, allowing higher query throughput and availability. Setting replicas to 0 disables the index but can be used to reduce costs while usage is paused.
-	Replicas int32 `json:"replicas"`
+	Replicas *int32 `json:"replicas,omitempty"`
 
 	// Shards The number of shards to use. Shards determine the storage capacity of an index, with each shard providing 250 GB of storage.
-	Shards int32 `json:"shards"`
+	Shards *int32 `json:"shards,omitempty"`
 }
 
 // ServerlessSpec Configuration needed to deploy a serverless index.

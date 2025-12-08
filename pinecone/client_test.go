@@ -824,11 +824,11 @@ func (ts *integrationTests) TestCreateServerlessIndexWithReadCapacity() {
 	indexName2 := "rc-dedicated-" + generateTestIndexName()
 	readCapacity := &ReadCapacityParams{
 		Dedicated: &ReadCapacityDedicatedConfig{
-			NodeType: "t1",
+			NodeType: ptr("t1"),
 			Scaling: &ReadCapacityScaling{
 				Manual: &ReadCapacityManualScaling{
-					Replicas: 1,
-					Shards:   1,
+					Replicas: ptr(int32(1)),
+					Shards:   ptr(int32(1)),
 				},
 			},
 		},
@@ -899,11 +899,11 @@ func (ts *integrationTests) TestConfigureIndexReadCapacity() {
 	// Configure index to use Dedicated ReadCapacity
 	readCapacity := &ReadCapacityParams{
 		Dedicated: &ReadCapacityDedicatedConfig{
-			NodeType: "t1",
+			NodeType: ptr("t1"),
 			Scaling: &ReadCapacityScaling{
 				Manual: &ReadCapacityManualScaling{
-					Replicas: 1,
-					Shards:   1,
+					Replicas: ptr(int32(1)),
+					Shards:   ptr(int32(1)),
 				},
 			},
 		},
@@ -2019,7 +2019,7 @@ func Test_toMetadataSchemaFromRest_Unit(t *testing.T) {
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{
-					"genre": {Filterable: boolPtr(true)},
+					"genre": {Filterable: ptr(true)},
 				},
 			},
 			expected: &MetadataSchema{
@@ -2034,7 +2034,7 @@ func Test_toMetadataSchemaFromRest_Unit(t *testing.T) {
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{
-					"genre": {Filterable: boolPtr(false)},
+					"genre": {Filterable: ptr(false)},
 				},
 			},
 			expected: &MetadataSchema{
@@ -2064,9 +2064,9 @@ func Test_toMetadataSchemaFromRest_Unit(t *testing.T) {
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{
-					"genre":  {Filterable: boolPtr(true)},
-					"year":   {Filterable: boolPtr(true)},
-					"rating": {Filterable: boolPtr(false)},
+					"genre":  {Filterable: ptr(true)},
+					"year":   {Filterable: ptr(true)},
+					"rating": {Filterable: ptr(false)},
 				},
 			},
 			expected: &MetadataSchema{
@@ -2129,7 +2129,7 @@ func Test_fromMetadataSchemaToRest_Unit(t *testing.T) {
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{
-					"genre": {Filterable: boolPtr(true)},
+					"genre": {Filterable: ptr(true)},
 				},
 			},
 		},
@@ -2144,7 +2144,7 @@ func Test_fromMetadataSchemaToRest_Unit(t *testing.T) {
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{
-					"genre": {Filterable: boolPtr(false)},
+					"genre": {Filterable: ptr(false)},
 				},
 			},
 		},
@@ -2161,9 +2161,9 @@ func Test_fromMetadataSchemaToRest_Unit(t *testing.T) {
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{
-					"genre":  {Filterable: boolPtr(true)},
-					"year":   {Filterable: boolPtr(true)},
-					"rating": {Filterable: boolPtr(false)},
+					"genre":  {Filterable: ptr(true)},
+					"year":   {Filterable: ptr(true)},
+					"rating": {Filterable: ptr(false)},
 				},
 			},
 		},
@@ -2232,7 +2232,7 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 			name: "Dedicated with NodeType only",
 			input: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
-					NodeType: "t1",
+					NodeType: ptr("t1"),
 				},
 			},
 			wantError: false,
@@ -2252,11 +2252,11 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 			name: "Dedicated with NodeType and Manual scaling",
 			input: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
-					NodeType: "b1",
+					NodeType: ptr("b1"),
 					Scaling: &ReadCapacityScaling{
 						Manual: &ReadCapacityManualScaling{
-							Replicas: 2,
-							Shards:   3,
+							Replicas: ptr(int32(2)),
+							Shards:   ptr(int32(3)),
 						},
 					},
 				},
@@ -2322,8 +2322,8 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 		dedicatedSpec := db_control.ReadCapacityDedicatedSpecResponse{
 			Mode: "Dedicated",
 			Dedicated: db_control.ReadCapacityDedicatedConfig{
-				NodeType: "t1",
-				Scaling:  "",
+				NodeType: ptr("t1"),
+				Scaling:  ptr(""),
 			},
 			Status: db_control.ReadCapacityStatus{
 				State:           "Ready",
@@ -2344,11 +2344,11 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 		dedicatedSpec := db_control.ReadCapacityDedicatedSpecResponse{
 			Mode: "Dedicated",
 			Dedicated: db_control.ReadCapacityDedicatedConfig{
-				NodeType: "b1",
-				Scaling:  "Manual",
+				NodeType: ptr("b1"),
+				Scaling:  ptr("Manual"),
 				Manual: &db_control.ScalingConfigManual{
-					Replicas: 2,
-					Shards:   3,
+					Replicas: ptr(int32(2)),
+					Shards:   ptr(int32(3)),
 				},
 			},
 			Status: db_control.ReadCapacityStatus{
@@ -2398,7 +2398,7 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 			wantError: false,
 			expected: &ReadCapacity{
 				Dedicated: &ReadCapacityDedicated{
-					NodeType: "t1",
+					NodeType: ptr("t1"),
 					Scaling:  nil,
 					Status: ReadCapacityStatus{
 						State:           "Ready",
@@ -2415,11 +2415,11 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 			wantError: false,
 			expected: &ReadCapacity{
 				Dedicated: &ReadCapacityDedicated{
-					NodeType: "b1",
+					NodeType: ptr("b1"),
 					Scaling: &ReadCapacityScaling{
 						Manual: &ReadCapacityManualScaling{
-							Replicas: 2,
-							Shards:   3,
+							Replicas: ptr(int32(2)),
+							Shards:   ptr(int32(3)),
 						},
 					},
 					Status: ReadCapacityStatus{
@@ -2484,9 +2484,7 @@ func newByocIndexModelSpec(t *testing.T, in db_control.IndexModelSpec2) db_contr
 	return spec
 }
 
-func boolPtr(b bool) *bool {
-	return &b
-}
+func ptr[T any](v T) *T { return &v }
 
 func mockResponse(body string, statusCode int) *http.Response {
 	return &http.Response{
