@@ -280,6 +280,31 @@ func waitUntilIndexReady(ts *integrationTests, ctx context.Context, indexName st
 	}
 }
 
+func waitUntilReadCapacityReady(ts *integrationTests, ctx context.Context, indexName string) (bool, error) {
+	start := time.Now()
+	delay := 5 * time.Second
+	maxWaitTimeSeconds := 280 * time.Second
+
+	for {
+		index, err := ts.client.DescribeIndex(ctx, indexName)
+		require.NoError(ts.T(), err)
+
+		if index.Spec.Serverless.ReadCapacity.Dedicated.Status.State == "Ready" {
+			fmt.Printf("ReadCapacity for index \"%s\" is ready after %f seconds\n", indexName, time.Since(start).Seconds())
+			return true, err
+		}
+
+		totalSeconds := time.Since(start)
+
+		if totalSeconds >= maxWaitTimeSeconds {
+			return false, fmt.Errorf("ReadCapacity for index \"%s\" not ready after %f seconds", indexName, totalSeconds.Seconds())
+		}
+
+		fmt.Printf("ReadCapacity for index \"%s\" not ready yet, retrying... (%f/%f)\n", indexName, totalSeconds.Seconds(), maxWaitTimeSeconds.Seconds())
+		time.Sleep(delay)
+	}
+}
+
 func generateVectors(numOfVectors int, dimension int32, isSparse bool, metadata *Metadata) []*Vector {
 	vectors := make([]*Vector, numOfVectors)
 

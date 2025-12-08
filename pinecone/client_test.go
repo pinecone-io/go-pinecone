@@ -779,7 +779,7 @@ func (ts *integrationTests) TestIndexTags() {
 	ts.indexTags = &updatedTags
 }
 
-func (ts *integrationTests) TestCreateServerlessIndexWithReadCapacity() {
+func (ts *integrationTests) Test_CreateServerlessIndex_WithReadCapacity() {
 	if ts.indexType != "serverless" {
 		ts.T().Skip("ReadCapacity is only supported in serverless indexes")
 	}
@@ -916,7 +916,7 @@ func (ts *integrationTests) Test_ConfigureIndex_ReadCapacityPatchDedicated() {
 	}(ts, indexName)
 
 	// Wait for index to be ready
-	_, err = waitUntilIndexReady(ts, ctx, indexName)
+	_, err = waitUntilReadCapacityReady(ts, ctx, indexName)
 	require.NoError(ts.T(), err)
 
 	// Configure dedicated configuration - bump shards to 2
@@ -976,7 +976,7 @@ func (ts *integrationTests) Test_ConfigureIndex_ReadCapacityOnDemandToDedicated(
 	}(ts, indexName)
 
 	// Wait for index to be ready
-	_, err = waitUntilIndexReady(ts, ctx, indexName)
+	_, err = waitUntilReadCapacityReady(ts, ctx, indexName)
 	require.NoError(ts.T(), err)
 
 	// Configure index to use Dedicated ReadCapacity
