@@ -898,10 +898,6 @@ func (ts *integrationTests) Test_ConfigureIndex_ReadCapacityOnDemandToDedicated(
 		require.NoError(ts.T(), err)
 	}(ts, indexName)
 
-	// Wait for index to be ready
-	_, err = waitUntilReadCapacityReady(ts, ctx, indexName)
-	require.NoError(ts.T(), err)
-
 	// Configure index to use Dedicated ReadCapacity
 	readCapacity := &ReadCapacityParams{
 		Dedicated: &ReadCapacityDedicatedConfig{
