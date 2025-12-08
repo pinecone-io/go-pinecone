@@ -684,16 +684,18 @@ type CreateServerlessIndexRequest struct {
 }
 
 // [ReadCapacityParams] represents the read capacity configuration for creating or configuring a serverless or integrated index.
-// If [ReadCapacityParams] or Dedicated are nil, the index will be created with OnDemand read capacity.
+// If [ReadCapacityParams] are nil, the index will be created with OnDemand read capacity.
 //
 // Fields:
 //   - Dedicated: Dedicated read capacity mode. Requires node_type and scaling configuration.
+//   - OnDemand: OnDemand read capacity mode. No configuration is required.
 type ReadCapacityParams struct {
 	Dedicated *ReadCapacityDedicatedConfig `json:"dedicated,omitempty"`
 	OnDemand  *ReadCapacityOnDemandConfig  `json:"on_demand,omitempty"`
 }
 
 // [ReadCapacityDedicatedRequest] represents Dedicated read capacity configuration for indexes.
+// When creating a Dedicated index or converting an existing OnDemand index to Dedicated, you must specify NodeType, Scaling.Shards, and Scaling.Replicas.
 //
 // Fields:
 //   - NodeType: The type of machines to use. Available options: "b1" and "t1".
@@ -1324,8 +1326,8 @@ type ConfigureIndexEmbed struct {
 	WriteParameters *map[string]interface{}
 }
 
-// [Client.ConfigureIndex] is used to [scale a pods-based index] up or down by changing the size of the pods or the number of
-// replicas, or to enable and disable deletion protection for an [Index].
+// [Client.ConfigureIndex] is used to configure an existing [Index] allowing you to update the index's deletion protection status, tags, read capacity configuration,
+// and integrated inference embedding settings. You can also [scale a pods-based index] up or down by changing the size of the pods or the number of replicas.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
