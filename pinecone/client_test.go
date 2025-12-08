@@ -868,7 +868,84 @@ func (ts *integrationTests) TestCreateServerlessIndexWithReadCapacity() {
 	})
 }
 
-func (ts *integrationTests) TestConfigureIndexReadCapacity() {
+func (ts *integrationTests) Test_ConfigureIndex_ReadCapacityPatchDedicated() {
+	if ts.indexType != "serverless" {
+		ts.T().Skip("ReadCapacity is only supported in serverless indexes")
+	}
+
+	ctx := context.Background()
+
+	// Create a test index with Dedicated ReadCapacity
+	indexName := "configure-rc-" + generateTestIndexName()
+	dimension := int32(setDimensionsForTestIndexes())
+	metric := Cosine
+
+	index, err := ts.client.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
+		Name:      indexName,
+		Dimension: &dimension,
+		Metric:    &metric,
+		Region:    "us-east-1",
+		Cloud:     "aws",
+		ReadCapacity: &ReadCapacityParams{
+			Dedicated: &ReadCapacityDedicatedConfig{
+				NodeType: ptr("t1"),
+				Scaling: &ReadCapacityScaling{
+					Manual: &ReadCapacityManualScaling{
+						Replicas: ptr(int32(1)),
+						Shards:   ptr(int32(1)),
+					},
+				},
+			},
+		},
+	})
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), index)
+	require.NotNil(ts.T(), index.Spec.Serverless.ReadCapacity.Dedicated)
+	require.NotNil(ts.T(), index.Spec.Serverless.ReadCapacity.Dedicated.NodeType)
+	require.Equal(ts.T(), "t1", *index.Spec.Serverless.ReadCapacity.Dedicated.NodeType)
+	require.NotNil(ts.T(), index.Spec.Serverless.ReadCapacity.Dedicated.Scaling)
+	require.NotNil(ts.T(), index.Spec.Serverless.ReadCapacity.Dedicated.Scaling.Manual)
+	require.NotNil(ts.T(), index.Spec.Serverless.ReadCapacity.Dedicated.Scaling.Manual.Replicas)
+	require.Equal(ts.T(), int32(1), *index.Spec.Serverless.ReadCapacity.Dedicated.Scaling.Manual.Replicas)
+	require.NotNil(ts.T(), index.Spec.Serverless.ReadCapacity.Dedicated.Scaling.Manual.Shards)
+	require.Equal(ts.T(), int32(1), *index.Spec.Serverless.ReadCapacity.Dedicated.Scaling.Manual.Shards)
+
+	defer func(ts *integrationTests, name string) {
+		err := ts.deleteIndex(name)
+		require.NoError(ts.T(), err)
+	}(ts, indexName)
+
+	// Wait for index to be ready
+	_, err = waitUntilIndexReady(ts, ctx)
+	require.NoError(ts.T(), err)
+
+	// Configure dedicated configuration - bump shards to 2
+	readCapacity := &ReadCapacityParams{
+		Dedicated: &ReadCapacityDedicatedConfig{
+			Scaling: &ReadCapacityScaling{
+				Manual: &ReadCapacityManualScaling{
+					Shards: ptr(int32(2)),
+				},
+			},
+		},
+	}
+
+	// Verify ReadCapacity was updated to dedicated with new shards
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		configuredIndex, err := ts.client.ConfigureIndex(ctx, indexName, ConfigureIndexParams{
+			ReadCapacity: readCapacity,
+		})
+		if err != nil {
+			return fmt.Errorf("ConfigureIndex failed: %v", err)
+		}
+		assert.NoError(ts.T(), err)
+		assert.NotNil(ts.T(), configuredIndex)
+		assert.Equal(ts.T(), ptr(int32(2)), configuredIndex.Spec.Serverless.ReadCapacity.Dedicated.Scaling.Manual.Shards)
+		return nil
+	})
+}
+
+func (ts *integrationTests) Test_ConfigureIndex_ReadCapacityOnDemandToDedicated() {
 	if ts.indexType != "serverless" {
 		ts.T().Skip("ReadCapacity is only supported in serverless indexes")
 	}
@@ -939,31 +1016,6 @@ func (ts *integrationTests) TestConfigureIndexReadCapacity() {
 		// Check status - it may be Ready, Scaling, or Migrating
 		status := describedIndex.Spec.Serverless.ReadCapacity.Dedicated.Status.State
 		assert.Contains(ts.T(), []string{"Ready", "Scaling", "Migrating"}, status, "ReadCapacity status should be Ready, Scaling, or Migrating")
-		return nil
-	})
-
-	// Configure dedicated configuration - bump shards to 2
-	readCapacity = &ReadCapacityParams{
-		Dedicated: &ReadCapacityDedicatedConfig{
-			Scaling: &ReadCapacityScaling{
-				Manual: &ReadCapacityManualScaling{
-					Shards: ptr(int32(2)),
-				},
-			},
-		},
-	}
-
-	// Verify ReadCapacity was updated to dedicated with new shards
-	retryAssertionsWithDefaults(ts.T(), func() error {
-		configuredIndex, err := ts.client.ConfigureIndex(ctx, indexName, ConfigureIndexParams{
-			ReadCapacity: readCapacity,
-		})
-		if err != nil {
-			return fmt.Errorf("ConfigureIndex failed: %v", err)
-		}
-		assert.NoError(ts.T(), err)
-		assert.NotNil(ts.T(), configuredIndex)
-		assert.Equal(ts.T(), ptr(int32(2)), configuredIndex.Spec.Serverless.ReadCapacity.Dedicated.Scaling.Manual.Shards)
 		return nil
 	})
 }
