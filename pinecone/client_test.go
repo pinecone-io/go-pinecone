@@ -221,7 +221,7 @@ func (ts *integrationTests) TestDeletionProtection() {
 	require.NoError(ts.T(), err)
 
 	// Before moving on to another test, wait for the index to be done upgrading
-	_, err = waitUntilIndexReady(ts, context.Background())
+	_, err = waitUntilIndexReady(ts, context.Background(), ts.idxName)
 	require.NoError(ts.T(), err)
 }
 
@@ -916,7 +916,7 @@ func (ts *integrationTests) Test_ConfigureIndex_ReadCapacityPatchDedicated() {
 	}(ts, indexName)
 
 	// Wait for index to be ready
-	_, err = waitUntilIndexReady(ts, ctx)
+	_, err = waitUntilIndexReady(ts, ctx, indexName)
 	require.NoError(ts.T(), err)
 
 	// Configure dedicated configuration - bump shards to 2
@@ -976,7 +976,7 @@ func (ts *integrationTests) Test_ConfigureIndex_ReadCapacityOnDemandToDedicated(
 	}(ts, indexName)
 
 	// Wait for index to be ready
-	_, err = waitUntilIndexReady(ts, ctx)
+	_, err = waitUntilIndexReady(ts, ctx, indexName)
 	require.NoError(ts.T(), err)
 
 	// Configure index to use Dedicated ReadCapacity
@@ -2674,7 +2674,7 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 
 // Helper functions:
 func (ts *integrationTests) deleteIndex(name string) error {
-	_, err := waitUntilIndexReady(ts, context.Background())
+	_, err := waitUntilIndexReady(ts, context.Background(), name)
 	require.NoError(ts.T(), err)
 
 	return ts.client.DeleteIndex(context.Background(), name)
