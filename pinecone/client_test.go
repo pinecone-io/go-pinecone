@@ -221,7 +221,7 @@ func (ts *integrationTests) TestDeletionProtection() {
 	require.NoError(ts.T(), err)
 
 	// Before moving on to another test, wait for the index to be done upgrading
-	_, err = waitUntilIndexReady(ts, context.Background())
+	_, err = waitUntilIndexReady(ts, context.Background(), ts.idxName)
 	require.NoError(ts.T(), err)
 }
 
@@ -779,7 +779,7 @@ func (ts *integrationTests) TestIndexTags() {
 	ts.indexTags = &updatedTags
 }
 
-func (ts *integrationTests) TestCreateServerlessIndexWithReadCapacity() {
+func (ts *integrationTests) Test_CreateServerlessIndex_WithReadCapacity() {
 	if ts.indexType != "serverless" {
 		ts.T().Skip("ReadCapacity is only supported in serverless indexes")
 	}
@@ -802,6 +802,7 @@ func (ts *integrationTests) TestCreateServerlessIndexWithReadCapacity() {
 	require.NoError(ts.T(), err)
 	require.NotNil(ts.T(), index1)
 
+	// Clean up index after test run
 	defer func(ts *integrationTests, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
@@ -824,11 +825,11 @@ func (ts *integrationTests) TestCreateServerlessIndexWithReadCapacity() {
 	indexName2 := "rc-dedicated-" + generateTestIndexName()
 	readCapacity := &ReadCapacityParams{
 		Dedicated: &ReadCapacityDedicatedConfig{
-			NodeType: "t1",
+			NodeType: ptr("t1"),
 			Scaling: &ReadCapacityScaling{
 				Manual: &ReadCapacityManualScaling{
-					Replicas: 1,
-					Shards:   1,
+					Replicas: ptr(int32(1)),
+					Shards:   ptr(int32(1)),
 				},
 			},
 		},
@@ -845,6 +846,7 @@ func (ts *integrationTests) TestCreateServerlessIndexWithReadCapacity() {
 	require.NoError(ts.T(), err)
 	require.NotNil(ts.T(), index2)
 
+	// Clean up index after test run
 	defer func(ts *integrationTests, name string) {
 		err := ts.deleteIndex(name)
 		require.NoError(ts.T(), err)
@@ -860,12 +862,13 @@ func (ts *integrationTests) TestCreateServerlessIndexWithReadCapacity() {
 		assert.NotNil(ts.T(), describedIndex.Spec.Serverless, "Index.Spec.Serverless should not be nil")
 		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.ReadCapacity, "ReadCapacity should not be nil")
 		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.ReadCapacity.Dedicated, "ReadCapacity should be Dedicated")
-		assert.Equal(ts.T(), "t1", describedIndex.Spec.Serverless.ReadCapacity.Dedicated.NodeType, "NodeType should be t1")
+		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.ReadCapacity.Dedicated.NodeType, "NodeType should not be nil")
+		assert.Equal(ts.T(), "t1", *describedIndex.Spec.Serverless.ReadCapacity.Dedicated.NodeType, "NodeType should be t1")
 		return nil
 	})
 }
 
-func (ts *integrationTests) TestConfigureIndexReadCapacity() {
+func (ts *integrationTests) Test_ConfigureIndex_ReadCapacityOnDemandToDedicated() {
 	if ts.indexType != "serverless" {
 		ts.T().Skip("ReadCapacity is only supported in serverless indexes")
 	}
@@ -883,6 +886,9 @@ func (ts *integrationTests) TestConfigureIndexReadCapacity() {
 		Metric:    &metric,
 		Region:    "us-east-1",
 		Cloud:     "aws",
+		ReadCapacity: &ReadCapacityParams{
+			OnDemand: &ReadCapacityOnDemandConfig{},
+		},
 	})
 	require.NoError(ts.T(), err)
 	require.NotNil(ts.T(), index)
@@ -892,24 +898,20 @@ func (ts *integrationTests) TestConfigureIndexReadCapacity() {
 		require.NoError(ts.T(), err)
 	}(ts, indexName)
 
-	// Wait for index to be ready
-	_, err = waitUntilIndexReady(ts, ctx)
-	require.NoError(ts.T(), err)
-
 	// Configure index to use Dedicated ReadCapacity
 	readCapacity := &ReadCapacityParams{
 		Dedicated: &ReadCapacityDedicatedConfig{
-			NodeType: "t1",
+			NodeType: ptr("t1"),
 			Scaling: &ReadCapacityScaling{
 				Manual: &ReadCapacityManualScaling{
-					Replicas: 1,
-					Shards:   1,
+					Replicas: ptr(int32(1)),
+					Shards:   ptr(int32(1)),
 				},
 			},
 		},
 	}
 
-	// Verify ReadCapacity was updated
+	// Verify ReadCapacity was updated to dedicated
 	retryAssertionsWithDefaults(ts.T(), func() error {
 		configuredIndex, err := ts.client.ConfigureIndex(ctx, indexName, ConfigureIndexParams{
 			ReadCapacity: readCapacity,
@@ -928,7 +930,8 @@ func (ts *integrationTests) TestConfigureIndexReadCapacity() {
 		assert.NotNil(ts.T(), describedIndex.Spec.Serverless, "Index.Spec.Serverless should not be nil")
 		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.ReadCapacity, "ReadCapacity should not be nil")
 		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.ReadCapacity.Dedicated, "ReadCapacity should be Dedicated after configuration")
-		assert.Equal(ts.T(), "t1", describedIndex.Spec.Serverless.ReadCapacity.Dedicated.NodeType, "NodeType should be t1")
+		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.ReadCapacity.Dedicated.NodeType, "NodeType should not be nil")
+		assert.Equal(ts.T(), "t1", *describedIndex.Spec.Serverless.ReadCapacity.Dedicated.NodeType, "NodeType should be t1")
 		// Check status - it may be Ready, Scaling, or Migrating
 		status := describedIndex.Spec.Serverless.ReadCapacity.Dedicated.Status.State
 		assert.Contains(ts.T(), []string{"Ready", "Scaling", "Migrating"}, status, "ReadCapacity status should be Ready, Scaling, or Migrating")
@@ -1668,6 +1671,47 @@ func TestToIndexUnit(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "byoc index input",
+			originalInput: &db_control.IndexModel{
+				Name:               "testIndex",
+				Dimension:          &dimension,
+				Host:               "test-host",
+				PrivateHost:        ptr("test-private-host"),
+				Metric:             "cosine",
+				DeletionProtection: &deletionProtectionEnabled,
+				Spec: newByocIndexModelSpec(t, db_control.IndexModelSpec2{
+					Byoc: db_control.ByocSpec{
+						Environment: "test-environ",
+						Schema:      nil,
+					},
+				}),
+				Status: struct {
+					Ready bool   `json:"ready"`
+					State string `json:"state"`
+				}{
+					Ready: true,
+					State: "active",
+				},
+			},
+			expectedOutput: &Index{
+				Name:               "testIndex",
+				Dimension:          &dimension,
+				Host:               "test-host",
+				PrivateHost:        ptr("test-private-host"),
+				Metric:             "cosine",
+				DeletionProtection: "enabled",
+				Spec: &IndexSpec{
+					BYOC: &BYOCSpec{
+						Environment: "test-environ",
+					},
+				},
+				Status: &IndexStatus{
+					Ready: true,
+					State: IndexStatusState("active"),
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -2019,7 +2063,7 @@ func Test_toMetadataSchemaFromRest_Unit(t *testing.T) {
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{
-					"genre": {Filterable: boolPtr(true)},
+					"genre": {Filterable: ptr(true)},
 				},
 			},
 			expected: &MetadataSchema{
@@ -2034,7 +2078,7 @@ func Test_toMetadataSchemaFromRest_Unit(t *testing.T) {
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{
-					"genre": {Filterable: boolPtr(false)},
+					"genre": {Filterable: ptr(false)},
 				},
 			},
 			expected: &MetadataSchema{
@@ -2064,9 +2108,9 @@ func Test_toMetadataSchemaFromRest_Unit(t *testing.T) {
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{
-					"genre":  {Filterable: boolPtr(true)},
-					"year":   {Filterable: boolPtr(true)},
-					"rating": {Filterable: boolPtr(false)},
+					"genre":  {Filterable: ptr(true)},
+					"year":   {Filterable: ptr(true)},
+					"rating": {Filterable: ptr(false)},
 				},
 			},
 			expected: &MetadataSchema{
@@ -2129,7 +2173,7 @@ func Test_fromMetadataSchemaToRest_Unit(t *testing.T) {
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{
-					"genre": {Filterable: boolPtr(true)},
+					"genre": {Filterable: ptr(true)},
 				},
 			},
 		},
@@ -2144,7 +2188,7 @@ func Test_fromMetadataSchemaToRest_Unit(t *testing.T) {
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{
-					"genre": {Filterable: boolPtr(false)},
+					"genre": {Filterable: ptr(false)},
 				},
 			},
 		},
@@ -2161,9 +2205,9 @@ func Test_fromMetadataSchemaToRest_Unit(t *testing.T) {
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{
-					"genre":  {Filterable: boolPtr(true)},
-					"year":   {Filterable: boolPtr(true)},
-					"rating": {Filterable: boolPtr(false)},
+					"genre":  {Filterable: ptr(true)},
+					"year":   {Filterable: ptr(true)},
+					"rating": {Filterable: ptr(false)},
 				},
 			},
 		},
@@ -2203,36 +2247,18 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 		validate  func(t *testing.T, result *db_control.ReadCapacity)
 	}{
 		{
-			name:      "nil request (should default to OnDemand)",
+			name:      "nil request should return nil (defaults to OnDemand)",
 			input:     nil,
 			wantError: false,
 			validate: func(t *testing.T, result *db_control.ReadCapacity) {
-				require.NotNil(t, result)
-				mode, err := result.Discriminator()
-
-				require.NoError(t, err)
-				assert.Equal(t, "OnDemand", mode)
-			},
-		},
-		{
-			name: "request with nil Dedicated (should default to OnDemand)",
-			input: &ReadCapacityParams{
-				Dedicated: nil,
-			},
-			wantError: false,
-			validate: func(t *testing.T, result *db_control.ReadCapacity) {
-				require.NotNil(t, result)
-				mode, err := result.Discriminator()
-
-				require.NoError(t, err)
-				assert.Equal(t, "OnDemand", mode)
+				require.Nil(t, result)
 			},
 		},
 		{
 			name: "Dedicated with NodeType only",
 			input: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
-					NodeType: "t1",
+					NodeType: ptr("t1"),
 				},
 			},
 			wantError: false,
@@ -2245,18 +2271,18 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 
 				dedicatedSpec, err := result.AsReadCapacityDedicatedSpec()
 				require.NoError(t, err)
-				assert.Equal(t, "t1", dedicatedSpec.Dedicated.NodeType)
+				assert.Equal(t, "t1", *dedicatedSpec.Dedicated.NodeType)
 			},
 		},
 		{
 			name: "Dedicated with NodeType and Manual scaling",
 			input: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
-					NodeType: "b1",
+					NodeType: ptr("b1"),
 					Scaling: &ReadCapacityScaling{
 						Manual: &ReadCapacityManualScaling{
-							Replicas: 2,
-							Shards:   3,
+							Replicas: ptr(int32(2)),
+							Shards:   ptr(int32(3)),
 						},
 					},
 				},
@@ -2271,10 +2297,10 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 
 				dedicatedSpec, err := result.AsReadCapacityDedicatedSpec()
 				require.NoError(t, err)
-				assert.Equal(t, "b1", dedicatedSpec.Dedicated.NodeType)
+				assert.Equal(t, "b1", *dedicatedSpec.Dedicated.NodeType)
 				require.NotNil(t, dedicatedSpec.Dedicated.Manual)
-				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Manual.Replicas)
-				assert.Equal(t, int32(3), dedicatedSpec.Dedicated.Manual.Shards)
+				assert.Equal(t, int32(2), *dedicatedSpec.Dedicated.Manual.Replicas)
+				assert.Equal(t, int32(3), *dedicatedSpec.Dedicated.Manual.Shards)
 			},
 		},
 	}
@@ -2289,6 +2315,122 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 				assert.NoError(t, err)
 				tt.validate(t, result)
 			}
+		})
+	}
+}
+
+func Test_patchReadCapacity_Unit(t *testing.T) {
+	onDemandOld := &ReadCapacity{
+		OnDemand: &ReadCapacityOnDemand{
+			Status: ReadCapacityStatus{State: "Ready"},
+		},
+	}
+	dedicatedOld := &ReadCapacity{
+		Dedicated: &ReadCapacityDedicated{
+			NodeType: ptr("t1"),
+			Scaling: &ReadCapacityScaling{
+				Manual: &ReadCapacityManualScaling{
+					Replicas: ptr(int32(1)),
+					Shards:   ptr(int32(1)),
+				},
+			},
+			Status: ReadCapacityStatus{State: "Ready"},
+		},
+	}
+
+	tests := []struct {
+		name      string
+		newParams *ReadCapacityParams
+		oldConfig *ReadCapacity
+		validate  func(t *testing.T, result *db_control.ReadCapacity, err error)
+	}{
+		{
+			name:      "nil new params should return nil",
+			newParams: nil,
+			oldConfig: onDemandOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacity, err error) {
+				require.NoError(t, err)
+				assert.Nil(t, result)
+			},
+		},
+		{
+			name: "on-demand to dedicated without manual scaling should error",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+				},
+			},
+			oldConfig: onDemandOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacity, err error) {
+				assert.Error(t, err)
+				assert.Nil(t, result)
+			},
+		},
+		{
+			name: "on-demand to dedicated with full manual scaling succeeds",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("t1"),
+					Scaling: &ReadCapacityScaling{
+						Manual: &ReadCapacityManualScaling{
+							Replicas: ptr(int32(2)),
+							Shards:   ptr(int32(3)),
+						},
+					},
+				},
+			},
+			oldConfig: onDemandOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacity, err error) {
+				require.NoError(t, err)
+				require.NotNil(t, result)
+
+				mode, modeErr := result.Discriminator()
+				require.NoError(t, modeErr)
+				assert.Equal(t, "Dedicated", mode)
+
+				dedicatedSpec, specErr := result.AsReadCapacityDedicatedSpec()
+				require.NoError(t, specErr)
+				require.NotNil(t, dedicatedSpec.Dedicated.NodeType)
+				assert.Equal(t, "t1", *dedicatedSpec.Dedicated.NodeType)
+				require.NotNil(t, dedicatedSpec.Dedicated.Manual)
+				assert.Equal(t, int32(2), *dedicatedSpec.Dedicated.Manual.Replicas)
+				assert.Equal(t, int32(3), *dedicatedSpec.Dedicated.Manual.Shards)
+			},
+		},
+		{
+			name: "dedicated to dedicated should succeed with single value patch",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					Scaling: &ReadCapacityScaling{
+						Manual: &ReadCapacityManualScaling{
+							Replicas: ptr(int32(4)),
+						},
+					},
+				},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacity, err error) {
+				require.NoError(t, err)
+				require.NotNil(t, result)
+
+				mode, modeErr := result.Discriminator()
+				require.NoError(t, modeErr)
+				assert.Equal(t, "Dedicated", mode)
+
+				dedicatedSpec, specErr := result.AsReadCapacityDedicatedSpec()
+				require.NoError(t, specErr)
+				assert.Nil(t, dedicatedSpec.Dedicated.NodeType)
+				require.NotNil(t, dedicatedSpec.Dedicated.Manual)
+				assert.Equal(t, int32(4), *dedicatedSpec.Dedicated.Manual.Replicas)
+				assert.Nil(t, dedicatedSpec.Dedicated.Manual.Shards)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := patchReadCapacity(tt.newParams, tt.oldConfig)
+			tt.validate(t, result, err)
 		})
 	}
 }
@@ -2322,8 +2464,8 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 		dedicatedSpec := db_control.ReadCapacityDedicatedSpecResponse{
 			Mode: "Dedicated",
 			Dedicated: db_control.ReadCapacityDedicatedConfig{
-				NodeType: "t1",
-				Scaling:  "",
+				NodeType: ptr("t1"),
+				Scaling:  ptr(""),
 			},
 			Status: db_control.ReadCapacityStatus{
 				State:           "Ready",
@@ -2344,11 +2486,11 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 		dedicatedSpec := db_control.ReadCapacityDedicatedSpecResponse{
 			Mode: "Dedicated",
 			Dedicated: db_control.ReadCapacityDedicatedConfig{
-				NodeType: "b1",
-				Scaling:  "Manual",
+				NodeType: ptr("b1"),
+				Scaling:  ptr("Manual"),
 				Manual: &db_control.ScalingConfigManual{
-					Replicas: 2,
-					Shards:   3,
+					Replicas: ptr(int32(2)),
+					Shards:   ptr(int32(3)),
 				},
 			},
 			Status: db_control.ReadCapacityStatus{
@@ -2398,7 +2540,7 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 			wantError: false,
 			expected: &ReadCapacity{
 				Dedicated: &ReadCapacityDedicated{
-					NodeType: "t1",
+					NodeType: ptr("t1"),
 					Scaling:  nil,
 					Status: ReadCapacityStatus{
 						State:           "Ready",
@@ -2415,11 +2557,11 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 			wantError: false,
 			expected: &ReadCapacity{
 				Dedicated: &ReadCapacityDedicated{
-					NodeType: "b1",
+					NodeType: ptr("b1"),
 					Scaling: &ReadCapacityScaling{
 						Manual: &ReadCapacityManualScaling{
-							Replicas: 2,
-							Shards:   3,
+							Replicas: ptr(int32(2)),
+							Shards:   ptr(int32(3)),
 						},
 					},
 					Status: ReadCapacityStatus{
@@ -2451,19 +2593,10 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 
 // Helper functions:
 func (ts *integrationTests) deleteIndex(name string) error {
-	_, err := waitUntilIndexReady(ts, context.Background())
+	_, err := waitUntilIndexReady(ts, context.Background(), name)
 	require.NoError(ts.T(), err)
 
 	return ts.client.DeleteIndex(context.Background(), name)
-}
-
-func newPodIndexModelSpec(t *testing.T, in db_control.IndexModelSpec1) db_control.IndexModel_Spec {
-	spec := db_control.IndexModel_Spec{}
-	err := spec.FromIndexModelSpec1(in)
-	if err != nil {
-		t.Fatalf("Failed to convert pod IndexModelSpec1 to IndexModel_Spec: %v", err)
-	}
-	return spec
 }
 
 func newServerlessIndexModelSpec(t *testing.T, in db_control.IndexModelSpec0) db_control.IndexModel_Spec {
@@ -2471,6 +2604,15 @@ func newServerlessIndexModelSpec(t *testing.T, in db_control.IndexModelSpec0) db
 	err := spec.FromIndexModelSpec0(in)
 	if err != nil {
 		t.Fatalf("Failed to convert serverless IndexModelSpec0 to IndexModel_Spec: %v", err)
+	}
+	return spec
+}
+
+func newPodIndexModelSpec(t *testing.T, in db_control.IndexModelSpec1) db_control.IndexModel_Spec {
+	spec := db_control.IndexModel_Spec{}
+	err := spec.FromIndexModelSpec1(in)
+	if err != nil {
+		t.Fatalf("Failed to convert pod IndexModelSpec1 to IndexModel_Spec: %v", err)
 	}
 	return spec
 }
@@ -2484,9 +2626,7 @@ func newByocIndexModelSpec(t *testing.T, in db_control.IndexModelSpec2) db_contr
 	return spec
 }
 
-func boolPtr(b bool) *bool {
-	return &b
-}
+func ptr[T any](v T) *T { return &v }
 
 func mockResponse(body string, statusCode int) *http.Response {
 	return &http.Response{

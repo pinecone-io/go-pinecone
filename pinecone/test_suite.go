@@ -43,7 +43,7 @@ type adminIntegrationTests struct {
 func (ts *integrationTests) SetupSuite() {
 	ctx := context.Background()
 
-	_, err := waitUntilIndexReady(ts, ctx)
+	_, err := waitUntilIndexReady(ts, ctx, ts.idxName)
 	require.NoError(ts.T(), err)
 
 	namespace1 := uuid.New().String()
@@ -255,27 +255,27 @@ func createBackup(ts *integrationTests, ctx context.Context) {
 	}
 }
 
-func waitUntilIndexReady(ts *integrationTests, ctx context.Context) (bool, error) {
+func waitUntilIndexReady(ts *integrationTests, ctx context.Context, indexName string) (bool, error) {
 	start := time.Now()
 	delay := 5 * time.Second
 	maxWaitTimeSeconds := 280 * time.Second
 
 	for {
-		index, err := ts.client.DescribeIndex(ctx, ts.idxName)
+		index, err := ts.client.DescribeIndex(ctx, indexName)
 		require.NoError(ts.T(), err)
 
 		if index.Status.Ready && index.Status.State == Ready {
-			fmt.Printf("Index \"%s\" is ready after %f seconds\n", ts.idxName, time.Since(start).Seconds())
+			fmt.Printf("Index \"%s\" is ready after %f seconds\n", indexName, time.Since(start).Seconds())
 			return true, err
 		}
 
 		totalSeconds := time.Since(start)
 
 		if totalSeconds >= maxWaitTimeSeconds {
-			return false, fmt.Errorf("Index \"%s\" not ready after %f seconds", ts.idxName, totalSeconds.Seconds())
+			return false, fmt.Errorf("Index \"%s\" not ready after %f seconds", indexName, totalSeconds.Seconds())
 		}
 
-		fmt.Printf("Index \"%s\" not ready yet, retrying... (%f/%f)\n", ts.idxName, totalSeconds.Seconds(), maxWaitTimeSeconds.Seconds())
+		fmt.Printf("Index \"%s\" not ready yet, retrying... (%f/%f)\n", indexName, totalSeconds.Seconds(), maxWaitTimeSeconds.Seconds())
 		time.Sleep(delay)
 	}
 }
