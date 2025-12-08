@@ -860,7 +860,8 @@ func (ts *integrationTests) TestCreateServerlessIndexWithReadCapacity() {
 		assert.NotNil(ts.T(), describedIndex.Spec.Serverless, "Index.Spec.Serverless should not be nil")
 		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.ReadCapacity, "ReadCapacity should not be nil")
 		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.ReadCapacity.Dedicated, "ReadCapacity should be Dedicated")
-		assert.Equal(ts.T(), "t1", describedIndex.Spec.Serverless.ReadCapacity.Dedicated.NodeType, "NodeType should be t1")
+		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.ReadCapacity.Dedicated.NodeType, "NodeType should not be nil")
+		assert.Equal(ts.T(), "t1", *describedIndex.Spec.Serverless.ReadCapacity.Dedicated.NodeType, "NodeType should be t1")
 		return nil
 	})
 }
