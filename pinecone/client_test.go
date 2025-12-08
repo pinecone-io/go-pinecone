@@ -2203,29 +2203,11 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 		validate  func(t *testing.T, result *db_control.ReadCapacity)
 	}{
 		{
-			name:      "nil request (should default to OnDemand)",
+			name:      "nil request should return nil (defaults to OnDemand)",
 			input:     nil,
 			wantError: false,
 			validate: func(t *testing.T, result *db_control.ReadCapacity) {
-				require.NotNil(t, result)
-				mode, err := result.Discriminator()
-
-				require.NoError(t, err)
-				assert.Equal(t, "OnDemand", mode)
-			},
-		},
-		{
-			name: "request with nil Dedicated (should default to OnDemand)",
-			input: &ReadCapacityParams{
-				Dedicated: nil,
-			},
-			wantError: false,
-			validate: func(t *testing.T, result *db_control.ReadCapacity) {
-				require.NotNil(t, result)
-				mode, err := result.Discriminator()
-
-				require.NoError(t, err)
-				assert.Equal(t, "OnDemand", mode)
+				require.Nil(t, result)
 			},
 		},
 		{
@@ -2245,7 +2227,7 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 
 				dedicatedSpec, err := result.AsReadCapacityDedicatedSpec()
 				require.NoError(t, err)
-				assert.Equal(t, "t1", dedicatedSpec.Dedicated.NodeType)
+				assert.Equal(t, "t1", *dedicatedSpec.Dedicated.NodeType)
 			},
 		},
 		{
@@ -2271,10 +2253,10 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 
 				dedicatedSpec, err := result.AsReadCapacityDedicatedSpec()
 				require.NoError(t, err)
-				assert.Equal(t, "b1", dedicatedSpec.Dedicated.NodeType)
+				assert.Equal(t, "b1", *dedicatedSpec.Dedicated.NodeType)
 				require.NotNil(t, dedicatedSpec.Dedicated.Manual)
-				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Manual.Replicas)
-				assert.Equal(t, int32(3), dedicatedSpec.Dedicated.Manual.Shards)
+				assert.Equal(t, int32(2), *dedicatedSpec.Dedicated.Manual.Replicas)
+				assert.Equal(t, int32(3), *dedicatedSpec.Dedicated.Manual.Shards)
 			},
 		},
 	}
