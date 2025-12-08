@@ -3124,6 +3124,11 @@ func fromMetadataSchemaToRest(schema *MetadataSchema) *struct {
 
 // Takes the new ReadCapacityParams and the index's current ReadCapacity configuration to validate the patch request
 func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.ReadCapacity, error) {
+	// nil new params -> return nil
+	if new == nil {
+		return nil, nil
+	}
+
 	// nil / OnDemand -> Dedicated
 	// When converting from OnDemand to Dedicated, NodeType, Replicas, and Shards are required
 	if old == nil || old.OnDemand != nil && new.Dedicated != nil {
