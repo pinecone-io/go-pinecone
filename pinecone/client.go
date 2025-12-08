@@ -1404,7 +1404,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 
 	// Apply serverless configurations
 	if in.ReadCapacity != nil {
-		readCapacity, err := readCapacityParamsToReadCapacity(in.ReadCapacity)
+		readCapacity, err := patchReadCapacity(in.ReadCapacity, idxDesc.Spec.Serverless.ReadCapacity)
 		if err != nil {
 			return nil, err
 		}
@@ -3122,6 +3122,28 @@ func fromMetadataSchemaToRest(schema *MetadataSchema) *struct {
 	}
 }
 
+// Takes the new ReadCapacityParams and the index's current ReadCapacity configuration to validate the patch request
+func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.ReadCapacity, error) {
+	// nil / OnDemand -> Dedicated
+	// When converting from OnDemand to Dedicated, NodeType, Replicas, and Shards are required
+	if old == nil || old.OnDemand != nil && new.Dedicated != nil {
+		if new.Dedicated.NodeType == nil ||
+			new.Dedicated.Scaling == nil ||
+			new.Dedicated.Scaling.Manual == nil ||
+			new.Dedicated.Scaling.Manual.Replicas == nil ||
+			new.Dedicated.Scaling.Manual.Shards == nil {
+			return nil, fmt.Errorf("Dedicated read capacity must be configured with a node type, scaling strategy, and manual scaling configuration")
+		}
+	}
+
+	readCapacity, err := readCapacityParamsToReadCapacity(new)
+	if err != nil {
+		return nil, err
+	}
+
+	return readCapacity, nil
+}
+
 // Converts the ReadCapacityParams to db_control.ReadCapacity - used for CreateIndex, CreateIndexForModel, and ConfigureIndex operations
 func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.ReadCapacity, error) {
 
@@ -3234,18 +3256,4 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 		}, nil
 	}
 	return nil, nil
-}
-
-func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*ReadCapacityParams, error) {
-	// nil / OnDemand -> Dedicated
-	if old == nil || old.OnDemand != nil && new.Dedicated != nil {
-		if new.Dedicated.NodeType == nil ||
-			new.Dedicated.Scaling == nil ||
-			new.Dedicated.Scaling.Manual == nil ||
-			new.Dedicated.Scaling.Manual.Replicas == nil ||
-			new.Dedicated.Scaling.Manual.Shards == nil {
-			return nil, fmt.Errorf("Dedicated read capacity must be configured with a node type, scaling strategy, and manual scaling configuration")
-		}
-	}
-	return new, nil
 }
