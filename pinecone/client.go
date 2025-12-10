@@ -694,8 +694,9 @@ type ReadCapacityParams struct {
 	OnDemand  *ReadCapacityOnDemandConfig  `json:"on_demand,omitempty"`
 }
 
-// [ReadCapacityDedicatedRequest] represents Dedicated read capacity configuration for indexes.
-// When creating a Dedicated index or converting an existing OnDemand index to Dedicated, you must specify NodeType, Scaling.Shards, and Scaling.Replicas.
+// [ReadCapacityDedicatedConfig] represents Dedicated read capacity configuration for indexes.
+// When creating a Dedicated index or converting an existing OnDemand index to Dedicated, you must specify NodeType, Scaling.Manual.Replicas,
+// and Scaling.Manual.Shards.
 //
 // Fields:
 //   - NodeType: The type of machines to use. Available options: "b1" and "t1".
