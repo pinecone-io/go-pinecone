@@ -1,7 +1,9 @@
 package pinecone
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -16,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/v5/internal/gen"
 	"github.com/pinecone-io/go-pinecone/v5/internal/gen/db_control"
+	"github.com/pinecone-io/go-pinecone/v5/internal/gen/inference"
 	"github.com/pinecone-io/go-pinecone/v5/internal/provider"
 	"github.com/pinecone-io/go-pinecone/v5/internal/utils"
 
@@ -1792,6 +1795,106 @@ func TestToCollectionUnit(t *testing.T) {
 			assert.EqualValues(t, tt.expectedOutput, input)
 		})
 	}
+}
+
+func TestToBackupUnit(t *testing.T) {
+	t.Run("nil input", func(t *testing.T) {
+		require.Nil(t, toBackup(nil))
+	})
+
+	t.Run("maps all fields", func(t *testing.T) {
+		filterable := true
+		createdAt := "2024-01-01T00:00:00Z"
+		description := "test backup"
+		name := "backup-name"
+		dimension := int32(1536)
+		namespaceCount := 3
+		recordCount := 42
+		sizeBytes := 2048
+		metric := "cosine"
+		tags := db_control.IndexTags{"env": "dev"}
+
+		model := &db_control.BackupModel{
+			BackupId:       "backup-1",
+			Cloud:          "aws",
+			CreatedAt:      &createdAt,
+			Description:    &description,
+			Dimension:      &dimension,
+			Metric:         &metric,
+			Name:           &name,
+			NamespaceCount: &namespaceCount,
+			RecordCount:    &recordCount,
+			Region:         "us-east-1",
+			Schema: &struct {
+				Fields map[string]struct {
+					Filterable *bool `json:"filterable,omitempty"`
+				} `json:"fields"`
+			}{
+				Fields: map[string]struct {
+					Filterable *bool `json:"filterable,omitempty"`
+				}{
+					"genre": {Filterable: &filterable},
+				},
+			},
+			SizeBytes:       &sizeBytes,
+			SourceIndexId:   "idx-id",
+			SourceIndexName: "idx-name",
+			Status:          "Ready",
+			Tags:            &tags,
+		}
+
+		result := toBackup(model)
+		require.NotNil(t, result)
+
+		require.Equal(t, "backup-1", result.BackupId)
+		require.Equal(t, "aws", result.Cloud)
+		require.Equal(t, &createdAt, result.CreatedAt)
+		require.Equal(t, &description, result.Description)
+		require.Equal(t, &dimension, result.Dimension)
+
+		require.NotNil(t, result.Metric)
+		require.Equal(t, IndexMetric(metric), *result.Metric)
+
+		require.Equal(t, &name, result.Name)
+		require.Equal(t, &namespaceCount, result.NamespaceCount)
+		require.Equal(t, &recordCount, result.RecordCount)
+		require.Equal(t, "us-east-1", result.Region)
+		require.Equal(t, &sizeBytes, result.SizeBytes)
+		require.Equal(t, "idx-id", result.SourceIndexId)
+		require.Equal(t, "idx-name", result.SourceIndexName)
+		require.Equal(t, "Ready", result.Status)
+		require.NotNil(t, result.Schema)
+		require.Equal(t, true, result.Schema.Fields["genre"].Filterable)
+		require.Equal(t, IndexTags(tags), *result.Tags)
+	})
+}
+
+func TestDecodeEmbedResponseUnit(t *testing.T) {
+	dense := inference.DenseEmbedding{
+		Values: []float32{0.1, 0.2},
+	}
+	var embedding inference.Embedding
+	require.NoError(t, embedding.FromDenseEmbedding(dense))
+
+	totalTokens := int32(10)
+	raw := inference.EmbeddingsList{
+		Data:       []inference.Embedding{embedding},
+		Model:      "test-model",
+		VectorType: "dense",
+	}
+	raw.Usage.TotalTokens = &totalTokens
+
+	var buf bytes.Buffer
+	require.NoError(t, json.NewEncoder(&buf).Encode(raw))
+
+	result, err := decodeEmbedResponse(io.NopCloser(bytes.NewReader(buf.Bytes())))
+	require.NoError(t, err)
+	require.Equal(t, "dense", result.VectorType)
+	require.Equal(t, "test-model", result.Model)
+	require.Equal(t, totalTokens, derefOrDefault(result.Usage.TotalTokens, int32(0)))
+	require.Len(t, result.Data, 1)
+	require.NotNil(t, result.Data[0].DenseEmbedding)
+	require.Equal(t, []float32{0.1, 0.2}, result.Data[0].DenseEmbedding.Values)
 }
 
 func TestDerefOrDefaultUnit(t *testing.T) {

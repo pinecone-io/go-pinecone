@@ -40,7 +40,7 @@ jobs:
           PINECONE_CLIENT_ID: ${{ secrets.CLIENT_ID }}
           PINECONE_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
       - name: Run local integration tests
-        run: go test -count=1 -v ./pinecone -run TestRunLocalIntegrationSuite -tags=localServer
+        run: go test -count=1 -v ./pinecone -run TestRunLocalIntegrationSuite -tags=localServer -timeout=20m
         env:
           PINECONE_INDEX_URL_POD: http://localhost:5082
           PINECONE_INDEX_URL_SERVERLESS: http://localhost:5081

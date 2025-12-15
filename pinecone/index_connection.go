@@ -1203,6 +1203,12 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 		}
 	}
 
+	var convertedInputs *db_data_rest.EmbedInputs
+	if in.Query.Inputs != nil {
+		inputMap := db_data_rest.EmbedInputs(*in.Query.Inputs)
+		convertedInputs = &inputMap
+	}
+
 	var matchTerms *db_data_rest.SearchMatchTerms
 	if in.Query.MatchTerms != nil {
 		strat := "all"
@@ -1227,6 +1233,7 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 		}{
 			Filter:     in.Query.Filter,
 			Id:         in.Query.Id,
+			Inputs:     convertedInputs,
 			TopK:       in.Query.TopK,
 			Vector:     convertedVector,
 			MatchTerms: matchTerms,
@@ -1417,11 +1424,19 @@ func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx context.Context) err
 //   - Dimension: The dimension of the [Index].
 //   - IndexFullness: The fullness level of the [Index]. Note: only available on pods-based indexes.
 //   - TotalVectorCount: The total number of vectors in the [Index].
+//   - Metric: The similarity metric configured for the [Index], when available.
+//   - VectorType: The vector type configured for the [Index], when available.
+//   - MemoryFullness: Memory utilization for pod-based indexes (nil for serverless).
+//   - StorageFullness: Storage utilization for pod-based indexes (nil for serverless).
 //   - Namespaces: The namespace(s) in the [Index].
 type DescribeIndexStatsResponse struct {
 	Dimension        *uint32                      `json:"dimension"`
 	IndexFullness    float32                      `json:"index_fullness"`
 	TotalVectorCount uint32                       `json:"total_vector_count"`
+	Metric           *IndexMetric                 `json:"metric,omitempty"`
+	VectorType       *string                      `json:"vector_type,omitempty"`
+	MemoryFullness   *float32                     `json:"memory_fullness,omitempty"`
+	StorageFullness  *float32                     `json:"storage_fullness,omitempty"`
 	Namespaces       map[string]*NamespaceSummary `json:"namespaces,omitempty"`
 }
 
@@ -1535,10 +1550,20 @@ func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, meta
 		}
 	}
 
+	var metric *IndexMetric
+	if res.Metric != nil {
+		m := IndexMetric(*res.Metric)
+		metric = &m
+	}
+
 	return &DescribeIndexStatsResponse{
 		Dimension:        res.Dimension,
 		IndexFullness:    res.IndexFullness,
 		TotalVectorCount: res.TotalVectorCount,
+		Metric:           metric,
+		VectorType:       res.VectorType,
+		MemoryFullness:   res.MemoryFullness,
+		StorageFullness:  res.StorageFullness,
 		Namespaces:       namespaceSummaries,
 	}, nil
 }
