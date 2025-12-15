@@ -971,11 +971,15 @@ func TestMarshalDescribeIndexStatsResponseUnit(t *testing.T) {
 				Dimension:        uint32Pointer(3),
 				IndexFullness:    0.5,
 				TotalVectorCount: 100,
+				Metric:           indexMetricPointer(Cosine),
+				VectorType:       pointerOrNil("dense"),
+				MemoryFullness:   float32Pointer(0.25),
+				StorageFullness:  float32Pointer(0.75),
 				Namespaces: map[string]*NamespaceSummary{
 					"namespace-1": {VectorCount: 50},
 				},
 			},
-			want: `{"dimension":3,"index_fullness":0.5,"total_vector_count":100,"namespaces":{"namespace-1":{"vector_count":50}}}`,
+			want: `{"dimension":3,"index_fullness":0.5,"total_vector_count":100,"metric":"cosine","vector_type":"dense","memory_fullness":0.25,"storage_fullness":0.75,"namespaces":{"namespace-1":{"vector_count":50}}}`,
 		},
 		{
 			name:  "Fields omitted",
@@ -1718,6 +1722,38 @@ func Test_toMetadataSchemaGrpc_Unit(t *testing.T) {
 	}
 }
 
+func TestToNamespaceDescriptionUnit(t *testing.T) {
+	t.Run("nil input", func(t *testing.T) {
+		require.Nil(t, toNamespaceDescription(nil))
+	})
+
+	t.Run("maps schema and indexed fields", func(t *testing.T) {
+		ns := &db_data_grpc.NamespaceDescription{
+			Name:        "namespace-1",
+			RecordCount: 42,
+			Schema: &db_data_grpc.MetadataSchema{
+				Fields: map[string]*db_data_grpc.MetadataFieldProperties{
+					"genre": {
+						Filterable: true,
+					},
+				},
+			},
+			IndexedFields: &db_data_grpc.IndexedFields{
+				Fields: []string{"genre"},
+			},
+		}
+
+		result := toNamespaceDescription(ns)
+		require.NotNil(t, result)
+		require.Equal(t, "namespace-1", result.Name)
+		require.EqualValues(t, 42, result.RecordCount)
+		require.NotNil(t, result.Schema)
+		require.True(t, result.Schema.Fields["genre"].Filterable)
+		require.NotNil(t, result.IndexedFields)
+		require.Equal(t, []string{"genre"}, result.IndexedFields.Fields)
+	})
+}
+
 // Helper funcs
 func generateFloat32Array(n int) []float32 {
 	array := make([]float32, n)
@@ -1737,6 +1773,14 @@ func generateUint32Array(n int) []uint32 {
 
 func uint32Pointer(i uint32) *uint32 {
 	return &i
+}
+
+func float32Pointer(v float32) *float32 {
+	return &v
+}
+
+func indexMetricPointer(metric IndexMetric) *IndexMetric {
+	return &metric
 }
 
 func slicesEqual[T comparable](a, b []float32) bool {

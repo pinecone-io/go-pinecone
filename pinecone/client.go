@@ -2196,13 +2196,15 @@ type EmbedParameters map[string]interface{}
 // Fields:
 //   - Data: A list of [Embedding] objects containing the embeddings generated for the input.
 //   - Model: The model used to generate the embeddings.
+//   - VectorType: Indicates whether the embeddings are dense or sparse.
 //   - Usage: Usage statistics ([Total Tokens]) for the request.
 //
 // [Total Tokens]: https://docs.pinecone.io/guides/organizations/manage-cost/understanding-cost#embed
 type EmbedResponse struct {
-	Data  []Embedding `json:"data"`
-	Model string      `json:"model"`
-	Usage struct {
+	Data       []Embedding `json:"data"`
+	Model      string      `json:"model"`
+	VectorType string      `json:"vector_type"`
+	Usage      struct {
 		TotalTokens *int32 `json:"total_tokens,omitempty"`
 	} `json:"usage"`
 }
@@ -2802,9 +2804,10 @@ func decodeEmbedResponse(resBody io.ReadCloser) (*EmbedResponse, error) {
 	}
 
 	return &EmbedResponse{
-		Data:  decodedEmbeddings,
-		Model: rawEmbedResponse.Model,
-		Usage: rawEmbedResponse.Usage,
+		Data:       decodedEmbeddings,
+		Model:      rawEmbedResponse.Model,
+		VectorType: rawEmbedResponse.VectorType,
+		Usage:      rawEmbedResponse.Usage,
 	}, nil
 }
 
