@@ -1873,7 +1873,19 @@ func (idx *IndexConnection) CreateNamespace(ctx context.Context, in *CreateNames
 	if err != nil {
 		return nil, err
 	}
-	return &NamespaceDescription{Name: res.Name, RecordCount: res.RecordCount}, nil
+
+	nsDesc := &NamespaceDescription{
+		Name:        res.Name,
+		RecordCount: res.RecordCount,
+		Schema:      toMetadataSchemaGrpc(res.Schema),
+	}
+
+	if res.IndexedFields != nil {
+		nsDesc.IndexedFields = &IndexedFields{
+			Fields: res.IndexedFields.Fields,
+		}
+	}
+	return nsDesc, nil
 }
 
 // [IndexConnection.DescribeNamespace] describes a namespace within a serverless index.
