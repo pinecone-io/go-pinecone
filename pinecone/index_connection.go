@@ -1874,18 +1874,7 @@ func (idx *IndexConnection) CreateNamespace(ctx context.Context, in *CreateNames
 		return nil, err
 	}
 
-	nsDesc := &NamespaceDescription{
-		Name:        res.Name,
-		RecordCount: res.RecordCount,
-		Schema:      toMetadataSchemaGrpc(res.Schema),
-	}
-
-	if res.IndexedFields != nil {
-		nsDesc.IndexedFields = &IndexedFields{
-			Fields: res.IndexedFields.Fields,
-		}
-	}
-	return nsDesc, nil
+	return toNamespaceDescription(res), nil
 }
 
 // [IndexConnection.DescribeNamespace] describes a namespace within a serverless index.
@@ -1929,23 +1918,8 @@ func (idx *IndexConnection) DescribeNamespace(ctx context.Context, namespace str
 	if err != nil {
 		return nil, err
 	}
-	if res == nil {
-		return nil, nil
-	}
 
-	nsDesc := &NamespaceDescription{
-		Name:        res.Name,
-		RecordCount: res.RecordCount,
-		Schema:      toMetadataSchemaGrpc(res.Schema),
-	}
-
-	if res.IndexedFields != nil {
-		nsDesc.IndexedFields = &IndexedFields{
-			Fields: res.IndexedFields.Fields,
-		}
-	}
-
-	return nsDesc, nil
+	return toNamespaceDescription(res), nil
 }
 
 // [ListNamespacesResponse] is returned by the [IndexConnection.ListNamespaces] method.
@@ -2286,10 +2260,7 @@ func toListNamespacesResponse(listNamespacesResponse *db_data_grpc.ListNamespace
 
 	namespaces := make([]*NamespaceDescription, len(listNamespacesResponse.Namespaces))
 	for i, ns := range listNamespacesResponse.Namespaces {
-		namespaces[i] = &NamespaceDescription{
-			Name:        ns.Name,
-			RecordCount: ns.RecordCount,
-		}
+		namespaces[i] = toNamespaceDescription(ns)
 	}
 	var pagination *Pagination
 	if listNamespacesResponse.Pagination != nil {
@@ -2303,6 +2274,26 @@ func toListNamespacesResponse(listNamespacesResponse *db_data_grpc.ListNamespace
 		Pagination: pagination,
 		TotalCount: listNamespacesResponse.TotalCount,
 	}
+}
+
+func toNamespaceDescription(ns *db_data_grpc.NamespaceDescription) *NamespaceDescription {
+	if ns == nil {
+		return nil
+	}
+
+	nsDesc := &NamespaceDescription{
+		Name:        ns.Name,
+		RecordCount: ns.RecordCount,
+		Schema:      toMetadataSchemaGrpc(ns.Schema),
+	}
+
+	if ns.IndexedFields != nil {
+		nsDesc.IndexedFields = &IndexedFields{
+			Fields: ns.IndexedFields.Fields,
+		}
+	}
+
+	return nsDesc
 }
 
 func vecToGrpc(v *Vector) *db_data_grpc.Vector {
