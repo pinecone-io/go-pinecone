@@ -314,7 +314,7 @@ type NamespaceSummary struct {
 //   - Name: The name of the namespace.
 //   - RecordCount: The number of records in the namespace.
 //   - TotalCount: The total number of namespaces in the index matching the prefix
-//   - IndexedFields: A list of all indexed metatadata fields in the namespace
+//   - IndexedFields: A list of all indexed metadata fields in the namespace
 //   - Schema: Schema for the behavior of Pinecone's internal metadata index.
 type NamespaceDescription struct {
 	Name          string          `json:"name"`
@@ -323,9 +323,9 @@ type NamespaceDescription struct {
 	Schema        *MetadataSchema `json:"schema,omitempty"`
 }
 
-// [IndexedFields] is a list of all indexed metatadata fields in the namespace
+// [IndexedFields] is a list of all indexed metadata fields in the namespace
 // Fields:
-//   - Fields: A list of all indexed metatadata fields in the namespace
+//   - Fields: A list of all indexed metadata fields in the namespace
 type IndexedFields struct {
 	Fields []string `json:"fields,omitempty"`
 }

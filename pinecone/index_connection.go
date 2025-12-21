@@ -247,7 +247,7 @@ func (idx *IndexConnection) WithNamespace(namespace string) *IndexConnection {
 //		if err != nil {
 //	    		log.Fatalf("Failed to upsert vectors. Error: %v", err)
 //		} else {
-//				log.Fatalf("Successfully upserted %d vector(s)!\n", count)
+//				log.Printf("Successfully upserted %d vector(s)!\n", count)
 //		}
 func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (uint32, error) {
 	vectors := make([]*db_data_grpc.Vector, len(in))
@@ -1079,7 +1079,7 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 //	    if err != nil {
 //			log.Fatalf("Failed to upsert vectors. Error: %v", err)
 //	    } else {
-//			log.Fatalf("Successfully upserted %d vector(s)!\n", count)
+//			log.Printf("Successfully upserted %d vector(s)!\n", count)
 //	    }
 //
 // [Pinecone Index]: https://docs.pinecone.io/reference/api/2025-01/control-plane/create_for_model
