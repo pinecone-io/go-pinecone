@@ -3179,7 +3179,7 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 
 	// nil / OnDemand -> Dedicated
 	// When converting from OnDemand to Dedicated, NodeType, Replicas, and Shards are required
-	if old == nil || old.OnDemand != nil && new.Dedicated != nil {
+	if new.Dedicated != nil && (old == nil || old.OnDemand != nil) {
 		if new.Dedicated.NodeType == nil ||
 			new.Dedicated.Scaling == nil ||
 			new.Dedicated.Scaling.Manual == nil ||

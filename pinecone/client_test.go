@@ -2524,6 +2524,69 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 				assert.Nil(t, dedicatedSpec.Dedicated.Manual.Shards)
 			},
 		},
+		{
+			name: "nil old (legacy BYOC) to on-demand should succeed",
+			newParams: &ReadCapacityParams{
+				OnDemand: &ReadCapacityOnDemandConfig{},
+			},
+			oldConfig: nil,
+			validate: func(t *testing.T, result *db_control.ReadCapacity, err error) {
+				require.NoError(t, err)
+				require.NotNil(t, result)
+
+				mode, modeErr := result.Discriminator()
+				require.NoError(t, modeErr)
+				assert.Equal(t, "OnDemand", mode)
+
+				onDemandSpec, specErr := result.AsReadCapacityOnDemandSpec()
+				require.NoError(t, specErr)
+				assert.Equal(t, "OnDemand", onDemandSpec.Mode)
+			},
+		},
+		{
+			name: "nil old (legacy BYOC) to dedicated without manual scaling should error",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+				},
+			},
+			oldConfig: nil,
+			validate: func(t *testing.T, result *db_control.ReadCapacity, err error) {
+				assert.Error(t, err)
+				assert.Nil(t, result)
+			},
+		},
+		{
+			name: "nil old (legacy BYOC) to dedicated with full manual scaling succeeds",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("t1"),
+					Scaling: &ReadCapacityScaling{
+						Manual: &ReadCapacityManualScaling{
+							Replicas: ptr(int32(2)),
+							Shards:   ptr(int32(3)),
+						},
+					},
+				},
+			},
+			oldConfig: nil,
+			validate: func(t *testing.T, result *db_control.ReadCapacity, err error) {
+				require.NoError(t, err)
+				require.NotNil(t, result)
+
+				mode, modeErr := result.Discriminator()
+				require.NoError(t, modeErr)
+				assert.Equal(t, "Dedicated", mode)
+
+				dedicatedSpec, specErr := result.AsReadCapacityDedicatedSpec()
+				require.NoError(t, specErr)
+				require.NotNil(t, dedicatedSpec.Dedicated.NodeType)
+				assert.Equal(t, "t1", *dedicatedSpec.Dedicated.NodeType)
+				require.NotNil(t, dedicatedSpec.Dedicated.Manual)
+				assert.Equal(t, int32(2), *dedicatedSpec.Dedicated.Manual.Replicas)
+				assert.Equal(t, int32(3), *dedicatedSpec.Dedicated.Manual.Shards)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -2839,23 +2902,57 @@ func Test_ConfigureIndex_ValidationErrors_Unit(t *testing.T) {
 			},
 			expectedError: "cannot configure PodType or Replicas on a byoc index; these parameters are only supported for pod indexes",
 		},
+		{
+			name: "Legacy BYOC index (no ReadCapacity) to OnDemand should succeed",
+			indexSpec: func() db_control.IndexModel_Spec {
+				spec := db_control.IndexModel_Spec{}
+				_ = spec.FromIndexModelSpec2(db_control.IndexModelSpec2{
+					Byoc: db_control.ByocSpecResponse{
+						Environment: "test-environ",
+						ReadCapacity: db_control.ReadCapacityResponse{}, // empty - simulates legacy BYOC
+					},
+				})
+				return spec
+			}(),
+			configParams: ConfigureIndexParams{
+				ReadCapacity: &ReadCapacityParams{
+					OnDemand: &ReadCapacityOnDemandConfig{},
+				},
+			},
+			expectedError: "", // should succeed without panic
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a mock HTTP client that only needs to handle DescribeIndex
-			// (validation errors occur before the actual ConfigureIndex API call)
+			// Create a mock HTTP client that handles both DescribeIndex and ConfigureIndex
+			callCount := 0
 			mockHttpClient := &http.Client{
 				Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-					indexModel := db_control.IndexModel{
-						Name:       "test-index",
-						Metric:     "cosine",
-						Host:       "test-host",
-						Spec:       tt.indexSpec,
-						VectorType: "dense",
+					callCount++
+					if callCount == 1 {
+						// First call is DescribeIndex
+						indexModel := db_control.IndexModel{
+							Name:       "test-index",
+							Metric:     "cosine",
+							Host:       "test-host",
+							Spec:       tt.indexSpec,
+							VectorType: "dense",
+						}
+						body, _ := json.Marshal(indexModel)
+						return mockResponse(string(body), http.StatusOK), nil
+					} else {
+						// Second call is ConfigureIndex (if it gets this far)
+						indexModel := db_control.IndexModel{
+							Name:       "test-index",
+							Metric:     "cosine",
+							Host:       "test-host",
+							Spec:       tt.indexSpec,
+							VectorType: "dense",
+						}
+						body, _ := json.Marshal(indexModel)
+						return mockResponse(string(body), http.StatusOK), nil
 					}
-					body, _ := json.Marshal(indexModel)
-					return mockResponse(string(body), http.StatusOK), nil
 				}),
 			}
 
@@ -2866,12 +2963,16 @@ func Test_ConfigureIndex_ValidationErrors_Unit(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			// Call ConfigureIndex with incompatible parameters
+			// Call ConfigureIndex
 			_, err = client.ConfigureIndex(context.Background(), "test-index", tt.configParams)
 
-			// Assert error message
-			require.Error(t, err)
-			require.Contains(t, err.Error(), tt.expectedError)
+			// Assert error or success
+			if tt.expectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }
