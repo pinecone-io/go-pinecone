@@ -1027,8 +1027,10 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 //     If `sparse`, the vector dimension should not be specified, and the Metric must be set to `dotproduct`. Defaults to `dense`.
 //   - DeletionProtection: (Optional) Determines whether [deletion protection] is "enabled" or "disabled" for the index.
 //     When "enabled", the index cannot be deleted. Defaults to "disabled".
-//   - Tags: (Optional) A map of tags to associate with the Index.
+//   - ReadCapacity: (Optional) The read capacity configuration for the serverless index. Used to configure dedicated read capacity
+//     with specific node types and scaling strategies.
 //   - Schema: (Optional) Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
+//   - Tags: (Optional) A map of tags to associate with the Index.
 //
 // To create a new BYOC Index, use the [Client.CreateBYOCIndex] method.
 //
@@ -1071,8 +1073,9 @@ type CreateBYOCIndexRequest struct {
 	VectorType         *string
 	Metric             *IndexMetric
 	DeletionProtection *DeletionProtection
-	Tags               *IndexTags
+	ReadCapacity       *ReadCapacityParams
 	Schema             *MetadataSchema
+	Tags               *IndexTags
 }
 
 // [Client.CreateBYOCIndex] creates and initializes a new BYOC (Bring Your Own Cloud) Index via the specified [Client].
@@ -1127,10 +1130,16 @@ func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest
 		tags = (*db_control.IndexTags)(in.Tags)
 	}
 
+	readCapacity, err := readCapacityParamsToReadCapacity(in.ReadCapacity)
+	if err != nil {
+		return nil, err
+	}
+
 	byocSpec := db_control.IndexSpec2{
 		Byoc: db_control.ByocSpec{
-			Environment: in.Environment,
-			Schema:      fromMetadataSchemaToRest(in.Schema),
+			Environment:  in.Environment,
+			Schema:       fromMetadataSchemaToRest(in.Schema),
+			ReadCapacity: readCapacity,
 		},
 	}
 
@@ -1377,50 +1386,82 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	replicas := pointerOrNil(in.Replicas)
 	deletionProtection := pointerOrNil(in.DeletionProtection)
 
-	// Describe index in order to merge existing tags with incoming tags
+	// Describe index in order to merge existing tags with incoming tags,
+	// and evaluate index spec type to determine which spec to apply.
 	idxDesc, err := c.DescribeIndex(ctx, name)
 	if err != nil {
 		return nil, err
 	}
 	existingTags := idxDesc.Tags
 
+	specType := ""
+	if idxDesc.Spec.Pod != nil {
+		specType = "pod"
+	} else if idxDesc.Spec.Serverless != nil {
+		specType = "serverless"
+	} else if idxDesc.Spec.BYOC != nil {
+		specType = "byoc"
+	} else {
+		return nil, fmt.Errorf("unknown index spec type")
+	}
+
 	var request db_control.ConfigureIndexRequest
 	request.Spec = &db_control.ConfigureIndexRequest_Spec{}
 
 	// Apply pod configurations
-	if podType != nil || replicas != nil {
-		podSpec := db_control.ConfigureIndexRequestSpec1{
-			Pod: struct {
-				PodType  *string `json:"pod_type,omitempty"`
-				Replicas *int32  `json:"replicas,omitempty"`
-			}{
-				PodType:  podType,
-				Replicas: replicas,
-			},
-		}
+	switch specType {
+	case "pod":
+		if podType != nil || replicas != nil {
+			podSpec := db_control.ConfigureIndexRequestSpec1{
+				Pod: struct {
+					PodType  *string `json:"pod_type,omitempty"`
+					Replicas *int32  `json:"replicas,omitempty"`
+				}{
+					PodType:  podType,
+					Replicas: replicas,
+				},
+			}
 
-		// Apply the pod spec to the request
-		if err := request.Spec.FromConfigureIndexRequestSpec1(podSpec); err != nil {
-			return nil, err
+			// Apply the pod spec to the request
+			if err := request.Spec.FromConfigureIndexRequestSpec1(podSpec); err != nil {
+				return nil, err
+			}
 		}
-	}
-
-	// Apply serverless configurations
-	if in.ReadCapacity != nil {
-		readCapacity, err := patchReadCapacity(in.ReadCapacity, idxDesc.Spec.Serverless.ReadCapacity)
-		if err != nil {
-			return nil, err
+	case "serverless":
+		if in.ReadCapacity != nil {
+			readCapacity, err := patchReadCapacity(in.ReadCapacity, idxDesc.Spec.Serverless.ReadCapacity)
+			if err != nil {
+				return nil, err
+			}
+			serverlessSpec := db_control.ConfigureIndexRequestSpec0{
+				Serverless: struct {
+					ReadCapacity *db_control.ReadCapacity `json:"read_capacity,omitempty"`
+				}{
+					ReadCapacity: readCapacity,
+				},
+			}
+			// Apply the serverless spec to the request
+			if err := request.Spec.FromConfigureIndexRequestSpec0(serverlessSpec); err != nil {
+				return nil, err
+			}
 		}
-		serverlessSpec := db_control.ConfigureIndexRequestSpec0{
-			Serverless: struct {
-				ReadCapacity *db_control.ReadCapacity `json:"read_capacity,omitempty"`
-			}{
-				ReadCapacity: readCapacity,
-			},
-		}
-		// Apply the serverless spec to the request
-		if err := request.Spec.FromConfigureIndexRequestSpec0(serverlessSpec); err != nil {
-			return nil, err
+	case "byoc":
+		if in.ReadCapacity != nil {
+			readCapacity, err := patchReadCapacity(in.ReadCapacity, idxDesc.Spec.BYOC.ReadCapacity)
+			if err != nil {
+				return nil, err
+			}
+			byocSpec := db_control.ConfigureIndexRequestSpec2{
+				Byoc: struct {
+					ReadCapacity *db_control.ReadCapacity `json:"read_capacity,omitempty"`
+				}{
+					ReadCapacity: readCapacity,
+				},
+			}
+			// Apply the serverless spec to the request
+			if err := request.Spec.FromConfigureIndexRequestSpec2(byocSpec); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -2608,9 +2649,14 @@ func toIndex(idx *db_control.IndexModel) (*Index, error) {
 		}
 	case "byoc":
 		if byocSpec, err := idx.Spec.AsIndexModelSpec2(); err == nil {
+			readCapacity, err := toReadCapacity(&byocSpec.Byoc.ReadCapacity)
+			if err != nil {
+				return nil, err
+			}
 			spec.BYOC = &BYOCSpec{
-				Environment: byocSpec.Byoc.Environment,
-				Schema:      toMetadataSchemaFromRest(byocSpec.Byoc.Schema),
+				Environment:  byocSpec.Byoc.Environment,
+				Schema:       toMetadataSchemaFromRest(byocSpec.Byoc.Schema),
+				ReadCapacity: readCapacity,
 			}
 		}
 	}
