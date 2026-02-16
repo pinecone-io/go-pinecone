@@ -1684,7 +1684,7 @@ func TestToIndexUnit(t *testing.T) {
 				Metric:             "cosine",
 				DeletionProtection: &deletionProtectionEnabled,
 				Spec: newByocIndexModelSpec(t, db_control.IndexModelSpec2{
-					Byoc: db_control.ByocSpec{
+					Byoc: db_control.ByocSpecResponse{
 						Environment: "test-environ",
 						Schema:      nil,
 					},
@@ -1825,11 +1825,7 @@ func TestToBackupUnit(t *testing.T) {
 			NamespaceCount: &namespaceCount,
 			RecordCount:    &recordCount,
 			Region:         "us-east-1",
-			Schema: &struct {
-				Fields map[string]struct {
-					Filterable *bool `json:"filterable,omitempty"`
-				} `json:"fields"`
-			}{
+			Schema: &db_control.MetadataSchema{
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{
@@ -2141,7 +2137,7 @@ func Test_toMetadataSchemaFromRest_Unit(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		input    *restMetadataSchemaInput
+		input    *db_control.MetadataSchema
 		expected *MetadataSchema
 	}{
 		{
@@ -2151,7 +2147,7 @@ func Test_toMetadataSchemaFromRest_Unit(t *testing.T) {
 		},
 		{
 			name: "empty fields map",
-			input: &restMetadataSchemaInput{
+			input: &db_control.MetadataSchema{
 				Fields: make(map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}),
@@ -2162,7 +2158,7 @@ func Test_toMetadataSchemaFromRest_Unit(t *testing.T) {
 		},
 		{
 			name: "fields with filterable true",
-			input: &restMetadataSchemaInput{
+			input: &db_control.MetadataSchema{
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{
@@ -2177,7 +2173,7 @@ func Test_toMetadataSchemaFromRest_Unit(t *testing.T) {
 		},
 		{
 			name: "fields with filterable false",
-			input: &restMetadataSchemaInput{
+			input: &db_control.MetadataSchema{
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{
@@ -2192,7 +2188,7 @@ func Test_toMetadataSchemaFromRest_Unit(t *testing.T) {
 		},
 		{
 			name: "fields with filterable nil (defaults to false)",
-			input: &restMetadataSchemaInput{
+			input: &db_control.MetadataSchema{
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{
@@ -2207,7 +2203,7 @@ func Test_toMetadataSchemaFromRest_Unit(t *testing.T) {
 		},
 		{
 			name: "multiple fields",
-			input: &restMetadataSchemaInput{
+			input: &db_control.MetadataSchema{
 				Fields: map[string]struct {
 					Filterable *bool `json:"filterable,omitempty"`
 				}{

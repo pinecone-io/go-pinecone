@@ -255,7 +255,7 @@ type QueryRequest struct {
 	// IncludeMetadata Indicates whether metadata is included in the response as well as the ids.
 	IncludeMetadata *bool `json:"includeMetadata,omitempty"`
 
-	// IncludeValues Indicates whether vector values are included in the response.
+	// IncludeValues Indicates whether vector values are included in the response. For on-demand indexes, setting this to `true` may increase latency, especially with higher `topK` values, because vector values are retrieved from object storage. Unless you need vector values, set this to `false` for better performance.
 	IncludeValues *bool `json:"includeValues,omitempty"`
 
 	// Namespace The namespace to query.

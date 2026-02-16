@@ -3075,11 +3075,7 @@ func minOne(x int32) int32 {
 }
 
 // Converts the inline struct defined in the generated REST API to a MetadataSchema
-func toMetadataSchemaFromRest(schema *struct {
-	Fields map[string]struct {
-		Filterable *bool `json:"filterable,omitempty"`
-	} `json:"fields"`
-}) *MetadataSchema {
+func toMetadataSchemaFromRest(schema *db_control.MetadataSchema) *MetadataSchema {
 	if schema == nil {
 		return nil
 	}
@@ -3097,11 +3093,7 @@ func toMetadataSchemaFromRest(schema *struct {
 }
 
 // Converts MetadataSchema to the inline struct defined in the generated REST API
-func fromMetadataSchemaToRest(schema *MetadataSchema) *struct {
-	Fields map[string]struct {
-		Filterable *bool `json:"filterable,omitempty"`
-	} `json:"fields"`
-} {
+func fromMetadataSchemaToRest(schema *MetadataSchema) *db_control.MetadataSchema {
 	if schema == nil {
 		return nil
 	}
@@ -3119,11 +3111,7 @@ func fromMetadataSchemaToRest(schema *MetadataSchema) *struct {
 		}
 	}
 
-	return &struct {
-		Fields map[string]struct {
-			Filterable *bool `json:"filterable,omitempty"`
-		} `json:"fields"`
-	}{
+	return &db_control.MetadataSchema{
 		Fields: fields,
 	}
 }
