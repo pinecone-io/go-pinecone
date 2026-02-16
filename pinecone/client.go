@@ -1378,8 +1378,8 @@ type ConfigureIndexEmbed struct {
 //
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
 func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIndexParams) (*Index, error) {
-	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" && in.Tags == nil && in.ReadCapacity == nil {
-		return nil, fmt.Errorf("must specify PodType, Replicas, DeletionProtection, or Tags when configuring an index")
+	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" && in.Tags == nil && in.ReadCapacity == nil && in.Embed == nil {
+		return nil, fmt.Errorf("must specify PodType, Replicas, DeletionProtection, ReadCapacity, Embed, or Tags when configuring an index")
 	}
 
 	podType := pointerOrNil(in.PodType)
@@ -1407,6 +1407,14 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 
 	var request db_control.ConfigureIndexRequest
 	request.Spec = &db_control.ConfigureIndexRequest_Spec{}
+
+	// Validate that spec-specific parameters match the index type
+	if specType == "pod" && in.ReadCapacity != nil {
+		return nil, fmt.Errorf("cannot configure ReadCapacity on a pod index; ReadCapacity is only supported for serverless and BYOC indexes")
+	}
+	if (specType == "serverless" || specType == "byoc") && (podType != nil || replicas != nil) {
+		return nil, fmt.Errorf("cannot configure PodType or Replicas on a %s index; these parameters are only supported for pod indexes", specType)
+	}
 
 	// Apply pod configurations
 	switch specType {

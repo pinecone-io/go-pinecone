@@ -304,7 +304,7 @@ func (ts *integrationTests) TestConfigureIndexScaleUpNoReplicas() {
 
 func (ts *integrationTests) TestConfigureIndexIllegalNoPodsOrReplicasOrDeletionProtection() {
 	_, err := ts.client.ConfigureIndex(context.Background(), ts.idxName, ConfigureIndexParams{})
-	require.ErrorContainsf(ts.T(), err, "must specify PodType, Replicas, DeletionProtection, or Tags", err.Error())
+	require.ErrorContainsf(ts.T(), err, "must specify PodType, Replicas, DeletionProtection, ReadCapacity, Embed, or Tags", err.Error())
 }
 
 func (ts *integrationTests) TestConfigureIndexHitPodLimit() {
@@ -2719,6 +2719,163 @@ func newServerlessIndexModelSpec(t *testing.T, in db_control.IndexModelSpec0) db
 	return spec
 }
 
+func Test_ConfigureIndex_ValidationErrors_Unit(t *testing.T) {
+	tests := []struct {
+		name          string
+		indexSpec     db_control.IndexModel_Spec
+		configParams  ConfigureIndexParams
+		expectedError string
+	}{
+		{
+			name: "Pod index with ReadCapacity should error",
+			indexSpec: func() db_control.IndexModel_Spec {
+				spec := db_control.IndexModel_Spec{}
+				pods := 1
+				replicas := int32(1)
+				shards := int32(1)
+				_ = spec.FromIndexModelSpec1(db_control.IndexModelSpec1{
+					Pod: db_control.PodSpec{
+						Environment: "us-east1-gcp",
+						PodType:     "p1.x1",
+						Pods:        &pods,
+						Replicas:    &replicas,
+						Shards:      &shards,
+					},
+				})
+				return spec
+			}(),
+			configParams: ConfigureIndexParams{
+				ReadCapacity: &ReadCapacityParams{
+					Dedicated: &ReadCapacityDedicatedConfig{
+						NodeType: ptr("n1.x1"),
+					},
+				},
+			},
+			expectedError: "cannot configure ReadCapacity on a pod index; ReadCapacity is only supported for serverless and BYOC indexes",
+		},
+		{
+			name: "Serverless index with PodType should error",
+			indexSpec: func() db_control.IndexModel_Spec {
+				spec := db_control.IndexModel_Spec{}
+				_ = spec.FromIndexModelSpec0(db_control.IndexModelSpec0{
+					Serverless: db_control.ServerlessSpecResponse{
+						Cloud:  "aws",
+						Region: "us-east-1",
+					},
+				})
+				return spec
+			}(),
+			configParams: ConfigureIndexParams{
+				PodType: "p1.x1",
+			},
+			expectedError: "cannot configure PodType or Replicas on a serverless index; these parameters are only supported for pod indexes",
+		},
+		{
+			name: "Serverless index with Replicas should error",
+			indexSpec: func() db_control.IndexModel_Spec {
+				spec := db_control.IndexModel_Spec{}
+				_ = spec.FromIndexModelSpec0(db_control.IndexModelSpec0{
+					Serverless: db_control.ServerlessSpecResponse{
+						Cloud:  "aws",
+						Region: "us-east-1",
+					},
+				})
+				return spec
+			}(),
+			configParams: ConfigureIndexParams{
+				Replicas: 4,
+			},
+			expectedError: "cannot configure PodType or Replicas on a serverless index; these parameters are only supported for pod indexes",
+		},
+		{
+			name: "Serverless index with both PodType and Replicas should error",
+			indexSpec: func() db_control.IndexModel_Spec {
+				spec := db_control.IndexModel_Spec{}
+				_ = spec.FromIndexModelSpec0(db_control.IndexModelSpec0{
+					Serverless: db_control.ServerlessSpecResponse{
+						Cloud:  "aws",
+						Region: "us-east-1",
+					},
+				})
+				return spec
+			}(),
+			configParams: ConfigureIndexParams{
+				PodType:  "p1.x1",
+				Replicas: 4,
+			},
+			expectedError: "cannot configure PodType or Replicas on a serverless index; these parameters are only supported for pod indexes",
+		},
+		{
+			name: "BYOC index with PodType should error",
+			indexSpec: func() db_control.IndexModel_Spec {
+				spec := db_control.IndexModel_Spec{}
+				_ = spec.FromIndexModelSpec2(db_control.IndexModelSpec2{
+					Byoc: db_control.ByocSpecResponse{
+						Environment: "test-environ",
+						ReadCapacity: db_control.ReadCapacityResponse{}, // empty
+					},
+				})
+				return spec
+			}(),
+			configParams: ConfigureIndexParams{
+				PodType: "p1.x1",
+			},
+			expectedError: "cannot configure PodType or Replicas on a byoc index; these parameters are only supported for pod indexes",
+		},
+		{
+			name: "BYOC index with Replicas should error",
+			indexSpec: func() db_control.IndexModel_Spec {
+				spec := db_control.IndexModel_Spec{}
+				_ = spec.FromIndexModelSpec2(db_control.IndexModelSpec2{
+					Byoc: db_control.ByocSpecResponse{
+						Environment: "test-environ",
+						ReadCapacity: db_control.ReadCapacityResponse{}, // empty
+					},
+				})
+				return spec
+			}(),
+			configParams: ConfigureIndexParams{
+				Replicas: 2,
+			},
+			expectedError: "cannot configure PodType or Replicas on a byoc index; these parameters are only supported for pod indexes",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a mock HTTP client that only needs to handle DescribeIndex
+			// (validation errors occur before the actual ConfigureIndex API call)
+			mockHttpClient := &http.Client{
+				Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+					indexModel := db_control.IndexModel{
+						Name:       "test-index",
+						Metric:     "cosine",
+						Host:       "test-host",
+						Spec:       tt.indexSpec,
+						VectorType: "dense",
+					}
+					body, _ := json.Marshal(indexModel)
+					return mockResponse(string(body), http.StatusOK), nil
+				}),
+			}
+
+			// Create client with mock HTTP client
+			client, err := NewClient(NewClientParams{
+				ApiKey:     "test-api-key",
+				RestClient: mockHttpClient,
+			})
+			require.NoError(t, err)
+
+			// Call ConfigureIndex with incompatible parameters
+			_, err = client.ConfigureIndex(context.Background(), "test-index", tt.configParams)
+
+			// Assert error message
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.expectedError)
+		})
+	}
+}
+
 func newPodIndexModelSpec(t *testing.T, in db_control.IndexModelSpec1) db_control.IndexModel_Spec {
 	spec := db_control.IndexModel_Spec{}
 	err := spec.FromIndexModelSpec1(in)
@@ -2738,6 +2895,13 @@ func newByocIndexModelSpec(t *testing.T, in db_control.IndexModelSpec2) db_contr
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// roundTripFunc is a helper type to create mock HTTP clients
+type roundTripFunc func(req *http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
 
 func mockResponse(body string, statusCode int) *http.Response {
 	return &http.Response{
