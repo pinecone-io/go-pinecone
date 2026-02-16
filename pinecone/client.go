@@ -3248,7 +3248,16 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 
 	mode, err := rc.Discriminator()
 	if err != nil {
-		return nil, err
+		// If we can't determine the discriminator (e.g., empty response),
+		// return nil to indicate no read capacity configuration is present.
+		// This handles the case where BYOC indexes created before read_capacity
+		// support don't have this field in their responses.
+		return nil, nil
+	}
+
+	// If discriminator is empty string, treat it as no configuration present
+	if mode == "" {
+		return nil, nil
 	}
 
 	switch mode {

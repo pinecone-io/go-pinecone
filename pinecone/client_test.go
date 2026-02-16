@@ -2606,6 +2606,12 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 		return &result
 	}()
 
+	emptyInput := func() *db_control.ReadCapacityResponse {
+		// Create an empty ReadCapacityResponse (simulates missing read_capacity in API response)
+		var result db_control.ReadCapacityResponse
+		return &result
+	}()
+
 	tests := []struct {
 		name      string
 		input     *db_control.ReadCapacityResponse
@@ -2615,6 +2621,12 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 		{
 			name:      "nil input",
 			input:     nil,
+			wantError: false,
+			expected:  nil,
+		},
+		{
+			name:      "empty input (no discriminator)",
+			input:     emptyInput,
 			wantError: false,
 			expected:  nil,
 		},
