@@ -1,0 +1,30 @@
+---
+alwaysApply: true
+---
+
+## Formatting
+- Always run `gofmt` (or `go fmt ./...`). All Go code must be gofmt-compliant; this is non-negotiable.
+- Run `go vet ./...` before committing. Zero warnings allowed.
+
+## Error Handling
+- Return errors rather than panicking. Reserve `panic` for truly unrecoverable states.
+- Wrap errors with context using `fmt.Errorf("doing X: %w", err)`. Use `%w` (not `%v`) to preserve the error chain.
+- Inspect errors with `errors.Is()` and `errors.As()`; never match errors by string comparison.
+- Do not swallow errors silently with empty `if err != nil {}` blocks.
+
+## Context
+- Always accept `context.Context` as the first parameter in functions that perform I/O or long-running operations.
+- Pass contexts through the call chain; do not store them in struct fields.
+
+## Documentation
+- All exported symbols (types, functions, constants, variables) require GoDoc comments.
+- Comments must start with the name of the symbol (e.g., `// Client holds...`).
+
+## Code Generation
+- Never manually edit files in `internal/gen/`. These are auto-generated from API specs.
+- Regenerate with `just gen` after any changes to specs in `codegen/`.
+
+## Testing
+- Unit test names must end with `Unit` (e.g., `TestNewClientParamsSetUnit`).
+- Integration tests are methods on the `integrationTests` suite.
+- Use `testify/require` for fatal assertions, `testify/assert` for non-fatal.
