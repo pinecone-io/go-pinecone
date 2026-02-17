@@ -1027,8 +1027,10 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 //     If `sparse`, the vector dimension should not be specified, and the Metric must be set to `dotproduct`. Defaults to `dense`.
 //   - DeletionProtection: (Optional) Determines whether [deletion protection] is "enabled" or "disabled" for the index.
 //     When "enabled", the index cannot be deleted. Defaults to "disabled".
-//   - Tags: (Optional) A map of tags to associate with the Index.
+//   - ReadCapacity: (Optional) The read capacity configuration for the serverless index. Used to configure dedicated read capacity
+//     with specific node types and scaling strategies.
 //   - Schema: (Optional) Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
+//   - Tags: (Optional) A map of tags to associate with the Index.
 //
 // To create a new BYOC Index, use the [Client.CreateBYOCIndex] method.
 //
@@ -1071,8 +1073,9 @@ type CreateBYOCIndexRequest struct {
 	VectorType         *string
 	Metric             *IndexMetric
 	DeletionProtection *DeletionProtection
-	Tags               *IndexTags
+	ReadCapacity       *ReadCapacityParams
 	Schema             *MetadataSchema
+	Tags               *IndexTags
 }
 
 // [Client.CreateBYOCIndex] creates and initializes a new BYOC (Bring Your Own Cloud) Index via the specified [Client].
@@ -1127,10 +1130,16 @@ func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest
 		tags = (*db_control.IndexTags)(in.Tags)
 	}
 
+	readCapacity, err := readCapacityParamsToReadCapacity(in.ReadCapacity)
+	if err != nil {
+		return nil, err
+	}
+
 	byocSpec := db_control.IndexSpec2{
 		Byoc: db_control.ByocSpec{
-			Environment: in.Environment,
-			Schema:      fromMetadataSchemaToRest(in.Schema),
+			Environment:  in.Environment,
+			Schema:       fromMetadataSchemaToRest(in.Schema),
+			ReadCapacity: readCapacity,
 		},
 	}
 
@@ -1369,58 +1378,98 @@ type ConfigureIndexEmbed struct {
 //
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
 func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIndexParams) (*Index, error) {
-	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" && in.Tags == nil && in.ReadCapacity == nil {
-		return nil, fmt.Errorf("must specify PodType, Replicas, DeletionProtection, or Tags when configuring an index")
+	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" && in.Tags == nil && in.ReadCapacity == nil && in.Embed == nil {
+		return nil, fmt.Errorf("must specify PodType, Replicas, DeletionProtection, ReadCapacity, Embed, or Tags when configuring an index")
 	}
 
 	podType := pointerOrNil(in.PodType)
 	replicas := pointerOrNil(in.Replicas)
 	deletionProtection := pointerOrNil(in.DeletionProtection)
 
-	// Describe index in order to merge existing tags with incoming tags
+	// Describe index in order to merge existing tags with incoming tags,
+	// and evaluate index spec type to determine which spec to apply.
 	idxDesc, err := c.DescribeIndex(ctx, name)
 	if err != nil {
 		return nil, err
 	}
 	existingTags := idxDesc.Tags
 
+	specType := ""
+	if idxDesc.Spec.Pod != nil {
+		specType = "pod"
+	} else if idxDesc.Spec.Serverless != nil {
+		specType = "serverless"
+	} else if idxDesc.Spec.BYOC != nil {
+		specType = "byoc"
+	} else {
+		return nil, fmt.Errorf("unknown index spec type")
+	}
+
 	var request db_control.ConfigureIndexRequest
 	request.Spec = &db_control.ConfigureIndexRequest_Spec{}
 
-	// Apply pod configurations
-	if podType != nil || replicas != nil {
-		podSpec := db_control.ConfigureIndexRequestSpec1{
-			Pod: struct {
-				PodType  *string `json:"pod_type,omitempty"`
-				Replicas *int32  `json:"replicas,omitempty"`
-			}{
-				PodType:  podType,
-				Replicas: replicas,
-			},
-		}
-
-		// Apply the pod spec to the request
-		if err := request.Spec.FromConfigureIndexRequestSpec1(podSpec); err != nil {
-			return nil, err
-		}
+	// Validate that spec-specific parameters match the index type
+	if specType == "pod" && in.ReadCapacity != nil {
+		return nil, fmt.Errorf("cannot configure ReadCapacity on a pod index; ReadCapacity is only supported for serverless and BYOC indexes")
+	}
+	if (specType == "serverless" || specType == "byoc") && (podType != nil || replicas != nil) {
+		return nil, fmt.Errorf("cannot configure PodType or Replicas on a %s index; these parameters are only supported for pod indexes", specType)
 	}
 
-	// Apply serverless configurations
-	if in.ReadCapacity != nil {
-		readCapacity, err := patchReadCapacity(in.ReadCapacity, idxDesc.Spec.Serverless.ReadCapacity)
-		if err != nil {
-			return nil, err
+	// Apply pod configurations
+	switch specType {
+	case "pod":
+		if podType != nil || replicas != nil {
+			podSpec := db_control.ConfigureIndexRequestSpec1{
+				Pod: struct {
+					PodType  *string `json:"pod_type,omitempty"`
+					Replicas *int32  `json:"replicas,omitempty"`
+				}{
+					PodType:  podType,
+					Replicas: replicas,
+				},
+			}
+
+			// Apply the pod spec to the request
+			if err := request.Spec.FromConfigureIndexRequestSpec1(podSpec); err != nil {
+				return nil, err
+			}
 		}
-		serverlessSpec := db_control.ConfigureIndexRequestSpec0{
-			Serverless: struct {
-				ReadCapacity *db_control.ReadCapacity `json:"read_capacity,omitempty"`
-			}{
-				ReadCapacity: readCapacity,
-			},
+	case "serverless":
+		if in.ReadCapacity != nil {
+			readCapacity, err := patchReadCapacity(in.ReadCapacity, idxDesc.Spec.Serverless.ReadCapacity)
+			if err != nil {
+				return nil, err
+			}
+			serverlessSpec := db_control.ConfigureIndexRequestSpec0{
+				Serverless: struct {
+					ReadCapacity *db_control.ReadCapacity `json:"read_capacity,omitempty"`
+				}{
+					ReadCapacity: readCapacity,
+				},
+			}
+			// Apply the serverless spec to the request
+			if err := request.Spec.FromConfigureIndexRequestSpec0(serverlessSpec); err != nil {
+				return nil, err
+			}
 		}
-		// Apply the serverless spec to the request
-		if err := request.Spec.FromConfigureIndexRequestSpec0(serverlessSpec); err != nil {
-			return nil, err
+	case "byoc":
+		if in.ReadCapacity != nil {
+			readCapacity, err := patchReadCapacity(in.ReadCapacity, idxDesc.Spec.BYOC.ReadCapacity)
+			if err != nil {
+				return nil, err
+			}
+			byocSpec := db_control.ConfigureIndexRequestSpec2{
+				Byoc: struct {
+					ReadCapacity *db_control.ReadCapacity `json:"read_capacity,omitempty"`
+				}{
+					ReadCapacity: readCapacity,
+				},
+			}
+			// Apply the serverless spec to the request
+			if err := request.Spec.FromConfigureIndexRequestSpec2(byocSpec); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -2608,9 +2657,14 @@ func toIndex(idx *db_control.IndexModel) (*Index, error) {
 		}
 	case "byoc":
 		if byocSpec, err := idx.Spec.AsIndexModelSpec2(); err == nil {
+			readCapacity, err := toReadCapacity(&byocSpec.Byoc.ReadCapacity)
+			if err != nil {
+				return nil, err
+			}
 			spec.BYOC = &BYOCSpec{
-				Environment: byocSpec.Byoc.Environment,
-				Schema:      toMetadataSchemaFromRest(byocSpec.Byoc.Schema),
+				Environment:  byocSpec.Byoc.Environment,
+				Schema:       toMetadataSchemaFromRest(byocSpec.Byoc.Schema),
+				ReadCapacity: readCapacity,
 			}
 		}
 	}
@@ -3075,11 +3129,7 @@ func minOne(x int32) int32 {
 }
 
 // Converts the inline struct defined in the generated REST API to a MetadataSchema
-func toMetadataSchemaFromRest(schema *struct {
-	Fields map[string]struct {
-		Filterable *bool `json:"filterable,omitempty"`
-	} `json:"fields"`
-}) *MetadataSchema {
+func toMetadataSchemaFromRest(schema *db_control.MetadataSchema) *MetadataSchema {
 	if schema == nil {
 		return nil
 	}
@@ -3097,11 +3147,7 @@ func toMetadataSchemaFromRest(schema *struct {
 }
 
 // Converts MetadataSchema to the inline struct defined in the generated REST API
-func fromMetadataSchemaToRest(schema *MetadataSchema) *struct {
-	Fields map[string]struct {
-		Filterable *bool `json:"filterable,omitempty"`
-	} `json:"fields"`
-} {
+func fromMetadataSchemaToRest(schema *MetadataSchema) *db_control.MetadataSchema {
 	if schema == nil {
 		return nil
 	}
@@ -3119,11 +3165,7 @@ func fromMetadataSchemaToRest(schema *MetadataSchema) *struct {
 		}
 	}
 
-	return &struct {
-		Fields map[string]struct {
-			Filterable *bool `json:"filterable,omitempty"`
-		} `json:"fields"`
-	}{
+	return &db_control.MetadataSchema{
 		Fields: fields,
 	}
 }
@@ -3137,7 +3179,7 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 
 	// nil / OnDemand -> Dedicated
 	// When converting from OnDemand to Dedicated, NodeType, Replicas, and Shards are required
-	if old == nil || old.OnDemand != nil && new.Dedicated != nil {
+	if new.Dedicated != nil && (old == nil || old.OnDemand != nil) {
 		if new.Dedicated.NodeType == nil ||
 			new.Dedicated.Scaling == nil ||
 			new.Dedicated.Scaling.Manual == nil ||
@@ -3157,9 +3199,8 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 
 // Converts the ReadCapacityParams to db_control.ReadCapacity - used for CreateIndex, CreateIndexForModel, and ConfigureIndex operations
 func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.ReadCapacity, error) {
-
-	// OnDemand - default if no ReadCapacityParams provided with the request
-	if request == nil {
+	// If no ReadCapacityParams provided or if it's an empty struct, return nil to use server default (OnDemand)
+	if request == nil || (request.Dedicated == nil && request.OnDemand == nil) {
 		return nil, nil
 	}
 
@@ -3206,7 +3247,9 @@ func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.
 	return &result, nil
 }
 
-// Converts the db_control.ReadCapacityResponse to ReadCapacity
+// Converts the db_control.ReadCapacityResponse to ReadCapacity.
+// This function is permissive: it returns nil for unknown/empty modes rather than erroring,
+// allowing the SDK to continue working even if the API introduces new read capacity modes.
 func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) {
 	if rc == nil {
 		return nil, nil
@@ -3214,7 +3257,14 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 
 	mode, err := rc.Discriminator()
 	if err != nil {
-		return nil, err
+		// If we can't determine the mode, return nil rather than failing.
+		// This handles cases like empty responses or unknown modes gracefully.
+		return nil, nil
+	}
+
+	// Empty mode string means no configuration present
+	if mode == "" {
+		return nil, nil
 	}
 
 	switch mode {
@@ -3265,6 +3315,9 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 		return &ReadCapacity{
 			Dedicated: dedicated,
 		}, nil
+	default:
+		// Be permissive: return nil for unknown modes (e.g., future API additions)
+		// rather than failing the entire operation
+		return nil, nil
 	}
-	return nil, nil
 }

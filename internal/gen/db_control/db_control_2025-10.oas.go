@@ -65,13 +65,7 @@ type BackupModel struct {
 	Region string `json:"region"`
 
 	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
-	Schema *struct {
-		// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique.
-		Fields map[string]struct {
-			// Filterable Whether the field is filterable. If true, the field is indexed and can be used in filters. Only true values are allowed.
-			Filterable *bool `json:"filterable,omitempty"`
-		} `json:"fields"`
-	} `json:"schema,omitempty"`
+	Schema *MetadataSchema `json:"schema,omitempty"`
 
 	// SizeBytes Size of the backup in bytes.
 	SizeBytes *int `json:"size_bytes,omitempty"`
@@ -94,14 +88,23 @@ type ByocSpec struct {
 	// Environment The environment where the index is hosted.
 	Environment string `json:"environment"`
 
+	// ReadCapacity By default the index will be created with read capacity  mode `OnDemand`. If you prefer to allocate dedicated read  nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
+	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
+
 	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
-	Schema *struct {
-		// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique.
-		Fields map[string]struct {
-			// Filterable Whether the field is filterable. If true, the field is indexed and can be used in filters. Only true values are allowed.
-			Filterable *bool `json:"filterable,omitempty"`
-		} `json:"fields"`
-	} `json:"schema,omitempty"`
+	Schema *MetadataSchema `json:"schema,omitempty"`
+}
+
+// ByocSpecResponse Configuration of a BYOC index.
+type ByocSpecResponse struct {
+	// Environment The environment where the index is hosted.
+	Environment string `json:"environment"`
+
+	// ReadCapacity Response containing read capacity configuration
+	ReadCapacity ReadCapacityResponse `json:"read_capacity"`
+
+	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
+	Schema *MetadataSchema `json:"schema,omitempty"`
 }
 
 // CollectionList The list of collections that exist in the project.
@@ -185,6 +188,15 @@ type ConfigureIndexRequestSpec1 struct {
 	} `json:"pod"`
 }
 
+// ConfigureIndexRequestSpec2 defines model for .
+type ConfigureIndexRequestSpec2 struct {
+	// Byoc Updated configuration for a BYOC index
+	Byoc struct {
+		// ReadCapacity By default the index will be created with read capacity  mode `OnDemand`. If you prefer to allocate dedicated read  nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
+		ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
+	} `json:"byoc"`
+}
+
 // ConfigureIndexRequest_Spec The spec object defines how the index should be deployed.  Only some attributes of an index's spec may be updated.  In general, you can modify settings related to scaling and  configuration but you cannot change the cloud or region  where the index is hosted.
 type ConfigureIndexRequest_Spec struct {
 	union json.RawMessage
@@ -254,13 +266,7 @@ type CreateIndexForModelRequest struct {
 	Region string `json:"region"`
 
 	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
-	Schema *struct {
-		// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique.
-		Fields map[string]struct {
-			// Filterable Whether the field is filterable. If true, the field is indexed and can be used in filters. Only true values are allowed.
-			Filterable *bool `json:"filterable,omitempty"`
-		} `json:"fields"`
-	} `json:"schema,omitempty"`
+	Schema *MetadataSchema `json:"schema,omitempty"`
 
 	// Tags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
 	Tags *IndexTags `json:"tags,omitempty"`
@@ -392,7 +398,7 @@ type IndexModel struct {
 
 // IndexModelSpec0 defines model for .
 type IndexModelSpec0 struct {
-	// Serverless Configuration needed to deploy a serverless index.
+	// Serverless Configuration of a serverless index.
 	Serverless ServerlessSpecResponse `json:"serverless"`
 }
 
@@ -404,8 +410,8 @@ type IndexModelSpec1 struct {
 
 // IndexModelSpec2 defines model for .
 type IndexModelSpec2 struct {
-	// Byoc Configuration needed to deploy an index in a BYOC environment.
-	Byoc ByocSpec `json:"byoc"`
+	// Byoc Configuration of a BYOC index.
+	Byoc ByocSpecResponse `json:"byoc"`
 }
 
 // IndexModel_Spec The spec object defines how the index should be deployed.
@@ -440,6 +446,15 @@ type IndexSpec2 struct {
 
 // IndexTags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
 type IndexTags map[string]string
+
+// MetadataSchema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
+type MetadataSchema struct {
+	// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique.
+	Fields map[string]struct {
+		// Filterable Whether the field is filterable. If true, the field is indexed and can be used in filters. Only true values are allowed.
+		Filterable *bool `json:"filterable,omitempty"`
+	} `json:"fields"`
+}
 
 // ModelIndexEmbed The embedding model and document fields mapped to embedding inputs.
 type ModelIndexEmbed struct {
@@ -637,19 +652,13 @@ type ServerlessSpec struct {
 	Region string `json:"region"`
 
 	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
-	Schema *struct {
-		// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique.
-		Fields map[string]struct {
-			// Filterable Whether the field is filterable. If true, the field is indexed and can be used in filters. Only true values are allowed.
-			Filterable *bool `json:"filterable,omitempty"`
-		} `json:"fields"`
-	} `json:"schema,omitempty"`
+	Schema *MetadataSchema `json:"schema,omitempty"`
 
 	// SourceCollection The name of the collection to be used as the source for the index.
 	SourceCollection *string `json:"source_collection,omitempty"`
 }
 
-// ServerlessSpecResponse Configuration needed to deploy a serverless index.
+// ServerlessSpecResponse Configuration of a serverless index.
 type ServerlessSpecResponse struct {
 	// Cloud The public cloud where you would like your index hosted.
 	// Possible values: `gcp`, `aws`, or `azure`.
@@ -662,13 +671,7 @@ type ServerlessSpecResponse struct {
 	Region string `json:"region"`
 
 	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
-	Schema *struct {
-		// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique.
-		Fields map[string]struct {
-			// Filterable Whether the field is filterable. If true, the field is indexed and can be used in filters. Only true values are allowed.
-			Filterable *bool `json:"filterable,omitempty"`
-		} `json:"fields"`
-	} `json:"schema,omitempty"`
+	Schema *MetadataSchema `json:"schema,omitempty"`
 
 	// SourceCollection The name of the collection to be used as the source for the index.
 	SourceCollection *string `json:"source_collection,omitempty"`
@@ -939,6 +942,32 @@ func (t *ConfigureIndexRequest_Spec) FromConfigureIndexRequestSpec1(v ConfigureI
 
 // MergeConfigureIndexRequestSpec1 performs a merge with any union data inside the ConfigureIndexRequest_Spec, using the provided ConfigureIndexRequestSpec1
 func (t *ConfigureIndexRequest_Spec) MergeConfigureIndexRequestSpec1(v ConfigureIndexRequestSpec1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsConfigureIndexRequestSpec2 returns the union data inside the ConfigureIndexRequest_Spec as a ConfigureIndexRequestSpec2
+func (t ConfigureIndexRequest_Spec) AsConfigureIndexRequestSpec2() (ConfigureIndexRequestSpec2, error) {
+	var body ConfigureIndexRequestSpec2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromConfigureIndexRequestSpec2 overwrites any union data inside the ConfigureIndexRequest_Spec as the provided ConfigureIndexRequestSpec2
+func (t *ConfigureIndexRequest_Spec) FromConfigureIndexRequestSpec2(v ConfigureIndexRequestSpec2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeConfigureIndexRequestSpec2 performs a merge with any union data inside the ConfigureIndexRequest_Spec, using the provided ConfigureIndexRequestSpec2
+func (t *ConfigureIndexRequest_Spec) MergeConfigureIndexRequestSpec2(v ConfigureIndexRequestSpec2) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

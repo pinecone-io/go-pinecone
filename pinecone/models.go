@@ -202,9 +202,12 @@ type ServerlessSpec struct {
 // Fields:
 //   - Environment: The environment where the index is hosted.
 //   - Schema: Schema for the behavior of Pinecone's internal metadata index.
+//   - ReadCapacity: (Optional) The read capacity configuration for the serverless index. Used to configure dedicated read capacity
+//     with specific node types and scaling strategies.
 type BYOCSpec struct {
-	Environment string          `json:"environment"`
-	Schema      *MetadataSchema `json:"schema,omitempty"`
+	Environment  string          `json:"environment"`
+	Schema       *MetadataSchema `json:"schema,omitempty"`
+	ReadCapacity *ReadCapacity   `json:"read_capacity,omitempty"`
 }
 
 // [ReadCapacity] represents the read capacity configuration returned from the API.
