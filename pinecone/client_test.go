@@ -2347,9 +2347,9 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 			},
 		},
 		{
-			name:      "empty ReadCapacityParams should error instead of panic",
+			name:      "empty ReadCapacityParams should return nil (same as nil)",
 			input:     &ReadCapacityParams{},
-			wantError: true,
+			wantError: false,
 			validate: func(t *testing.T, result *db_control.ReadCapacity) {
 				require.Nil(t, result)
 			},
@@ -2707,6 +2707,21 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 		return &result
 	}()
 
+	malformedInput := func() *db_control.ReadCapacityResponse {
+		// Create a malformed ReadCapacityResponse with invalid JSON
+		var result db_control.ReadCapacityResponse
+		// Inject malformed JSON that isn't "unexpected end of JSON input"
+		_ = result.UnmarshalJSON([]byte(`{"mode": "OnDemand", "status": {"state": "Ready"`)) // missing closing braces
+		return &result
+	}()
+
+	unknownModeInput := func() *db_control.ReadCapacityResponse {
+		// Create a ReadCapacityResponse with an unknown mode
+		var result db_control.ReadCapacityResponse
+		_ = result.UnmarshalJSON([]byte(`{"mode": "FutureMode", "status": {"state": "Ready"}}`))
+		return &result
+	}()
+
 	tests := []struct {
 		name      string
 		input     *db_control.ReadCapacityResponse
@@ -2722,6 +2737,18 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 		{
 			name:      "empty input (no discriminator)",
 			input:     emptyInput,
+			wantError: false,
+			expected:  nil,
+		},
+		{
+			name:      "malformed JSON returns nil (permissive)",
+			input:     malformedInput,
+			wantError: false,
+			expected:  nil,
+		},
+		{
+			name:      "unknown mode returns nil (permissive for future compatibility)",
+			input:     unknownModeInput,
 			wantError: false,
 			expected:  nil,
 		},

@@ -3199,19 +3199,13 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 
 // Converts the ReadCapacityParams to db_control.ReadCapacity - used for CreateIndex, CreateIndexForModel, and ConfigureIndex operations
 func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.ReadCapacity, error) {
-
-	// OnDemand - default if no ReadCapacityParams provided with the request
-	if request == nil {
+	// If no ReadCapacityParams provided or if it's an empty struct, return nil to use server default (OnDemand)
+	if request == nil || (request.Dedicated == nil && request.OnDemand == nil) {
 		return nil, nil
 	}
 
 	if request.Dedicated != nil && request.OnDemand != nil {
 		return nil, fmt.Errorf("both Dedicated and OnDemand cannot be specified in ReadCapacityParams")
-	}
-
-	// If neither OnDemand nor Dedicated is set, return an error instead of panicking
-	if request.Dedicated == nil && request.OnDemand == nil {
-		return nil, fmt.Errorf("either Dedicated or OnDemand must be specified in ReadCapacityParams")
 	}
 
 	var result db_control.ReadCapacity
@@ -3253,7 +3247,9 @@ func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.
 	return &result, nil
 }
 
-// Converts the db_control.ReadCapacityResponse to ReadCapacity
+// Converts the db_control.ReadCapacityResponse to ReadCapacity.
+// This function is permissive: it returns nil for unknown/empty modes rather than erroring,
+// allowing the SDK to continue working even if the API introduces new read capacity modes.
 func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) {
 	if rc == nil {
 		return nil, nil
@@ -3261,14 +3257,12 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 
 	mode, err := rc.Discriminator()
 	if err != nil {
-		// If we can't determine the discriminator (e.g., empty response),
-		// return nil to indicate no read capacity configuration is present.
-		// This handles the case where BYOC indexes created before read_capacity
-		// support don't have this field in their responses.
+		// If we can't determine the mode, return nil rather than failing.
+		// This handles cases like empty responses or unknown modes gracefully.
 		return nil, nil
 	}
 
-	// If discriminator is empty string, treat it as no configuration present
+	// Empty mode string means no configuration present
 	if mode == "" {
 		return nil, nil
 	}
@@ -3321,6 +3315,9 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 		return &ReadCapacity{
 			Dedicated: dedicated,
 		}, nil
+	default:
+		// Be permissive: return nil for unknown modes (e.g., future API additions)
+		// rather than failing the entire operation
+		return nil, nil
 	}
-	return nil, nil
 }
