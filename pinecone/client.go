@@ -3209,6 +3209,11 @@ func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.
 		return nil, fmt.Errorf("both Dedicated and OnDemand cannot be specified in ReadCapacityParams")
 	}
 
+	// If neither OnDemand nor Dedicated is set, return an error instead of panicking
+	if request.Dedicated == nil && request.OnDemand == nil {
+		return nil, fmt.Errorf("either Dedicated or OnDemand must be specified in ReadCapacityParams")
+	}
+
 	var result db_control.ReadCapacity
 
 	// OnDemand

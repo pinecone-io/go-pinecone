@@ -2128,13 +2128,6 @@ func TestEnsureHostHasHttpsUnit(t *testing.T) {
 }
 
 func Test_toMetadataSchemaFromRest_Unit(t *testing.T) {
-	// utility type for the inline representation of MetadataSchema in the REST API
-	type restMetadataSchemaInput = struct {
-		Fields map[string]struct {
-			Filterable *bool `json:"filterable,omitempty"`
-		} `json:"fields"`
-	}
-
 	tests := []struct {
 		name     string
 		input    *db_control.MetadataSchema
@@ -2354,6 +2347,45 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 			},
 		},
 		{
+			name:      "empty ReadCapacityParams should error instead of panic",
+			input:     &ReadCapacityParams{},
+			wantError: true,
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				require.Nil(t, result)
+			},
+		},
+		{
+			name: "both Dedicated and OnDemand specified should error",
+			input: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("t1"),
+				},
+				OnDemand: &ReadCapacityOnDemandConfig{},
+			},
+			wantError: true,
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				require.Nil(t, result)
+			},
+		},
+		{
+			name: "OnDemand with empty config should succeed",
+			input: &ReadCapacityParams{
+				OnDemand: &ReadCapacityOnDemandConfig{},
+			},
+			wantError: false,
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				require.NotNil(t, result)
+				mode, err := result.Discriminator()
+
+				require.NoError(t, err)
+				assert.Equal(t, "OnDemand", mode)
+
+				onDemandSpec, err := result.AsReadCapacityOnDemandSpec()
+				require.NoError(t, err)
+				assert.Equal(t, "OnDemand", onDemandSpec.Mode)
+			},
+		},
+		{
 			name: "Dedicated with NodeType only",
 			input: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
@@ -2525,7 +2557,7 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 			},
 		},
 		{
-			name: "nil old (legacy BYOC) to on-demand should succeed",
+			name: "nil old to on-demand should succeed",
 			newParams: &ReadCapacityParams{
 				OnDemand: &ReadCapacityOnDemandConfig{},
 			},
@@ -2544,7 +2576,7 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 			},
 		},
 		{
-			name: "nil old (legacy BYOC) to dedicated without manual scaling should error",
+			name: "nil old to dedicated without manual scaling should error",
 			newParams: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
 					NodeType: ptr("b1"),
@@ -2557,7 +2589,7 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 			},
 		},
 		{
-			name: "nil old (legacy BYOC) to dedicated with full manual scaling succeeds",
+			name: "nil old to dedicated with full manual scaling succeeds",
 			newParams: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
 					NodeType: ptr("t1"),
@@ -2903,7 +2935,7 @@ func Test_ConfigureIndex_ValidationErrors_Unit(t *testing.T) {
 			expectedError: "cannot configure PodType or Replicas on a byoc index; these parameters are only supported for pod indexes",
 		},
 		{
-			name: "Legacy BYOC index (no ReadCapacity) to OnDemand should succeed",
+			name: "BYOC index with no ReadCapacity to OnDemand should succeed",
 			indexSpec: func() db_control.IndexModel_Spec {
 				spec := db_control.IndexModel_Spec{}
 				_ = spec.FromIndexModelSpec2(db_control.IndexModelSpec2{
