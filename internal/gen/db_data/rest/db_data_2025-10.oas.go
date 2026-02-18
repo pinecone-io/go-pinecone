@@ -258,12 +258,20 @@ type QueryRequest struct {
 	// IncludeValues Indicates whether vector values are included in the response. For on-demand indexes, setting this to `true` may increase latency, especially with higher `topK` values, because vector values are retrieved from object storage. Unless you need vector values, set this to `false` for better performance.
 	IncludeValues *bool `json:"includeValues,omitempty"`
 
+	// MaxCandidates An optimization parameter that controls the maximum number of candidate dense vectors to rerank. Reranking computes exact distances to improve recall but increases query latency. Range: top_k – 100000.
+	// Keep the default for a balance of recall and latency. Increase this value if recall is too low, or decrease it to reduce latency at the cost of accuracy. This parameter is only supported for dedicated (DRN) dense indexes.
+	MaxCandidates *int64 `json:"maxCandidates,omitempty"`
+
 	// Namespace The namespace to query.
 	Namespace *string `json:"namespace,omitempty"`
 
 	// Queries DEPRECATED. Use `vector` or `id` instead.
 	// Deprecated:
 	Queries *[]QueryVector `json:"queries,omitempty"`
+
+	// ScanFactor An optimization parameter for IVF dense indexes in dedicated read node indexes. It adjusts how much of the index is scanned to find vector candidates. Range: 0.5 – 4 (default).
+	// Keep the default (4.0) for the best search results. If query latency is too high, try lowering this value incrementally (minimum 0.5) to speed up the search at the cost of slightly lower accuracy. This parameter is only supported for dedicated (DRN) dense indexes.
+	ScanFactor *float32 `json:"scanFactor,omitempty"`
 
 	// SparseVector Vector sparse data. Represented as a list of indices and a list of  corresponded values, which must be with the same length.
 	SparseVector *SparseValues `json:"sparseVector,omitempty"`
