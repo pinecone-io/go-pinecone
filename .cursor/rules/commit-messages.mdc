@@ -1,0 +1,15 @@
+---
+alwaysApply: true
+---
+
+# Commit Message Style
+
+**Format:** Use Conventional Commits: `type: description`. For breaking changes, add `!`: `feat!: require spec parameter`. Keep subject under 72 characters, imperative mood.
+
+**Types:** `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`
+
+**Body:** Explain why the change was made, not what. Wrap at 72 characters. Separate subject and body with a blank line.
+
+**Breaking changes:** Start body with `BREAKING CHANGE:` and describe the migration path.
+
+**References:** Link issues at end of body: `Fixes #123` or `Refs #456`.

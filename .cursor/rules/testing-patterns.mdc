@@ -1,0 +1,27 @@
+---
+globs: "*_test.go"
+alwaysApply: false
+---
+
+# Testing Patterns
+
+**2 test types:** Unit tests (fast, no external dependencies) and Integration tests (real Pinecone API calls and resources, leverages `testify/suite`). Both live in the same `_test.go` files, separated by comments (`// Unit tests:` and `// Integration tests:`).
+
+**Unit tests:**
+- Function naming: Must end with `Unit` (e.g., `TestNewClientParamsSetUnit`)
+- Use `testify/require` for fatal assertions, `testify/assert` for non-fatal
+- No real API calls, no external dependencies
+- Run with `just test-unit`
+
+**Integration tests:**
+- Methods on `integrationTests` suite struct (which embeds `suite.Suite`)
+- Run with `just test` (requires `.env` with credentials)
+- Three suites run sequentially: admin, pod-based, and serverless indexes (each can be skipped via `PINECONE_SKIP_ADMIN`, `PINECONE_SKIP_POD`, `PINECONE_SKIP_SERVERLESS`)
+- Suite setup/teardown in `pinecone/test_suite.go`; entry point in `pinecone/suite_runner_test.go`
+
+**Local integration tests:**
+- Build with `-tags=localServer`
+- Run against Docker-based local Pinecone servers (ports 5081/5082)
+- Used in CI (see `.github/workflows/ci.yaml`)
+
+**Test organization:** Tests live alongside the code they test (e.g., `client_test.go` tests `client.go`).
