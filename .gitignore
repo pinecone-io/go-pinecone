@@ -2,6 +2,11 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=go
 
 ### Go ###
+go.work*
+.env
+scratch/*
+!scratch/README.md
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -117,7 +122,3 @@ modules.xml
 .idea/sonarlint
 
 # End of https://www.toptal.com/developers/gitignore/api/intellij+all
-
-go.work*
-.env
-scratch/

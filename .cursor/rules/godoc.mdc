@@ -7,6 +7,7 @@ alwaysApply: true
 All exported identifiers require GoDoc comments. The comment **must start with the name** of the symbol.
 
 **Format:**
+
 ```go
 // Client holds the parameters for connecting to the Pinecone service.
 // Use NewClient to create a Client instance.
@@ -17,12 +18,18 @@ type Client struct { ... }
 func (c *Client) CreateServerlessIndex(ctx context.Context, req *CreateServerlessIndexRequest) (*Index, error) { ... }
 ```
 
-**Example functions** (appear in godoc as runnable examples):
+**Inline examples** in GoDoc comments use the `// Example:` convention with indented code:
+
 ```go
-func ExampleClient_CreateServerlessIndex() {
-    pc, _ := pinecone.NewClient(pinecone.NewClientParams{ApiKey: "YOUR_API_KEY"})
-    // ...
-}
+// CreateServerlessIndex creates a new serverless Pinecone index.
+//
+// Example:
+//
+//	pc, err := pinecone.NewClient(pinecone.NewClientParams{ApiKey: "YOUR_API_KEY"})
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{ ... })
 ```
 
 **Content:** Start with what the symbol does (brief description), then how/when to use it, then examples. Include a concrete usage example for public methods where helpful.
