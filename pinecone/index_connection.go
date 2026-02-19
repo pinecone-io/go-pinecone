@@ -807,6 +807,12 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 //   - IncludeValues: (Optional) Whether to include the values of the vectors in the response.
 //   - IncludeMetadata: (Optional) Whether to include the metadata associated with the vectors in the response.
 //   - SparseValues: (Optional) The sparse values of the query vector, if applicable.
+//   - ScanFactor: (Optional) An optimization parameter for IVF dense indexes in dedicated read node indexes.
+//     It adjusts how much of the index is scanned to find vector candidates.
+//     Range: 0.5 – 4 (default). This parameter is only supported for dedicated (DRN) dense indexes.
+//   - MaxCandidates: (Optional) An optimization parameter that controls the maximum number of candidate dense
+//     vectors to rerank. Reranking computes exact distances to improve recall but increases query latency.
+//     Range: TopK – 100000. This parameter is only supported for dedicated (DRN) dense indexes.
 type QueryByVectorValuesRequest struct {
 	Vector          []float32
 	TopK            uint32
@@ -814,6 +820,8 @@ type QueryByVectorValuesRequest struct {
 	IncludeValues   bool
 	IncludeMetadata bool
 	SparseValues    *SparseValues
+	ScanFactor      *float32
+	MaxCandidates   *uint32
 }
 
 // [QueryVectorsResponse] is returned by the [IndexConnection.QueryByVectorValues] method.
@@ -907,6 +915,8 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 		IncludeMetadata: in.IncludeMetadata,
 		Vector:          in.Vector,
 		SparseVector:    sparseValToGrpc(in.SparseValues),
+		ScanFactor:      in.ScanFactor,
+		MaxCandidates:   in.MaxCandidates,
 	}
 
 	return idx.query(ctx, req)
@@ -921,6 +931,12 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 //   - IncludeValues: (Optional) Whether to include the values of the vectors in the response.
 //   - IncludeMetadata: (Optional) Whether to include the metadata associated with the vectors in the response.
 //   - SparseValues: (Optional) The sparse values of the query vector, if applicable.
+//   - ScanFactor: (Optional) An optimization parameter for IVF dense indexes in dedicated read node indexes.
+//     It adjusts how much of the index is scanned to find vector candidates.
+//     Range: 0.5 – 4 (default). This parameter is only supported for dedicated (DRN) dense indexes.
+//   - MaxCandidates: (Optional) An optimization parameter that controls the maximum number of candidate dense
+//     vectors to rerank. Reranking computes exact distances to improve recall but increases query latency.
+//     Range: TopK – 100000. This parameter is only supported for dedicated (DRN) dense indexes.
 type QueryByVectorIdRequest struct {
 	VectorId        string
 	TopK            uint32
@@ -928,6 +944,8 @@ type QueryByVectorIdRequest struct {
 	IncludeValues   bool
 	IncludeMetadata bool
 	SparseValues    *SparseValues
+	ScanFactor      *float32
+	MaxCandidates   *uint32
 }
 
 // [IndexConnection.QueryByVectorId] uses a vector ID to query a Pinecone [Index] and retrieve vectors that are most similar to the
@@ -995,6 +1013,8 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 		IncludeValues:   in.IncludeValues,
 		IncludeMetadata: in.IncludeMetadata,
 		SparseVector:    sparseValToGrpc(in.SparseValues),
+		ScanFactor:      in.ScanFactor,
+		MaxCandidates:   in.MaxCandidates,
 	}
 
 	return idx.query(ctx, req)
