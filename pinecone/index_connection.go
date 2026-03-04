@@ -1121,9 +1121,14 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 		}
 	}
 
-	_, err := idx.restClient.UpsertRecordsNamespaceWithBody(ctx, idx.namespace, &db_data_rest.UpsertRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, "application/x-ndjson", &buffer)
+	res, err := idx.restClient.UpsertRecordsNamespaceWithBody(ctx, idx.namespace, &db_data_rest.UpsertRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, "application/x-ndjson", &buffer)
 	if err != nil {
-		return fmt.Errorf("failed to upsert records: %v", err)
+		return fmt.Errorf("failed to upsert records: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return handleErrorResponseBody(res, "failed to upsert records: ")
 	}
 	return nil
 }
