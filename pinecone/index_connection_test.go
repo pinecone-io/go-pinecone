@@ -593,11 +593,16 @@ func (ts *integrationTests) TestIntegratedInference() {
 			"category":   "nutrition",
 		},
 	}
-	err = ts.idxConn.UpsertRecords(ctx, records)
+
+	idxConn, err := ts.client.Index(NewIndexConnParams{Host: index.Host, Namespace: ts.namespaces[0]})
+	assert.NoError(ts.T(), err)
+	assert.NotNil(ts.T(), idxConn)
+
+	err = idxConn.UpsertRecords(ctx, records)
 	assert.NoError(ts.T(), err)
 
 	retryAssertionsWithDefaults(ts.T(), func() error {
-		res, err := ts.idxConn.SearchRecords(ctx, &SearchRecordsRequest{
+		res, err := idxConn.SearchRecords(ctx, &SearchRecordsRequest{
 			Query: SearchRecordsQuery{
 				TopK: 5,
 				Inputs: &map[string]interface{}{

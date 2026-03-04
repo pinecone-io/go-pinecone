@@ -1127,7 +1127,7 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode != http.StatusCreated {
 		return handleErrorResponseBody(res, "failed to upsert records: ")
 	}
 	return nil
