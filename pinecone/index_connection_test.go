@@ -531,6 +531,10 @@ func (ts *integrationTests) TestIntegratedInference() {
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), index)
 
+	// Wait for the index to be fully ready before attempting data plane operations
+	_, err = waitUntilIndexReady(ts, ctx, indexName)
+	require.NoError(ts.T(), err)
+
 	// Verify Schema is returned when describing the index
 	retryAssertionsWithDefaults(ts.T(), func() error {
 		describedIndex, err := ts.client.DescribeIndex(ctx, indexName)
@@ -595,12 +599,12 @@ func (ts *integrationTests) TestIntegratedInference() {
 	}
 
 	idxConn, err := ts.client.Index(NewIndexConnParams{Host: index.Host, Namespace: ts.namespaces[0]})
-	assert.NoError(ts.T(), err)
-	assert.NotNil(ts.T(), idxConn)
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), idxConn)
 	defer idxConn.Close()
 
 	err = idxConn.UpsertRecords(ctx, records)
-	assert.NoError(ts.T(), err)
+	require.NoError(ts.T(), err)
 
 	retryAssertionsWithDefaults(ts.T(), func() error {
 		res, err := idxConn.SearchRecords(ctx, &SearchRecordsRequest{
