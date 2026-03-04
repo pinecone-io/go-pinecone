@@ -597,6 +597,7 @@ func (ts *integrationTests) TestIntegratedInference() {
 	idxConn, err := ts.client.Index(NewIndexConnParams{Host: index.Host, Namespace: ts.namespaces[0]})
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), idxConn)
+	defer idxConn.Close()
 
 	err = idxConn.UpsertRecords(ctx, records)
 	assert.NoError(ts.T(), err)
