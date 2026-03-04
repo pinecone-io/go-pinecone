@@ -2056,6 +2056,8 @@ func (c *Client) ListBackups(ctx context.Context, in *ListBackupsParams) (*Backu
 		}
 	}
 
+	defer response.Body.Close()
+
 	if response.StatusCode != http.StatusOK {
 		return nil, handleErrorResponseBody(response, "failed to list backups: ")
 	}

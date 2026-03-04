@@ -746,6 +746,7 @@ func (a *DefaultApiKeyClient) List(ctx context.Context, projectId string) ([]*AP
 	if err != nil {
 		return nil, err
 	}
+	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
 		return nil, handleErrorResponseBody(res, "failed to list api keys: ")

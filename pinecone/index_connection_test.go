@@ -609,9 +609,6 @@ func (ts *integrationTests) TestIntegratedInference() {
 				Inputs: &map[string]interface{}{
 					"text": "Disease prevention",
 				},
-				MatchTerms: &SearchMatchTerms{
-					Terms: &[]string{"disease", "prevention"},
-				},
 			},
 		})
 		if err != nil {
