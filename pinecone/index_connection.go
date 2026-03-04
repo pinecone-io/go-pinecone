@@ -1121,9 +1121,14 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 		}
 	}
 
-	_, err := idx.restClient.UpsertRecordsNamespaceWithBody(ctx, idx.namespace, &db_data_rest.UpsertRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, "application/x-ndjson", &buffer)
+	res, err := idx.restClient.UpsertRecordsNamespaceWithBody(ctx, idx.namespace, &db_data_rest.UpsertRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, "application/x-ndjson", &buffer)
 	if err != nil {
-		return fmt.Errorf("failed to upsert records: %v", err)
+		return fmt.Errorf("failed to upsert records: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		return handleErrorResponseBody(res, "failed to upsert records: ")
 	}
 	return nil
 }
@@ -1279,6 +1284,11 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 	res, err := (*idx.restClient).SearchRecordsNamespace(idx.akCtx(ctx), idx.namespace, &db_data_rest.SearchRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 	if err != nil {
 		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to search records: ")
 	}
 	return decodeSearchRecordsResponse(res.Body)
 }
@@ -1716,6 +1726,10 @@ func (idx *IndexConnection) DescribeImport(ctx context.Context, id string) (*Imp
 	}
 	defer res.Body.Close()
 
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to describe import: ")
+	}
+
 	importModel, err := decodeImportModel(res.Body)
 	if err != nil {
 		return nil, err
@@ -1798,6 +1812,11 @@ func (idx *IndexConnection) ListImports(ctx context.Context, limit *int32, pagin
 	res, err := (*idx.restClient).ListBulkImports(idx.akCtx(ctx), &params)
 	if err != nil {
 		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to list imports: ")
 	}
 
 	listImportsResponse, err := decodeListImportsResponse(res.Body)
