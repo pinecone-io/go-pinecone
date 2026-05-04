@@ -551,7 +551,7 @@ func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*Fe
 	return &FetchVectorsResponse{
 		Vectors:   vectors,
 		Usage:     toUsage(res.Usage),
-		Namespace: idx.namespace,
+		Namespace: res.Namespace,
 	}, nil
 }
 
@@ -684,7 +684,7 @@ func (idx *IndexConnection) FetchVectorsByMetadata(ctx context.Context, in *Fetc
 	return &FetchVectorsByMetadataResponse{
 		Vectors:    vectors,
 		Usage:      toUsage(res.Usage),
-		Namespace:  namespace,
+		Namespace:  res.Namespace,
 		Pagination: pagination,
 	}, nil
 }
@@ -2125,7 +2125,7 @@ func (idx *IndexConnection) query(ctx context.Context, req *db_data_grpc.QueryRe
 	return &QueryVectorsResponse{
 		Matches:   matches,
 		Usage:     toUsage(res.Usage),
-		Namespace: idx.namespace,
+		Namespace: res.Namespace,
 	}, nil
 }
 
