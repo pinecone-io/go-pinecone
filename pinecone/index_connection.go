@@ -1121,7 +1121,7 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 		}
 	}
 
-	res, err := idx.restClient.UpsertRecordsNamespaceWithBody(ctx, idx.namespace, &db_data_rest.UpsertRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, "application/x-ndjson", &buffer)
+	res, err := idx.restClient.UpsertRecordsNamespaceWithBody(ctx, restNamespace(idx.namespace), &db_data_rest.UpsertRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, "application/x-ndjson", &buffer)
 	if err != nil {
 		return fmt.Errorf("failed to upsert records: %w", err)
 	}
@@ -1281,7 +1281,7 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 		}
 	}
 
-	res, err := (*idx.restClient).SearchRecordsNamespace(idx.akCtx(ctx), idx.namespace, &db_data_rest.SearchRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
+	res, err := (*idx.restClient).SearchRecordsNamespace(idx.akCtx(ctx), restNamespace(idx.namespace), &db_data_rest.SearchRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 	if err != nil {
 		return nil, err
 	}
@@ -2445,4 +2445,13 @@ func toMetadataSchemaGrpc(schema *db_data_grpc.MetadataSchema) *MetadataSchema {
 	return &MetadataSchema{
 		Fields: fields,
 	}
+}
+
+// restNamespace returns the namespace to use in REST URL path segments. Empty string is not a
+// valid path segment, so the default namespace is represented as "__default__" in REST URLs.
+func restNamespace(ns string) string {
+	if ns == "" {
+		return "__default__"
+	}
+	return ns
 }
