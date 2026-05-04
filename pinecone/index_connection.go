@@ -794,7 +794,7 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 		VectorIds:           vectorIds,
 		Usage:               toUsage(res.Usage),
 		NextPaginationToken: toPaginationTokenGrpc(res.Pagination),
-		Namespace:           idx.namespace,
+		Namespace:           res.Namespace,
 	}, nil
 }
 
