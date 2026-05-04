@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(just test-unit *)",
-      "Bash(gh pr *)"
-    ]
-  }
-}
