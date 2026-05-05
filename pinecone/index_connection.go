@@ -2448,7 +2448,8 @@ func toMetadataSchemaGrpc(schema *db_data_grpc.MetadataSchema) *MetadataSchema {
 }
 
 // restNamespace returns the namespace to use in REST URL path segments. Empty string is not a
-// valid path segment, so the default namespace is represented as "__default__" in REST URLs.
+// valid path segment, so the default namespace is represented as "__default__" in REST URLs
+// which maps to the default namespace on the server.
 func restNamespace(ns string) string {
 	if ns == "" {
 		return "__default__"
