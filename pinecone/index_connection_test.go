@@ -1790,6 +1790,37 @@ func indexMetricPointer(metric IndexMetric) *IndexMetric {
 	return &metric
 }
 
+func TestRestNamespaceUnit(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "empty string maps to __default__",
+			input:    "",
+			expected: "__default__",
+		},
+		{
+			name:     "non-empty namespace is returned unchanged",
+			input:    "my-namespace",
+			expected: "my-namespace",
+		},
+		{
+			name:     "__default__ is returned unchanged",
+			input:    "__default__",
+			expected: "__default__",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := restNamespace(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func slicesEqual[T comparable](a, b []float32) bool {
 	if len(a) != len(b) {
 		return false
