@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/pinecone-io/go-pinecone/v5/internal/gen"
@@ -2586,10 +2587,8 @@ func (c *Client) extractAuthHeader() map[string]string {
 	}
 
 	for key, value := range c.baseParams.Headers {
-		for _, checkKey := range possibleAuthKeys {
-			if strings.ToLower(key) == checkKey {
-				return map[string]string{key: value}
-			}
+		if slices.Contains(possibleAuthKeys, strings.ToLower(key)) {
+			return map[string]string{key: value}
 		}
 	}
 
