@@ -119,10 +119,10 @@ type NewAdminClientParams struct {
 	// (Optional) Additional headers to include in the request.
 	Headers *map[string]string
 
-	// (Optional)The HTTP client to use for the request.
+	// (Optional) The HTTP client to use for the request.
 	RestClient *http.Client
 
-	// (Optional)The source tag to include in the request.
+	// (Optional) The source tag to include in the request.
 	SourceTag *string
 }
 
