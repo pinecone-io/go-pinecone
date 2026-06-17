@@ -61,7 +61,7 @@ type IndexStatus struct {
 	State IndexStatusState `json:"state"`
 }
 
-// [IndexSpec] is the infrastructure specification (serverless, pod-based, or BYOC ) of a Pinecone [Index].
+// [IndexSpec] is the infrastructure specification (serverless, pod-based, or BYOC) of a Pinecone [Index].
 // Only one of the following fields will be present: Pod, Serverless, BYOC.
 type IndexSpec struct {
 	Pod        *PodSpec        `json:"pod,omitempty"`
@@ -78,7 +78,7 @@ type IndexSpec struct {
 //   - Metric: The distance metric used by the embedding model. If the 'vector_type' is 'sparse',
 //     the metric must be 'dotproduct'. If the `vector_type` is `dense`, the metric
 //     defaults to 'cosine'.
-//   - VectorType:  The index vector type associated with the model. If 'dense', the vector dimension must be specified.
+//   - VectorType: The index vector type associated with the model. If 'dense', the vector dimension must be specified.
 //     If 'sparse', the vector dimension will be nil.
 //   - FieldMap: Identifies the name of the text field from your document model that is embedded.
 //   - ReadParameters: The read parameters for the embedding model.
@@ -130,7 +130,7 @@ type Index struct {
 //   - Name: The name of the collection.
 //   - Size: The total size of the collection in bytes.
 //   - Status: The [CollectionStatus] of the collection.
-//   - Dimension: The dimensionality of the each vectors for each record stored in the collection.
+//   - Dimension: The dimensionality of the vectors for each record stored in the collection.
 //   - VectorCount: The number of records (vectors) stored in the collection.
 //   - Environment: The environment where the collection is hosted.
 //
