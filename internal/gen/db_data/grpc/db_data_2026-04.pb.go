@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.32.0
 // 	protoc        v5.27.1
-// source: db_data_2025-10.proto
+// source: db_data_2026-04.proto
 
 package grpc
 
@@ -34,7 +34,7 @@ type SparseValues struct {
 func (x *SparseValues) Reset() {
 	*x = SparseValues{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[0]
+		mi := &file_db_data_2026_04_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -47,7 +47,7 @@ func (x *SparseValues) String() string {
 func (*SparseValues) ProtoMessage() {}
 
 func (x *SparseValues) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[0]
+	mi := &file_db_data_2026_04_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -60,7 +60,7 @@ func (x *SparseValues) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SparseValues.ProtoReflect.Descriptor instead.
 func (*SparseValues) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{0}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *SparseValues) GetIndices() []uint32 {
@@ -95,7 +95,7 @@ type Vector struct {
 func (x *Vector) Reset() {
 	*x = Vector{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[1]
+		mi := &file_db_data_2026_04_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -108,7 +108,7 @@ func (x *Vector) String() string {
 func (*Vector) ProtoMessage() {}
 
 func (x *Vector) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[1]
+	mi := &file_db_data_2026_04_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -121,7 +121,7 @@ func (x *Vector) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Vector.ProtoReflect.Descriptor instead.
 func (*Vector) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{1}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Vector) GetId() string {
@@ -172,7 +172,7 @@ type ScoredVector struct {
 func (x *ScoredVector) Reset() {
 	*x = ScoredVector{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[2]
+		mi := &file_db_data_2026_04_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -185,7 +185,7 @@ func (x *ScoredVector) String() string {
 func (*ScoredVector) ProtoMessage() {}
 
 func (x *ScoredVector) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[2]
+	mi := &file_db_data_2026_04_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -198,7 +198,7 @@ func (x *ScoredVector) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScoredVector.ProtoReflect.Descriptor instead.
 func (*ScoredVector) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{2}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ScoredVector) GetId() string {
@@ -254,7 +254,7 @@ type RequestUnion struct {
 func (x *RequestUnion) Reset() {
 	*x = RequestUnion{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[3]
+		mi := &file_db_data_2026_04_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -267,7 +267,7 @@ func (x *RequestUnion) String() string {
 func (*RequestUnion) ProtoMessage() {}
 
 func (x *RequestUnion) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[3]
+	mi := &file_db_data_2026_04_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -280,7 +280,7 @@ func (x *RequestUnion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestUnion.ProtoReflect.Descriptor instead.
 func (*RequestUnion) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{3}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{3}
 }
 
 func (m *RequestUnion) GetRequestUnionInner() isRequestUnion_RequestUnionInner {
@@ -341,14 +341,14 @@ type UpsertRequest struct {
 
 	// An array containing the vectors to upsert. Recommended batch limit is up to 1000 vectors.
 	Vectors []*Vector `protobuf:"bytes,1,rep,name=vectors,proto3" json:"vectors,omitempty"`
-	// The namespace where you upsert vectors.
+	// The namespace where you upsert records.
 	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 }
 
 func (x *UpsertRequest) Reset() {
 	*x = UpsertRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[4]
+		mi := &file_db_data_2026_04_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -361,7 +361,7 @@ func (x *UpsertRequest) String() string {
 func (*UpsertRequest) ProtoMessage() {}
 
 func (x *UpsertRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[4]
+	mi := &file_db_data_2026_04_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -374,7 +374,7 @@ func (x *UpsertRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertRequest.ProtoReflect.Descriptor instead.
 func (*UpsertRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{4}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *UpsertRequest) GetVectors() []*Vector {
@@ -404,7 +404,7 @@ type UpsertResponse struct {
 func (x *UpsertResponse) Reset() {
 	*x = UpsertResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[5]
+		mi := &file_db_data_2026_04_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -417,7 +417,7 @@ func (x *UpsertResponse) String() string {
 func (*UpsertResponse) ProtoMessage() {}
 
 func (x *UpsertResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[5]
+	mi := &file_db_data_2026_04_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -430,7 +430,7 @@ func (x *UpsertResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertResponse.ProtoReflect.Descriptor instead.
 func (*UpsertResponse) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{5}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *UpsertResponse) GetUpsertedCount() uint32 {
@@ -450,7 +450,7 @@ type DeleteRequest struct {
 	Ids []string `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
 	// This indicates that all vectors in the index namespace should be deleted.
 	DeleteAll bool `protobuf:"varint,2,opt,name=delete_all,json=deleteAll,proto3" json:"delete_all,omitempty"`
-	// The namespace to delete vectors from, if applicable.
+	// The namespace to delete records from, if applicable.
 	Namespace string `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// If specified, the metadata filter here will be used to select the vectors to delete. This is mutually exclusive
 	// with specifying ids to delete in the ids param or using `delete_all=True`.
@@ -461,7 +461,7 @@ type DeleteRequest struct {
 func (x *DeleteRequest) Reset() {
 	*x = DeleteRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[6]
+		mi := &file_db_data_2026_04_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -474,7 +474,7 @@ func (x *DeleteRequest) String() string {
 func (*DeleteRequest) ProtoMessage() {}
 
 func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[6]
+	mi := &file_db_data_2026_04_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -487,7 +487,7 @@ func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{6}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DeleteRequest) GetIds() []string {
@@ -528,7 +528,7 @@ type DeleteResponse struct {
 func (x *DeleteResponse) Reset() {
 	*x = DeleteResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[7]
+		mi := &file_db_data_2026_04_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -541,7 +541,7 @@ func (x *DeleteResponse) String() string {
 func (*DeleteResponse) ProtoMessage() {}
 
 func (x *DeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[7]
+	mi := &file_db_data_2026_04_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -554,7 +554,7 @@ func (x *DeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteResponse.ProtoReflect.Descriptor instead.
 func (*DeleteResponse) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{7}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{7}
 }
 
 // The request for the `fetch` operation.
@@ -571,7 +571,7 @@ type FetchRequest struct {
 func (x *FetchRequest) Reset() {
 	*x = FetchRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[8]
+		mi := &file_db_data_2026_04_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -584,7 +584,7 @@ func (x *FetchRequest) String() string {
 func (*FetchRequest) ProtoMessage() {}
 
 func (x *FetchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[8]
+	mi := &file_db_data_2026_04_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -597,7 +597,7 @@ func (x *FetchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FetchRequest.ProtoReflect.Descriptor instead.
 func (*FetchRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{8}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *FetchRequest) GetIds() []string {
@@ -631,7 +631,7 @@ type FetchByMetadataRequest struct {
 func (x *FetchByMetadataRequest) Reset() {
 	*x = FetchByMetadataRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[9]
+		mi := &file_db_data_2026_04_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -644,7 +644,7 @@ func (x *FetchByMetadataRequest) String() string {
 func (*FetchByMetadataRequest) ProtoMessage() {}
 
 func (x *FetchByMetadataRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[9]
+	mi := &file_db_data_2026_04_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -657,7 +657,7 @@ func (x *FetchByMetadataRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FetchByMetadataRequest.ProtoReflect.Descriptor instead.
 func (*FetchByMetadataRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{9}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *FetchByMetadataRequest) GetNamespace() string {
@@ -707,7 +707,7 @@ type FetchByMetadataResponse struct {
 func (x *FetchByMetadataResponse) Reset() {
 	*x = FetchByMetadataResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[10]
+		mi := &file_db_data_2026_04_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -720,7 +720,7 @@ func (x *FetchByMetadataResponse) String() string {
 func (*FetchByMetadataResponse) ProtoMessage() {}
 
 func (x *FetchByMetadataResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[10]
+	mi := &file_db_data_2026_04_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -733,7 +733,7 @@ func (x *FetchByMetadataResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FetchByMetadataResponse.ProtoReflect.Descriptor instead.
 func (*FetchByMetadataResponse) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{10}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *FetchByMetadataResponse) GetVectors() map[string]*Vector {
@@ -781,7 +781,7 @@ type FetchResponse struct {
 func (x *FetchResponse) Reset() {
 	*x = FetchResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[11]
+		mi := &file_db_data_2026_04_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -794,7 +794,7 @@ func (x *FetchResponse) String() string {
 func (*FetchResponse) ProtoMessage() {}
 
 func (x *FetchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[11]
+	mi := &file_db_data_2026_04_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -807,7 +807,7 @@ func (x *FetchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FetchResponse.ProtoReflect.Descriptor instead.
 func (*FetchResponse) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{11}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *FetchResponse) GetVectors() map[string]*Vector {
@@ -849,7 +849,7 @@ type ListRequest struct {
 func (x *ListRequest) Reset() {
 	*x = ListRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[12]
+		mi := &file_db_data_2026_04_proto_msgTypes[12]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -862,7 +862,7 @@ func (x *ListRequest) String() string {
 func (*ListRequest) ProtoMessage() {}
 
 func (x *ListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[12]
+	mi := &file_db_data_2026_04_proto_msgTypes[12]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -875,7 +875,7 @@ func (x *ListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRequest.ProtoReflect.Descriptor instead.
 func (*ListRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{12}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListRequest) GetPrefix() string {
@@ -917,7 +917,7 @@ type Pagination struct {
 func (x *Pagination) Reset() {
 	*x = Pagination{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[13]
+		mi := &file_db_data_2026_04_proto_msgTypes[13]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -930,7 +930,7 @@ func (x *Pagination) String() string {
 func (*Pagination) ProtoMessage() {}
 
 func (x *Pagination) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[13]
+	mi := &file_db_data_2026_04_proto_msgTypes[13]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -943,7 +943,7 @@ func (x *Pagination) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pagination.ProtoReflect.Descriptor instead.
 func (*Pagination) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{13}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Pagination) GetNext() string {
@@ -964,7 +964,7 @@ type ListItem struct {
 func (x *ListItem) Reset() {
 	*x = ListItem{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[14]
+		mi := &file_db_data_2026_04_proto_msgTypes[14]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -977,7 +977,7 @@ func (x *ListItem) String() string {
 func (*ListItem) ProtoMessage() {}
 
 func (x *ListItem) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[14]
+	mi := &file_db_data_2026_04_proto_msgTypes[14]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -990,7 +990,7 @@ func (x *ListItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListItem.ProtoReflect.Descriptor instead.
 func (*ListItem) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{14}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListItem) GetId() string {
@@ -1019,7 +1019,7 @@ type ListResponse struct {
 func (x *ListResponse) Reset() {
 	*x = ListResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[15]
+		mi := &file_db_data_2026_04_proto_msgTypes[15]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1032,7 +1032,7 @@ func (x *ListResponse) String() string {
 func (*ListResponse) ProtoMessage() {}
 
 func (x *ListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[15]
+	mi := &file_db_data_2026_04_proto_msgTypes[15]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1045,7 +1045,7 @@ func (x *ListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListResponse.ProtoReflect.Descriptor instead.
 func (*ListResponse) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{15}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListResponse) GetVectors() []*ListItem {
@@ -1097,7 +1097,7 @@ type QueryVector struct {
 func (x *QueryVector) Reset() {
 	*x = QueryVector{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[16]
+		mi := &file_db_data_2026_04_proto_msgTypes[16]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1110,7 +1110,7 @@ func (x *QueryVector) String() string {
 func (*QueryVector) ProtoMessage() {}
 
 func (x *QueryVector) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[16]
+	mi := &file_db_data_2026_04_proto_msgTypes[16]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1123,7 +1123,7 @@ func (x *QueryVector) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryVector.ProtoReflect.Descriptor instead.
 func (*QueryVector) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{16}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *QueryVector) GetValues() []float32 {
@@ -1179,7 +1179,7 @@ type QueryRequest struct {
 	IncludeMetadata bool `protobuf:"varint,5,opt,name=include_metadata,json=includeMetadata,proto3" json:"include_metadata,omitempty"`
 	// DEPRECATED. Use `vector` or `id` instead.
 	//
-	// Deprecated: Marked as deprecated in db_data_2025-10.proto.
+	// Deprecated: Marked as deprecated in db_data_2026-04.proto.
 	Queries []*QueryVector `protobuf:"bytes,6,rep,name=queries,proto3" json:"queries,omitempty"`
 	// The query vector. This should be the same length as the dimension of the index being queried. Each request can contain either the `id` or `vector` parameter.
 	Vector []float32 `protobuf:"fixed32,7,rep,packed,name=vector,proto3" json:"vector,omitempty"`
@@ -1203,7 +1203,7 @@ type QueryRequest struct {
 func (x *QueryRequest) Reset() {
 	*x = QueryRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[17]
+		mi := &file_db_data_2026_04_proto_msgTypes[17]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1216,7 +1216,7 @@ func (x *QueryRequest) String() string {
 func (*QueryRequest) ProtoMessage() {}
 
 func (x *QueryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[17]
+	mi := &file_db_data_2026_04_proto_msgTypes[17]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1229,7 +1229,7 @@ func (x *QueryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryRequest.ProtoReflect.Descriptor instead.
 func (*QueryRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{17}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *QueryRequest) GetNamespace() string {
@@ -1267,7 +1267,7 @@ func (x *QueryRequest) GetIncludeMetadata() bool {
 	return false
 }
 
-// Deprecated: Marked as deprecated in db_data_2025-10.proto.
+// Deprecated: Marked as deprecated in db_data_2026-04.proto.
 func (x *QueryRequest) GetQueries() []*QueryVector {
 	if x != nil {
 		return x.Queries
@@ -1325,7 +1325,7 @@ type SingleQueryResults struct {
 func (x *SingleQueryResults) Reset() {
 	*x = SingleQueryResults{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[18]
+		mi := &file_db_data_2026_04_proto_msgTypes[18]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1338,7 +1338,7 @@ func (x *SingleQueryResults) String() string {
 func (*SingleQueryResults) ProtoMessage() {}
 
 func (x *SingleQueryResults) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[18]
+	mi := &file_db_data_2026_04_proto_msgTypes[18]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1351,7 +1351,7 @@ func (x *SingleQueryResults) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SingleQueryResults.ProtoReflect.Descriptor instead.
 func (*SingleQueryResults) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{18}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *SingleQueryResults) GetMatches() []*ScoredVector {
@@ -1376,7 +1376,7 @@ type QueryResponse struct {
 
 	// DEPRECATED. The results of each query. The order is the same as `QueryRequest.queries`.
 	//
-	// Deprecated: Marked as deprecated in db_data_2025-10.proto.
+	// Deprecated: Marked as deprecated in db_data_2026-04.proto.
 	Results []*SingleQueryResults `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
 	// The matches for the vectors.
 	Matches []*ScoredVector `protobuf:"bytes,2,rep,name=matches,proto3" json:"matches,omitempty"`
@@ -1389,7 +1389,7 @@ type QueryResponse struct {
 func (x *QueryResponse) Reset() {
 	*x = QueryResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[19]
+		mi := &file_db_data_2026_04_proto_msgTypes[19]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1402,7 +1402,7 @@ func (x *QueryResponse) String() string {
 func (*QueryResponse) ProtoMessage() {}
 
 func (x *QueryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[19]
+	mi := &file_db_data_2026_04_proto_msgTypes[19]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1415,10 +1415,10 @@ func (x *QueryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryResponse.ProtoReflect.Descriptor instead.
 func (*QueryResponse) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{19}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{19}
 }
 
-// Deprecated: Marked as deprecated in db_data_2025-10.proto.
+// Deprecated: Marked as deprecated in db_data_2026-04.proto.
 func (x *QueryResponse) GetResults() []*SingleQueryResults {
 	if x != nil {
 		return x.Results
@@ -1459,7 +1459,7 @@ type Usage struct {
 func (x *Usage) Reset() {
 	*x = Usage{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[20]
+		mi := &file_db_data_2026_04_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1472,7 +1472,7 @@ func (x *Usage) String() string {
 func (*Usage) ProtoMessage() {}
 
 func (x *Usage) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[20]
+	mi := &file_db_data_2026_04_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1485,7 +1485,7 @@ func (x *Usage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Usage.ProtoReflect.Descriptor instead.
 func (*Usage) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{20}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *Usage) GetReadUnits() uint32 {
@@ -1520,7 +1520,7 @@ type UpdateRequest struct {
 func (x *UpdateRequest) Reset() {
 	*x = UpdateRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[21]
+		mi := &file_db_data_2026_04_proto_msgTypes[21]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1533,7 +1533,7 @@ func (x *UpdateRequest) String() string {
 func (*UpdateRequest) ProtoMessage() {}
 
 func (x *UpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[21]
+	mi := &file_db_data_2026_04_proto_msgTypes[21]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1546,7 +1546,7 @@ func (x *UpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRequest.ProtoReflect.Descriptor instead.
 func (*UpdateRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{21}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *UpdateRequest) GetId() string {
@@ -1610,7 +1610,7 @@ type UpdateResponse struct {
 func (x *UpdateResponse) Reset() {
 	*x = UpdateResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[22]
+		mi := &file_db_data_2026_04_proto_msgTypes[22]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1623,7 +1623,7 @@ func (x *UpdateResponse) String() string {
 func (*UpdateResponse) ProtoMessage() {}
 
 func (x *UpdateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[22]
+	mi := &file_db_data_2026_04_proto_msgTypes[22]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1636,7 +1636,7 @@ func (x *UpdateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateResponse.ProtoReflect.Descriptor instead.
 func (*UpdateResponse) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{22}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *UpdateResponse) GetMatchedRecords() int32 {
@@ -1661,7 +1661,7 @@ type DescribeIndexStatsRequest struct {
 func (x *DescribeIndexStatsRequest) Reset() {
 	*x = DescribeIndexStatsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[23]
+		mi := &file_db_data_2026_04_proto_msgTypes[23]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1674,7 +1674,7 @@ func (x *DescribeIndexStatsRequest) String() string {
 func (*DescribeIndexStatsRequest) ProtoMessage() {}
 
 func (x *DescribeIndexStatsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[23]
+	mi := &file_db_data_2026_04_proto_msgTypes[23]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1687,7 +1687,7 @@ func (x *DescribeIndexStatsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeIndexStatsRequest.ProtoReflect.Descriptor instead.
 func (*DescribeIndexStatsRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{23}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *DescribeIndexStatsRequest) GetFilter() *structpb.Struct {
@@ -1711,7 +1711,7 @@ type NamespaceSummary struct {
 func (x *NamespaceSummary) Reset() {
 	*x = NamespaceSummary{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[24]
+		mi := &file_db_data_2026_04_proto_msgTypes[24]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1724,7 +1724,7 @@ func (x *NamespaceSummary) String() string {
 func (*NamespaceSummary) ProtoMessage() {}
 
 func (x *NamespaceSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[24]
+	mi := &file_db_data_2026_04_proto_msgTypes[24]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1737,7 +1737,7 @@ func (x *NamespaceSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NamespaceSummary.ProtoReflect.Descriptor instead.
 func (*NamespaceSummary) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{24}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *NamespaceSummary) GetVectorCount() uint32 {
@@ -1764,7 +1764,7 @@ type ListNamespacesRequest struct {
 func (x *ListNamespacesRequest) Reset() {
 	*x = ListNamespacesRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[25]
+		mi := &file_db_data_2026_04_proto_msgTypes[25]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1777,7 +1777,7 @@ func (x *ListNamespacesRequest) String() string {
 func (*ListNamespacesRequest) ProtoMessage() {}
 
 func (x *ListNamespacesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[25]
+	mi := &file_db_data_2026_04_proto_msgTypes[25]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1790,7 +1790,7 @@ func (x *ListNamespacesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNamespacesRequest.ProtoReflect.Descriptor instead.
 func (*ListNamespacesRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{25}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ListNamespacesRequest) GetPaginationToken() string {
@@ -1831,7 +1831,7 @@ type ListNamespacesResponse struct {
 func (x *ListNamespacesResponse) Reset() {
 	*x = ListNamespacesResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[26]
+		mi := &file_db_data_2026_04_proto_msgTypes[26]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1844,7 +1844,7 @@ func (x *ListNamespacesResponse) String() string {
 func (*ListNamespacesResponse) ProtoMessage() {}
 
 func (x *ListNamespacesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[26]
+	mi := &file_db_data_2026_04_proto_msgTypes[26]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1857,7 +1857,7 @@ func (x *ListNamespacesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNamespacesResponse.ProtoReflect.Descriptor instead.
 func (*ListNamespacesResponse) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{26}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ListNamespacesResponse) GetNamespaces() []*NamespaceDescription {
@@ -1894,7 +1894,7 @@ type DescribeNamespaceRequest struct {
 func (x *DescribeNamespaceRequest) Reset() {
 	*x = DescribeNamespaceRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[27]
+		mi := &file_db_data_2026_04_proto_msgTypes[27]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1907,7 +1907,7 @@ func (x *DescribeNamespaceRequest) String() string {
 func (*DescribeNamespaceRequest) ProtoMessage() {}
 
 func (x *DescribeNamespaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[27]
+	mi := &file_db_data_2026_04_proto_msgTypes[27]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1920,7 +1920,7 @@ func (x *DescribeNamespaceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeNamespaceRequest.ProtoReflect.Descriptor instead.
 func (*DescribeNamespaceRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{27}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *DescribeNamespaceRequest) GetNamespace() string {
@@ -1949,7 +1949,7 @@ type CreateNamespaceRequest struct {
 func (x *CreateNamespaceRequest) Reset() {
 	*x = CreateNamespaceRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[28]
+		mi := &file_db_data_2026_04_proto_msgTypes[28]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1962,7 +1962,7 @@ func (x *CreateNamespaceRequest) String() string {
 func (*CreateNamespaceRequest) ProtoMessage() {}
 
 func (x *CreateNamespaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[28]
+	mi := &file_db_data_2026_04_proto_msgTypes[28]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1975,7 +1975,7 @@ func (x *CreateNamespaceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateNamespaceRequest.ProtoReflect.Descriptor instead.
 func (*CreateNamespaceRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{28}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *CreateNamespaceRequest) GetName() string {
@@ -2003,7 +2003,7 @@ type IndexedFields struct {
 func (x *IndexedFields) Reset() {
 	*x = IndexedFields{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[29]
+		mi := &file_db_data_2026_04_proto_msgTypes[29]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2016,7 +2016,7 @@ func (x *IndexedFields) String() string {
 func (*IndexedFields) ProtoMessage() {}
 
 func (x *IndexedFields) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[29]
+	mi := &file_db_data_2026_04_proto_msgTypes[29]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2029,7 +2029,7 @@ func (x *IndexedFields) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IndexedFields.ProtoReflect.Descriptor instead.
 func (*IndexedFields) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{29}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *IndexedFields) GetFields() []string {
@@ -2054,7 +2054,7 @@ type NamespaceDescription struct {
 func (x *NamespaceDescription) Reset() {
 	*x = NamespaceDescription{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[30]
+		mi := &file_db_data_2026_04_proto_msgTypes[30]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2067,7 +2067,7 @@ func (x *NamespaceDescription) String() string {
 func (*NamespaceDescription) ProtoMessage() {}
 
 func (x *NamespaceDescription) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[30]
+	mi := &file_db_data_2026_04_proto_msgTypes[30]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2080,7 +2080,7 @@ func (x *NamespaceDescription) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NamespaceDescription.ProtoReflect.Descriptor instead.
 func (*NamespaceDescription) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{30}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *NamespaceDescription) GetName() string {
@@ -2123,7 +2123,7 @@ type DeleteNamespaceRequest struct {
 func (x *DeleteNamespaceRequest) Reset() {
 	*x = DeleteNamespaceRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[31]
+		mi := &file_db_data_2026_04_proto_msgTypes[31]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2136,7 +2136,7 @@ func (x *DeleteNamespaceRequest) String() string {
 func (*DeleteNamespaceRequest) ProtoMessage() {}
 
 func (x *DeleteNamespaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[31]
+	mi := &file_db_data_2026_04_proto_msgTypes[31]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2149,7 +2149,7 @@ func (x *DeleteNamespaceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteNamespaceRequest.ProtoReflect.Descriptor instead.
 func (*DeleteNamespaceRequest) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{31}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *DeleteNamespaceRequest) GetNamespace() string {
@@ -2192,7 +2192,7 @@ type DescribeIndexStatsResponse struct {
 func (x *DescribeIndexStatsResponse) Reset() {
 	*x = DescribeIndexStatsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[32]
+		mi := &file_db_data_2026_04_proto_msgTypes[32]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2205,7 +2205,7 @@ func (x *DescribeIndexStatsResponse) String() string {
 func (*DescribeIndexStatsResponse) ProtoMessage() {}
 
 func (x *DescribeIndexStatsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[32]
+	mi := &file_db_data_2026_04_proto_msgTypes[32]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2218,7 +2218,7 @@ func (x *DescribeIndexStatsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeIndexStatsResponse.ProtoReflect.Descriptor instead.
 func (*DescribeIndexStatsResponse) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{32}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *DescribeIndexStatsResponse) GetNamespaces() map[string]*NamespaceSummary {
@@ -2291,7 +2291,7 @@ type MetadataFieldProperties struct {
 func (x *MetadataFieldProperties) Reset() {
 	*x = MetadataFieldProperties{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[33]
+		mi := &file_db_data_2026_04_proto_msgTypes[33]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2304,7 +2304,7 @@ func (x *MetadataFieldProperties) String() string {
 func (*MetadataFieldProperties) ProtoMessage() {}
 
 func (x *MetadataFieldProperties) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[33]
+	mi := &file_db_data_2026_04_proto_msgTypes[33]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2317,7 +2317,7 @@ func (x *MetadataFieldProperties) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetadataFieldProperties.ProtoReflect.Descriptor instead.
 func (*MetadataFieldProperties) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{33}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *MetadataFieldProperties) GetFilterable() bool {
@@ -2343,7 +2343,7 @@ type MetadataSchema struct {
 func (x *MetadataSchema) Reset() {
 	*x = MetadataSchema{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_db_data_2025_10_proto_msgTypes[34]
+		mi := &file_db_data_2026_04_proto_msgTypes[34]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2356,7 +2356,7 @@ func (x *MetadataSchema) String() string {
 func (*MetadataSchema) ProtoMessage() {}
 
 func (x *MetadataSchema) ProtoReflect() protoreflect.Message {
-	mi := &file_db_data_2025_10_proto_msgTypes[34]
+	mi := &file_db_data_2026_04_proto_msgTypes[34]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2369,7 +2369,7 @@ func (x *MetadataSchema) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetadataSchema.ProtoReflect.Descriptor instead.
 func (*MetadataSchema) Descriptor() ([]byte, []int) {
-	return file_db_data_2025_10_proto_rawDescGZIP(), []int{34}
+	return file_db_data_2026_04_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *MetadataSchema) GetFields() map[string]*MetadataFieldProperties {
@@ -2379,11 +2379,11 @@ func (x *MetadataSchema) GetFields() map[string]*MetadataFieldProperties {
 	return nil
 }
 
-var File_db_data_2025_10_proto protoreflect.FileDescriptor
+var File_db_data_2026_04_proto protoreflect.FileDescriptor
 
-var file_db_data_2025_10_proto_rawDesc = []byte{
-	0x0a, 0x15, 0x64, 0x62, 0x5f, 0x64, 0x61, 0x74, 0x61, 0x5f, 0x32, 0x30, 0x32, 0x35, 0x2d, 0x31,
-	0x30, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x1c, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f,
+var file_db_data_2026_04_proto_rawDesc = []byte{
+	0x0a, 0x15, 0x64, 0x62, 0x5f, 0x64, 0x61, 0x74, 0x61, 0x5f, 0x32, 0x30, 0x32, 0x36, 0x2d, 0x30,
+	0x34, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x1c, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2f, 0x73, 0x74, 0x72, 0x75, 0x63, 0x74, 0x2e,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x1c, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x61, 0x70,
 	0x69, 0x2f, 0x61, 0x6e, 0x6e, 0x6f, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x2e, 0x70, 0x72,
@@ -2794,19 +2794,19 @@ var file_db_data_2025_10_proto_rawDesc = []byte{
 }
 
 var (
-	file_db_data_2025_10_proto_rawDescOnce sync.Once
-	file_db_data_2025_10_proto_rawDescData = file_db_data_2025_10_proto_rawDesc
+	file_db_data_2026_04_proto_rawDescOnce sync.Once
+	file_db_data_2026_04_proto_rawDescData = file_db_data_2026_04_proto_rawDesc
 )
 
-func file_db_data_2025_10_proto_rawDescGZIP() []byte {
-	file_db_data_2025_10_proto_rawDescOnce.Do(func() {
-		file_db_data_2025_10_proto_rawDescData = protoimpl.X.CompressGZIP(file_db_data_2025_10_proto_rawDescData)
+func file_db_data_2026_04_proto_rawDescGZIP() []byte {
+	file_db_data_2026_04_proto_rawDescOnce.Do(func() {
+		file_db_data_2026_04_proto_rawDescData = protoimpl.X.CompressGZIP(file_db_data_2026_04_proto_rawDescData)
 	})
-	return file_db_data_2025_10_proto_rawDescData
+	return file_db_data_2026_04_proto_rawDescData
 }
 
-var file_db_data_2025_10_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
-var file_db_data_2025_10_proto_goTypes = []interface{}{
+var file_db_data_2026_04_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_db_data_2026_04_proto_goTypes = []interface{}{
 	(*SparseValues)(nil),               // 0: SparseValues
 	(*Vector)(nil),                     // 1: Vector
 	(*ScoredVector)(nil),               // 2: ScoredVector
@@ -2848,7 +2848,7 @@ var file_db_data_2025_10_proto_goTypes = []interface{}{
 	nil,                                // 38: MetadataSchema.FieldsEntry
 	(*structpb.Struct)(nil),            // 39: google.protobuf.Struct
 }
-var file_db_data_2025_10_proto_depIdxs = []int32{
+var file_db_data_2026_04_proto_depIdxs = []int32{
 	0,  // 0: Vector.sparse_values:type_name -> SparseValues
 	39, // 1: Vector.metadata:type_name -> google.protobuf.Struct
 	0,  // 2: ScoredVector.sparse_values:type_name -> SparseValues
@@ -2922,13 +2922,13 @@ var file_db_data_2025_10_proto_depIdxs = []int32{
 	0,  // [0:42] is the sub-list for field type_name
 }
 
-func init() { file_db_data_2025_10_proto_init() }
-func file_db_data_2025_10_proto_init() {
-	if File_db_data_2025_10_proto != nil {
+func init() { file_db_data_2026_04_proto_init() }
+func file_db_data_2026_04_proto_init() {
+	if File_db_data_2026_04_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_db_data_2025_10_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*SparseValues); i {
 			case 0:
 				return &v.state
@@ -2940,7 +2940,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Vector); i {
 			case 0:
 				return &v.state
@@ -2952,7 +2952,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ScoredVector); i {
 			case 0:
 				return &v.state
@@ -2964,7 +2964,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*RequestUnion); i {
 			case 0:
 				return &v.state
@@ -2976,7 +2976,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*UpsertRequest); i {
 			case 0:
 				return &v.state
@@ -2988,7 +2988,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*UpsertResponse); i {
 			case 0:
 				return &v.state
@@ -3000,7 +3000,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DeleteRequest); i {
 			case 0:
 				return &v.state
@@ -3012,7 +3012,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DeleteResponse); i {
 			case 0:
 				return &v.state
@@ -3024,7 +3024,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FetchRequest); i {
 			case 0:
 				return &v.state
@@ -3036,7 +3036,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FetchByMetadataRequest); i {
 			case 0:
 				return &v.state
@@ -3048,7 +3048,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FetchByMetadataResponse); i {
 			case 0:
 				return &v.state
@@ -3060,7 +3060,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*FetchResponse); i {
 			case 0:
 				return &v.state
@@ -3072,7 +3072,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListRequest); i {
 			case 0:
 				return &v.state
@@ -3084,7 +3084,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Pagination); i {
 			case 0:
 				return &v.state
@@ -3096,7 +3096,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListItem); i {
 			case 0:
 				return &v.state
@@ -3108,7 +3108,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListResponse); i {
 			case 0:
 				return &v.state
@@ -3120,7 +3120,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryVector); i {
 			case 0:
 				return &v.state
@@ -3132,7 +3132,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryRequest); i {
 			case 0:
 				return &v.state
@@ -3144,7 +3144,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*SingleQueryResults); i {
 			case 0:
 				return &v.state
@@ -3156,7 +3156,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*QueryResponse); i {
 			case 0:
 				return &v.state
@@ -3168,7 +3168,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Usage); i {
 			case 0:
 				return &v.state
@@ -3180,7 +3180,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*UpdateRequest); i {
 			case 0:
 				return &v.state
@@ -3192,7 +3192,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*UpdateResponse); i {
 			case 0:
 				return &v.state
@@ -3204,7 +3204,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DescribeIndexStatsRequest); i {
 			case 0:
 				return &v.state
@@ -3216,7 +3216,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*NamespaceSummary); i {
 			case 0:
 				return &v.state
@@ -3228,7 +3228,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListNamespacesRequest); i {
 			case 0:
 				return &v.state
@@ -3240,7 +3240,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[26].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[26].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListNamespacesResponse); i {
 			case 0:
 				return &v.state
@@ -3252,7 +3252,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[27].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[27].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DescribeNamespaceRequest); i {
 			case 0:
 				return &v.state
@@ -3264,7 +3264,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[28].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[28].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CreateNamespaceRequest); i {
 			case 0:
 				return &v.state
@@ -3276,7 +3276,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[29].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[29].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*IndexedFields); i {
 			case 0:
 				return &v.state
@@ -3288,7 +3288,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[30].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[30].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*NamespaceDescription); i {
 			case 0:
 				return &v.state
@@ -3300,7 +3300,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[31].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[31].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DeleteNamespaceRequest); i {
 			case 0:
 				return &v.state
@@ -3312,7 +3312,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[32].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[32].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DescribeIndexStatsResponse); i {
 			case 0:
 				return &v.state
@@ -3324,7 +3324,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[33].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[33].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MetadataFieldProperties); i {
 			case 0:
 				return &v.state
@@ -3336,7 +3336,7 @@ func file_db_data_2025_10_proto_init() {
 				return nil
 			}
 		}
-		file_db_data_2025_10_proto_msgTypes[34].Exporter = func(v interface{}, i int) interface{} {
+		file_db_data_2026_04_proto_msgTypes[34].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MetadataSchema); i {
 			case 0:
 				return &v.state
@@ -3349,42 +3349,42 @@ func file_db_data_2025_10_proto_init() {
 			}
 		}
 	}
-	file_db_data_2025_10_proto_msgTypes[3].OneofWrappers = []interface{}{
+	file_db_data_2026_04_proto_msgTypes[3].OneofWrappers = []interface{}{
 		(*RequestUnion_Upsert)(nil),
 		(*RequestUnion_Delete)(nil),
 		(*RequestUnion_Update)(nil),
 	}
-	file_db_data_2025_10_proto_msgTypes[9].OneofWrappers = []interface{}{}
-	file_db_data_2025_10_proto_msgTypes[10].OneofWrappers = []interface{}{}
-	file_db_data_2025_10_proto_msgTypes[11].OneofWrappers = []interface{}{}
-	file_db_data_2025_10_proto_msgTypes[12].OneofWrappers = []interface{}{}
-	file_db_data_2025_10_proto_msgTypes[15].OneofWrappers = []interface{}{}
-	file_db_data_2025_10_proto_msgTypes[17].OneofWrappers = []interface{}{}
-	file_db_data_2025_10_proto_msgTypes[19].OneofWrappers = []interface{}{}
-	file_db_data_2025_10_proto_msgTypes[20].OneofWrappers = []interface{}{}
-	file_db_data_2025_10_proto_msgTypes[21].OneofWrappers = []interface{}{}
-	file_db_data_2025_10_proto_msgTypes[22].OneofWrappers = []interface{}{}
-	file_db_data_2025_10_proto_msgTypes[25].OneofWrappers = []interface{}{}
-	file_db_data_2025_10_proto_msgTypes[26].OneofWrappers = []interface{}{}
-	file_db_data_2025_10_proto_msgTypes[28].OneofWrappers = []interface{}{}
-	file_db_data_2025_10_proto_msgTypes[30].OneofWrappers = []interface{}{}
-	file_db_data_2025_10_proto_msgTypes[32].OneofWrappers = []interface{}{}
+	file_db_data_2026_04_proto_msgTypes[9].OneofWrappers = []interface{}{}
+	file_db_data_2026_04_proto_msgTypes[10].OneofWrappers = []interface{}{}
+	file_db_data_2026_04_proto_msgTypes[11].OneofWrappers = []interface{}{}
+	file_db_data_2026_04_proto_msgTypes[12].OneofWrappers = []interface{}{}
+	file_db_data_2026_04_proto_msgTypes[15].OneofWrappers = []interface{}{}
+	file_db_data_2026_04_proto_msgTypes[17].OneofWrappers = []interface{}{}
+	file_db_data_2026_04_proto_msgTypes[19].OneofWrappers = []interface{}{}
+	file_db_data_2026_04_proto_msgTypes[20].OneofWrappers = []interface{}{}
+	file_db_data_2026_04_proto_msgTypes[21].OneofWrappers = []interface{}{}
+	file_db_data_2026_04_proto_msgTypes[22].OneofWrappers = []interface{}{}
+	file_db_data_2026_04_proto_msgTypes[25].OneofWrappers = []interface{}{}
+	file_db_data_2026_04_proto_msgTypes[26].OneofWrappers = []interface{}{}
+	file_db_data_2026_04_proto_msgTypes[28].OneofWrappers = []interface{}{}
+	file_db_data_2026_04_proto_msgTypes[30].OneofWrappers = []interface{}{}
+	file_db_data_2026_04_proto_msgTypes[32].OneofWrappers = []interface{}{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: file_db_data_2025_10_proto_rawDesc,
+			RawDescriptor: file_db_data_2026_04_proto_rawDesc,
 			NumEnums:      0,
 			NumMessages:   39,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_db_data_2025_10_proto_goTypes,
-		DependencyIndexes: file_db_data_2025_10_proto_depIdxs,
-		MessageInfos:      file_db_data_2025_10_proto_msgTypes,
+		GoTypes:           file_db_data_2026_04_proto_goTypes,
+		DependencyIndexes: file_db_data_2026_04_proto_depIdxs,
+		MessageInfos:      file_db_data_2026_04_proto_msgTypes,
 	}.Build()
-	File_db_data_2025_10_proto = out.File
-	file_db_data_2025_10_proto_rawDesc = nil
-	file_db_data_2025_10_proto_goTypes = nil
-	file_db_data_2025_10_proto_depIdxs = nil
+	File_db_data_2026_04_proto = out.File
+	file_db_data_2026_04_proto_rawDesc = nil
+	file_db_data_2026_04_proto_goTypes = nil
+	file_db_data_2026_04_proto_depIdxs = nil
 }

@@ -588,7 +588,7 @@ type ReadCapacityStatus struct {
 	//
 	// Available values:
 	// - `Ready` is the state most of the time
-	// - `Scaling` if the number of replicas or shards has been recently updated by calling the [configure index endpoint](https://docs.pinecone.io/reference/api/2025-10/control-plane/configure_index)
+	// - `Scaling` if the number of replicas or shards has been recently updated by calling the [configure index endpoint](https://docs.pinecone.io/reference/api/2026-04/control-plane/configure_index)
 	// - `Migrating` if the index is being migrated to a new `node_type`
 	// - `Error` if there is an error with the read capacity configuration. In that case, see `error_message` for more details.
 	State string `json:"state"`
