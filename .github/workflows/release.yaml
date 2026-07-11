@@ -28,6 +28,10 @@ on:
         type: string
         default: ""
 
+# Release pushes the version-bump commit and tags back to the repo.
+permissions:
+  contents: write
+
 jobs:
   bump-version-and-release:
     runs-on: ubuntu-latest
