@@ -3,6 +3,34 @@ on:
   pull_request: {}
 
 jobs:
+  # Key-free mocked critical-path smoke gate (connect -> upsert -> query).
+  # Runs on every PR with NO PINECONE_API_KEY to prove the request/response
+  # plumbing works without a real backend. Keyed suites stay in `build` below.
+  smoke-mocked:
+    name: Smoke (mocked, no key)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21.x'
+      - name: Install dependencies
+        run: go get ./pinecone
+      # No PINECONE_API_KEY in env: proves the mocked critical path needs none.
+      # The `smoke` build tag + explicit -run pattern target only smoke/, and
+      # `go test` exits 0 with "[no tests to run]" if the pattern matches
+      # nothing (e.g. smoke/ is moved or emptied). The PASS-marker grep below is
+      # the zero-test guard: it fails the job in that case rather than silently
+      # passing by running nothing. `set -o pipefail` preserves a real test
+      # failure's non-zero exit through the tee.
+      - name: Run mocked critical-path smoke test
+        run: |
+          set -o pipefail
+          go test -tags smoke -run '^TestMockedCriticalPath$' -v -count=1 ./smoke/... 2>&1 | tee smoke.log
+          grep -q -- '--- PASS: TestMockedCriticalPath' smoke.log \
+            || { echo "::error::mocked critical-path smoke test did not run"; exit 1; }
+
   build:
     runs-on: ubuntu-latest
     services:
