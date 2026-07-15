@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             v5.27.1
-// source: db_data_2025-10.proto
+// source: db_data_2026-04.proto
 
 package grpc
 
@@ -37,27 +37,27 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type VectorServiceClient interface {
-	// Upsert vectors
+	// Upsert records
 	//
-	// Upsert vectors into a namespace. If a new value is upserted for an existing vector ID, it will overwrite the previous value.
+	// Upsert records into a namespace. If a new value is upserted for an existing record ID, it will overwrite the previous value.
 	//
 	// For guidance, examples, and limits, see [Upsert data](https://docs.pinecone.io/guides/index-data/upsert-data).
 	Upsert(ctx context.Context, in *UpsertRequest, opts ...grpc.CallOption) (*UpsertResponse, error)
-	// Delete vectors
+	// Delete records
 	//
-	// Delete vectors by id from a single namespace.
+	// Delete records by id or by metadata from a single namespace.
 	//
 	// For guidance and examples, see [Delete data](https://docs.pinecone.io/guides/manage-data/delete-data).
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
-	// Fetch vectors
+	// Fetch records
 	//
-	// Look up and return vectors by ID from a single namespace. The returned vectors include the vector data and/or metadata.
+	// Look up and return records by ID from a single namespace. The returned records include the vector data and/or metadata.
 	//
 	// For guidance and examples, see [Fetch data](https://docs.pinecone.io/guides/manage-data/fetch-data).
 	Fetch(ctx context.Context, in *FetchRequest, opts ...grpc.CallOption) (*FetchResponse, error)
-	// List vector IDs
+	// List record IDs
 	//
-	// List the IDs of vectors in a single namespace of a serverless index. An optional prefix can be passed to limit the results to IDs with a common prefix.
+	// List the IDs of records in a single namespace of a serverless index. An optional prefix can be passed to limit the results to IDs with a common prefix.
 	//
 	// This returns up to 100 IDs at a time by default in sorted order (bitwise/"C" collation). If the `limit` parameter is set, `list` returns up to that number of IDs instead. Whenever there are additional IDs to return, the response also includes a `pagination_token` that you can use to get the next batch of IDs. When the response does not include a `pagination_token`, there are no more IDs to return.
 	//
@@ -240,27 +240,27 @@ func (c *vectorServiceClient) FetchByMetadata(ctx context.Context, in *FetchByMe
 // All implementations must embed UnimplementedVectorServiceServer
 // for forward compatibility
 type VectorServiceServer interface {
-	// Upsert vectors
+	// Upsert records
 	//
-	// Upsert vectors into a namespace. If a new value is upserted for an existing vector ID, it will overwrite the previous value.
+	// Upsert records into a namespace. If a new value is upserted for an existing record ID, it will overwrite the previous value.
 	//
 	// For guidance, examples, and limits, see [Upsert data](https://docs.pinecone.io/guides/index-data/upsert-data).
 	Upsert(context.Context, *UpsertRequest) (*UpsertResponse, error)
-	// Delete vectors
+	// Delete records
 	//
-	// Delete vectors by id from a single namespace.
+	// Delete records by id or by metadata from a single namespace.
 	//
 	// For guidance and examples, see [Delete data](https://docs.pinecone.io/guides/manage-data/delete-data).
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
-	// Fetch vectors
+	// Fetch records
 	//
-	// Look up and return vectors by ID from a single namespace. The returned vectors include the vector data and/or metadata.
+	// Look up and return records by ID from a single namespace. The returned records include the vector data and/or metadata.
 	//
 	// For guidance and examples, see [Fetch data](https://docs.pinecone.io/guides/manage-data/fetch-data).
 	Fetch(context.Context, *FetchRequest) (*FetchResponse, error)
-	// List vector IDs
+	// List record IDs
 	//
-	// List the IDs of vectors in a single namespace of a serverless index. An optional prefix can be passed to limit the results to IDs with a common prefix.
+	// List the IDs of records in a single namespace of a serverless index. An optional prefix can be passed to limit the results to IDs with a common prefix.
 	//
 	// This returns up to 100 IDs at a time by default in sorted order (bitwise/"C" collation). If the `limit` parameter is set, `list` returns up to that number of IDs instead. Whenever there are additional IDs to return, the response also includes a `pagination_token` that you can use to get the next batch of IDs. When the response does not include a `pagination_token`, there are no more IDs to return.
 	//
@@ -650,5 +650,5 @@ var VectorService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "db_data_2025-10.proto",
+	Metadata: "db_data_2026-04.proto",
 }

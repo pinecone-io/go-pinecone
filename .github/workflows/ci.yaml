@@ -2,6 +2,10 @@ name: ci
 on:
   pull_request: {}
 
+# Least-privilege default: CI only reads the repo to build and test.
+permissions:
+  contents: read
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
