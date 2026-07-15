@@ -104,9 +104,11 @@ func (ts *integrationTests) TestDeleteVectorsByFilter() {
 	err = idxConn.DeleteVectorsByFilter(ctx, filter)
 	assert.NoError(ts.T(), err)
 
-	// validate the vectors were deleted if not pod index
+	// validate the vectors were deleted if not pod index. Delete-by-filter reconciles
+	// asynchronously and can take longer than the default window to converge on
+	// serverless, so use the extended retry budget to avoid spurious failures.
 	if ts.indexType != "pods" {
-		retryAssertionsWithDefaults(ts.T(), func() error {
+		retryAssertionsWithExtendedTimeout(ts.T(), func() error {
 			res, err := idxConn.FetchVectorsByMetadata(ctx, &FetchVectorsByMetadataRequest{
 				Filter: filter,
 			})
