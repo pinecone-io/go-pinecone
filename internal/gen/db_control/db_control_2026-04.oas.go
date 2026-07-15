@@ -70,6 +70,9 @@ type BackupModel struct {
 	// SizeBytes Size of the backup in bytes.
 	SizeBytes *int `json:"size_bytes,omitempty"`
 
+	// SourceIndexDeletedAt The deletion timestamp when the source index has been deleted. Not present for backups associated with an active index.
+	SourceIndexDeletedAt *time.Time `json:"source_index_deleted_at,omitempty"`
+
 	// SourceIndexId ID of the index.
 	SourceIndexId string `json:"source_index_id"`
 
@@ -280,6 +283,9 @@ type CreateIndexFromBackupRequest struct {
 
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
+
+	// ReadCapacity By default the index will be created with read capacity  mode `OnDemand`. If you prefer to allocate dedicated read  nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
+	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Tags Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
 	Tags *IndexTags `json:"tags,omitempty"`
@@ -588,7 +594,7 @@ type ReadCapacityStatus struct {
 	//
 	// Available values:
 	// - `Ready` is the state most of the time
-	// - `Scaling` if the number of replicas or shards has been recently updated by calling the [configure index endpoint](https://docs.pinecone.io/reference/api/2025-10/control-plane/configure_index)
+	// - `Scaling` if the number of replicas or shards has been recently updated by calling the [configure index endpoint](https://docs.pinecone.io/reference/api/2026-04/control-plane/configure_index)
 	// - `Migrating` if the index is being migrated to a new `node_type`
 	// - `Error` if there is an error with the read capacity configuration. In that case, see `error_message` for more details.
 	State string `json:"state"`
@@ -769,6 +775,9 @@ type ConfigureIndexParams struct {
 
 // ListIndexBackupsParams defines parameters for ListIndexBackups.
 type ListIndexBackupsParams struct {
+	// IncludeDeleted When true, includes backups for every index incarnation with this name (active and deleted). When false or omitted, only the active index’s backups are included; **404** when no active index has that name.
+	IncludeDeleted *bool `form:"include_deleted,omitempty" json:"include_deleted,omitempty"`
+
 	// Limit The number of results to return per page.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -2517,6 +2526,22 @@ func NewListIndexBackupsRequest(server string, indexName string, params *ListInd
 
 	if params != nil {
 		queryValues := queryURL.Query()
+
+		if params.IncludeDeleted != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "include_deleted", runtime.ParamLocationQuery, *params.IncludeDeleted); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
 
 		if params.Limit != nil {
 

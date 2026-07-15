@@ -50,7 +50,7 @@ type DeleteRequest struct {
 	// Ids Vectors to delete.
 	Ids *[]string `json:"ids,omitempty"`
 
-	// Namespace The namespace to delete vectors from, if applicable.
+	// Namespace The namespace to delete records from, if applicable.
 	Namespace *string `json:"namespace,omitempty"`
 }
 
@@ -76,7 +76,7 @@ type FetchByMetadataRequest struct {
 	// Limit Max number of vectors to return.
 	Limit *int64 `json:"limit,omitempty"`
 
-	// Namespace The namespace to fetch vectors from.
+	// Namespace The namespace to fetch records from.
 	Namespace *string `json:"namespace,omitempty"`
 
 	// PaginationToken Pagination token to continue a previous listing operation.
@@ -249,7 +249,7 @@ type QueryRequest struct {
 	// Filter The filter to apply. You can use vector metadata to limit your search. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata).
 	Filter *map[string]interface{} `json:"filter,omitempty"`
 
-	// Id The unique ID of the vector to be used as a query vector. Each request  can contain either the `vector` or `id` parameter.
+	// Id The unique ID of the vector to be used as a query vector. Each request can contain either the `vector` or `id` parameter.
 	Id *string `json:"id,omitempty"`
 
 	// IncludeMetadata Indicates whether metadata is included in the response as well as the ids.
@@ -489,10 +489,10 @@ type UpdateRequest struct {
 	// Id Vector's unique id.
 	Id *string `json:"id,omitempty"`
 
-	// Namespace The namespace containing the vector to update.
+	// Namespace The namespace containing the record to update.
 	Namespace *string `json:"namespace,omitempty"`
 
-	// SetMetadata Metadata to set for the vector.
+	// SetMetadata Metadata to set for the record.
 	SetMetadata *map[string]interface{} `json:"setMetadata,omitempty"`
 
 	// SparseValues Vector sparse data. Represented as a list of indices and a list of  corresponded values, which must be with the same length.
@@ -516,7 +516,7 @@ type UpsertRecord struct {
 
 // UpsertRequest The request for the `upsert` operation.
 type UpsertRequest struct {
-	// Namespace The namespace where you upsert vectors.
+	// Namespace The namespace where you upsert records.
 	Namespace *string `json:"namespace,omitempty"`
 
 	// Vectors An array containing the vectors to upsert. Recommended batch limit is up to 1000 vectors.
@@ -664,7 +664,7 @@ type FetchVectorsParams struct {
 	// Ids The vector IDs to fetch. Does not accept values containing spaces.
 	Ids []string `form:"ids" json:"ids"`
 
-	// Namespace The namespace to fetch vectors from. If not provided, the default namespace is used.
+	// Namespace The namespace to fetch records from. If not provided, the default namespace is used.
 	Namespace *string `form:"namespace,omitempty" json:"namespace,omitempty"`
 
 	// XPineconeApiVersion Required date-based version header
