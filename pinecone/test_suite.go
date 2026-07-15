@@ -381,7 +381,15 @@ func retryAssertions(t *testing.T, maxRetries int, delay time.Duration, fn func(
 }
 
 func retryAssertionsWithDefaults(t *testing.T, fn func() error) {
-	retryAssertions(t, 30, 2*time.Second, fn)
+	retryAssertions(t, 30, 3*time.Second, fn)
+}
+
+// retryAssertionsWithExtendedTimeout allows a longer convergence window for
+// operations whose effects propagate slowly under eventual consistency (e.g.
+// delete-by-filter, which must reconcile a metadata query against the freshly
+// mutated index). 60 attempts * 3s = up to 180s.
+func retryAssertionsWithExtendedTimeout(t *testing.T, fn func() error) {
+	retryAssertions(t, 60, 3*time.Second, fn)
 }
 
 func pollIndexForFreshness(ts *integrationTests, ctx context.Context, sampleId string) error {
