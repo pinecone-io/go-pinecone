@@ -55,6 +55,15 @@ type CreateAPIKeyRequest struct {
 	Roles *[]string `json:"roles,omitempty"`
 }
 
+// CreateInviteRequest defines model for CreateInviteRequest.
+type CreateInviteRequest struct {
+	// Email The email address to invite.
+	Email openapi_types.Email `json:"email"`
+
+	// RoleBindings Role bindings for the invitee. Must include at least one `organization`-scoped binding that grants organization membership (`OrgOwner`, `OrgManager`, `OrgBillingAdmin`, or `OrgMember`); `project`-scoped bindings are optional. Not returned in the response.
+	RoleBindings []RoleBindingInput `json:"role_bindings"`
+}
+
 // CreateProjectRequest defines model for CreateProjectRequest.
 type CreateProjectRequest struct {
 	// ForceEncryptionWithCmek Whether to force encryption with a customer-managed encryption key (CMEK). Default is `false`.
@@ -65,6 +74,35 @@ type CreateProjectRequest struct {
 
 	// Name The name of the new project.
 	Name string `json:"name"`
+}
+
+// CreateRoleBindingRequest defines model for CreateRoleBindingRequest.
+type CreateRoleBindingRequest struct {
+	// PrincipalId Principal ID. Format depends on `principal_type`.
+	PrincipalId string `json:"principal_id"`
+
+	// PrincipalType The kind of principal that receives permissions from a role binding.
+	// Possible values: `user`, `service_account`, `api_key`, `invite`.
+	PrincipalType string `json:"principal_type"`
+
+	// ResourceId Project UUID. Required when `resource_type` is `project`; omit for `organization` scope.
+	ResourceId *string `json:"resource_id,omitempty"`
+
+	// ResourceType The kind of resource scope a role binding applies to.
+	// Possible values: `organization`, `project`.
+	ResourceType string `json:"resource_type"`
+
+	// Role A role assigned to a principal at a resource scope.
+	Role string `json:"role"`
+}
+
+// CreateServiceAccountRequest defines model for CreateServiceAccountRequest.
+type CreateServiceAccountRequest struct {
+	// Name The human-readable name of the service account.
+	Name string `json:"name"`
+
+	// RoleBindings Optional initial role bindings. Omitting the field or passing an empty array creates the service account with no role bindings; roles can be added later via the role binding endpoints. Not returned in the response.
+	RoleBindings *[]RoleBindingInput `json:"role_bindings,omitempty"`
 }
 
 // ErrorResponse The response shape used for all error responses.
@@ -82,6 +120,40 @@ type ErrorResponse struct {
 
 	// Status The HTTP status code of the error.
 	Status int `json:"status"`
+}
+
+// Invite An invitation to join the organization.
+type Invite struct {
+	// CreatedAt The date and time the invite was created.
+	CreatedAt time.Time `json:"created_at"`
+
+	// Email The email address the invite was sent to.
+	Email openapi_types.Email `json:"email"`
+
+	// ExpiresAt When the invite expires if not accepted. Default TTL is 7 days. Resending the invite extends this to now plus 7 days. `null` if the invite does not expire.
+	ExpiresAt *time.Time `json:"expires_at"`
+
+	// Id The unique ID of the invite.
+	Id openapi_types.UUID `json:"id"`
+
+	// ProcessedAt The date and time the invite was accepted. `null` or omitted while the invite is still pending or expired.
+	ProcessedAt *time.Time `json:"processed_at"`
+
+	// Status The lifecycle status of an invite.
+	// Possible values: `pending`, `expired`, `processed`. List endpoints return only `pending` and `expired` invites; `processed` is returned only when fetching a single invite by ID.
+	Status string `json:"status"`
+}
+
+// InviteList A paginated list of invites in the organization.
+type InviteList struct {
+	// Data The page of invites.
+	Data []Invite `json:"data"`
+
+	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
+	Pagination *struct {
+		// Next Opaque cursor for the next page. Do not parse or construct. Invalid or expired tokens return `400`.
+		Next *string `json:"next,omitempty"`
+	} `json:"pagination"`
 }
 
 // ListApiKeysResponse defines model for ListApiKeysResponse.
@@ -141,6 +213,97 @@ type ProjectList struct {
 	Data []Project `json:"data"`
 }
 
+// RoleBinding Grants a `role` to a `principal` at a `resource` scope.
+type RoleBinding struct {
+	// CreatedAt When the role binding was created.
+	CreatedAt time.Time `json:"created_at"`
+
+	// Id The unique ID of the role binding.
+	Id openapi_types.UUID `json:"id"`
+
+	// PrincipalId The principal's ID. A UUID for all principal types (`user`, `service_account`, `api_key`, `invite`).
+	PrincipalId string `json:"principal_id"`
+
+	// PrincipalType The kind of principal that receives permissions from a role binding.
+	// Possible values: `user`, `service_account`, `api_key`, `invite`.
+	PrincipalType string `json:"principal_type"`
+
+	// ResourceId The organization or project that the binding is scoped to.
+	ResourceId string `json:"resource_id"`
+
+	// ResourceType The kind of resource scope a role binding applies to.
+	// Possible values: `organization`, `project`.
+	ResourceType string `json:"resource_type"`
+
+	// Role A role assigned to a principal at a resource scope.
+	Role string `json:"role"`
+}
+
+// RoleBindingInput A role to grant to the principal being created. `resource_type` selects the binding scope and acts as the tag for the entry.
+// For `organization` scope, omit `resource_id`; the binding applies to the principal's organization (inferred from the request context). For `project` scope, `resource_id` is required and must be the project UUID.
+type RoleBindingInput struct {
+	// ResourceId Project UUID. Required when `resource_type` is `project`; omit for `organization` scope.
+	ResourceId *string `json:"resource_id,omitempty"`
+
+	// ResourceType The kind of resource scope a role binding applies to.
+	// Possible values: `organization`, `project`.
+	ResourceType string `json:"resource_type"`
+
+	// Role A role assigned to a principal at a resource scope.
+	Role string `json:"role"`
+}
+
+// RoleBindingList A paginated list of role bindings.
+type RoleBindingList struct {
+	// Data The page of role bindings.
+	Data []RoleBinding `json:"data"`
+
+	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
+	Pagination *struct {
+		// Next Opaque cursor for the next page. Do not parse or construct. Invalid or expired tokens return `400`.
+		Next *string `json:"next,omitempty"`
+	} `json:"pagination"`
+}
+
+// ServiceAccount A service account. The OAuth `client_secret` is not included.
+type ServiceAccount struct {
+	// ClientId The OAuth client ID used by the service account to obtain access tokens. Used only for OAuth token exchange.
+	ClientId string `json:"client_id"`
+
+	// CreatedAt The date and time the service account was created.
+	CreatedAt time.Time `json:"created_at"`
+
+	// Id The unique identifier for the service account. Use this as the path parameter on `/admin/service-accounts/{service_account_id}` endpoints and as the `principal_id` when querying or creating role bindings.
+	Id openapi_types.UUID `json:"id"`
+
+	// Name A short human-readable label, set by the caller at creation time.
+	Name string `json:"name"`
+
+	// UpdatedAt The date and time of the service account's most recent metadata update.
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ServiceAccountList A paginated list of service accounts in the organization.
+type ServiceAccountList struct {
+	// Data The page of service accounts.
+	Data []ServiceAccount `json:"data"`
+
+	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
+	Pagination *struct {
+		// Next Opaque cursor for the next page. Do not parse or construct. Invalid or expired tokens return `400`.
+		Next *string `json:"next,omitempty"`
+	} `json:"pagination"`
+}
+
+// ServiceAccountWithSecret A service account with a newly issued OAuth `client_secret`. The secret is returned only once and cannot be retrieved later.
+type ServiceAccountWithSecret struct {
+	// ClientSecret The OAuth client secret. Returned exactly once. Treat this value as a credential — store it securely and never log it.
+	ClientSecret string `json:"client_secret"`
+
+	// ServiceAccount A service account. The OAuth `client_secret` is not included.
+	ServiceAccount ServiceAccount `json:"service_account"`
+}
+
 // UpdateAPIKeyRequest defines model for UpdateAPIKeyRequest.
 type UpdateAPIKeyRequest struct {
 	// Name A new name for the API key. The name must be 1-80 characters long. If omitted, the name will not be updated.
@@ -169,6 +332,36 @@ type UpdateProjectRequest struct {
 	Name *string `json:"name,omitempty"`
 }
 
+// UpdateServiceAccountRequest defines model for UpdateServiceAccountRequest.
+type UpdateServiceAccountRequest struct {
+	// Name A new name for the service account. If omitted, the name is unchanged.
+	Name *string `json:"name,omitempty"`
+}
+
+// User A user who is a member of the organization.
+type User struct {
+	// Email The user's email address.
+	Email openapi_types.Email `json:"email"`
+
+	// Id The unique ID of the user.
+	Id openapi_types.UUID `json:"id"`
+
+	// Name The user's display name. Omitted from the response if the user has not set one.
+	Name *string `json:"name,omitempty"`
+}
+
+// UserList A paginated list of users in the organization.
+type UserList struct {
+	// Data The page of users.
+	Data []User `json:"data"`
+
+	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
+	Pagination *struct {
+		// Next Opaque cursor for the next page. Do not parse or construct. Invalid or expired tokens return `400`.
+		Next *string `json:"next,omitempty"`
+	} `json:"pagination"`
+}
+
 // DeleteApiKeyParams defines parameters for DeleteApiKey.
 type DeleteApiKeyParams struct {
 	// XPineconeApiVersion Required date-based version header
@@ -183,6 +376,42 @@ type FetchApiKeyParams struct {
 
 // UpdateApiKeyParams defines parameters for UpdateApiKey.
 type UpdateApiKeyParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// ListInvitesParams defines parameters for ListInvites.
+type ListInvitesParams struct {
+	// Limit The number of results to return per page. When omitted, the server defaults to 100. Out-of-range values return `400 OUT_OF_RANGE`.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// PaginationToken Cursor from `pagination.next` of a prior response. Must be reused with the same query context (path parameters, filters, and `limit`).
+	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
+
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// CreateInviteParams defines parameters for CreateInvite.
+type CreateInviteParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DeleteInviteParams defines parameters for DeleteInvite.
+type DeleteInviteParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// FetchInviteParams defines parameters for FetchInvite.
+type FetchInviteParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// ResendInviteParams defines parameters for ResendInvite.
+type ResendInviteParams struct {
 	// XPineconeApiVersion Required date-based version header
 	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
 }
@@ -253,8 +482,125 @@ type CreateApiKeyParams struct {
 	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
 }
 
+// ListRoleBindingsParams defines parameters for ListRoleBindings.
+type ListRoleBindingsParams struct {
+	// PrincipalType Filter by principal type. Required when `principal_id` is set.
+	PrincipalType *string `form:"principal_type,omitempty" json:"principal_type,omitempty"`
+
+	// PrincipalId Filter by principal ID. Requires `principal_type`. The ID is a UUID for all principal types (user, service account, or invite).
+	PrincipalId *string `form:"principal_id,omitempty" json:"principal_id,omitempty"`
+
+	// ResourceType Filter by resource type. Required when `resource_id` is set.
+	ResourceType *string `form:"resource_type,omitempty" json:"resource_type,omitempty"`
+
+	// ResourceId Filter by resource ID. Requires `resource_type`.
+	ResourceId *string `form:"resource_id,omitempty" json:"resource_id,omitempty"`
+
+	// Role Filter by role.
+	Role *string `form:"role,omitempty" json:"role,omitempty"`
+
+	// Limit The number of results to return per page. When omitted, the server defaults to 100. Out-of-range values return `400 OUT_OF_RANGE`.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// PaginationToken Cursor from `pagination.next` of a prior response. Must be reused with the same query context (path parameters, filters, and `limit`).
+	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
+
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// CreateRoleBindingParams defines parameters for CreateRoleBinding.
+type CreateRoleBindingParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DeleteRoleBindingParams defines parameters for DeleteRoleBinding.
+type DeleteRoleBindingParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// FetchRoleBindingParams defines parameters for FetchRoleBinding.
+type FetchRoleBindingParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// ListServiceAccountsParams defines parameters for ListServiceAccounts.
+type ListServiceAccountsParams struct {
+	// Limit The number of results to return per page. When omitted, the server defaults to 100. Out-of-range values return `400 OUT_OF_RANGE`.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// PaginationToken Cursor from `pagination.next` of a prior response. Must be reused with the same query context (path parameters, filters, and `limit`).
+	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
+
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// CreateServiceAccountParams defines parameters for CreateServiceAccount.
+type CreateServiceAccountParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DeleteServiceAccountParams defines parameters for DeleteServiceAccount.
+type DeleteServiceAccountParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// FetchServiceAccountParams defines parameters for FetchServiceAccount.
+type FetchServiceAccountParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// UpdateServiceAccountParams defines parameters for UpdateServiceAccount.
+type UpdateServiceAccountParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// RotateServiceAccountSecretParams defines parameters for RotateServiceAccountSecret.
+type RotateServiceAccountSecretParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// ListUsersParams defines parameters for ListUsers.
+type ListUsersParams struct {
+	// Email Case-insensitive filter on the user's email address. Malformed email returns `400 INVALID_ARGUMENT`.
+	Email *openapi_types.Email `form:"email,omitempty" json:"email,omitempty"`
+
+	// Limit The number of results to return per page. When omitted, the server defaults to 100. Out-of-range values return `400 OUT_OF_RANGE`.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// PaginationToken Cursor from `pagination.next` of a prior response. Must be reused with the same query context (path parameters, filters, and `limit`).
+	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
+
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DeleteUserParams defines parameters for DeleteUser.
+type DeleteUserParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// FetchUserParams defines parameters for FetchUser.
+type FetchUserParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
 // UpdateApiKeyJSONRequestBody defines body for UpdateApiKey for application/json ContentType.
 type UpdateApiKeyJSONRequestBody = UpdateAPIKeyRequest
+
+// CreateInviteJSONRequestBody defines body for CreateInvite for application/json ContentType.
+type CreateInviteJSONRequestBody = CreateInviteRequest
 
 // UpdateOrganizationJSONRequestBody defines body for UpdateOrganization for application/json ContentType.
 type UpdateOrganizationJSONRequestBody = UpdateOrganizationRequest
@@ -267,6 +613,15 @@ type UpdateProjectJSONRequestBody = UpdateProjectRequest
 
 // CreateApiKeyJSONRequestBody defines body for CreateApiKey for application/json ContentType.
 type CreateApiKeyJSONRequestBody = CreateAPIKeyRequest
+
+// CreateRoleBindingJSONRequestBody defines body for CreateRoleBinding for application/json ContentType.
+type CreateRoleBindingJSONRequestBody = CreateRoleBindingRequest
+
+// CreateServiceAccountJSONRequestBody defines body for CreateServiceAccount for application/json ContentType.
+type CreateServiceAccountJSONRequestBody = CreateServiceAccountRequest
+
+// UpdateServiceAccountJSONRequestBody defines body for UpdateServiceAccount for application/json ContentType.
+type UpdateServiceAccountJSONRequestBody = UpdateServiceAccountRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -352,6 +707,23 @@ type ClientInterface interface {
 
 	UpdateApiKey(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListInvites request
+	ListInvites(ctx context.Context, params *ListInvitesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateInviteWithBody request with any body
+	CreateInviteWithBody(ctx context.Context, params *CreateInviteParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateInvite(ctx context.Context, params *CreateInviteParams, body CreateInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteInvite request
+	DeleteInvite(ctx context.Context, inviteId openapi_types.UUID, params *DeleteInviteParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// FetchInvite request
+	FetchInvite(ctx context.Context, inviteId openapi_types.UUID, params *FetchInviteParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ResendInvite request
+	ResendInvite(ctx context.Context, inviteId openapi_types.UUID, params *ResendInviteParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListOrganizations request
 	ListOrganizations(ctx context.Context, params *ListOrganizationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -392,6 +764,51 @@ type ClientInterface interface {
 	CreateApiKeyWithBody(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateApiKey(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListRoleBindings request
+	ListRoleBindings(ctx context.Context, params *ListRoleBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateRoleBindingWithBody request with any body
+	CreateRoleBindingWithBody(ctx context.Context, params *CreateRoleBindingParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateRoleBinding(ctx context.Context, params *CreateRoleBindingParams, body CreateRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteRoleBinding request
+	DeleteRoleBinding(ctx context.Context, roleBindingId openapi_types.UUID, params *DeleteRoleBindingParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// FetchRoleBinding request
+	FetchRoleBinding(ctx context.Context, roleBindingId openapi_types.UUID, params *FetchRoleBindingParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListServiceAccounts request
+	ListServiceAccounts(ctx context.Context, params *ListServiceAccountsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateServiceAccountWithBody request with any body
+	CreateServiceAccountWithBody(ctx context.Context, params *CreateServiceAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateServiceAccount(ctx context.Context, params *CreateServiceAccountParams, body CreateServiceAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteServiceAccount request
+	DeleteServiceAccount(ctx context.Context, serviceAccountId openapi_types.UUID, params *DeleteServiceAccountParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// FetchServiceAccount request
+	FetchServiceAccount(ctx context.Context, serviceAccountId openapi_types.UUID, params *FetchServiceAccountParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateServiceAccountWithBody request with any body
+	UpdateServiceAccountWithBody(ctx context.Context, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateServiceAccount(ctx context.Context, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, body UpdateServiceAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RotateServiceAccountSecret request
+	RotateServiceAccountSecret(ctx context.Context, serviceAccountId openapi_types.UUID, params *RotateServiceAccountSecretParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListUsers request
+	ListUsers(ctx context.Context, params *ListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteUser request
+	DeleteUser(ctx context.Context, userId openapi_types.UUID, params *DeleteUserParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// FetchUser request
+	FetchUser(ctx context.Context, userId openapi_types.UUID, params *FetchUserParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) DeleteApiKey(ctx context.Context, apiKeyId openapi_types.UUID, params *DeleteApiKeyParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -432,6 +849,78 @@ func (c *Client) UpdateApiKeyWithBody(ctx context.Context, apiKeyId openapi_type
 
 func (c *Client) UpdateApiKey(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateApiKeyRequest(c.Server, apiKeyId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListInvites(ctx context.Context, params *ListInvitesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListInvitesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateInviteWithBody(ctx context.Context, params *CreateInviteParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateInviteRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateInvite(ctx context.Context, params *CreateInviteParams, body CreateInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateInviteRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteInvite(ctx context.Context, inviteId openapi_types.UUID, params *DeleteInviteParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteInviteRequest(c.Server, inviteId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FetchInvite(ctx context.Context, inviteId openapi_types.UUID, params *FetchInviteParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFetchInviteRequest(c.Server, inviteId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ResendInvite(ctx context.Context, inviteId openapi_types.UUID, params *ResendInviteParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewResendInviteRequest(c.Server, inviteId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -622,6 +1111,198 @@ func (c *Client) CreateApiKey(ctx context.Context, projectId openapi_types.UUID,
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListRoleBindings(ctx context.Context, params *ListRoleBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRoleBindingsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateRoleBindingWithBody(ctx context.Context, params *CreateRoleBindingParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateRoleBindingRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateRoleBinding(ctx context.Context, params *CreateRoleBindingParams, body CreateRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateRoleBindingRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteRoleBinding(ctx context.Context, roleBindingId openapi_types.UUID, params *DeleteRoleBindingParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteRoleBindingRequest(c.Server, roleBindingId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FetchRoleBinding(ctx context.Context, roleBindingId openapi_types.UUID, params *FetchRoleBindingParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFetchRoleBindingRequest(c.Server, roleBindingId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListServiceAccounts(ctx context.Context, params *ListServiceAccountsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListServiceAccountsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateServiceAccountWithBody(ctx context.Context, params *CreateServiceAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateServiceAccountRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateServiceAccount(ctx context.Context, params *CreateServiceAccountParams, body CreateServiceAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateServiceAccountRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteServiceAccount(ctx context.Context, serviceAccountId openapi_types.UUID, params *DeleteServiceAccountParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteServiceAccountRequest(c.Server, serviceAccountId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FetchServiceAccount(ctx context.Context, serviceAccountId openapi_types.UUID, params *FetchServiceAccountParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFetchServiceAccountRequest(c.Server, serviceAccountId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateServiceAccountWithBody(ctx context.Context, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateServiceAccountRequestWithBody(c.Server, serviceAccountId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateServiceAccount(ctx context.Context, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, body UpdateServiceAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateServiceAccountRequest(c.Server, serviceAccountId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RotateServiceAccountSecret(ctx context.Context, serviceAccountId openapi_types.UUID, params *RotateServiceAccountSecretParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRotateServiceAccountSecretRequest(c.Server, serviceAccountId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListUsers(ctx context.Context, params *ListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListUsersRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteUser(ctx context.Context, userId openapi_types.UUID, params *DeleteUserParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteUserRequest(c.Server, userId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FetchUser(ctx context.Context, userId openapi_types.UUID, params *FetchUserParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFetchUserRequest(c.Server, userId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // NewDeleteApiKeyRequest generates requests for DeleteApiKey
 func NewDeleteApiKeyRequest(server string, apiKeyId openapi_types.UUID, params *DeleteApiKeyParams) (*http.Request, error) {
 	var err error
@@ -759,6 +1440,278 @@ func NewUpdateApiKeyRequestWithBody(server string, apiKeyId openapi_types.UUID, 
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewListInvitesRequest generates requests for ListInvites
+func NewListInvitesRequest(server string, params *ListInvitesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/invites")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PaginationToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "paginationToken", runtime.ParamLocationQuery, *params.PaginationToken); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewCreateInviteRequest calls the generic CreateInvite builder with application/json body
+func NewCreateInviteRequest(server string, params *CreateInviteParams, body CreateInviteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateInviteRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateInviteRequestWithBody generates requests for CreateInvite with any type of body
+func NewCreateInviteRequestWithBody(server string, params *CreateInviteParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/invites")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteInviteRequest generates requests for DeleteInvite
+func NewDeleteInviteRequest(server string, inviteId openapi_types.UUID, params *DeleteInviteParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "invite_id", runtime.ParamLocationPath, inviteId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/invites/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewFetchInviteRequest generates requests for FetchInvite
+func NewFetchInviteRequest(server string, inviteId openapi_types.UUID, params *FetchInviteParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "invite_id", runtime.ParamLocationPath, inviteId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/invites/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewResendInviteRequest generates requests for ResendInvite
+func NewResendInviteRequest(server string, inviteId openapi_types.UUID, params *ResendInviteParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "invite_id", runtime.ParamLocationPath, inviteId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/invites/%s/resend", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	if params != nil {
 
@@ -1324,6 +2277,831 @@ func NewCreateApiKeyRequestWithBody(server string, projectId openapi_types.UUID,
 	return req, nil
 }
 
+// NewListRoleBindingsRequest generates requests for ListRoleBindings
+func NewListRoleBindingsRequest(server string, params *ListRoleBindingsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/role-bindings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.PrincipalType != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "principal_type", runtime.ParamLocationQuery, *params.PrincipalType); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PrincipalId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "principal_id", runtime.ParamLocationQuery, *params.PrincipalId); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.ResourceType != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "resource_type", runtime.ParamLocationQuery, *params.ResourceType); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.ResourceId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "resource_id", runtime.ParamLocationQuery, *params.ResourceId); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Role != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "role", runtime.ParamLocationQuery, *params.Role); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PaginationToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "paginationToken", runtime.ParamLocationQuery, *params.PaginationToken); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewCreateRoleBindingRequest calls the generic CreateRoleBinding builder with application/json body
+func NewCreateRoleBindingRequest(server string, params *CreateRoleBindingParams, body CreateRoleBindingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateRoleBindingRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateRoleBindingRequestWithBody generates requests for CreateRoleBinding with any type of body
+func NewCreateRoleBindingRequestWithBody(server string, params *CreateRoleBindingParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/role-bindings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteRoleBindingRequest generates requests for DeleteRoleBinding
+func NewDeleteRoleBindingRequest(server string, roleBindingId openapi_types.UUID, params *DeleteRoleBindingParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "role_binding_id", runtime.ParamLocationPath, roleBindingId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/role-bindings/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewFetchRoleBindingRequest generates requests for FetchRoleBinding
+func NewFetchRoleBindingRequest(server string, roleBindingId openapi_types.UUID, params *FetchRoleBindingParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "role_binding_id", runtime.ParamLocationPath, roleBindingId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/role-bindings/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewListServiceAccountsRequest generates requests for ListServiceAccounts
+func NewListServiceAccountsRequest(server string, params *ListServiceAccountsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/service-accounts")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PaginationToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "paginationToken", runtime.ParamLocationQuery, *params.PaginationToken); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewCreateServiceAccountRequest calls the generic CreateServiceAccount builder with application/json body
+func NewCreateServiceAccountRequest(server string, params *CreateServiceAccountParams, body CreateServiceAccountJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateServiceAccountRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateServiceAccountRequestWithBody generates requests for CreateServiceAccount with any type of body
+func NewCreateServiceAccountRequestWithBody(server string, params *CreateServiceAccountParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/service-accounts")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteServiceAccountRequest generates requests for DeleteServiceAccount
+func NewDeleteServiceAccountRequest(server string, serviceAccountId openapi_types.UUID, params *DeleteServiceAccountParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "service_account_id", runtime.ParamLocationPath, serviceAccountId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/service-accounts/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewFetchServiceAccountRequest generates requests for FetchServiceAccount
+func NewFetchServiceAccountRequest(server string, serviceAccountId openapi_types.UUID, params *FetchServiceAccountParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "service_account_id", runtime.ParamLocationPath, serviceAccountId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/service-accounts/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewUpdateServiceAccountRequest calls the generic UpdateServiceAccount builder with application/json body
+func NewUpdateServiceAccountRequest(server string, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, body UpdateServiceAccountJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateServiceAccountRequestWithBody(server, serviceAccountId, params, "application/json", bodyReader)
+}
+
+// NewUpdateServiceAccountRequestWithBody generates requests for UpdateServiceAccount with any type of body
+func NewUpdateServiceAccountRequestWithBody(server string, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "service_account_id", runtime.ParamLocationPath, serviceAccountId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/service-accounts/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewRotateServiceAccountSecretRequest generates requests for RotateServiceAccountSecret
+func NewRotateServiceAccountSecretRequest(server string, serviceAccountId openapi_types.UUID, params *RotateServiceAccountSecretParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "service_account_id", runtime.ParamLocationPath, serviceAccountId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/service-accounts/%s/rotate-secret", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewListUsersRequest generates requests for ListUsers
+func NewListUsersRequest(server string, params *ListUsersParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/users")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Email != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "email", runtime.ParamLocationQuery, *params.Email); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PaginationToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "paginationToken", runtime.ParamLocationQuery, *params.PaginationToken); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteUserRequest generates requests for DeleteUser
+func NewDeleteUserRequest(server string, userId openapi_types.UUID, params *DeleteUserParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "user_id", runtime.ParamLocationPath, userId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/users/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewFetchUserRequest generates requests for FetchUser
+func NewFetchUserRequest(server string, userId openapi_types.UUID, params *FetchUserParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "user_id", runtime.ParamLocationPath, userId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/users/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -1378,6 +3156,23 @@ type ClientWithResponsesInterface interface {
 
 	UpdateApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error)
 
+	// ListInvitesWithResponse request
+	ListInvitesWithResponse(ctx context.Context, params *ListInvitesParams, reqEditors ...RequestEditorFn) (*ListInvitesResponse, error)
+
+	// CreateInviteWithBodyWithResponse request with any body
+	CreateInviteWithBodyWithResponse(ctx context.Context, params *CreateInviteParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateInviteResponse, error)
+
+	CreateInviteWithResponse(ctx context.Context, params *CreateInviteParams, body CreateInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateInviteResponse, error)
+
+	// DeleteInviteWithResponse request
+	DeleteInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *DeleteInviteParams, reqEditors ...RequestEditorFn) (*DeleteInviteResponse, error)
+
+	// FetchInviteWithResponse request
+	FetchInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *FetchInviteParams, reqEditors ...RequestEditorFn) (*FetchInviteResponse, error)
+
+	// ResendInviteWithResponse request
+	ResendInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *ResendInviteParams, reqEditors ...RequestEditorFn) (*ResendInviteResponse, error)
+
 	// ListOrganizationsWithResponse request
 	ListOrganizationsWithResponse(ctx context.Context, params *ListOrganizationsParams, reqEditors ...RequestEditorFn) (*ListOrganizationsResponse, error)
 
@@ -1418,6 +3213,51 @@ type ClientWithResponsesInterface interface {
 	CreateApiKeyWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error)
 
 	CreateApiKeyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error)
+
+	// ListRoleBindingsWithResponse request
+	ListRoleBindingsWithResponse(ctx context.Context, params *ListRoleBindingsParams, reqEditors ...RequestEditorFn) (*ListRoleBindingsResponse, error)
+
+	// CreateRoleBindingWithBodyWithResponse request with any body
+	CreateRoleBindingWithBodyWithResponse(ctx context.Context, params *CreateRoleBindingParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRoleBindingResponse, error)
+
+	CreateRoleBindingWithResponse(ctx context.Context, params *CreateRoleBindingParams, body CreateRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRoleBindingResponse, error)
+
+	// DeleteRoleBindingWithResponse request
+	DeleteRoleBindingWithResponse(ctx context.Context, roleBindingId openapi_types.UUID, params *DeleteRoleBindingParams, reqEditors ...RequestEditorFn) (*DeleteRoleBindingResponse, error)
+
+	// FetchRoleBindingWithResponse request
+	FetchRoleBindingWithResponse(ctx context.Context, roleBindingId openapi_types.UUID, params *FetchRoleBindingParams, reqEditors ...RequestEditorFn) (*FetchRoleBindingResponse, error)
+
+	// ListServiceAccountsWithResponse request
+	ListServiceAccountsWithResponse(ctx context.Context, params *ListServiceAccountsParams, reqEditors ...RequestEditorFn) (*ListServiceAccountsResponse, error)
+
+	// CreateServiceAccountWithBodyWithResponse request with any body
+	CreateServiceAccountWithBodyWithResponse(ctx context.Context, params *CreateServiceAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateServiceAccountResponse, error)
+
+	CreateServiceAccountWithResponse(ctx context.Context, params *CreateServiceAccountParams, body CreateServiceAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateServiceAccountResponse, error)
+
+	// DeleteServiceAccountWithResponse request
+	DeleteServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *DeleteServiceAccountParams, reqEditors ...RequestEditorFn) (*DeleteServiceAccountResponse, error)
+
+	// FetchServiceAccountWithResponse request
+	FetchServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *FetchServiceAccountParams, reqEditors ...RequestEditorFn) (*FetchServiceAccountResponse, error)
+
+	// UpdateServiceAccountWithBodyWithResponse request with any body
+	UpdateServiceAccountWithBodyWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateServiceAccountResponse, error)
+
+	UpdateServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, body UpdateServiceAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateServiceAccountResponse, error)
+
+	// RotateServiceAccountSecretWithResponse request
+	RotateServiceAccountSecretWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *RotateServiceAccountSecretParams, reqEditors ...RequestEditorFn) (*RotateServiceAccountSecretResponse, error)
+
+	// ListUsersWithResponse request
+	ListUsersWithResponse(ctx context.Context, params *ListUsersParams, reqEditors ...RequestEditorFn) (*ListUsersResponse, error)
+
+	// DeleteUserWithResponse request
+	DeleteUserWithResponse(ctx context.Context, userId openapi_types.UUID, params *DeleteUserParams, reqEditors ...RequestEditorFn) (*DeleteUserResponse, error)
+
+	// FetchUserWithResponse request
+	FetchUserWithResponse(ctx context.Context, userId openapi_types.UUID, params *FetchUserParams, reqEditors ...RequestEditorFn) (*FetchUserResponse, error)
 }
 
 type DeleteApiKeyResponse struct {
@@ -1493,6 +3333,144 @@ func (r UpdateApiKeyResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateApiKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListInvitesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InviteList
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListInvitesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListInvitesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateInviteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Invite
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON409      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateInviteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateInviteResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteInviteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON409      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteInviteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteInviteResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type FetchInviteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Invite
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r FetchInviteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r FetchInviteResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ResendInviteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Invite
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON409      *ErrorResponse
+	JSON429      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ResendInviteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ResendInviteResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1789,6 +3767,359 @@ func (r CreateApiKeyResponse) StatusCode() int {
 	return 0
 }
 
+type ListRoleBindingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RoleBindingList
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListRoleBindingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListRoleBindingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateRoleBindingResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RoleBinding
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON409      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateRoleBindingResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateRoleBindingResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteRoleBindingResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON409      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteRoleBindingResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteRoleBindingResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type FetchRoleBindingResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RoleBinding
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r FetchRoleBindingResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r FetchRoleBindingResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListServiceAccountsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ServiceAccountList
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListServiceAccountsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListServiceAccountsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateServiceAccountResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ServiceAccountWithSecret
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateServiceAccountResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateServiceAccountResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteServiceAccountResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteServiceAccountResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteServiceAccountResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type FetchServiceAccountResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ServiceAccount
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r FetchServiceAccountResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r FetchServiceAccountResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateServiceAccountResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ServiceAccount
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateServiceAccountResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateServiceAccountResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RotateServiceAccountSecretResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ServiceAccountWithSecret
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r RotateServiceAccountSecretResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RotateServiceAccountSecretResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListUsersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UserList
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListUsersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListUsersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteUserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON409      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteUserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type FetchUserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *User
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r FetchUserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r FetchUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // DeleteApiKeyWithResponse request returning *DeleteApiKeyResponse
 func (c *ClientWithResponses) DeleteApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *DeleteApiKeyParams, reqEditors ...RequestEditorFn) (*DeleteApiKeyResponse, error) {
 	rsp, err := c.DeleteApiKey(ctx, apiKeyId, params, reqEditors...)
@@ -1822,6 +4153,59 @@ func (c *ClientWithResponses) UpdateApiKeyWithResponse(ctx context.Context, apiK
 		return nil, err
 	}
 	return ParseUpdateApiKeyResponse(rsp)
+}
+
+// ListInvitesWithResponse request returning *ListInvitesResponse
+func (c *ClientWithResponses) ListInvitesWithResponse(ctx context.Context, params *ListInvitesParams, reqEditors ...RequestEditorFn) (*ListInvitesResponse, error) {
+	rsp, err := c.ListInvites(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListInvitesResponse(rsp)
+}
+
+// CreateInviteWithBodyWithResponse request with arbitrary body returning *CreateInviteResponse
+func (c *ClientWithResponses) CreateInviteWithBodyWithResponse(ctx context.Context, params *CreateInviteParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateInviteResponse, error) {
+	rsp, err := c.CreateInviteWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateInviteResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateInviteWithResponse(ctx context.Context, params *CreateInviteParams, body CreateInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateInviteResponse, error) {
+	rsp, err := c.CreateInvite(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateInviteResponse(rsp)
+}
+
+// DeleteInviteWithResponse request returning *DeleteInviteResponse
+func (c *ClientWithResponses) DeleteInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *DeleteInviteParams, reqEditors ...RequestEditorFn) (*DeleteInviteResponse, error) {
+	rsp, err := c.DeleteInvite(ctx, inviteId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteInviteResponse(rsp)
+}
+
+// FetchInviteWithResponse request returning *FetchInviteResponse
+func (c *ClientWithResponses) FetchInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *FetchInviteParams, reqEditors ...RequestEditorFn) (*FetchInviteResponse, error) {
+	rsp, err := c.FetchInvite(ctx, inviteId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFetchInviteResponse(rsp)
+}
+
+// ResendInviteWithResponse request returning *ResendInviteResponse
+func (c *ClientWithResponses) ResendInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *ResendInviteParams, reqEditors ...RequestEditorFn) (*ResendInviteResponse, error) {
+	rsp, err := c.ResendInvite(ctx, inviteId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseResendInviteResponse(rsp)
 }
 
 // ListOrganizationsWithResponse request returning *ListOrganizationsResponse
@@ -1953,6 +4337,147 @@ func (c *ClientWithResponses) CreateApiKeyWithResponse(ctx context.Context, proj
 		return nil, err
 	}
 	return ParseCreateApiKeyResponse(rsp)
+}
+
+// ListRoleBindingsWithResponse request returning *ListRoleBindingsResponse
+func (c *ClientWithResponses) ListRoleBindingsWithResponse(ctx context.Context, params *ListRoleBindingsParams, reqEditors ...RequestEditorFn) (*ListRoleBindingsResponse, error) {
+	rsp, err := c.ListRoleBindings(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListRoleBindingsResponse(rsp)
+}
+
+// CreateRoleBindingWithBodyWithResponse request with arbitrary body returning *CreateRoleBindingResponse
+func (c *ClientWithResponses) CreateRoleBindingWithBodyWithResponse(ctx context.Context, params *CreateRoleBindingParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRoleBindingResponse, error) {
+	rsp, err := c.CreateRoleBindingWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateRoleBindingResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateRoleBindingWithResponse(ctx context.Context, params *CreateRoleBindingParams, body CreateRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRoleBindingResponse, error) {
+	rsp, err := c.CreateRoleBinding(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateRoleBindingResponse(rsp)
+}
+
+// DeleteRoleBindingWithResponse request returning *DeleteRoleBindingResponse
+func (c *ClientWithResponses) DeleteRoleBindingWithResponse(ctx context.Context, roleBindingId openapi_types.UUID, params *DeleteRoleBindingParams, reqEditors ...RequestEditorFn) (*DeleteRoleBindingResponse, error) {
+	rsp, err := c.DeleteRoleBinding(ctx, roleBindingId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteRoleBindingResponse(rsp)
+}
+
+// FetchRoleBindingWithResponse request returning *FetchRoleBindingResponse
+func (c *ClientWithResponses) FetchRoleBindingWithResponse(ctx context.Context, roleBindingId openapi_types.UUID, params *FetchRoleBindingParams, reqEditors ...RequestEditorFn) (*FetchRoleBindingResponse, error) {
+	rsp, err := c.FetchRoleBinding(ctx, roleBindingId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFetchRoleBindingResponse(rsp)
+}
+
+// ListServiceAccountsWithResponse request returning *ListServiceAccountsResponse
+func (c *ClientWithResponses) ListServiceAccountsWithResponse(ctx context.Context, params *ListServiceAccountsParams, reqEditors ...RequestEditorFn) (*ListServiceAccountsResponse, error) {
+	rsp, err := c.ListServiceAccounts(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListServiceAccountsResponse(rsp)
+}
+
+// CreateServiceAccountWithBodyWithResponse request with arbitrary body returning *CreateServiceAccountResponse
+func (c *ClientWithResponses) CreateServiceAccountWithBodyWithResponse(ctx context.Context, params *CreateServiceAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateServiceAccountResponse, error) {
+	rsp, err := c.CreateServiceAccountWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateServiceAccountResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateServiceAccountWithResponse(ctx context.Context, params *CreateServiceAccountParams, body CreateServiceAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateServiceAccountResponse, error) {
+	rsp, err := c.CreateServiceAccount(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateServiceAccountResponse(rsp)
+}
+
+// DeleteServiceAccountWithResponse request returning *DeleteServiceAccountResponse
+func (c *ClientWithResponses) DeleteServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *DeleteServiceAccountParams, reqEditors ...RequestEditorFn) (*DeleteServiceAccountResponse, error) {
+	rsp, err := c.DeleteServiceAccount(ctx, serviceAccountId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteServiceAccountResponse(rsp)
+}
+
+// FetchServiceAccountWithResponse request returning *FetchServiceAccountResponse
+func (c *ClientWithResponses) FetchServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *FetchServiceAccountParams, reqEditors ...RequestEditorFn) (*FetchServiceAccountResponse, error) {
+	rsp, err := c.FetchServiceAccount(ctx, serviceAccountId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFetchServiceAccountResponse(rsp)
+}
+
+// UpdateServiceAccountWithBodyWithResponse request with arbitrary body returning *UpdateServiceAccountResponse
+func (c *ClientWithResponses) UpdateServiceAccountWithBodyWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateServiceAccountResponse, error) {
+	rsp, err := c.UpdateServiceAccountWithBody(ctx, serviceAccountId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateServiceAccountResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, body UpdateServiceAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateServiceAccountResponse, error) {
+	rsp, err := c.UpdateServiceAccount(ctx, serviceAccountId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateServiceAccountResponse(rsp)
+}
+
+// RotateServiceAccountSecretWithResponse request returning *RotateServiceAccountSecretResponse
+func (c *ClientWithResponses) RotateServiceAccountSecretWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *RotateServiceAccountSecretParams, reqEditors ...RequestEditorFn) (*RotateServiceAccountSecretResponse, error) {
+	rsp, err := c.RotateServiceAccountSecret(ctx, serviceAccountId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRotateServiceAccountSecretResponse(rsp)
+}
+
+// ListUsersWithResponse request returning *ListUsersResponse
+func (c *ClientWithResponses) ListUsersWithResponse(ctx context.Context, params *ListUsersParams, reqEditors ...RequestEditorFn) (*ListUsersResponse, error) {
+	rsp, err := c.ListUsers(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListUsersResponse(rsp)
+}
+
+// DeleteUserWithResponse request returning *DeleteUserResponse
+func (c *ClientWithResponses) DeleteUserWithResponse(ctx context.Context, userId openapi_types.UUID, params *DeleteUserParams, reqEditors ...RequestEditorFn) (*DeleteUserResponse, error) {
+	rsp, err := c.DeleteUser(ctx, userId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteUserResponse(rsp)
+}
+
+// FetchUserWithResponse request returning *FetchUserResponse
+func (c *ClientWithResponses) FetchUserWithResponse(ctx context.Context, userId openapi_types.UUID, params *FetchUserParams, reqEditors ...RequestEditorFn) (*FetchUserResponse, error) {
+	rsp, err := c.FetchUser(ctx, userId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFetchUserResponse(rsp)
 }
 
 // ParseDeleteApiKeyResponse parses an HTTP response from a DeleteApiKeyWithResponse call
@@ -2104,6 +4629,332 @@ func ParseUpdateApiKeyResponse(rsp *http.Response) (*UpdateApiKeyResponse, error
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListInvitesResponse parses an HTTP response from a ListInvitesWithResponse call
+func ParseListInvitesResponse(rsp *http.Response) (*ListInvitesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListInvitesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InviteList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateInviteResponse parses an HTTP response from a CreateInviteWithResponse call
+func ParseCreateInviteResponse(rsp *http.Response) (*CreateInviteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateInviteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Invite
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteInviteResponse parses an HTTP response from a DeleteInviteWithResponse call
+func ParseDeleteInviteResponse(rsp *http.Response) (*DeleteInviteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteInviteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseFetchInviteResponse parses an HTTP response from a FetchInviteWithResponse call
+func ParseFetchInviteResponse(rsp *http.Response) (*FetchInviteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &FetchInviteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Invite
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseResendInviteResponse parses an HTTP response from a ResendInviteWithResponse call
+func ParseResendInviteResponse(rsp *http.Response) (*ResendInviteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ResendInviteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Invite
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
@@ -2726,6 +5577,813 @@ func ParseCreateApiKeyResponse(rsp *http.Response) (*CreateApiKeyResponse, error
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListRoleBindingsResponse parses an HTTP response from a ListRoleBindingsWithResponse call
+func ParseListRoleBindingsResponse(rsp *http.Response) (*ListRoleBindingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListRoleBindingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RoleBindingList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateRoleBindingResponse parses an HTTP response from a CreateRoleBindingWithResponse call
+func ParseCreateRoleBindingResponse(rsp *http.Response) (*CreateRoleBindingResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateRoleBindingResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RoleBinding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteRoleBindingResponse parses an HTTP response from a DeleteRoleBindingWithResponse call
+func ParseDeleteRoleBindingResponse(rsp *http.Response) (*DeleteRoleBindingResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteRoleBindingResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseFetchRoleBindingResponse parses an HTTP response from a FetchRoleBindingWithResponse call
+func ParseFetchRoleBindingResponse(rsp *http.Response) (*FetchRoleBindingResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &FetchRoleBindingResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RoleBinding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListServiceAccountsResponse parses an HTTP response from a ListServiceAccountsWithResponse call
+func ParseListServiceAccountsResponse(rsp *http.Response) (*ListServiceAccountsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListServiceAccountsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServiceAccountList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateServiceAccountResponse parses an HTTP response from a CreateServiceAccountWithResponse call
+func ParseCreateServiceAccountResponse(rsp *http.Response) (*CreateServiceAccountResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateServiceAccountResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ServiceAccountWithSecret
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteServiceAccountResponse parses an HTTP response from a DeleteServiceAccountWithResponse call
+func ParseDeleteServiceAccountResponse(rsp *http.Response) (*DeleteServiceAccountResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteServiceAccountResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseFetchServiceAccountResponse parses an HTTP response from a FetchServiceAccountWithResponse call
+func ParseFetchServiceAccountResponse(rsp *http.Response) (*FetchServiceAccountResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &FetchServiceAccountResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServiceAccount
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateServiceAccountResponse parses an HTTP response from a UpdateServiceAccountWithResponse call
+func ParseUpdateServiceAccountResponse(rsp *http.Response) (*UpdateServiceAccountResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateServiceAccountResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServiceAccount
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRotateServiceAccountSecretResponse parses an HTTP response from a RotateServiceAccountSecretWithResponse call
+func ParseRotateServiceAccountSecretResponse(rsp *http.Response) (*RotateServiceAccountSecretResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RotateServiceAccountSecretResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServiceAccountWithSecret
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListUsersResponse parses an HTTP response from a ListUsersWithResponse call
+func ParseListUsersResponse(rsp *http.Response) (*ListUsersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListUsersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteUserResponse parses an HTTP response from a DeleteUserWithResponse call
+func ParseDeleteUserResponse(rsp *http.Response) (*DeleteUserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteUserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseFetchUserResponse parses an HTTP response from a FetchUserWithResponse call
+func ParseFetchUserResponse(rsp *http.Response) (*FetchUserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &FetchUserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest User
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
