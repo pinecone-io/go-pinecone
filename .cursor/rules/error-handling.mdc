@@ -1,0 +1,19 @@
+---
+alwaysApply: true
+---
+
+# Error Handling
+
+Return errors rather than panicking. Wrap with context using `fmt.Errorf("doing X: %w", err)` — always use `%w` (not `%v`) to preserve the error chain for `errors.Is()`/`errors.As()` inspection.
+
+Use `PineconeError` for SDK-level errors surfaced to the user. Error messages should be specific and actionable — include the relevant value and what was expected.
+
+**Input validation:** Validate before making API calls. Return descriptive errors referencing the invalid parameter. Do not validate API responses — trust the API.
+
+**Error inspection:** Use `errors.Is()` for sentinel errors, `errors.As()` for type assertions. Never match errors by string comparison.
+
+**Resource cleanup:** Use `defer` for cleanup. Ensure cleanup runs in error paths. Close `IndexConnection` when done.
+
+✅ `fmt.Errorf("creating index %q with dimension %d: %w", name, dim, err)`
+❌ `fmt.Errorf("creating index %q: %v", name, err)` — loses error chain
+❌ `errors.New(fmt.Sprintf("failed: %s", msg))` — use `fmt.Errorf` instead

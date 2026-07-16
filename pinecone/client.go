@@ -6,20 +6,22 @@ package pinecone
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 
-	"github.com/pinecone-io/go-pinecone/v4/internal/gen"
-	"github.com/pinecone-io/go-pinecone/v4/internal/gen/db_control"
-	db_data_rest "github.com/pinecone-io/go-pinecone/v4/internal/gen/db_data/rest"
-	"github.com/pinecone-io/go-pinecone/v4/internal/gen/inference"
-	"github.com/pinecone-io/go-pinecone/v4/internal/provider"
-	"github.com/pinecone-io/go-pinecone/v4/internal/useragent"
+	"github.com/pinecone-io/go-pinecone/v5/internal/gen"
+	"github.com/pinecone-io/go-pinecone/v5/internal/gen/db_control"
+	db_data_rest "github.com/pinecone-io/go-pinecone/v5/internal/gen/db_data/rest"
+	"github.com/pinecone-io/go-pinecone/v5/internal/gen/inference"
+	"github.com/pinecone-io/go-pinecone/v5/internal/provider"
+	"github.com/pinecone-io/go-pinecone/v5/internal/useragent"
 	"google.golang.org/grpc"
 )
 
@@ -49,8 +51,8 @@ import (
 //
 //	    pc, err := pinecone.NewClient(clientParams) // --> This creates a new Client object.
 //	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
@@ -123,7 +125,7 @@ type NewClientBaseParams struct {
 // See [Client.Index] for code example.
 type NewIndexConnParams struct {
 	Host               string            // required - obtained through DescribeIndex or ListIndexes
-	Namespace          string            // optional - if not provided the default namespace of "__default__" will be used
+	Namespace          string            // optional - if not provided the default namespace of "" will be used
 	AdditionalMetadata map[string]string // optional
 }
 
@@ -149,10 +151,8 @@ type NewIndexConnParams struct {
 //
 //	    pc, err := pinecone.NewClient(clientParams)
 //	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 func NewClient(in NewClientParams) (*Client, error) {
 	osApiKey := os.Getenv("PINECONE_API_KEY")
 	hasApiKey := valueOrFallback(in.ApiKey, osApiKey) != ""
@@ -190,22 +190,19 @@ func NewClient(in NewClientParams) (*Client, error) {
 //
 // Example:
 //
-//	    ctx := context.Background()
+//		ctx := context.Background()
 //
 //	    clientParams := pinecone.NewClientBaseParams{
-//	        Headers: map[string]string{
-//	            "Authorization": "Bearer " + "<your OAuth token>"
-//	            "X-Project-Id": "<Your Pinecone project ID>"
-//	        },
-//	        SourceTag: "your_source_identifier", // optional
-//	    }
+//			Headers: map[string]string{
+//				"Authorization": "Bearer " + "<your OAuth token>",
+//				"X-Project-Id":  "<Your Pinecone project ID>",
+//			},
+//		}
 //
 //	    pc, err := pinecone.NewClientBase(clientParams)
-//		       if err != nil {
-//	            log.Fatalf("Failed to create Client: %v", err)
-//	        } else {
-//		           fmt.Println("Successfully created a new Client object!")
-//	    }
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 func NewClientBase(in NewClientBaseParams) (*Client, error) {
 	controlOptions := buildClientBaseOptions(in)
 	inferenceOptions := buildInferenceBaseOptions(in)
@@ -253,14 +250,11 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 //
 //	    clientParams := pinecone.NewClientParams{
 //		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
 //	    if err != nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
+//	        panic(fmt.Errorf("Failed to create Client: %v", err))
 //	    }
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
@@ -287,10 +281,6 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*IndexConnection, error) {
 	if in.AdditionalMetadata == nil {
 		in.AdditionalMetadata = make(map[string]string)
-	}
-
-	if in.Namespace == "" {
-		in.Namespace = "__default__"
 	}
 
 	if in.Host == "" {
@@ -355,9 +345,7 @@ func ensureHostHasHttps(host string) string {
 //
 //	    pc, err := pinecone.NewClient(clientParams)
 //	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
+//	        panic(fmt.Errorf("Failed to create Client: %v", err))
 //	    }
 //
 //	    idxs, err := pc.ListIndexes(ctx)
@@ -372,7 +360,7 @@ func ensureHostHasHttps(host string) string {
 //
 // [project]: https://docs.pinecone.io/guides/projects/understanding-projects
 func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
-	res, err := c.restClient.ListIndexes(ctx)
+	res, err := c.restClient.ListIndexes(ctx, &db_control.ListIndexesParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -392,7 +380,11 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	if indexList.Indexes != nil {
 		indexes = make([]*Index, len(*indexList.Indexes))
 		for i, idx := range *indexList.Indexes {
-			indexes[i] = toIndex(&idx)
+			index, err := toIndex(&idx)
+			if err != nil {
+				return nil, err
+			}
+			indexes[i] = index
 		}
 	} else {
 		indexes = make([]*Index, 0)
@@ -439,9 +431,7 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //
 //	    pc, err := pinecone.NewClient(clientParams)
 //	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
+//	        panic(fmt.Errorf("Failed to create Client: %v", err))
 //	    }
 //
 //	    podIndexMetadata := &pinecone.PodSpecMetadataConfig{
@@ -523,9 +513,7 @@ func (req CreatePodIndexRequest) TotalCount() int {
 //
 //	    pc, err := pinecone.NewClient(clientParams)
 //	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
+//	        panic(fmt.Errorf("Failed to create Client: %v", err))
 //	    }
 //
 //	    podIndexMetadata := &pinecone.PodSpecMetadataConfig{
@@ -549,6 +537,9 @@ func (req CreatePodIndexRequest) TotalCount() int {
 //			   fmt.Printf("Successfully created pod index: %s", idx.Name)
 //		}
 func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreatePodIndexRequest) cannot be nil")
+	}
 	if in.Name == "" || in.Dimension <= 0 || in.Environment == "" || in.PodType == "" {
 		return nil, fmt.Errorf("fields Name, positive Dimension, Environment, and Podtype must be included in CreatePodIndexRequest")
 	}
@@ -556,11 +547,6 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 	var deletionProtection *db_control.DeletionProtection
 	if in.DeletionProtection != nil {
 		deletionProtection = pointerOrNil(db_control.DeletionProtection(*in.DeletionProtection))
-	}
-
-	var metric *db_control.CreateIndexRequestMetric
-	if in.Metric != nil {
-		metric = pointerOrNil(db_control.CreateIndexRequestMetric(*in.Metric))
 	}
 
 	pods := in.TotalCount()
@@ -576,32 +562,37 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 	req := db_control.CreateIndexRequest{
 		Name:               in.Name,
 		Dimension:          &in.Dimension,
-		Metric:             metric,
+		Metric:             (*string)(in.Metric),
 		DeletionProtection: deletionProtection,
 		Tags:               tags,
 		VectorType:         &vectorType,
 	}
 
-	req.Spec = db_control.IndexSpec{
-		Pod: &db_control.PodSpec{
+	podSpec := db_control.IndexSpec1{
+		Pod: db_control.PodSpec{
 			Environment:      in.Environment,
 			PodType:          in.PodType,
 			Pods:             &pods,
 			Replicas:         &replicas,
 			Shards:           &shards,
 			SourceCollection: in.SourceCollection,
-		},
-	}
+		}}
 
 	if in.MetadataConfig != nil {
-		req.Spec.Pod.MetadataConfig = &struct {
+		podSpec.Pod.MetadataConfig = &struct {
 			Indexed *[]string `json:"indexed,omitempty"`
 		}{
 			Indexed: in.MetadataConfig.Indexed,
 		}
 	}
 
-	res, err := c.restClient.CreateIndex(ctx, req)
+	// Apply pod spec to the request
+	err := req.Spec.FromIndexSpec1(podSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := c.restClient.CreateIndex(ctx, &db_control.CreateIndexParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 	if err != nil {
 		return nil, err
 	}
@@ -630,6 +621,9 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //   - Dimension: (Optional) The [dimensionality] of the vectors to be inserted in the [Index].
 //   - VectorType: (Optional) The index vector type. You can use `dense` or `sparse`. If `dense`, the vector dimension must be specified.
 //     If `sparse`, the vector dimension should not be specified, and the Metric must be set to `dotproduct`. Defaults to `dense`.
+//   - ReadCapacity: (Optional) The read capacity configuration for the serverless index. Used to configure dedicated read capacity
+//     with specific node types and scaling strategies.
+//   - Schema: (Optional) Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
 //   - Tags: (Optional) A map of tags to associate with the Index.
 //   - SourceCollection: (Optional) The name of the [Collection] to use as the source for the index. NOTE: Collections can only be created
 //     from pods-based indexes.
@@ -646,11 +640,9 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //	    }
 //
 //		pc, err := pinecone.NewClient(clientParams)
-//		if err != nil {
-//		    log.Fatalf("Failed to create Client: %v", err)
-//		} else {
-//		    fmt.Println("Successfully created a new Client object!")
-//		}
+//	    if err != nil {
+//	        panic(fmt.Errorf("Failed to create Client: %v", err))
+//	    }
 //
 //		indexName := "my-serverless-index"
 //
@@ -682,11 +674,42 @@ type CreateServerlessIndexRequest struct {
 	DeletionProtection *DeletionProtection
 	Dimension          *int32
 	VectorType         *string
+	ReadCapacity       *ReadCapacityParams
+	Schema             *MetadataSchema
 	Tags               *IndexTags
 	SourceCollection   *string
 }
 
-// [Client.CreateServerlessIndex] creates and initializes a new serverless Index via the specified [Client].
+// [ReadCapacityParams] represents the read capacity configuration for creating or configuring a serverless or integrated index.
+// If [ReadCapacityParams] are nil, the index will be created with OnDemand read capacity.
+//
+// Fields:
+//   - Dedicated: Dedicated read capacity mode. Requires node_type and scaling configuration.
+//   - OnDemand: OnDemand read capacity mode. No configuration is required.
+type ReadCapacityParams struct {
+	Dedicated *ReadCapacityDedicatedConfig `json:"dedicated,omitempty"`
+	OnDemand  *ReadCapacityOnDemandConfig  `json:"on_demand,omitempty"`
+}
+
+// [ReadCapacityDedicatedConfig] represents Dedicated read capacity configuration for indexes.
+// When creating a Dedicated index or converting an existing OnDemand index to Dedicated, you must specify NodeType, Scaling.Manual.Replicas,
+// and Scaling.Manual.Shards.
+//
+// Fields:
+//   - NodeType: The type of machines to use. Available options: "b1" and "t1".
+//     "t1" includes increased processing power and memory.
+//   - Scaling: The scaling strategy configuration. Currently supports manual scaling.
+type ReadCapacityDedicatedConfig struct {
+	NodeType *string              `json:"node_type"`
+	Scaling  *ReadCapacityScaling `json:"scaling,omitempty"`
+}
+
+// [ReadCapacityOnDemandConfig] represents OnDemand read capacity configuration for indexes.
+// The struct is intentionally empty because OnDemand does not support configuration values.
+// When creating an OnDemand index, you can leave [ReadCapacityParams] empty in the create request.
+type ReadCapacityOnDemandConfig struct{}
+
+// [Client.CreateServerlessIndex] creates and initializes a new serverless index via the specified [Client].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -706,9 +729,7 @@ type CreateServerlessIndexRequest struct {
 //
 //	    pc, err := pinecone.NewClient(clientParams)
 //	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
+//	        panic(fmt.Errorf("Failed to create Client: %v", err))
 //	    }
 //
 //	    indexName := "my-serverless-index"
@@ -727,29 +748,16 @@ type CreateServerlessIndexRequest struct {
 //		    fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //		}
 func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerlessIndexRequest) (*Index, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreateServerlessIndexRequest) cannot be nil")
+	}
 	if in.Name == "" || in.Cloud == "" || in.Region == "" {
 		return nil, fmt.Errorf("fields Name, Cloud, and Region must be included in CreateServerlessIndexRequest")
 	}
 
-	// default to "dense" if VectorType is not specified
-	vectorType := in.VectorType
-
-	// validate VectorType options
-	if in.VectorType != nil {
-		switch *in.VectorType {
-		case "sparse":
-			if in.Dimension != nil {
-				return nil, fmt.Errorf("Dimension should not be specified when VectorType is 'sparse'")
-			} else if in.Metric != nil && *in.Metric != Dotproduct {
-				return nil, fmt.Errorf("Metric should be 'dotproduct' when VectorType is 'sparse'")
-			}
-		case "dense":
-			if in.Dimension == nil {
-				return nil, fmt.Errorf("Dimension should be specified when VectorType is 'dense'")
-			}
-		default:
-			return nil, fmt.Errorf("unsupported VectorType: %s", *in.VectorType)
-		}
+	vectorType, err := validateVectorType(in.VectorType, in.Dimension, in.Metric)
+	if err != nil {
+		return nil, err
 	}
 
 	var deletionProtection *db_control.DeletionProtection
@@ -762,28 +770,37 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 		tags = (*db_control.IndexTags)(in.Tags)
 	}
 
-	var metric *db_control.CreateIndexRequestMetric
-	if in.Metric != nil {
-		metric = pointerOrNil(db_control.CreateIndexRequestMetric(*in.Metric))
+	readCapacity, err := readCapacityParamsToReadCapacity(in.ReadCapacity)
+	if err != nil {
+		return nil, err
+	}
+
+	serverlessSpec := db_control.IndexSpec0{
+		Serverless: db_control.ServerlessSpec{
+			Cloud:            string(in.Cloud),
+			Region:           in.Region,
+			SourceCollection: in.SourceCollection,
+			Schema:           fromMetadataSchemaToRest(in.Schema),
+			ReadCapacity:     readCapacity,
+		},
 	}
 
 	req := db_control.CreateIndexRequest{
 		Name:               in.Name,
 		Dimension:          in.Dimension,
-		Metric:             metric,
+		Metric:             (*string)(in.Metric),
 		DeletionProtection: deletionProtection,
-		VectorType:         vectorType,
-		Spec: db_control.IndexSpec{
-			Serverless: &db_control.ServerlessSpec{
-				Cloud:            db_control.ServerlessSpecCloud(in.Cloud),
-				Region:           in.Region,
-				SourceCollection: in.SourceCollection,
-			},
-		},
-		Tags: tags,
+		VectorType:         &vectorType,
+		Tags:               tags,
 	}
 
-	res, err := c.restClient.CreateIndex(ctx, req)
+	// Apply serverless spec to the request
+	err = req.Spec.FromIndexSpec0(serverlessSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := c.restClient.CreateIndex(ctx, &db_control.CreateIndexParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 	if err != nil {
 		return nil, err
 	}
@@ -814,6 +831,9 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 //   - Model: The name of the embedding model to use for the index.
 //   - ReadParameters: The read parameters for the embedding model.
 //   - WriteParameters: The write parameters for the embedding model.
+//   - ReadCapacity: (Optional) The read capacity configuration for the serverless index. Used to configure dedicated read capacity
+//     with specific node types and scaling strategies.
+//   - Schema: (Optional) Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
 //   - Tags: (Optional) Custom user tags added to an index.
 //     Keys must be 80 characters or less, values must be 120 characters or less.
 //     Keys must be alphanumeric, '_', or '-'. Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '.
@@ -823,34 +843,31 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 //
 // Example:
 //
-//	ctx := context.Background()
+//	    ctx := context.Background()
 //
-//	clientParams := pinecone.NewClientParams{
-//	     ApiKey:    "YOUR_API_KEY",
-//	     SourceTag: "your_source_identifier", // optional
-//	}
+//	    clientParams := pinecone.NewClientParams{
+//	         ApiKey:    "YOUR_API_KEY",
+//	    }
 //
-//	pc, err := pinecone.NewClient(clientParams)
-//	if err != nil {
-//	     log.Fatalf("Failed to create Client: %v", err)
-//	}
+//	    pc, err := pinecone.NewClient(clientParams)
+//	    if err != nil {
+//	        panic(fmt.Errorf("Failed to create Client: %v", err))
+//	    }
 //
-//	request := &pinecone.CreateIndexForModelRequest{
-//	     Name:   "my-index",
-//	     Cloud:  pinecone.Aws,
-//	     Region: "us-east-1",
-//	     Embed: CreateIndexForModelEmbed{
-//			Model:    "multilingual-e5-large",
-//			FieldMap: map[string]interface{}{"text": "chunk_text"},
-//		 },
-//	}
+//	    request := &pinecone.CreateIndexForModelRequest{
+//	        Name:   "my-index",
+//	        Cloud:  pinecone.Aws,
+//	        Region: "us-east-1",
+//	        Embed: pinecone.CreateIndexForModelEmbed{
+//			    Model:    "multilingual-e5-large",
+//		        FieldMap: map[string]interface{}{"text": "chunk_text"},
+//			},
+//	    }
 //
-//	idx, err := pc.CreateIndexForModel(ctx, request)
-//	if err != nil {
-//	     log.Fatalf("Failed to create index: %v", err)
-//	} else {
-//	     fmt.Printf("Successfully created index: %s", idx.Name)
-//	}
+//	    idx, err := pc.CreateIndexForModel(ctx, request)
+//	    if err != nil {
+//	        log.Fatalf("Failed to create index: %v", err)
+//	    }
 //
 // [Index]: https://docs.pinecone.io/guides/indexes/understanding-indexes
 // [region]: https://docs.pinecone.io/troubleshooting/available-cloud-regions
@@ -863,6 +880,8 @@ type CreateIndexForModelRequest struct {
 	Region             string
 	DeletionProtection *DeletionProtection
 	Embed              CreateIndexForModelEmbed
+	ReadCapacity       *ReadCapacityParams
+	Schema             *MetadataSchema
 	Tags               *IndexTags
 }
 
@@ -913,20 +932,21 @@ type CreateIndexForModelEmbed struct {
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
-//	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
-//	    }
+//		if err != nil {
+//		    panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    indexName := "my-serverless-index"
 //
-//	    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+//	    idx, err := pc.CreateIndexForModel(ctx, &pinecone.CreateIndexForModelRequest{
 //		    Name:    indexName,
 //		    Dimension: 3,
-//		    Metric:  pinecone.Cosine,
 //		    Cloud:   pinecone.Aws,
 //		    Region:  "us-east-1",
+//		    Embed: pinecone.CreateIndexForModelEmbed{
+//			    Model:    "multilingual-e5-large",
+//			    FieldMap: map[string]interface{}{"text": "chunk_text"},
+//			},
 //		})
 //
 //		if err != nil {
@@ -935,8 +955,11 @@ type CreateIndexForModelEmbed struct {
 //		    fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //		}
 func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForModelRequest) (*Index, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreateIndexForModelRequest) cannot be nil")
+	}
 	if in.Name == "" || in.Cloud == "" || in.Region == "" || in.Embed.Model == "" {
-		return nil, fmt.Errorf("fields Name, Cloud, and Region, and Embed.Model must be included in CreateServerlessIndexRequest")
+		return nil, fmt.Errorf("fields Name, Cloud, Region, and Embed.Model must be included in CreateIndexForModelRequest")
 	}
 
 	deletionProtection := derefOrDefault(in.DeletionProtection, "disabled")
@@ -946,30 +969,198 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 		tags = (*db_control.IndexTags)(in.Tags)
 	}
 
+	readCapacity, err := readCapacityParamsToReadCapacity(in.ReadCapacity)
+	if err != nil {
+		return nil, err
+	}
+
 	req := db_control.CreateIndexForModelRequest{
 		Name:   in.Name,
 		Region: in.Region,
-		Cloud:  db_control.CreateIndexForModelRequestCloud(in.Cloud),
+		Cloud:  string(in.Cloud),
 		Embed: struct {
-			Dimension       *int                                              `json:"dimension,omitempty"`
-			FieldMap        map[string]interface{}                            `json:"field_map"`
-			Metric          *db_control.CreateIndexForModelRequestEmbedMetric `json:"metric,omitempty"`
-			Model           string                                            `json:"model"`
-			ReadParameters  *map[string]interface{}                           `json:"read_parameters,omitempty"`
-			WriteParameters *map[string]interface{}                           `json:"write_parameters,omitempty"`
+			Dimension       *int                    `json:"dimension,omitempty"`
+			FieldMap        map[string]interface{}  `json:"field_map"`
+			Metric          *string                 `json:"metric,omitempty"`
+			Model           string                  `json:"model"`
+			ReadParameters  *map[string]interface{} `json:"read_parameters,omitempty"`
+			WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
 		}{
 			Dimension:       in.Embed.Dimension,
 			FieldMap:        in.Embed.FieldMap,
-			Metric:          (*db_control.CreateIndexForModelRequestEmbedMetric)(in.Embed.Metric),
+			Metric:          (*string)(in.Embed.Metric),
 			Model:           in.Embed.Model,
 			ReadParameters:  in.Embed.ReadParameters,
 			WriteParameters: in.Embed.WriteParameters,
 		},
 		DeletionProtection: (*db_control.DeletionProtection)(&deletionProtection),
+		Schema:             fromMetadataSchemaToRest(in.Schema),
+		ReadCapacity:       readCapacity,
 		Tags:               tags,
 	}
 
-	res, err := c.restClient.CreateIndexForModel(ctx, req)
+	res, err := c.restClient.CreateIndexForModel(ctx, &db_control.CreateIndexForModelParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		return nil, handleErrorResponseBody(res, "failed to create index: ")
+	}
+
+	return decodeIndex(res.Body)
+}
+
+// [CreateBYOCIndexRequest] holds the parameters for creating a new BYOC ([Bring Your Own Cloud]) Index.
+//
+// Fields:
+//   - Name: (Required) The name of the [Index]. Resource name must be 1-45 characters long,
+//     start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
+//   - Environment: (Required) The environment identifier for the BYOC index.
+//   - Metric: (Optional) The metric used to measure the [similarity] between vectors ('euclidean', 'cosine', or 'dotproduct').
+//   - Dimension: (Optional) The [dimensionality] of the vectors to be inserted in the [Index].
+//   - VectorType: (Optional) The index vector type. You can use `dense` or `sparse`. If `dense`, the vector dimension must be specified.
+//     If `sparse`, the vector dimension should not be specified, and the Metric must be set to `dotproduct`. Defaults to `dense`.
+//   - DeletionProtection: (Optional) Determines whether [deletion protection] is "enabled" or "disabled" for the index.
+//     When "enabled", the index cannot be deleted. Defaults to "disabled".
+//   - ReadCapacity: (Optional) The read capacity configuration for the serverless index. Used to configure dedicated read capacity
+//     with specific node types and scaling strategies.
+//   - Schema: (Optional) Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
+//   - Tags: (Optional) A map of tags to associate with the Index.
+//
+// To create a new BYOC Index, use the [Client.CreateBYOCIndex] method.
+//
+// Example:
+//
+//	    ctx := context.Background()
+//
+//		clientParams := pinecone.NewClientParams{
+//		    ApiKey:    "YOUR_API_KEY",
+//	    }
+//
+//		pc, err := pinecone.NewClient(clientParams)
+//		if err != nil {
+//		    panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
+//
+//		indexName := "my-byoc-index"
+//
+//		idx, err := pc.CreateBYOCIndex(ctx, &pinecone.CreateBYOCIndexRequest{
+//		    Name:        indexName,
+//			Environment: "my-environment",
+//			Dimension:   3,
+//			Metric:      pinecone.Cosine,
+//	    })
+//
+//		if err != nil {
+//		    log.Fatalf("Failed to create BYOC index: %s", indexName)
+//		} else {
+//		    fmt.Printf("Successfully created BYOC index: %s", idx.Name)
+//		}
+//
+// [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
+// [similarity]: https://docs.pinecone.io/guides/indexes/understanding-indexes#distance-metrics
+// [deletion protection]: https://docs.pinecone.io/guides/indexes/prevent-index-deletion#enable-deletion-protection
+// [Bring Your Own Cloud]: https://docs.pinecone.io/guides/production/bring-your-own-cloud
+type CreateBYOCIndexRequest struct {
+	Name               string
+	Environment        string
+	Dimension          *int32
+	VectorType         *string
+	Metric             *IndexMetric
+	DeletionProtection *DeletionProtection
+	ReadCapacity       *ReadCapacityParams
+	Schema             *MetadataSchema
+	Tags               *IndexTags
+}
+
+// [Client.CreateBYOCIndex] creates and initializes a new BYOC (Bring Your Own Cloud) Index via the specified [Client].
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime, allowing for the request
+//     to be canceled or to timeout according to the context's deadline.
+//   - in: A pointer to a [CreateBYOCIndexRequest] object. See [CreateBYOCIndexRequest] for more information.
+//
+// Returns a pointer to an [Index] object or an error.
+//
+// Example:
+//
+//	    ctx := context.Background()
+//
+//	    clientParams := pinecone.NewClientParams{
+//		       ApiKey:    "YOUR_API_KEY",
+//		       SourceTag: "your_source_identifier", // optional
+//	    }
+//
+//	    pc, err := pinecone.NewClient(clientParams)
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
+//
+//	    indexName := "my-byoc-index"
+//
+//	    idx, err := pc.CreateBYOCIndex(ctx, &pinecone.CreateBYOCIndexRequest{
+//		    Name:        indexName,
+//		    Environment: "my-environment",
+//		    Dimension:  3,
+//		    Metric:     pinecone.Cosine,
+//		})
+//
+//		if err != nil {
+//		    log.Fatalf("Failed to create BYOC index: %s", indexName)
+//		} else {
+//		    fmt.Printf("Successfully created BYOC index: %s", idx.Name)
+//		}
+func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest) (*Index, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreateBYOCIndexRequest) cannot be nil")
+	}
+	if in.Name == "" || in.Environment == "" {
+		return nil, fmt.Errorf("fields Name, and Environment must be included in CreateBYOCIndexRequest")
+	}
+
+	deletionProtection := derefOrDefault(in.DeletionProtection, "disabled")
+
+	var tags *db_control.IndexTags
+	if in.Tags != nil {
+		tags = (*db_control.IndexTags)(in.Tags)
+	}
+
+	readCapacity, err := readCapacityParamsToReadCapacity(in.ReadCapacity)
+	if err != nil {
+		return nil, err
+	}
+
+	byocSpec := db_control.IndexSpec2{
+		Byoc: db_control.ByocSpec{
+			Environment:  in.Environment,
+			Schema:       fromMetadataSchemaToRest(in.Schema),
+			ReadCapacity: readCapacity,
+		},
+	}
+
+	vectorType, err := validateVectorType(in.VectorType, in.Dimension, in.Metric)
+	if err != nil {
+		return nil, err
+	}
+
+	req := db_control.CreateIndexRequest{
+		Name:               in.Name,
+		VectorType:         &vectorType,
+		Dimension:          in.Dimension,
+		Metric:             (*string)(in.Metric),
+		DeletionProtection: (*db_control.DeletionProtection)(&deletionProtection),
+		Tags:               tags,
+	}
+
+	// Apply BYOC spec to the request
+	err = req.Spec.FromIndexSpec2(byocSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := c.restClient.CreateIndex(ctx, &db_control.CreateIndexParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 	if err != nil {
 		return nil, err
 	}
@@ -1002,10 +1193,8 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 //
 //	    pc, err := pinecone.NewClient(clientParams)
 //	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.DescribeIndex(ctx, "the-name-of-my-index")
 //	    if err != nil {
@@ -1021,7 +1210,7 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 //		    fmt.Println(desc)
 //	    }
 func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, error) {
-	res, err := c.restClient.DescribeIndex(ctx, idxName)
+	res, err := c.restClient.DescribeIndex(ctx, idxName, &db_control.DescribeIndexParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -1054,10 +1243,8 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 //
 //	    pc, err := pinecone.NewClient(clientParams)
 //	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    indexName := "the-name-of-my-index"
 //
@@ -1068,7 +1255,7 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 //	        fmt.Printf("Index \"%s\" deleted successfully", indexName)
 //	    }
 func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
-	res, err := c.restClient.DeleteIndex(ctx, idxName)
+	res, err := c.restClient.DeleteIndex(ctx, idxName, &db_control.DeleteIndexParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return err
 	}
@@ -1110,10 +1297,8 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //
 //	    pc, err := pinecone.NewClient(clientParams)
 //	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    idx, err := pc.ConfigureIndex(ctx, "my-index", ConfigureIndexParams{ DeletionProtection: "enabled", Replicas: 4 })
 //
@@ -1126,6 +1311,7 @@ type ConfigureIndexParams struct {
 	DeletionProtection DeletionProtection
 	Tags               IndexTags
 	Embed              *ConfigureIndexEmbed
+	ReadCapacity       *ReadCapacityParams
 }
 
 // [ConfigureIndexEmbed] contains parameters for configuring the integrated inference embedding settings for an [Index].
@@ -1147,8 +1333,8 @@ type ConfigureIndexEmbed struct {
 	WriteParameters *map[string]interface{}
 }
 
-// [Client.ConfigureIndex] is used to [scale a pods-based index] up or down by changing the size of the pods or the number of
-// replicas, or to enable and disable deletion protection for an [Index].
+// [Client.ConfigureIndex] is used to configure an existing [Index] allowing you to update the index's deletion protection status, tags, read capacity configuration,
+// and integrated inference embedding settings. You can also [scale a pods-based index] up or down by changing the size of the pods or the number of replicas.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1189,30 +1375,49 @@ type ConfigureIndexEmbed struct {
 //
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
 func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIndexParams) (*Index, error) {
-	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" && in.Tags == nil {
-		return nil, fmt.Errorf("must specify PodType, Replicas, DeletionProtection, or Tags when configuring an index")
+	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" && in.Tags == nil && in.ReadCapacity == nil && in.Embed == nil {
+		return nil, fmt.Errorf("must specify PodType, Replicas, DeletionProtection, ReadCapacity, Embed, or Tags when configuring an index")
 	}
 
 	podType := pointerOrNil(in.PodType)
 	replicas := pointerOrNil(in.Replicas)
 	deletionProtection := pointerOrNil(in.DeletionProtection)
 
-	// Describe index in order to merge existing tags with incoming tags
+	// Describe index in order to merge existing tags with incoming tags,
+	// and evaluate index spec type to determine which spec to apply.
 	idxDesc, err := c.DescribeIndex(ctx, name)
 	if err != nil {
 		return nil, err
 	}
 	existingTags := idxDesc.Tags
 
+	specType := ""
+	if idxDesc.Spec.Pod != nil {
+		specType = "pod"
+	} else if idxDesc.Spec.Serverless != nil {
+		specType = "serverless"
+	} else if idxDesc.Spec.BYOC != nil {
+		specType = "byoc"
+	} else {
+		return nil, fmt.Errorf("unknown index spec type")
+	}
+
 	var request db_control.ConfigureIndexRequest
-	if podType != nil || replicas != nil {
-		request.Spec =
-			&struct {
-				Pod struct {
-					PodType  *string `json:"pod_type,omitempty"`
-					Replicas *int32  `json:"replicas,omitempty"`
-				} `json:"pod"`
-			}{
+	request.Spec = &db_control.ConfigureIndexRequest_Spec{}
+
+	// Validate that spec-specific parameters match the index type
+	if specType == "pod" && in.ReadCapacity != nil {
+		return nil, fmt.Errorf("cannot configure ReadCapacity on a pod index; ReadCapacity is only supported for serverless and BYOC indexes")
+	}
+	if (specType == "serverless" || specType == "byoc") && (podType != nil || replicas != nil) {
+		return nil, fmt.Errorf("cannot configure PodType or Replicas on a %s index; these parameters are only supported for pod indexes", specType)
+	}
+
+	// Apply pod configurations
+	switch specType {
+	case "pod":
+		if podType != nil || replicas != nil {
+			podSpec := db_control.ConfigureIndexRequestSpec1{
 				Pod: struct {
 					PodType  *string `json:"pod_type,omitempty"`
 					Replicas *int32  `json:"replicas,omitempty"`
@@ -1221,7 +1426,51 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 					Replicas: replicas,
 				},
 			}
+
+			// Apply the pod spec to the request
+			if err := request.Spec.FromConfigureIndexRequestSpec1(podSpec); err != nil {
+				return nil, err
+			}
+		}
+	case "serverless":
+		if in.ReadCapacity != nil {
+			readCapacity, err := patchReadCapacity(in.ReadCapacity, idxDesc.Spec.Serverless.ReadCapacity)
+			if err != nil {
+				return nil, err
+			}
+			serverlessSpec := db_control.ConfigureIndexRequestSpec0{
+				Serverless: struct {
+					ReadCapacity *db_control.ReadCapacity `json:"read_capacity,omitempty"`
+				}{
+					ReadCapacity: readCapacity,
+				},
+			}
+			// Apply the serverless spec to the request
+			if err := request.Spec.FromConfigureIndexRequestSpec0(serverlessSpec); err != nil {
+				return nil, err
+			}
+		}
+	case "byoc":
+		if in.ReadCapacity != nil {
+			readCapacity, err := patchReadCapacity(in.ReadCapacity, idxDesc.Spec.BYOC.ReadCapacity)
+			if err != nil {
+				return nil, err
+			}
+			byocSpec := db_control.ConfigureIndexRequestSpec2{
+				Byoc: struct {
+					ReadCapacity *db_control.ReadCapacity `json:"read_capacity,omitempty"`
+				}{
+					ReadCapacity: readCapacity,
+				},
+			}
+			// Apply the serverless spec to the request
+			if err := request.Spec.FromConfigureIndexRequestSpec2(byocSpec); err != nil {
+				return nil, err
+			}
+		}
 	}
+
+	// Apply embedding configurations
 	if in.Embed != nil {
 		request.Embed =
 			&struct {
@@ -1240,7 +1489,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	request.DeletionProtection = (*db_control.DeletionProtection)(deletionProtection)
 	request.Tags = (*db_control.IndexTags)(mergeIndexTags(existingTags, in.Tags))
 
-	res, err := c.restClient.ConfigureIndex(ctx, name, request)
+	res, err := c.restClient.ConfigureIndex(ctx, name, &db_control.ConfigureIndexParams{XPineconeApiVersion: gen.PineconeApiVersion}, request)
 	if err != nil {
 		return nil, err
 	}
@@ -1275,10 +1524,8 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 //
 //	    pc, err := pinecone.NewClient(clientParams)
 //	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    collections, err := pc.ListCollections(ctx)
 //	    if err != nil {
@@ -1297,7 +1544,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 // [project]: https://docs.pinecone.io/guides/projects/understanding-projects
 // [understanding collections]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
-	res, err := c.restClient.ListCollections(ctx)
+	res, err := c.restClient.ListCollections(ctx, &db_control.ListCollectionsParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -1351,10 +1598,8 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 //
 //	    pc, err := pinecone.NewClient(clientParams)
 //	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    collection, err := pc.DescribeCollection(ctx, "my-collection")
 //	    if err != nil {
@@ -1366,7 +1611,7 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 // [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
 // [understanding collections]: https://docs.pinecone.io/guides/indexes/understanding-collections
 func (c *Client) DescribeCollection(ctx context.Context, collectionName string) (*Collection, error) {
-	res, err := c.restClient.DescribeCollection(ctx, collectionName)
+	res, err := c.restClient.DescribeCollection(ctx, collectionName, &db_control.DescribeCollectionParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -1400,10 +1645,8 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string) 
 //
 //	    pc, err := pinecone.NewClient(clientParams)
 //	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    collection, err := pc.CreateCollection(ctx, &pinecone.CreateCollectionRequest{
 //	        Name:   "my-collection",
@@ -1441,10 +1684,8 @@ type CreateCollectionRequest struct {
 //
 //	    pc, err := pinecone.NewClient(clientParams)
 //	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    collection, err := pc.CreateCollection(ctx, &pinecone.CreateCollectionRequest{
 //	        Name:   "my-collection",
@@ -1456,6 +1697,9 @@ type CreateCollectionRequest struct {
 //		       fmt.Printf("Successfully created collection \"%s\".", collection.Name)
 //	    }
 func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionRequest) (*Collection, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreateCollectionRequest) cannot be nil")
+	}
 	if in.Source == "" || in.Name == "" {
 		return nil, fmt.Errorf("fields Name and Source must be included in CreateCollectionRequest")
 	}
@@ -1464,7 +1708,7 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 		Name:   in.Name,
 		Source: in.Source,
 	}
-	res, err := c.restClient.CreateCollection(ctx, req)
+	res, err := c.restClient.CreateCollection(ctx, &db_control.CreateCollectionParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 
 	if err != nil {
 		return nil, err
@@ -1500,10 +1744,8 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 //
 //	    pc, err := pinecone.NewClient(clientParams)
 //	    if err != nil {
-//	        log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    collectionName := "my-collection"
 //
@@ -1514,7 +1756,7 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 //		       log.Printf("Successfully deleted collection \"%s\"\n", collectionName)
 //	    }
 func (c *Client) DeleteCollection(ctx context.Context, collectionName string) error {
-	res, err := c.restClient.DeleteCollection(ctx, collectionName)
+	res, err := c.restClient.DeleteCollection(ctx, collectionName, &db_control.DeleteCollectionParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return err
 	}
@@ -1559,11 +1801,9 @@ type CreateBackupParams struct {
 //		 }
 //
 //		 pc, err := pinecone.NewClient(clientParams)
-//		 if err != nil {
-//		        log.Fatalf("Failed to create Client: %v", err)
-//		 } else {
-//			    fmt.Println("Successfully created a new Client object!")
-//		 }
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	     index, err := pc.DescribeIndex(ctx, "my-index")
 //		 if err != nil {
@@ -1590,7 +1830,7 @@ func (c *Client) CreateBackup(ctx context.Context, in *CreateBackupParams) (*Bac
 		return nil, fmt.Errorf("IndexName must be included in CreateBackupRequest")
 	}
 
-	res, err := c.restClient.CreateBackup(ctx, in.IndexName, db_control.CreateBackupRequest{
+	res, err := c.restClient.CreateBackup(ctx, in.IndexName, &db_control.CreateBackupParams{XPineconeApiVersion: gen.PineconeApiVersion}, db_control.CreateBackupRequest{
 		Description: in.Description,
 		Name:        in.Name,
 	})
@@ -1650,10 +1890,8 @@ type CreateIndexFromBackupResponse struct {
 //		       ApiKey: "YOUR_API_KEY",
 //	    })
 //	    if err != nil {
-//			   log.Fatalf("Failed to create Client: %v", err)
-//		} else {
-//			   fmt.Println("Successfully created a new Client object!")
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    createIndexFromBackupResp, err := pc.CreateIndexFromBackup(ctx, &pinecone.CreateIndexFromBackupParams{
 //			   BackupId: "my-backup-id",
@@ -1679,7 +1917,7 @@ func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromB
 		return nil, fmt.Errorf("Name must be included in CreateIndexFromBackupRequest")
 	}
 
-	res, err := c.restClient.CreateIndexFromBackupOperation(ctx, in.BackupId, db_control.CreateIndexFromBackupRequest{
+	res, err := c.restClient.CreateIndexFromBackupOperation(ctx, in.BackupId, &db_control.CreateIndexFromBackupOperationParams{XPineconeApiVersion: gen.PineconeApiVersion}, db_control.CreateIndexFromBackupRequest{
 		Name:               in.Name,
 		DeletionProtection: (*db_control.DeletionProtection)(in.DeletionProtection),
 		Tags:               (*db_control.IndexTags)(in.Tags),
@@ -1723,10 +1961,8 @@ func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromB
 //		       ApiKey: "YOUR_API_KEY",
 //	    })
 //	    if err != nil {
-//			   log.Fatalf("Failed to create Client: %v", err)
-//		} else {
-//			   fmt.Println("Successfully created a new Client object!")
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    backup, err := pc.DescribeBackup(ctx, "my-backup-id")
 //		if err != nil {
@@ -1737,7 +1973,7 @@ func (c *Client) DescribeBackup(ctx context.Context, backupId string) (*Backup, 
 		return nil, fmt.Errorf("you must provide a backupId to describe a backup")
 	}
 
-	res, err := c.restClient.DescribeBackup(ctx, backupId)
+	res, err := c.restClient.DescribeBackup(ctx, backupId, &db_control.DescribeBackupParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -1778,8 +2014,8 @@ type ListBackupsParams struct {
 //		pc, err := pinecone.NewClient(pinecone.NewClientParams{
 //	           ApiKey: "YOUR_API_KEY",
 //		})
-//		if err != nil {
-//			   log.Fatalf("Failed to create Client: %w", err)
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
 //		}
 //
 //	    indexName := "my-index"
@@ -1817,6 +2053,8 @@ func (c *Client) ListBackups(ctx context.Context, in *ListBackupsParams) (*Backu
 		}
 	}
 
+	defer response.Body.Close()
+
 	if response.StatusCode != http.StatusOK {
 		return nil, handleErrorResponseBody(response, "failed to list backups: ")
 	}
@@ -1839,8 +2077,8 @@ func (c *Client) ListBackups(ctx context.Context, in *ListBackupsParams) (*Backu
 //		pc, err := pinecone.NewClient(pinecone.NewClientParams{
 //	           ApiKey: "YOUR_API_KEY",
 //		})
-//		if err != nil {
-//			   log.Fatalf("Failed to create Client: %w", err)
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
 //		}
 //
 //		err := pc.DeleteBackup(ctx, "my-backup-id"))
@@ -1852,7 +2090,7 @@ func (c *Client) DeleteBackup(ctx context.Context, backupId string) error {
 		return fmt.Errorf("you must provide a backupId to delete a backup")
 	}
 
-	res, err := c.restClient.DeleteBackup(ctx, backupId)
+	res, err := c.restClient.DeleteBackup(ctx, backupId, &db_control.DeleteBackupParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return err
 	}
@@ -1882,10 +2120,8 @@ func (c *Client) DeleteBackup(ctx context.Context, backupId string) error {
 //		       ApiKey: "YOUR_API_KEY",
 //	    })
 //	    if err != nil {
-//			   log.Fatalf("Failed to create Client: %v", err)
-//		} else {
-//			   fmt.Println("Successfully created a new Client object!")
-//	    }
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    restoreJob, err := pc.DescribeRestoreJob(ctx, "my-restore-job-id")
 //		if err != nil {
@@ -1896,7 +2132,7 @@ func (c *Client) DescribeRestoreJob(ctx context.Context, restoreJobId string) (*
 		return nil, fmt.Errorf("you must provide a restoreJobId to describe a restore job")
 	}
 
-	res, err := c.restClient.DescribeRestoreJob(ctx, restoreJobId)
+	res, err := c.restClient.DescribeRestoreJob(ctx, restoreJobId, &db_control.DescribeRestoreJobParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -1935,8 +2171,8 @@ type ListRestoreJobsParams struct {
 //		pc, err := pinecone.NewClient(pinecone.NewClientParams{
 //	           ApiKey: "YOUR_API_KEY",
 //		})
-//		if err != nil {
-//			   log.Fatalf("Failed to create Client: %w", err)
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
 //		}
 //
 //	    indexName := "my-index"
@@ -2008,13 +2244,15 @@ type EmbedParameters map[string]interface{}
 // Fields:
 //   - Data: A list of [Embedding] objects containing the embeddings generated for the input.
 //   - Model: The model used to generate the embeddings.
+//   - VectorType: Indicates whether the embeddings are dense or sparse.
 //   - Usage: Usage statistics ([Total Tokens]) for the request.
 //
 // [Total Tokens]: https://docs.pinecone.io/guides/organizations/manage-cost/understanding-cost#embed
 type EmbedResponse struct {
-	Data  []Embedding `json:"data"`
-	Model string      `json:"model"`
-	Usage struct {
+	Data       []Embedding `json:"data"`
+	Model      string      `json:"model"`
+	VectorType string      `json:"vector_type"`
+	Usage      struct {
 		TotalTokens *int32 `json:"total_tokens,omitempty"`
 	} `json:"usage"`
 }
@@ -2039,12 +2277,9 @@ type EmbedResponse struct {
 //	    }
 //
 //	    pc, err := pinecone.NewClient(clientParams)
-//
-//	    if err !=  nil {
-//		       log.Fatalf("Failed to create Client: %v", err)
-//	    } else {
-//		       fmt.Println("Successfully created a new Client object!")
-//	    }
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	    in := &pinecone.EmbedRequest{
 //		       Model: "multilingual-e5-large",
@@ -2059,9 +2294,12 @@ type EmbedResponse struct {
 //	    if err != nil {
 //		       log.Fatalf("Failed to embed: %v", err)
 //	    } else {
-//		       fmt.Printf("Successfull generated embeddings: %+v", res)
+//		       fmt.Printf("Successfully generated embeddings: %+v", res)
 //	    }
 func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedResponse, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*EmbedRequest) cannot be nil")
+	}
 	if len(in.TextInputs) == 0 {
 		return nil, fmt.Errorf("TextInputs must contain at least one value")
 	}
@@ -2082,12 +2320,12 @@ func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedR
 	}
 
 	// convert embedding parameters to expected type
-	if &in.Parameters != nil {
+	if in.Parameters != nil {
 		params := map[string]interface{}(in.Parameters)
 		req.Parameters = &params
 	}
 
-	res, err := i.client.Embed(ctx, req)
+	res, err := i.client.Embed(ctx, &inference.EmbedParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 	if err != nil {
 		return nil, err
 	}
@@ -2175,9 +2413,9 @@ type RerankResponse struct {
 //	     }
 //
 //	     pc, err := pinecone.NewClient(clientParams)
-//	     if err != nil {
-//		        log.Fatalf("Failed to create Client: %v", err)
-//	     }
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	     rerankModel := "bge-reranker-v2-m3"
 //	     topN := 2
@@ -2202,6 +2440,9 @@ type RerankResponse struct {
 //	     }
 //	     fmt.Printf("Rerank result: %+v\n", ranking)
 func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*RerankResponse, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*RerankRequest) cannot be nil")
+	}
 	convertedDocuments := make([]inference.Document, len(in.Documents))
 	for i, doc := range in.Documents {
 		convertedDocuments[i] = inference.Document(doc)
@@ -2215,7 +2456,7 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 		TopN:            in.TopN,
 		Parameters:      in.Parameters,
 	}
-	res, err := i.client.Rerank(ctx, req)
+	res, err := i.client.Rerank(ctx, &inference.RerankParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 	if err != nil {
 		return nil, err
 	}
@@ -2245,9 +2486,9 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 //		 }
 //
 //	     pc, err := pinecone.NewClient(clientParams)
-//		 if err != nil {
-//			    log.Fatalf("Failed to create Client: %v", err)
-//		 }
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
 //	     model, err := pc.Inference.DescribeModel(ctx, "multilingual-e5-large")
 //		 if err != nil {
@@ -2256,7 +2497,7 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 //
 //	     fmt.Printf("Model (multilingual-e5-large): %+v\n", model)
 func (i *InferenceService) DescribeModel(ctx context.Context, modelName string) (*ModelInfo, error) {
-	res, err := i.client.GetModel(ctx, modelName)
+	res, err := i.client.GetModel(ctx, modelName, &inference.GetModelParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -2294,25 +2535,25 @@ type ListModelsParams struct {
 //
 // Example:
 //
-//		 ctx := context.Background()
+//		ctx := context.Background()
 //
-//		 clientParams := pinecone.NewClientParams{
-//		        ApiKey:    "YOUR_API_KEY",
-//		 		SourceTag: "your_source_identifier", // optional
-//	     }
+//		clientParams := pinecone.NewClientParams{
+//			ApiKey:    "YOUR_API_KEY",
+//			SourceTag: "your_source_identifier", // optional
+//	    }
 //
-//		 pc, err := pinecone.NewClient(clientParams)
-//	     if err != nil {
-//		        log.Fatalf("Failed to create Client: %v", err)
-//		 }
+//		pc, err := pinecone.NewClient(clientParams)
+//	    if err != nil {
+//			panic(fmt.Errorf("Failed to create Client: %v", err))
+//		}
 //
-//	     embed := "embed"
-//		 embedModels, err := pc.Inference.ListModels(ctx, &pinecone.ListModelsParams{ Type: &embed })
-//	     if err != nil {
-//		        log.Fatalf("Failed to list models: %v", err)
-//		 }
+//	    embed := "embed"
+//		embedModels, err := pc.Inference.ListModels(ctx, &pinecone.ListModelsParams{ Type: &embed })
+//	    if err != nil {
+//			log.Fatalf("Failed to list models: %v", err)
+//		}
 //
-//		 fmt.Printf("Embed Models: %+v\n", embedModels)
+//		fmt.Printf("Embed Models: %+v\n", embedModels)
 func (i *InferenceService) ListModels(ctx context.Context, in *ListModelsParams) (*ModelInfoList, error) {
 	var params *inference.ListModelsParams
 	if in != nil {
@@ -2346,46 +2587,90 @@ func (c *Client) extractAuthHeader() map[string]string {
 	}
 
 	for key, value := range c.baseParams.Headers {
-		for _, checkKey := range possibleAuthKeys {
-			if strings.ToLower(key) == checkKey {
-				return map[string]string{key: value}
-			}
+		if slices.Contains(possibleAuthKeys, strings.ToLower(key)) {
+			return map[string]string{key: value}
 		}
 	}
 
 	return nil
 }
 
-func toIndex(idx *db_control.IndexModel) *Index {
+func getIndexSpecType(spec db_control.IndexModel_Spec) string {
+	rawJSON, err := spec.MarshalJSON()
+	if err != nil {
+		return "unknown"
+	}
+	var rawData map[string]interface{}
+	err = json.Unmarshal(rawJSON, &rawData)
+	if err != nil {
+		return "unknown"
+	}
+	if _, ok := rawData["pod"]; ok {
+		return "pod"
+	} else if _, ok := rawData["serverless"]; ok {
+		return "serverless"
+	} else if _, ok := rawData["byoc"]; ok {
+		return "byoc"
+	}
+	return "unknown"
+}
+
+func toIndex(idx *db_control.IndexModel) (*Index, error) {
 	if idx == nil {
-		return nil
+		return nil, nil
 	}
 
 	spec := &IndexSpec{}
-	if idx.Spec.Pod != nil {
-		spec.Pod = &PodSpec{
-			Environment:      idx.Spec.Pod.Environment,
-			PodType:          idx.Spec.Pod.PodType,
-			PodCount:         derefOrDefault(idx.Spec.Pod.Pods, 1),
-			Replicas:         derefOrDefault(idx.Spec.Pod.Replicas, 1),
-			ShardCount:       derefOrDefault(idx.Spec.Pod.Shards, 1),
-			SourceCollection: idx.Spec.Pod.SourceCollection,
+	specType := getIndexSpecType(idx.Spec)
+
+	switch specType {
+	case "pod":
+		if podSpec, err := idx.Spec.AsIndexModelSpec1(); err == nil {
+			spec.Pod = &PodSpec{
+				Environment:      podSpec.Pod.Environment,
+				PodType:          podSpec.Pod.PodType,
+				PodCount:         derefOrDefault(podSpec.Pod.Pods, 1),
+				Replicas:         derefOrDefault(podSpec.Pod.Replicas, 1),
+				ShardCount:       derefOrDefault(podSpec.Pod.Shards, 1),
+				SourceCollection: podSpec.Pod.SourceCollection,
+			}
+			if podSpec.Pod.MetadataConfig != nil {
+				spec.Pod.MetadataConfig = &PodSpecMetadataConfig{Indexed: podSpec.Pod.MetadataConfig.Indexed}
+			}
 		}
-		if idx.Spec.Pod.MetadataConfig != nil {
-			spec.Pod.MetadataConfig = &PodSpecMetadataConfig{Indexed: idx.Spec.Pod.MetadataConfig.Indexed}
+	case "serverless":
+		if serverlessSpec, err := idx.Spec.AsIndexModelSpec0(); err == nil {
+			readCapacity, err := toReadCapacity(&serverlessSpec.Serverless.ReadCapacity)
+			if err != nil {
+				return nil, err
+			}
+			spec.Serverless = &ServerlessSpec{
+				Cloud:            Cloud(serverlessSpec.Serverless.Cloud),
+				Region:           serverlessSpec.Serverless.Region,
+				SourceCollection: serverlessSpec.Serverless.SourceCollection,
+				Schema:           toMetadataSchemaFromRest(serverlessSpec.Serverless.Schema),
+				ReadCapacity:     readCapacity,
+			}
+		}
+	case "byoc":
+		if byocSpec, err := idx.Spec.AsIndexModelSpec2(); err == nil {
+			readCapacity, err := toReadCapacity(&byocSpec.Byoc.ReadCapacity)
+			if err != nil {
+				return nil, err
+			}
+			spec.BYOC = &BYOCSpec{
+				Environment:  byocSpec.Byoc.Environment,
+				Schema:       toMetadataSchemaFromRest(byocSpec.Byoc.Schema),
+				ReadCapacity: readCapacity,
+			}
 		}
 	}
-	if idx.Spec.Serverless != nil {
-		spec.Serverless = &ServerlessSpec{
-			Cloud:            Cloud(idx.Spec.Serverless.Cloud),
-			Region:           idx.Spec.Serverless.Region,
-			SourceCollection: idx.Spec.Serverless.SourceCollection,
-		}
-	}
+
 	status := &IndexStatus{
 		Ready: idx.Status.Ready,
 		State: IndexStatusState(idx.Status.State),
 	}
+
 	var embed *IndexEmbed
 	if idx.Embed != nil {
 		var metric *IndexMetric
@@ -2420,17 +2705,20 @@ func toIndex(idx *db_control.IndexModel) *Index {
 		Status:             status,
 		Tags:               tags,
 		Embed:              embed,
-	}
+	}, nil
 }
 
 func decodeIndex(resBody io.ReadCloser) (*Index, error) {
 	var idx db_control.IndexModel
 	err := json.NewDecoder(resBody).Decode(&idx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode idx response: %w", err)
+		return nil, fmt.Errorf("failed to decode IndexModel response: %w", err)
 	}
-
-	return toIndex(&idx), nil
+	index, err := toIndex(&idx)
+	if err != nil {
+		return nil, err
+	}
+	return index, nil
 }
 
 func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
@@ -2487,6 +2775,7 @@ func toBackup(backup *db_control.BackupModel) *Backup {
 		NamespaceCount:  backup.NamespaceCount,
 		RecordCount:     backup.RecordCount,
 		Region:          backup.Region,
+		Schema:          toMetadataSchemaFromRest(backup.Schema),
 		SizeBytes:       backup.SizeBytes,
 		SourceIndexId:   backup.SourceIndexId,
 		SourceIndexName: backup.SourceIndexName,
@@ -2566,9 +2855,10 @@ func decodeEmbedResponse(resBody io.ReadCloser) (*EmbedResponse, error) {
 	}
 
 	return &EmbedResponse{
-		Data:  decodedEmbeddings,
-		Model: rawEmbedResponse.Model,
-		Usage: rawEmbedResponse.Usage,
+		Data:       decodedEmbeddings,
+		Model:      rawEmbedResponse.Model,
+		VectorType: rawEmbedResponse.VectorType,
+		Usage:      rawEmbedResponse.Usage,
 	}, nil
 }
 
@@ -2665,7 +2955,7 @@ func formatError(errMap errorResponseMap) error {
 	if err != nil {
 		return err
 	}
-	baseError := fmt.Errorf(string(jsonString))
+	baseError := errors.New(string(jsonString))
 
 	return &PineconeError{Code: errMap.StatusCode, Msg: baseError}
 }
@@ -2768,6 +3058,30 @@ func mergeIndexTags(existingTags *IndexTags, newTags IndexTags) *IndexTags {
 	return &merged
 }
 
+func validateVectorType(vectorType *string, dimension *int32, metric *IndexMetric) (string, error) {
+	// Default to dense if vectorType is not specified
+	out := "dense"
+
+	if vectorType != nil {
+		switch *vectorType {
+		case "sparse":
+			if dimension != nil {
+				return "", fmt.Errorf("Dimension should not be specified when VectorType is 'sparse'")
+			} else if metric != nil && *metric != Dotproduct {
+				return "", fmt.Errorf("Metric should be 'dotproduct' when VectorType is 'sparse'")
+			}
+		case "dense":
+			if dimension == nil {
+				return "", fmt.Errorf("Dimension should be specified when VectorType is 'dense'")
+			}
+		default:
+			return "", fmt.Errorf("unsupported VectorType: %s", *vectorType)
+		}
+		out = *vectorType
+	}
+	return out, nil
+}
+
 func ensureURLScheme(inputURL string) (string, error) {
 	parsedURL, err := url.Parse(inputURL)
 	if err != nil {
@@ -2809,4 +3123,198 @@ func minOne(x int32) int32 {
 		return 1
 	}
 	return x
+}
+
+// Converts the inline struct defined in the generated REST API to a MetadataSchema
+func toMetadataSchemaFromRest(schema *db_control.MetadataSchema) *MetadataSchema {
+	if schema == nil {
+		return nil
+	}
+
+	fields := make(map[string]MetadataSchemaField)
+	for key, value := range schema.Fields {
+		fields[key] = MetadataSchemaField{
+			Filterable: derefOrDefault(value.Filterable, false),
+		}
+	}
+
+	return &MetadataSchema{
+		Fields: fields,
+	}
+}
+
+// Converts MetadataSchema to the inline struct defined in the generated REST API
+func fromMetadataSchemaToRest(schema *MetadataSchema) *db_control.MetadataSchema {
+	if schema == nil {
+		return nil
+	}
+
+	fields := make(map[string]struct {
+		Filterable *bool `json:"filterable,omitempty"`
+	})
+
+	for key, value := range schema.Fields {
+		filterable := value.Filterable
+		fields[key] = struct {
+			Filterable *bool `json:"filterable,omitempty"`
+		}{
+			Filterable: &filterable,
+		}
+	}
+
+	return &db_control.MetadataSchema{
+		Fields: fields,
+	}
+}
+
+// Takes the new ReadCapacityParams and the index's current ReadCapacity configuration to validate the patch request
+func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.ReadCapacity, error) {
+	// nil new params -> return nil
+	if new == nil {
+		return nil, nil
+	}
+
+	// nil / OnDemand -> Dedicated
+	// When converting from OnDemand to Dedicated, NodeType, Replicas, and Shards are required
+	if new.Dedicated != nil && (old == nil || old.OnDemand != nil) {
+		if new.Dedicated.NodeType == nil ||
+			new.Dedicated.Scaling == nil ||
+			new.Dedicated.Scaling.Manual == nil ||
+			new.Dedicated.Scaling.Manual.Replicas == nil ||
+			new.Dedicated.Scaling.Manual.Shards == nil {
+			return nil, fmt.Errorf("Dedicated read capacity must be configured with a node type, scaling strategy, and manual scaling configuration")
+		}
+	}
+
+	readCapacity, err := readCapacityParamsToReadCapacity(new)
+	if err != nil {
+		return nil, err
+	}
+
+	return readCapacity, nil
+}
+
+// Converts the ReadCapacityParams to db_control.ReadCapacity - used for CreateIndex, CreateIndexForModel, and ConfigureIndex operations
+func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.ReadCapacity, error) {
+	// If no ReadCapacityParams provided or if it's an empty struct, return nil to use server default (OnDemand)
+	if request == nil || (request.Dedicated == nil && request.OnDemand == nil) {
+		return nil, nil
+	}
+
+	if request.Dedicated != nil && request.OnDemand != nil {
+		return nil, fmt.Errorf("both Dedicated and OnDemand cannot be specified in ReadCapacityParams")
+	}
+
+	var result db_control.ReadCapacity
+
+	// OnDemand
+	if request.OnDemand != nil {
+		onDemandSpec := db_control.ReadCapacityOnDemandSpec{
+			Mode: "OnDemand",
+		}
+		if err := result.FromReadCapacityOnDemandSpec(onDemandSpec); err != nil {
+			return nil, err
+		}
+		return &result, nil
+	}
+
+	// Dedicated
+	dedicatedConfig := db_control.ReadCapacityDedicatedConfig{
+		NodeType: request.Dedicated.NodeType,
+	}
+
+	// Scaling if provided
+	if request.Dedicated.Scaling != nil && request.Dedicated.Scaling.Manual != nil {
+		dedicatedConfig.Scaling = pointerOrNil("Manual")
+		dedicatedConfig.Manual = &db_control.ScalingConfigManual{
+			Replicas: request.Dedicated.Scaling.Manual.Replicas,
+			Shards:   request.Dedicated.Scaling.Manual.Shards,
+		}
+	}
+
+	// Dedicated spec
+	dedicatedSpec := db_control.ReadCapacityDedicatedSpec{
+		Dedicated: dedicatedConfig,
+		Mode:      "Dedicated",
+	}
+	if err := result.FromReadCapacityDedicatedSpec(dedicatedSpec); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// Converts the db_control.ReadCapacityResponse to ReadCapacity.
+// This function is permissive: it returns nil for unknown/empty modes rather than erroring,
+// allowing the SDK to continue working even if the API introduces new read capacity modes.
+func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) {
+	if rc == nil {
+		return nil, nil
+	}
+
+	mode, err := rc.Discriminator()
+	if err != nil {
+		// If we can't determine the mode, return nil rather than failing.
+		// This handles cases like empty responses or unknown modes gracefully.
+		return nil, nil
+	}
+
+	// Empty mode string means no configuration present
+	if mode == "" {
+		return nil, nil
+	}
+
+	switch mode {
+	case "OnDemand":
+		onDemandSpec, err := rc.AsReadCapacityOnDemandSpecResponse()
+		if err != nil {
+			return nil, err
+		}
+
+		return &ReadCapacity{
+			OnDemand: &ReadCapacityOnDemand{
+				Status: ReadCapacityStatus{
+					State:           onDemandSpec.Status.State,
+					CurrentReplicas: onDemandSpec.Status.CurrentReplicas,
+					CurrentShards:   onDemandSpec.Status.CurrentShards,
+					ErrorMessage:    onDemandSpec.Status.ErrorMessage,
+				},
+			},
+		}, nil
+	case "Dedicated":
+		dedicatedSpec, err := rc.AsReadCapacityDedicatedSpecResponse()
+		if err != nil {
+			return nil, err
+		}
+
+		dedicated := &ReadCapacityDedicated{
+			NodeType: dedicatedSpec.Dedicated.NodeType,
+			Status: ReadCapacityStatus{
+				State:           dedicatedSpec.Status.State,
+				CurrentReplicas: dedicatedSpec.Status.CurrentReplicas,
+				CurrentShards:   dedicatedSpec.Status.CurrentShards,
+				ErrorMessage:    dedicatedSpec.Status.ErrorMessage,
+			},
+		}
+
+		// Scaling
+		if dedicatedSpec.Dedicated.Scaling != nil {
+			if strings.ToLower(*dedicatedSpec.Dedicated.Scaling) == "manual" {
+				dedicated.Scaling = &ReadCapacityScaling{
+					Manual: &ReadCapacityManualScaling{
+						Replicas: dedicatedSpec.Dedicated.Manual.Replicas,
+						Shards:   dedicatedSpec.Dedicated.Manual.Shards,
+					},
+				}
+			}
+		}
+
+		return &ReadCapacity{
+			Dedicated: dedicated,
+		}, nil
+	default:
+		// Be permissive: return nil for unknown modes (e.g., future API additions)
+		// rather than failing the entire operation
+		return nil, nil
+	}
 }

@@ -1,0 +1,15 @@
+---
+alwaysApply: true
+---
+
+# Pull Request Style
+
+**PRs are documentation:** Write for SDK users, not just reviewers. PRs are linked from release notes.
+
+**Title:** Use Conventional Commits format: `type: description`. Breaking changes: `feat!: require spec parameter`. Keep under 72 characters.
+
+**Description:** Include a clear explanation, realistic Go code examples, and link to related issues. Explain why the change matters, not just what changed.
+
+**Breaking changes:** Add `!` to title AND include `BREAKING CHANGE:` in description with migration path.
+
+**Metadata:** Apply GitHub label. Link issues with `Fixes #123`.

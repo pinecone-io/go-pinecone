@@ -2,6 +2,10 @@ name: ci
 on:
   pull_request: {}
 
+# Least-privilege default: CI only reads the repo to build and test.
+permissions:
+  contents: read
+
 jobs:
   # Key-free mocked critical-path smoke gate (connect -> upsert -> query).
   # Runs on every PR with NO PINECONE_API_KEY to prove the request/response
@@ -31,7 +35,7 @@ jobs:
           grep -q -- '--- PASS: TestMockedCriticalPath' smoke.log \
             || { echo "::error::mocked critical-path smoke test did not run"; exit 1; }
 
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
     services:
       pc-index-serverless:
@@ -57,7 +61,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21.x'
+          go-version: "1.25.x"
       - name: Install dependencies
         run: |
           go get ./pinecone
@@ -68,7 +72,7 @@ jobs:
           PINECONE_CLIENT_ID: ${{ secrets.CLIENT_ID }}
           PINECONE_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
       - name: Run local integration tests
-        run: go test -count=1 -v ./pinecone -run TestRunLocalIntegrationSuite -tags=localServer
+        run: go test -count=1 -v ./pinecone -run TestRunLocalIntegrationSuite -tags=localServer -timeout=20m
         env:
           PINECONE_INDEX_URL_POD: http://localhost:5082
           PINECONE_INDEX_URL_SERVERLESS: http://localhost:5081

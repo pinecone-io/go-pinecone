@@ -21,35 +21,6 @@ const (
 	ApiKeyAuthScopes = "ApiKeyAuth.Scopes"
 )
 
-// Defines values for ErrorResponseErrorCode.
-const (
-	ABORTED            ErrorResponseErrorCode = "ABORTED"
-	ALREADYEXISTS      ErrorResponseErrorCode = "ALREADY_EXISTS"
-	DATALOSS           ErrorResponseErrorCode = "DATA_LOSS"
-	DEADLINEEXCEEDED   ErrorResponseErrorCode = "DEADLINE_EXCEEDED"
-	FAILEDPRECONDITION ErrorResponseErrorCode = "FAILED_PRECONDITION"
-	FORBIDDEN          ErrorResponseErrorCode = "FORBIDDEN"
-	INTERNAL           ErrorResponseErrorCode = "INTERNAL"
-	INVALIDARGUMENT    ErrorResponseErrorCode = "INVALID_ARGUMENT"
-	NOTFOUND           ErrorResponseErrorCode = "NOT_FOUND"
-	OK                 ErrorResponseErrorCode = "OK"
-	OUTOFRANGE         ErrorResponseErrorCode = "OUT_OF_RANGE"
-	PERMISSIONDENIED   ErrorResponseErrorCode = "PERMISSION_DENIED"
-	QUOTAEXCEEDED      ErrorResponseErrorCode = "QUOTA_EXCEEDED"
-	RESOURCEEXHAUSTED  ErrorResponseErrorCode = "RESOURCE_EXHAUSTED"
-	UNAUTHENTICATED    ErrorResponseErrorCode = "UNAUTHENTICATED"
-	UNAVAILABLE        ErrorResponseErrorCode = "UNAVAILABLE"
-	UNIMPLEMENTED      ErrorResponseErrorCode = "UNIMPLEMENTED"
-	UNKNOWN            ErrorResponseErrorCode = "UNKNOWN"
-)
-
-// Defines values for ModelInfoMetric.
-const (
-	Cosine     ModelInfoMetric = "cosine"
-	Dotproduct ModelInfoMetric = "dotproduct"
-	Euclidean  ModelInfoMetric = "euclidean"
-)
-
 // DenseEmbedding A dense embedding of a single input
 type DenseEmbedding struct {
 	// Values The dense embedding values.
@@ -66,6 +37,7 @@ type Document map[string]interface{}
 type EmbedRequest struct {
 	// Inputs List of inputs to generate embeddings for.
 	Inputs []struct {
+		// Text The text input to generate embeddings for.
 		Text *string `json:"text,omitempty"`
 	} `json:"inputs"`
 
@@ -103,19 +75,20 @@ type EmbeddingsList struct {
 type ErrorResponse struct {
 	// Error Detailed information about the error that occurred.
 	Error struct {
-		Code ErrorResponseErrorCode `json:"code"`
+		// Code The error code.
+		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `QUOTA_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `UNIMPLEMENTED`, `INTERNAL`, `UNAVAILABLE`, `DATA_LOSS`, or `FORBIDDEN`.
+		Code string `json:"code"`
 
 		// Details Additional information about the error. This field is not guaranteed to be present.
 		Details *map[string]interface{} `json:"details,omitempty"`
-		Message string                  `json:"message"`
+
+		// Message A human-readable error message describing the error.
+		Message string `json:"message"`
 	} `json:"error"`
 
 	// Status The HTTP status code of the error.
 	Status int `json:"status"`
 }
-
-// ErrorResponseErrorCode defines model for ErrorResponse.Error.Code.
-type ErrorResponseErrorCode string
 
 // ModelInfo Represents the model configuration including model type, supported parameters, and other model details.
 type ModelInfo struct {
@@ -144,7 +117,9 @@ type ModelInfo struct {
 	SupportedDimensions *[]int32 `json:"supported_dimensions,omitempty"`
 
 	// SupportedMetrics The distance metrics supported by the model for similarity search.
-	SupportedMetrics    *ModelInfoSupportedMetrics    `json:"supported_metrics,omitempty"`
+	SupportedMetrics *ModelInfoSupportedMetrics `json:"supported_metrics,omitempty"`
+
+	// SupportedParameters List of parameters supported by the model.
 	SupportedParameters []ModelInfoSupportedParameter `json:"supported_parameters"`
 
 	// Type The type of model (e.g. 'embed' or 'rerank').
@@ -156,11 +131,13 @@ type ModelInfo struct {
 
 // ModelInfoList The list of available models.
 type ModelInfoList struct {
+	// Models List of available models.
 	Models *[]ModelInfo `json:"models,omitempty"`
 }
 
 // ModelInfoMetric A distance metric that the embedding model supports for similarity searches.
-type ModelInfoMetric string
+// Possible values: `cosine`, `euclidean`, or `dotproduct`.
+type ModelInfoMetric = string
 
 // ModelInfoSupportedMetrics The distance metrics supported by the model for similarity search.
 type ModelInfoSupportedMetrics = []ModelInfoMetric
@@ -297,6 +274,12 @@ type SparseEmbedding struct {
 // VectorType Indicates whether this is a 'dense' or 'sparse' embedding.
 type VectorType = string
 
+// EmbedParams defines parameters for Embed.
+type EmbedParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
 // ListModelsParams defines parameters for ListModels.
 type ListModelsParams struct {
 	// Type Filter models by type ('embed' or 'rerank').
@@ -304,6 +287,21 @@ type ListModelsParams struct {
 
 	// VectorType Filter embedding models by vector type ('dense' or 'sparse'). Only relevant when `type=embed`.
 	VectorType *string `form:"vector_type,omitempty" json:"vector_type,omitempty"`
+
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// GetModelParams defines parameters for GetModel.
+type GetModelParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// RerankParams defines parameters for Rerank.
+type RerankParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
 }
 
 // EmbedJSONRequestBody defines body for Embed for application/json ContentType.
@@ -651,24 +649,24 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 	// EmbedWithBody request with any body
-	EmbedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	EmbedWithBody(ctx context.Context, params *EmbedParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	Embed(ctx context.Context, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	Embed(ctx context.Context, params *EmbedParams, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListModels request
 	ListModels(ctx context.Context, params *ListModelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetModel request
-	GetModel(ctx context.Context, modelName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetModel(ctx context.Context, modelName string, params *GetModelParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RerankWithBody request with any body
-	RerankWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RerankWithBody(ctx context.Context, params *RerankParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	Rerank(ctx context.Context, body RerankJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	Rerank(ctx context.Context, params *RerankParams, body RerankJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) EmbedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewEmbedRequestWithBody(c.Server, contentType, body)
+func (c *Client) EmbedWithBody(ctx context.Context, params *EmbedParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEmbedRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -679,8 +677,8 @@ func (c *Client) EmbedWithBody(ctx context.Context, contentType string, body io.
 	return c.Client.Do(req)
 }
 
-func (c *Client) Embed(ctx context.Context, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewEmbedRequest(c.Server, body)
+func (c *Client) Embed(ctx context.Context, params *EmbedParams, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEmbedRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -703,8 +701,8 @@ func (c *Client) ListModels(ctx context.Context, params *ListModelsParams, reqEd
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetModel(ctx context.Context, modelName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetModelRequest(c.Server, modelName)
+func (c *Client) GetModel(ctx context.Context, modelName string, params *GetModelParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetModelRequest(c.Server, modelName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -715,8 +713,8 @@ func (c *Client) GetModel(ctx context.Context, modelName string, reqEditors ...R
 	return c.Client.Do(req)
 }
 
-func (c *Client) RerankWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRerankRequestWithBody(c.Server, contentType, body)
+func (c *Client) RerankWithBody(ctx context.Context, params *RerankParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRerankRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -727,8 +725,8 @@ func (c *Client) RerankWithBody(ctx context.Context, contentType string, body io
 	return c.Client.Do(req)
 }
 
-func (c *Client) Rerank(ctx context.Context, body RerankJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRerankRequest(c.Server, body)
+func (c *Client) Rerank(ctx context.Context, params *RerankParams, body RerankJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRerankRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -740,18 +738,18 @@ func (c *Client) Rerank(ctx context.Context, body RerankJSONRequestBody, reqEdit
 }
 
 // NewEmbedRequest calls the generic Embed builder with application/json body
-func NewEmbedRequest(server string, body EmbedJSONRequestBody) (*http.Request, error) {
+func NewEmbedRequest(server string, params *EmbedParams, body EmbedJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewEmbedRequestWithBody(server, "application/json", bodyReader)
+	return NewEmbedRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewEmbedRequestWithBody generates requests for Embed with any type of body
-func NewEmbedRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewEmbedRequestWithBody(server string, params *EmbedParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -775,6 +773,19 @@ func NewEmbedRequestWithBody(server string, contentType string, body io.Reader) 
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
 
 	return req, nil
 }
@@ -841,11 +852,24 @@ func NewListModelsRequest(server string, params *ListModelsParams) (*http.Reques
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewGetModelRequest generates requests for GetModel
-func NewGetModelRequest(server string, modelName string) (*http.Request, error) {
+func NewGetModelRequest(server string, modelName string, params *GetModelParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -875,22 +899,35 @@ func NewGetModelRequest(server string, modelName string) (*http.Request, error) 
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewRerankRequest calls the generic Rerank builder with application/json body
-func NewRerankRequest(server string, body RerankJSONRequestBody) (*http.Request, error) {
+func NewRerankRequest(server string, params *RerankParams, body RerankJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewRerankRequestWithBody(server, "application/json", bodyReader)
+	return NewRerankRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewRerankRequestWithBody generates requests for Rerank with any type of body
-func NewRerankRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewRerankRequestWithBody(server string, params *RerankParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -914,6 +951,19 @@ func NewRerankRequestWithBody(server string, contentType string, body io.Reader)
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
 
 	return req, nil
 }
@@ -962,20 +1012,20 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 	// EmbedWithBodyWithResponse request with any body
-	EmbedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EmbedResponse, error)
+	EmbedWithBodyWithResponse(ctx context.Context, params *EmbedParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EmbedResponse, error)
 
-	EmbedWithResponse(ctx context.Context, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*EmbedResponse, error)
+	EmbedWithResponse(ctx context.Context, params *EmbedParams, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*EmbedResponse, error)
 
 	// ListModelsWithResponse request
 	ListModelsWithResponse(ctx context.Context, params *ListModelsParams, reqEditors ...RequestEditorFn) (*ListModelsResponse, error)
 
 	// GetModelWithResponse request
-	GetModelWithResponse(ctx context.Context, modelName string, reqEditors ...RequestEditorFn) (*GetModelResponse, error)
+	GetModelWithResponse(ctx context.Context, modelName string, params *GetModelParams, reqEditors ...RequestEditorFn) (*GetModelResponse, error)
 
 	// RerankWithBodyWithResponse request with any body
-	RerankWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RerankResponse, error)
+	RerankWithBodyWithResponse(ctx context.Context, params *RerankParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RerankResponse, error)
 
-	RerankWithResponse(ctx context.Context, body RerankJSONRequestBody, reqEditors ...RequestEditorFn) (*RerankResponse, error)
+	RerankWithResponse(ctx context.Context, params *RerankParams, body RerankJSONRequestBody, reqEditors ...RequestEditorFn) (*RerankResponse, error)
 }
 
 type EmbedResponse struct {
@@ -1079,16 +1129,16 @@ func (r RerankResponse) StatusCode() int {
 }
 
 // EmbedWithBodyWithResponse request with arbitrary body returning *EmbedResponse
-func (c *ClientWithResponses) EmbedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EmbedResponse, error) {
-	rsp, err := c.EmbedWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) EmbedWithBodyWithResponse(ctx context.Context, params *EmbedParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EmbedResponse, error) {
+	rsp, err := c.EmbedWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseEmbedResponse(rsp)
 }
 
-func (c *ClientWithResponses) EmbedWithResponse(ctx context.Context, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*EmbedResponse, error) {
-	rsp, err := c.Embed(ctx, body, reqEditors...)
+func (c *ClientWithResponses) EmbedWithResponse(ctx context.Context, params *EmbedParams, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*EmbedResponse, error) {
+	rsp, err := c.Embed(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1105,8 +1155,8 @@ func (c *ClientWithResponses) ListModelsWithResponse(ctx context.Context, params
 }
 
 // GetModelWithResponse request returning *GetModelResponse
-func (c *ClientWithResponses) GetModelWithResponse(ctx context.Context, modelName string, reqEditors ...RequestEditorFn) (*GetModelResponse, error) {
-	rsp, err := c.GetModel(ctx, modelName, reqEditors...)
+func (c *ClientWithResponses) GetModelWithResponse(ctx context.Context, modelName string, params *GetModelParams, reqEditors ...RequestEditorFn) (*GetModelResponse, error) {
+	rsp, err := c.GetModel(ctx, modelName, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1114,16 +1164,16 @@ func (c *ClientWithResponses) GetModelWithResponse(ctx context.Context, modelNam
 }
 
 // RerankWithBodyWithResponse request with arbitrary body returning *RerankResponse
-func (c *ClientWithResponses) RerankWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RerankResponse, error) {
-	rsp, err := c.RerankWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) RerankWithBodyWithResponse(ctx context.Context, params *RerankParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RerankResponse, error) {
+	rsp, err := c.RerankWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseRerankResponse(rsp)
 }
 
-func (c *ClientWithResponses) RerankWithResponse(ctx context.Context, body RerankJSONRequestBody, reqEditors ...RequestEditorFn) (*RerankResponse, error) {
-	rsp, err := c.Rerank(ctx, body, reqEditors...)
+func (c *ClientWithResponses) RerankWithResponse(ctx context.Context, params *RerankParams, body RerankJSONRequestBody, reqEditors ...RequestEditorFn) (*RerankResponse, error) {
+	rsp, err := c.Rerank(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

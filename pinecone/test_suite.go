@@ -15,19 +15,22 @@ import (
 
 type integrationTests struct {
 	suite.Suite
-	apiKey         string
-	client         *Client
-	host           string
-	dimension      *int32
-	indexType      string
-	vectorIds      []string
-	idxName        string
-	backupId       string
-	idxConn        *IndexConnection
-	collectionName string
-	sourceTag      string
-	indexTags      *IndexTags
-	namespaces     []string
+	apiKey                       string
+	client                       *Client
+	host                         string
+	dimension                    *int32
+	indexType                    string
+	vectorIds                    []string
+	idxName                      string
+	backupId                     string
+	idxConn                      *IndexConnection
+	collectionName               string
+	sourceTag                    string
+	indexTags                    *IndexTags
+	schema                       *MetadataSchema
+	namespaces                   []string
+	vectorsWithClassicalMetadata []string
+	vectorsWithRockMetadata      []string
 }
 
 type adminIntegrationTests struct {
@@ -40,13 +43,14 @@ type adminIntegrationTests struct {
 func (ts *integrationTests) SetupSuite() {
 	ctx := context.Background()
 
-	_, err := waitUntilIndexReady(ts, ctx)
+	_, err := waitUntilIndexReady(ts, ctx, ts.idxName)
 	require.NoError(ts.T(), err)
 
 	namespace1 := uuid.New().String()
 	namespace2 := uuid.New().String()
 	namespace3 := uuid.New().String()
-	namespaces := append([]string{}, namespace1, namespace2, namespace3)
+	namespace4 := uuid.New().String()
+	namespaces := append([]string{}, namespace1, namespace2, namespace3, namespace4)
 
 	idxConn, err := ts.client.Index(NewIndexConnParams{
 		Host:      ts.host,
@@ -66,20 +70,73 @@ func (ts *integrationTests) SetupSuite() {
 	// Deterministically create vectors
 	vectors := generateVectors(10, dim, false, nil)
 
+	// Create vectors with classical metadata for testing
+	classicalVectors := make([]*Vector, 5)
+	classicalVectorIds := make([]string, 5)
+	for i := 0; i < 5; i++ {
+		metadataMap := map[string]interface{}{
+			"genre": "classical",
+			"year":  2020 + i,
+		}
+		metadata, err := NewMetadata(metadataMap)
+		if err != nil {
+			log.Fatalf("Failed to create classical metadata in SetupSuite: %v", err)
+		}
+
+		values := generateVectorValues(dim)
+		classicalVectors[i] = &Vector{
+			Id:       fmt.Sprintf("classical-vector-%d", i),
+			Values:   values,
+			Metadata: metadata,
+		}
+		classicalVectorIds[i] = classicalVectors[i].Id
+	}
+
+	// Create vectors with rock metadata for testing
+	rockVectors := make([]*Vector, 3)
+	rockVectorIds := make([]string, 3)
+	for i := 0; i < 3; i++ {
+		metadataMap := map[string]interface{}{
+			"genre": "rock",
+			"year":  2021,
+		}
+		metadata, err := NewMetadata(metadataMap)
+		if err != nil {
+			log.Fatalf("Failed to create rock metadata in SetupSuite: %v", err)
+		}
+
+		values := generateVectorValues(dim)
+		rockVectors[i] = &Vector{
+			Id:       fmt.Sprintf("rock-vector-%d", i),
+			Values:   values,
+			Metadata: metadata,
+		}
+		rockVectorIds[i] = rockVectors[i].Id
+	}
+
+	// Combine all vectors
+	allVectors := append(vectors, classicalVectors...)
+	allVectors = append(allVectors, rockVectors...)
+
 	// Add vector ids to the suite
 	vectorIds := make([]string, len(vectors))
 	for i, v := range vectors {
 		vectorIds[i] = v.Id
 	}
+	ts.vectorIds = vectorIds
 
-	// Upsert vectors into each namespace
+	// Upsert all vectors into each namespace
 	for _, ns := range namespaces {
 		idxConnNamespaced := ts.idxConn.WithNamespace(ns)
-		_, err = idxConnNamespaced.UpsertVectors(ctx, vectors)
+		_, err = idxConnNamespaced.UpsertVectors(ctx, allVectors)
 		if err != nil {
 			log.Fatalf("Failed to upsert vectors in SetupSuite: %v to namespace: %v", err, idxConnNamespaced.namespace)
 		}
 	}
+
+	// Store metadata vector IDs
+	ts.vectorsWithClassicalMetadata = classicalVectorIds
+	ts.vectorsWithRockMetadata = rockVectorIds
 
 	// Wait for vector freshness
 	err = pollIndexForFreshness(ts, ctx, vectorIds[0])
@@ -91,6 +148,7 @@ func (ts *integrationTests) SetupSuite() {
 	if ts.indexType == "pods" {
 		createCollection(ts, ctx)
 	}
+
 	// Create backup for serverless index suite
 	if ts.indexType == "serverless" {
 		createBackup(ts, ctx)
@@ -148,24 +206,6 @@ func generateTestIndexName() string {
 	return fmt.Sprintf("index-%d", time.Now().UnixMilli())
 }
 
-func upsertVectors(ts *integrationTests, ctx context.Context, vectors []*Vector) error {
-	_, err := waitUntilIndexReady(ts, ctx)
-	require.NoError(ts.T(), err)
-
-	ids := make([]string, len(vectors))
-	for i, v := range vectors {
-		ids[i] = v.Id
-	}
-
-	upsertVectors, err := ts.idxConn.UpsertVectors(ctx, vectors)
-	require.NoError(ts.T(), err)
-	fmt.Printf("Upserted vectors: %v into host: %s\n", upsertVectors, ts.host)
-
-	ts.vectorIds = append(ts.vectorIds, ids...)
-
-	return nil
-}
-
 func createCollection(ts *integrationTests, ctx context.Context) {
 	name := uuid.New().String()
 	sourceIndex := ts.idxName
@@ -215,27 +255,27 @@ func createBackup(ts *integrationTests, ctx context.Context) {
 	}
 }
 
-func waitUntilIndexReady(ts *integrationTests, ctx context.Context) (bool, error) {
+func waitUntilIndexReady(ts *integrationTests, ctx context.Context, indexName string) (bool, error) {
 	start := time.Now()
 	delay := 5 * time.Second
 	maxWaitTimeSeconds := 280 * time.Second
 
 	for {
-		index, err := ts.client.DescribeIndex(ctx, ts.idxName)
+		index, err := ts.client.DescribeIndex(ctx, indexName)
 		require.NoError(ts.T(), err)
 
 		if index.Status.Ready && index.Status.State == Ready {
-			fmt.Printf("Index \"%s\" is ready after %f seconds\n", ts.idxName, time.Since(start).Seconds())
+			fmt.Printf("Index \"%s\" is ready after %f seconds\n", indexName, time.Since(start).Seconds())
 			return true, err
 		}
 
 		totalSeconds := time.Since(start)
 
 		if totalSeconds >= maxWaitTimeSeconds {
-			return false, fmt.Errorf("Index \"%s\" not ready after %f seconds", ts.idxName, totalSeconds.Seconds())
+			return false, fmt.Errorf("Index \"%s\" not ready after %f seconds", indexName, totalSeconds.Seconds())
 		}
 
-		fmt.Printf("Index \"%s\" not ready yet, retrying... (%f/%f)\n", ts.idxName, totalSeconds.Seconds(), maxWaitTimeSeconds.Seconds())
+		fmt.Printf("Index \"%s\" not ready yet, retrying... (%f/%f)\n", indexName, totalSeconds.Seconds(), maxWaitTimeSeconds.Seconds())
 		time.Sleep(delay)
 	}
 }
@@ -281,19 +321,21 @@ func generateVectorValues(dimension int32) *[]float32 {
 	return &values
 }
 
-func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags) *Index {
+func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags, schema *MetadataSchema, readCapacity *ReadCapacityParams) *Index {
 	ctx := context.Background()
 	dimension := int32(setDimensionsForTestIndexes())
 	metric := Cosine
 
 	fmt.Printf("Creating Serverless index: %s\n", idxName)
 	serverlessIdx, err := in.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
-		Name:      idxName,
-		Dimension: &dimension,
-		Metric:    &metric,
-		Region:    "us-east-1",
-		Cloud:     "aws",
-		Tags:      &tags,
+		Name:         idxName,
+		Dimension:    &dimension,
+		Metric:       &metric,
+		Region:       "us-east-1",
+		Cloud:        "aws",
+		Tags:         &tags,
+		Schema:       schema,
+		ReadCapacity: readCapacity,
 	})
 	if err != nil {
 		log.Fatalf("Failed to create Serverless index \"%s\" in integration test: %v", err, idxName)
@@ -339,7 +381,15 @@ func retryAssertions(t *testing.T, maxRetries int, delay time.Duration, fn func(
 }
 
 func retryAssertionsWithDefaults(t *testing.T, fn func() error) {
-	retryAssertions(t, 30, 5*time.Second, fn)
+	retryAssertions(t, 30, 3*time.Second, fn)
+}
+
+// retryAssertionsWithExtendedTimeout allows a longer convergence window for
+// operations whose effects propagate slowly under eventual consistency (e.g.
+// delete-by-filter, which must reconcile a metadata query against the freshly
+// mutated index). 60 attempts * 3s = up to 180s.
+func retryAssertionsWithExtendedTimeout(t *testing.T, fn func() error) {
+	retryAssertions(t, 60, 3*time.Second, fn)
 }
 
 func pollIndexForFreshness(ts *integrationTests, ctx context.Context, sampleId string) error {

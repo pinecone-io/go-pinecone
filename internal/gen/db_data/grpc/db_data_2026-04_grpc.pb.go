@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             v5.27.1
-// source: db_data_2025-04.proto
+// source: db_data_2026-04.proto
 
 package grpc
 
@@ -29,33 +29,35 @@ const (
 	VectorService_ListNamespaces_FullMethodName     = "/VectorService/ListNamespaces"
 	VectorService_DescribeNamespace_FullMethodName  = "/VectorService/DescribeNamespace"
 	VectorService_DeleteNamespace_FullMethodName    = "/VectorService/DeleteNamespace"
+	VectorService_CreateNamespace_FullMethodName    = "/VectorService/CreateNamespace"
+	VectorService_FetchByMetadata_FullMethodName    = "/VectorService/FetchByMetadata"
 )
 
 // VectorServiceClient is the client API for VectorService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type VectorServiceClient interface {
-	// Upsert vectors
+	// Upsert records
 	//
-	// Upsert vectors into a namespace. If a new value is upserted for an existing vector ID, it will overwrite the previous value.
+	// Upsert records into a namespace. If a new value is upserted for an existing record ID, it will overwrite the previous value.
 	//
 	// For guidance, examples, and limits, see [Upsert data](https://docs.pinecone.io/guides/index-data/upsert-data).
 	Upsert(ctx context.Context, in *UpsertRequest, opts ...grpc.CallOption) (*UpsertResponse, error)
-	// Delete vectors
+	// Delete records
 	//
-	// Delete vectors by id from a single namespace.
+	// Delete records by id or by metadata from a single namespace.
 	//
 	// For guidance and examples, see [Delete data](https://docs.pinecone.io/guides/manage-data/delete-data).
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
-	// Fetch vectors
+	// Fetch records
 	//
-	// Look up and return vectors by ID from a single namespace. The returned vectors include the vector data and/or metadata.
+	// Look up and return records by ID from a single namespace. The returned records include the vector data and/or metadata.
 	//
 	// For guidance and examples, see [Fetch data](https://docs.pinecone.io/guides/manage-data/fetch-data).
 	Fetch(ctx context.Context, in *FetchRequest, opts ...grpc.CallOption) (*FetchResponse, error)
-	// List vector IDs
+	// List record IDs
 	//
-	// List the IDs of vectors in a single namespace of a serverless index. An optional prefix can be passed to limit the results to IDs with a common prefix.
+	// List the IDs of records in a single namespace of a serverless index. An optional prefix can be passed to limit the results to IDs with a common prefix.
 	//
 	// This returns up to 100 IDs at a time by default in sorted order (bitwise/"C" collation). If the `limit` parameter is set, `list` returns up to that number of IDs instead. Whenever there are additional IDs to return, the response also includes a `pagination_token` that you can use to get the next batch of IDs. When the response does not include a `pagination_token`, there are no more IDs to return.
 	//
@@ -85,7 +87,7 @@ type VectorServiceClient interface {
 	//
 	// List all namespaces in a serverless index.
 	//
-	// Up to 100 namespaces are returned at a time by default, in sorted order (bitwise “C” collation). If the `limit` parameter is set, up to that number of namespaces are returned instead. Whenever there are additional namespaces to return, the response also includes a `pagination_token` that you can use to get the next batch of namespaces. When the response does not include a `pagination_token`, there are no more namespaces to return.
+	// Up to 100 namespaces are returned at a time by default, in sorted order (bitwise "C" collation). If the `limit` parameter is set, up to that number of namespaces are returned instead. Whenever there are additional namespaces to return, the response also includes a `pagination_token` that you can use to get the next batch of namespaces. When the response does not include a `pagination_token`, there are no more namespaces to return.
 	//
 	// For guidance and examples, see [Manage namespaces](https://docs.pinecone.io/guides/manage-data/manage-namespaces).
 	//
@@ -107,6 +109,15 @@ type VectorServiceClient interface {
 	//
 	// **Note:** This operation is not supported for pod-based indexes.
 	DeleteNamespace(ctx context.Context, in *DeleteNamespaceRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
+	// Create a namespace
+	//
+	// Create a namespace in a serverless index.
+	//
+	// For guidance and examples, see [Manage namespaces](https://docs.pinecone.io/guides/manage-data/manage-namespaces).
+	//
+	// **Note:** This operation is not supported for pod-based indexes.
+	CreateNamespace(ctx context.Context, in *CreateNamespaceRequest, opts ...grpc.CallOption) (*NamespaceDescription, error)
+	FetchByMetadata(ctx context.Context, in *FetchByMetadataRequest, opts ...grpc.CallOption) (*FetchByMetadataResponse, error)
 }
 
 type vectorServiceClient struct {
@@ -207,31 +218,49 @@ func (c *vectorServiceClient) DeleteNamespace(ctx context.Context, in *DeleteNam
 	return out, nil
 }
 
+func (c *vectorServiceClient) CreateNamespace(ctx context.Context, in *CreateNamespaceRequest, opts ...grpc.CallOption) (*NamespaceDescription, error) {
+	out := new(NamespaceDescription)
+	err := c.cc.Invoke(ctx, VectorService_CreateNamespace_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vectorServiceClient) FetchByMetadata(ctx context.Context, in *FetchByMetadataRequest, opts ...grpc.CallOption) (*FetchByMetadataResponse, error) {
+	out := new(FetchByMetadataResponse)
+	err := c.cc.Invoke(ctx, VectorService_FetchByMetadata_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // VectorServiceServer is the server API for VectorService service.
 // All implementations must embed UnimplementedVectorServiceServer
 // for forward compatibility
 type VectorServiceServer interface {
-	// Upsert vectors
+	// Upsert records
 	//
-	// Upsert vectors into a namespace. If a new value is upserted for an existing vector ID, it will overwrite the previous value.
+	// Upsert records into a namespace. If a new value is upserted for an existing record ID, it will overwrite the previous value.
 	//
 	// For guidance, examples, and limits, see [Upsert data](https://docs.pinecone.io/guides/index-data/upsert-data).
 	Upsert(context.Context, *UpsertRequest) (*UpsertResponse, error)
-	// Delete vectors
+	// Delete records
 	//
-	// Delete vectors by id from a single namespace.
+	// Delete records by id or by metadata from a single namespace.
 	//
 	// For guidance and examples, see [Delete data](https://docs.pinecone.io/guides/manage-data/delete-data).
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
-	// Fetch vectors
+	// Fetch records
 	//
-	// Look up and return vectors by ID from a single namespace. The returned vectors include the vector data and/or metadata.
+	// Look up and return records by ID from a single namespace. The returned records include the vector data and/or metadata.
 	//
 	// For guidance and examples, see [Fetch data](https://docs.pinecone.io/guides/manage-data/fetch-data).
 	Fetch(context.Context, *FetchRequest) (*FetchResponse, error)
-	// List vector IDs
+	// List record IDs
 	//
-	// List the IDs of vectors in a single namespace of a serverless index. An optional prefix can be passed to limit the results to IDs with a common prefix.
+	// List the IDs of records in a single namespace of a serverless index. An optional prefix can be passed to limit the results to IDs with a common prefix.
 	//
 	// This returns up to 100 IDs at a time by default in sorted order (bitwise/"C" collation). If the `limit` parameter is set, `list` returns up to that number of IDs instead. Whenever there are additional IDs to return, the response also includes a `pagination_token` that you can use to get the next batch of IDs. When the response does not include a `pagination_token`, there are no more IDs to return.
 	//
@@ -261,7 +290,7 @@ type VectorServiceServer interface {
 	//
 	// List all namespaces in a serverless index.
 	//
-	// Up to 100 namespaces are returned at a time by default, in sorted order (bitwise “C” collation). If the `limit` parameter is set, up to that number of namespaces are returned instead. Whenever there are additional namespaces to return, the response also includes a `pagination_token` that you can use to get the next batch of namespaces. When the response does not include a `pagination_token`, there are no more namespaces to return.
+	// Up to 100 namespaces are returned at a time by default, in sorted order (bitwise "C" collation). If the `limit` parameter is set, up to that number of namespaces are returned instead. Whenever there are additional namespaces to return, the response also includes a `pagination_token` that you can use to get the next batch of namespaces. When the response does not include a `pagination_token`, there are no more namespaces to return.
 	//
 	// For guidance and examples, see [Manage namespaces](https://docs.pinecone.io/guides/manage-data/manage-namespaces).
 	//
@@ -283,6 +312,15 @@ type VectorServiceServer interface {
 	//
 	// **Note:** This operation is not supported for pod-based indexes.
 	DeleteNamespace(context.Context, *DeleteNamespaceRequest) (*DeleteResponse, error)
+	// Create a namespace
+	//
+	// Create a namespace in a serverless index.
+	//
+	// For guidance and examples, see [Manage namespaces](https://docs.pinecone.io/guides/manage-data/manage-namespaces).
+	//
+	// **Note:** This operation is not supported for pod-based indexes.
+	CreateNamespace(context.Context, *CreateNamespaceRequest) (*NamespaceDescription, error)
+	FetchByMetadata(context.Context, *FetchByMetadataRequest) (*FetchByMetadataResponse, error)
 	mustEmbedUnimplementedVectorServiceServer()
 }
 
@@ -319,6 +357,12 @@ func (UnimplementedVectorServiceServer) DescribeNamespace(context.Context, *Desc
 }
 func (UnimplementedVectorServiceServer) DeleteNamespace(context.Context, *DeleteNamespaceRequest) (*DeleteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteNamespace not implemented")
+}
+func (UnimplementedVectorServiceServer) CreateNamespace(context.Context, *CreateNamespaceRequest) (*NamespaceDescription, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateNamespace not implemented")
+}
+func (UnimplementedVectorServiceServer) FetchByMetadata(context.Context, *FetchByMetadataRequest) (*FetchByMetadataResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FetchByMetadata not implemented")
 }
 func (UnimplementedVectorServiceServer) mustEmbedUnimplementedVectorServiceServer() {}
 
@@ -513,6 +557,42 @@ func _VectorService_DeleteNamespace_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VectorService_CreateNamespace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateNamespaceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VectorServiceServer).CreateNamespace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VectorService_CreateNamespace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VectorServiceServer).CreateNamespace(ctx, req.(*CreateNamespaceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VectorService_FetchByMetadata_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FetchByMetadataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VectorServiceServer).FetchByMetadata(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VectorService_FetchByMetadata_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VectorServiceServer).FetchByMetadata(ctx, req.(*FetchByMetadataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // VectorService_ServiceDesc is the grpc.ServiceDesc for VectorService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -560,7 +640,15 @@ var VectorService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "DeleteNamespace",
 			Handler:    _VectorService_DeleteNamespace_Handler,
 		},
+		{
+			MethodName: "CreateNamespace",
+			Handler:    _VectorService_CreateNamespace_Handler,
+		},
+		{
+			MethodName: "FetchByMetadata",
+			Handler:    _VectorService_FetchByMetadata_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "db_data_2025-04.proto",
+	Metadata: "db_data_2026-04.proto",
 }

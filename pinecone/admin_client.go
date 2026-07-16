@@ -11,10 +11,10 @@ import (
 	"os"
 
 	"github.com/google/uuid"
-	"github.com/pinecone-io/go-pinecone/v4/internal/gen"
-	"github.com/pinecone-io/go-pinecone/v4/internal/gen/admin"
-	"github.com/pinecone-io/go-pinecone/v4/internal/provider"
-	"github.com/pinecone-io/go-pinecone/v4/internal/useragent"
+	"github.com/pinecone-io/go-pinecone/v5/internal/gen"
+	"github.com/pinecone-io/go-pinecone/v5/internal/gen/admin"
+	"github.com/pinecone-io/go-pinecone/v5/internal/provider"
+	"github.com/pinecone-io/go-pinecone/v5/internal/useragent"
 )
 
 // [AdminClient] provides access to Pinecone's administrative APIs, which supports
@@ -113,13 +113,16 @@ type NewAdminClientParams struct {
 	// The OAuth access token used for authentication.
 	AccessToken string
 
+	// The host URL of the Pinecone API. If not provided, the default value is "https://api.pinecone.io".
+	Host string
+
 	// (Optional) Additional headers to include in the request.
 	Headers *map[string]string
 
-	// (Optional)The HTTP client to use for the request.
+	// (Optional) The HTTP client to use for the request.
 	RestClient *http.Client
 
-	// (Optional)The source tag to include in the request.
+	// (Optional) The source tag to include in the request.
 	SourceTag *string
 }
 
@@ -160,10 +163,19 @@ func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*A
 		authHeader = fmt.Sprintf("Bearer %s", authToken)
 	}
 
+	hostOverride := valueOrFallback(in.Host, os.Getenv("PINECONE_CONTROLLER_HOST"))
+	if hostOverride != "" {
+		var err error
+		hostOverride, err = ensureURLScheme(hostOverride)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	authProvider := provider.NewHeaderProvider("Authorization", authHeader)
 	clientOptions = append(clientOptions, admin.WithRequestEditorFn(authProvider.Intercept))
 
-	adminClient, err := newAdminClient("https://api.pinecone.io", clientOptions...)
+	adminClient, err := newAdminClient(valueOrFallback(hostOverride, "https://api.pinecone.io"), clientOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +240,7 @@ func (p *DefaultProjectClient) Create(ctx context.Context, in *CreateProjectPara
 		Name:                    in.Name,
 	}
 
-	res, err := p.restClient.CreateProject(ctx, request)
+	res, err := p.restClient.CreateProject(ctx, &admin.CreateProjectParams{XPineconeApiVersion: gen.PineconeApiVersion}, request)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +305,7 @@ func (p *DefaultProjectClient) Update(ctx context.Context, projectId string, in 
 		ForceEncryptionWithCmek: in.ForceEncryptionWithCmek,
 	}
 
-	res, err := p.restClient.UpdateProject(ctx, projectIdUUID, request)
+	res, err := p.restClient.UpdateProject(ctx, projectIdUUID, &admin.UpdateProjectParams{XPineconeApiVersion: gen.PineconeApiVersion}, request)
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +338,7 @@ func (p *DefaultProjectClient) Update(ctx context.Context, projectId string, in 
 //		log.Fatal(err)
 //	}
 func (p *DefaultProjectClient) List(ctx context.Context) ([]*Project, error) {
-	res, err := p.restClient.ListProjects(ctx)
+	res, err := p.restClient.ListProjects(ctx, &admin.ListProjectsParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -377,7 +389,7 @@ func (p *DefaultProjectClient) Describe(ctx context.Context, projectId string) (
 		return nil, fmt.Errorf("invalid projectId: %w", err)
 	}
 
-	res, err := p.restClient.FetchProject(ctx, projectIdUUID)
+	res, err := p.restClient.FetchProject(ctx, projectIdUUID, &admin.FetchProjectParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -416,7 +428,7 @@ func (p *DefaultProjectClient) Delete(ctx context.Context, projectId string) err
 		return fmt.Errorf("invalid projectId: %w", err)
 	}
 
-	res, err := p.restClient.DeleteProject(ctx, projectIdUUID)
+	res, err := p.restClient.DeleteProject(ctx, projectIdUUID, &admin.DeleteProjectParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return err
 	}
@@ -443,7 +455,7 @@ func (p *DefaultProjectClient) Delete(ctx context.Context, projectId string) err
 //		log.Fatal(err)
 //	}
 func (o *DefaultOrganizationClient) List(ctx context.Context) ([]*Organization, error) {
-	res, err := o.restClient.ListOrganizations(ctx)
+	res, err := o.restClient.ListOrganizations(ctx, &admin.ListOrganizationsParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -489,7 +501,7 @@ func (o *DefaultOrganizationClient) List(ctx context.Context) ([]*Organization, 
 //		log.Fatal(err)
 //	}
 func (o *DefaultOrganizationClient) Describe(ctx context.Context, organizationId string) (*Organization, error) {
-	res, err := o.restClient.FetchOrganization(ctx, organizationId)
+	res, err := o.restClient.FetchOrganization(ctx, organizationId, &admin.FetchOrganizationParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -540,7 +552,7 @@ func (o *DefaultOrganizationClient) Update(ctx context.Context, organizationId s
 		Name: in.Name,
 	}
 
-	res, err := o.restClient.UpdateOrganization(ctx, organizationId, request)
+	res, err := o.restClient.UpdateOrganization(ctx, organizationId, &admin.UpdateOrganizationParams{XPineconeApiVersion: gen.PineconeApiVersion}, request)
 	if err != nil {
 		return nil, err
 	}
@@ -574,7 +586,7 @@ func (o *DefaultOrganizationClient) Update(ctx context.Context, organizationId s
 //		log.Fatal(err)
 //	}
 func (o *DefaultOrganizationClient) Delete(ctx context.Context, organizationId string) error {
-	res, err := o.restClient.DeleteOrganization(ctx, organizationId)
+	res, err := o.restClient.DeleteOrganization(ctx, organizationId, &admin.DeleteOrganizationParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return err
 	}
@@ -629,7 +641,7 @@ func (a *DefaultApiKeyClient) Create(ctx context.Context, projectId string, in *
 		return nil, fmt.Errorf("invalid projectId: %w", err)
 	}
 
-	res, err := a.restClient.CreateApiKey(ctx, projectIdUUID, request)
+	res, err := a.restClient.CreateApiKey(ctx, projectIdUUID, &admin.CreateApiKeyParams{XPineconeApiVersion: gen.PineconeApiVersion}, request)
 	if err != nil {
 		return nil, err
 	}
@@ -691,7 +703,7 @@ func (a *DefaultApiKeyClient) Update(ctx context.Context, apiKeyId string, in *U
 		Roles: in.Roles,
 	}
 
-	res, err := a.restClient.UpdateApiKey(ctx, apiKeyIdUUID, request)
+	res, err := a.restClient.UpdateApiKey(ctx, apiKeyIdUUID, &admin.UpdateApiKeyParams{XPineconeApiVersion: gen.PineconeApiVersion}, request)
 	if err != nil {
 		return nil, err
 	}
@@ -730,10 +742,11 @@ func (a *DefaultApiKeyClient) List(ctx context.Context, projectId string) ([]*AP
 		return nil, fmt.Errorf("invalid projectId: %w", err)
 	}
 
-	res, err := a.restClient.ListApiKeys(ctx, projectIdUUID)
+	res, err := a.restClient.ListProjectApiKeys(ctx, projectIdUUID, &admin.ListProjectApiKeysParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
+	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
 		return nil, handleErrorResponseBody(res, "failed to list api keys: ")
@@ -780,7 +793,7 @@ func (a *DefaultApiKeyClient) Describe(ctx context.Context, apiKeyId string) (*A
 		return nil, fmt.Errorf("invalid apiKeyId: %w", err)
 	}
 
-	res, err := a.restClient.FetchApiKey(ctx, apiKeyIdUUID)
+	res, err := a.restClient.FetchApiKey(ctx, apiKeyIdUUID, &admin.FetchApiKeyParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -819,7 +832,7 @@ func (a *DefaultApiKeyClient) Delete(ctx context.Context, apiKeyId string) error
 		return fmt.Errorf("invalid apiKeyId: %w", err)
 	}
 
-	res, err := a.restClient.DeleteApiKey(ctx, apiKeyIdUUID)
+	res, err := a.restClient.DeleteApiKey(ctx, apiKeyIdUUID, &admin.DeleteApiKeyParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return err
 	}
