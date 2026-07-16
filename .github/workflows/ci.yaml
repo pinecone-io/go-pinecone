@@ -18,7 +18,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21.x'
+          go-version: '1.25.x'
       - name: Install dependencies
         run: go get ./pinecone
       # No PINECONE_API_KEY in env: proves the mocked critical path needs none.
