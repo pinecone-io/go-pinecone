@@ -40,7 +40,7 @@ jobs:
       PRERELEASE_SUFFIX: "" # Set by the set_prerelease_suffix step
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ inputs.ref }}
