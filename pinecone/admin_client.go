@@ -137,9 +137,9 @@ type ServiceAccountClient interface {
 	// Describe a service account by ID.
 	Describe(ctx context.Context, serviceAccountId string) (*ServiceAccount, error)
 
-	// RotateSecret issues a new OAuth client secret for a service account by ID. The
-	// returned [ServiceAccountWithSecret] contains the new secret, which is returned
-	// only once; the previous secret is invalidated.
+	// Rotate the OAuth client secret for a service account by ID. The returned
+	// [ServiceAccountWithSecret] contains the new secret, which is returned only
+	// once; the previous secret is invalidated.
 	RotateSecret(ctx context.Context, serviceAccountId string) (*ServiceAccountWithSecret, error)
 
 	// Delete a service account by ID.
@@ -981,6 +981,8 @@ type CreateRoleBindingParams struct {
 	ResourceType ResourceType `json:"resource_type"`
 
 	// The role to assign to the principal at the resource scope.
+	// Expected "organization"-scoped values: "OrgOwner", "OrgManager", "OrgBillingAdmin", "OrgMember".
+	// Expected "project"-scoped values: "ProjectEditor", "ProjectViewer", "ControlPlaneEditor", "ControlPlaneViewer", "DataPlaneEditor", "DataPlaneViewer".
 	Role string `json:"role"`
 
 	// (Optional) The ID of the project the binding applies to. Required when

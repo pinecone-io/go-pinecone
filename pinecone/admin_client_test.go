@@ -310,7 +310,7 @@ func TestToRoleBindingListUnit(t *testing.T) {
 		require.NotNil(t, list)
 		require.Len(t, list.Data, 2)
 		assert.Equal(t, PrincipalTypeUser, list.Data[0].PrincipalType)
-		assert.Equal(t, PrincipalTypeApiKey, list.Data[1].PrincipalType)
+		assert.Equal(t, PrincipalTypeAPIKey, list.Data[1].PrincipalType)
 		require.NotNil(t, list.Pagination)
 		assert.Equal(t, next, list.Pagination.Next)
 	})

@@ -870,7 +870,7 @@ type PrincipalType string
 const (
 	PrincipalTypeUser           PrincipalType = "user"
 	PrincipalTypeServiceAccount PrincipalType = "service_account"
-	PrincipalTypeApiKey         PrincipalType = "api_key"
+	PrincipalTypeAPIKey         PrincipalType = "api_key"
 	PrincipalTypeInvite         PrincipalType = "invite"
 )
 
@@ -916,6 +916,8 @@ type RoleBindingInput struct {
 	ResourceType ResourceType `json:"resource_type"`
 
 	// The role to assign to the principal at the resource scope.
+	// Expected "organization"-scoped values: "OrgOwner", "OrgManager", "OrgBillingAdmin", "OrgMember".
+	// Expected "project"-scoped values: "ProjectEditor", "ProjectViewer", "ControlPlaneEditor", "ControlPlaneViewer", "DataPlaneEditor", "DataPlaneViewer".
 	Role string `json:"role"`
 
 	// (Optional) The ID of the project the binding applies to. Required when
