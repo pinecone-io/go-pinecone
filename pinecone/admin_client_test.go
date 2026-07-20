@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/v5/internal/gen/admin"
@@ -264,4 +265,107 @@ func TestNewAdminClientWithContextUnit(t *testing.T) {
 	os.Setenv("PINECONE_CLIENT_ID", osClientId)
 	os.Setenv("PINECONE_CLIENT_SECRET", osClientSecret)
 	os.Setenv("PINECONE_ACCESS_TOKEN", osAccessToken)
+}
+
+func TestToRoleBindingUnit(t *testing.T) {
+	id := uuid.New()
+	createdAt := time.Now().UTC().Truncate(time.Second)
+	adminRoleBinding := admin.RoleBinding{
+		Id:            id,
+		PrincipalId:   "principal-id",
+		PrincipalType: "service_account",
+		ResourceId:    "resource-id",
+		ResourceType:  "organization",
+		Role:          "OrgMember",
+		CreatedAt:     createdAt,
+	}
+
+	roleBinding := toRoleBinding(adminRoleBinding)
+
+	require.NotNil(t, roleBinding)
+	assert.Equal(t, id.String(), roleBinding.Id, "expected UUID to be stringified")
+	assert.Equal(t, "principal-id", roleBinding.PrincipalId)
+	assert.Equal(t, PrincipalTypeServiceAccount, roleBinding.PrincipalType)
+	assert.Equal(t, "resource-id", roleBinding.ResourceId)
+	assert.Equal(t, ResourceTypeOrganization, roleBinding.ResourceType)
+	assert.Equal(t, "OrgMember", roleBinding.Role)
+	assert.Equal(t, createdAt, roleBinding.CreatedAt)
+}
+
+func TestToRoleBindingListUnit(t *testing.T) {
+	t.Run("populated data with pagination", func(t *testing.T) {
+		next := "next-token"
+		adminList := admin.RoleBindingList{
+			Data: []admin.RoleBinding{
+				{Id: uuid.New(), PrincipalType: "user", ResourceType: "project", Role: "ProjectEditor"},
+				{Id: uuid.New(), PrincipalType: "api_key", ResourceType: "organization", Role: "OrgOwner"},
+			},
+			Pagination: &struct {
+				Next *string `json:"next,omitempty"`
+			}{Next: &next},
+		}
+
+		list := toRoleBindingList(adminList)
+
+		require.NotNil(t, list)
+		require.Len(t, list.Data, 2)
+		assert.Equal(t, PrincipalTypeUser, list.Data[0].PrincipalType)
+		assert.Equal(t, PrincipalTypeApiKey, list.Data[1].PrincipalType)
+		require.NotNil(t, list.Pagination)
+		assert.Equal(t, next, list.Pagination.Next)
+	})
+
+	t.Run("nil pagination envelope yields nil pagination", func(t *testing.T) {
+		adminList := admin.RoleBindingList{
+			Data:       []admin.RoleBinding{{Id: uuid.New()}},
+			Pagination: nil,
+		}
+
+		list := toRoleBindingList(adminList)
+
+		require.NotNil(t, list)
+		require.Len(t, list.Data, 1)
+		assert.Nil(t, list.Pagination, "expected nil pagination when envelope is absent")
+	})
+
+	t.Run("pagination envelope with nil Next yields nil pagination", func(t *testing.T) {
+		adminList := admin.RoleBindingList{
+			Data: []admin.RoleBinding{},
+			Pagination: &struct {
+				Next *string `json:"next,omitempty"`
+			}{Next: nil},
+		}
+
+		list := toRoleBindingList(adminList)
+
+		require.NotNil(t, list)
+		assert.NotNil(t, list.Data, "expected non-nil (empty) data slice")
+		assert.Len(t, list.Data, 0)
+		assert.Nil(t, list.Pagination, "expected nil pagination when Next is nil")
+	})
+}
+
+func TestRoleBindingCreateNilParamsUnit(t *testing.T) {
+	client := &DefaultRoleBindingClient{}
+	roleBinding, err := client.Create(context.Background(), nil)
+	assert.Nil(t, roleBinding)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "CreateRoleBindingParams")
+}
+
+func TestRoleBindingInvalidUUIDUnit(t *testing.T) {
+	client := &DefaultRoleBindingClient{}
+
+	t.Run("Describe", func(t *testing.T) {
+		roleBinding, err := client.Describe(context.Background(), "not-a-uuid")
+		assert.Nil(t, roleBinding)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid roleBindingId")
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		err := client.Delete(context.Background(), "not-a-uuid")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid roleBindingId")
+	})
 }

@@ -18,8 +18,8 @@ import (
 )
 
 // [AdminClient] provides access to Pinecone's administrative APIs, which supports
-// managing projects, organizations, and API keys. It is constructed using
-// [NewAdminClient] or [NewAdminClientWithContext].
+// managing projects, organizations, API keys, and role bindings. It is constructed
+// using [NewAdminClient] or [NewAdminClientWithContext].
 type AdminClient struct {
 	// Project provides methods for creating, updating, listing, describing,
 	// and deleting projects.
@@ -32,6 +32,11 @@ type AdminClient struct {
 	// APIKey provides methods for creating, updating, listing, describing,
 	// and deleting API keys within a project.
 	APIKey APIKeyClient
+
+	// RoleBinding provides methods for creating, listing, describing, and
+	// deleting role bindings, which grant roles to principals (users, service
+	// accounts, API keys, and invites) at an organization or project scope.
+	RoleBinding RoleBindingClient
 }
 
 // [ProjectClient] provides an interface for managing Pinecone projects.
@@ -85,6 +90,23 @@ type APIKeyClient interface {
 	Delete(ctx context.Context, apiKeyId string) error
 }
 
+// [RoleBindingClient] provides an interface for managing role bindings, which grant
+// roles to principals (users, service accounts, API keys, and invites) at an
+// organization or project scope.
+type RoleBindingClient interface {
+	// Create a new role binding.
+	Create(ctx context.Context, in *CreateRoleBindingParams) (*RoleBinding, error)
+
+	// List role bindings, optionally filtered by principal, resource, or role.
+	List(ctx context.Context, in *ListRoleBindingsParams) (*RoleBindingList, error)
+
+	// Describe a role binding by ID.
+	Describe(ctx context.Context, roleBindingId string) (*RoleBinding, error)
+
+	// Delete a role binding by ID.
+	Delete(ctx context.Context, roleBindingId string) error
+}
+
 // [DefaultProjectClient] is the default implementation of [ProjectClient].
 type DefaultProjectClient struct {
 	restClient *admin.Client
@@ -97,6 +119,11 @@ type DefaultOrganizationClient struct {
 
 // [DefaultApiKeyClient] is the default implementation of [APIKeyClient].
 type DefaultApiKeyClient struct {
+	restClient *admin.Client
+}
+
+// [DefaultRoleBindingClient] is the default implementation of [RoleBindingClient].
+type DefaultRoleBindingClient struct {
 	restClient *admin.Client
 }
 
@@ -188,6 +215,9 @@ func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*A
 			restClient: adminClient,
 		},
 		APIKey: &DefaultApiKeyClient{
+			restClient: adminClient,
+		},
+		RoleBinding: &DefaultRoleBindingClient{
 			restClient: adminClient,
 		},
 	}, nil
@@ -845,6 +875,230 @@ func (a *DefaultApiKeyClient) Delete(ctx context.Context, apiKeyId string) error
 	return nil
 }
 
+// [CreateRoleBindingParams] contains parameters for creating a new role binding.
+type CreateRoleBindingParams struct {
+	// The ID of the principal to grant the role to. The format depends on PrincipalType.
+	PrincipalId string `json:"principal_id"`
+
+	// The kind of principal that receives permissions from the role binding.
+	PrincipalType PrincipalType `json:"principal_type"`
+
+	// The kind of resource scope the role binding applies to.
+	ResourceType ResourceType `json:"resource_type"`
+
+	// The role to assign to the principal at the resource scope.
+	Role string `json:"role"`
+
+	// (Optional) The ID of the project the binding applies to. Required when
+	// ResourceType is "project"; omit for "organization" scope.
+	ResourceId *string `json:"resource_id,omitempty"`
+}
+
+// Creates a new role binding, granting a role to a principal at an organization or project scope.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - in: A pointer to [CreateRoleBindingParams] containing the role binding configuration.
+//
+// Returns a pointer to a [RoleBinding] or an error.
+//
+// Example:
+//
+//	roleBinding, err := adminClient.RoleBinding.Create(ctx, &pinecone.CreateRoleBindingParams{
+//		PrincipalId:   "service-account-id",
+//		PrincipalType: pinecone.PrincipalTypeServiceAccount,
+//		ResourceType:  pinecone.ResourceTypeOrganization,
+//		Role:          "OrgMember",
+//	})
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (r *DefaultRoleBindingClient) Create(ctx context.Context, in *CreateRoleBindingParams) (*RoleBinding, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreateRoleBindingParams) cannot be nil")
+	}
+
+	request := admin.CreateRoleBindingRequest{
+		PrincipalId:   in.PrincipalId,
+		PrincipalType: string(in.PrincipalType),
+		ResourceType:  string(in.ResourceType),
+		ResourceId:    in.ResourceId,
+		Role:          in.Role,
+	}
+
+	res, err := r.restClient.CreateRoleBinding(ctx, &admin.CreateRoleBindingParams{XPineconeApiVersion: gen.PineconeApiVersion}, request)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to create role binding: ")
+	}
+
+	var adminRoleBinding admin.RoleBinding
+	err = json.NewDecoder(res.Body).Decode(&adminRoleBinding)
+	if err != nil {
+		return nil, err
+	}
+
+	return toRoleBinding(adminRoleBinding), nil
+}
+
+// [ListRoleBindingsParams] contains the query parameters used when listing role bindings.
+// All fields are optional filters. PrincipalType is required when PrincipalId is set,
+// and ResourceType is required when ResourceId is set.
+type ListRoleBindingsParams struct {
+	// (Optional) Filter by principal type. Required when PrincipalId is set.
+	PrincipalType *PrincipalType `json:"principal_type,omitempty"`
+
+	// (Optional) Filter by principal ID. Requires PrincipalType.
+	PrincipalId *string `json:"principal_id,omitempty"`
+
+	// (Optional) Filter by resource type. Required when ResourceId is set.
+	ResourceType *ResourceType `json:"resource_type,omitempty"`
+
+	// (Optional) Filter by resource ID. Requires ResourceType.
+	ResourceId *string `json:"resource_id,omitempty"`
+
+	// (Optional) Filter by role.
+	Role *string `json:"role,omitempty"`
+
+	// (Optional) The maximum number of role bindings to return per page.
+	Limit *int `json:"limit,omitempty"`
+
+	// (Optional) Token to retrieve the next page of results. Will be nil if there are no more results.
+	PaginationToken *string `json:"pagination_token,omitempty"`
+}
+
+// Lists role bindings, optionally filtered by principal, resource, or role.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - in: A pointer to [ListRoleBindingsParams] containing optional filters. May be nil to list with defaults.
+//
+// Returns a pointer to a [RoleBindingList] or an error.
+//
+// Example:
+//
+//	principalType := pinecone.PrincipalTypeServiceAccount
+//	principalId := "service-account-id"
+//	roleBindings, err := adminClient.RoleBinding.List(ctx, &pinecone.ListRoleBindingsParams{
+//		PrincipalType: &principalType,
+//		PrincipalId:   &principalId,
+//	})
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (r *DefaultRoleBindingClient) List(ctx context.Context, in *ListRoleBindingsParams) (*RoleBindingList, error) {
+	params := &admin.ListRoleBindingsParams{XPineconeApiVersion: gen.PineconeApiVersion}
+	if in != nil {
+		if in.PrincipalType != nil {
+			principalType := string(*in.PrincipalType)
+			params.PrincipalType = &principalType
+		}
+		if in.ResourceType != nil {
+			resourceType := string(*in.ResourceType)
+			params.ResourceType = &resourceType
+		}
+		params.PrincipalId = in.PrincipalId
+		params.ResourceId = in.ResourceId
+		params.Role = in.Role
+		params.Limit = in.Limit
+		params.PaginationToken = in.PaginationToken
+	}
+
+	res, err := r.restClient.ListRoleBindings(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to list role bindings: ")
+	}
+
+	var adminRoleBindingList admin.RoleBindingList
+	err = json.NewDecoder(res.Body).Decode(&adminRoleBindingList)
+	if err != nil {
+		return nil, err
+	}
+
+	return toRoleBindingList(adminRoleBindingList), nil
+}
+
+// Describes a role binding by ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - roleBindingId: The ID of the role binding to describe.
+//
+// Returns a pointer to a [RoleBinding] or an error.
+//
+// Example:
+//
+//	roleBinding, err := adminClient.RoleBinding.Describe(ctx, "role-binding-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (r *DefaultRoleBindingClient) Describe(ctx context.Context, roleBindingId string) (*RoleBinding, error) {
+	roleBindingIdUUID, err := uuid.Parse(roleBindingId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid roleBindingId: %w", err)
+	}
+
+	res, err := r.restClient.FetchRoleBinding(ctx, roleBindingIdUUID, &admin.FetchRoleBindingParams{XPineconeApiVersion: gen.PineconeApiVersion})
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to describe role binding: ")
+	}
+
+	var adminRoleBinding admin.RoleBinding
+	err = json.NewDecoder(res.Body).Decode(&adminRoleBinding)
+	if err != nil {
+		return nil, err
+	}
+
+	return toRoleBinding(adminRoleBinding), nil
+}
+
+// Deletes a role binding by ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - roleBindingId: The ID of the role binding to delete.
+//
+// Returns an error if deletion fails.
+//
+// Example:
+//
+//	err := adminClient.RoleBinding.Delete(ctx, "role-binding-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (r *DefaultRoleBindingClient) Delete(ctx context.Context, roleBindingId string) error {
+	roleBindingIdUUID, err := uuid.Parse(roleBindingId)
+	if err != nil {
+		return fmt.Errorf("invalid roleBindingId: %w", err)
+	}
+
+	res, err := r.restClient.DeleteRoleBinding(ctx, roleBindingIdUUID, &admin.DeleteRoleBindingParams{XPineconeApiVersion: gen.PineconeApiVersion})
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusAccepted {
+		return handleErrorResponseBody(res, "failed to delete role binding: ")
+	}
+
+	return nil
+}
+
 type authTokenResponse struct {
 	AccessToken string `json:"access_token"`
 	ExpiresIn   int    `json:"expires_in"`
@@ -1003,4 +1257,29 @@ func toAPIKeyWithSecret(apiKey admin.APIKeyWithSecret) *APIKeyWithSecret {
 		Key:   *toAPIKey(apiKey.Key),
 		Value: apiKey.Value,
 	}
+}
+
+func toRoleBinding(roleBinding admin.RoleBinding) *RoleBinding {
+	return &RoleBinding{
+		Id:            roleBinding.Id.String(),
+		PrincipalId:   roleBinding.PrincipalId,
+		PrincipalType: PrincipalType(roleBinding.PrincipalType),
+		ResourceId:    roleBinding.ResourceId,
+		ResourceType:  ResourceType(roleBinding.ResourceType),
+		Role:          roleBinding.Role,
+		CreatedAt:     roleBinding.CreatedAt,
+	}
+}
+
+func toRoleBindingList(roleBindingList admin.RoleBindingList) *RoleBindingList {
+	list := &RoleBindingList{
+		Data: make([]*RoleBinding, len(roleBindingList.Data)),
+	}
+	for i, roleBinding := range roleBindingList.Data {
+		list.Data[i] = toRoleBinding(roleBinding)
+	}
+	if roleBindingList.Pagination != nil && roleBindingList.Pagination.Next != nil {
+		list.Pagination = &Pagination{Next: *roleBindingList.Pagination.Next}
+	}
+	return list
 }

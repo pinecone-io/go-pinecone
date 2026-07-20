@@ -864,6 +864,75 @@ type APIKeyWithSecret struct {
 	Value string `json:"value"`
 }
 
+// [PrincipalType] is the kind of principal that receives permissions from a [RoleBinding].
+type PrincipalType string
+
+const (
+	PrincipalTypeUser           PrincipalType = "user"
+	PrincipalTypeServiceAccount PrincipalType = "service_account"
+	PrincipalTypeApiKey         PrincipalType = "api_key"
+	PrincipalTypeInvite         PrincipalType = "invite"
+)
+
+// [ResourceType] is the kind of resource scope a [RoleBinding] applies to.
+type ResourceType string
+
+const (
+	ResourceTypeOrganization ResourceType = "organization"
+	ResourceTypeProject      ResourceType = "project"
+)
+
+// [RoleBinding] grants a [Role] to a principal (a user, service account, API key,
+// or invite) at an organization or project scope.
+type RoleBinding struct {
+	// The unique ID of the role binding.
+	Id string `json:"id"`
+
+	// The principal's ID. A UUID for all principal types.
+	PrincipalId string `json:"principal_id"`
+
+	// The kind of principal that receives permissions from the role binding.
+	PrincipalType PrincipalType `json:"principal_type"`
+
+	// The unique ID of the organization or project that the binding is scoped to.
+	ResourceId string `json:"resource_id"`
+
+	// The kind of resource scope the role binding applies to.
+	ResourceType ResourceType `json:"resource_type"`
+
+	// The role assigned to the principal at the resource scope.
+	Role string `json:"role"`
+
+	// The date and time when the role binding was created.
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// [RoleBindingInput] describes a role to grant to a principal when creating a
+// resource such as an invite or service account. ResourceType selects the binding
+// scope: for "organization" scope, omit ResourceId; for "project" scope, ResourceId
+// is required and must be the project's ID.
+type RoleBindingInput struct {
+	// The kind of resource scope the role binding applies to.
+	ResourceType ResourceType `json:"resource_type"`
+
+	// The role to assign to the principal at the resource scope.
+	Role string `json:"role"`
+
+	// (Optional) The ID of the project the binding applies to. Required when
+	// ResourceType is "project"; omit for "organization" scope.
+	ResourceId *string `json:"resource_id,omitempty"`
+}
+
+// [RoleBindingList] contains a paginated list of role bindings.
+//
+// Fields:
+//   - Data: A list of [RoleBinding] records.
+//   - Pagination: Pagination token for fetching the next page of results.
+type RoleBindingList struct {
+	Data       []*RoleBinding `json:"data"`
+	Pagination *Pagination    `json:"pagination,omitempty"`
+}
+
 // Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
 type MetadataSchema struct {
 	Fields map[string]MetadataSchemaField `json:"fields"`
