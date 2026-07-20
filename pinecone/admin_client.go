@@ -19,8 +19,9 @@ import (
 )
 
 // [AdminClient] provides access to Pinecone's administrative APIs, which supports
-// managing projects, organizations, API keys, role bindings, and service accounts.
-// It is constructed using [NewAdminClient] or [NewAdminClientWithContext].
+// managing projects, organizations, API keys, role bindings, service accounts,
+// invites, and users. It is constructed using [NewAdminClient] or
+// [NewAdminClientWithContext].
 type AdminClient struct {
 	// Project provides methods for creating, updating, listing, describing,
 	// and deleting projects.
@@ -46,6 +47,10 @@ type AdminClient struct {
 	// Invite provides methods for creating, listing, describing, resending, and
 	// deleting invitations to join the organization.
 	Invite InviteClient
+
+	// User provides methods for listing, describing, and deleting users within
+	// the organization.
+	User UserClient
 }
 
 // [ProjectClient] provides an interface for managing Pinecone projects.
@@ -160,6 +165,18 @@ type InviteClient interface {
 	Delete(ctx context.Context, inviteId string) error
 }
 
+// [UserClient] provides an interface for managing users within the organization.
+type UserClient interface {
+	// List users in the organization, optionally filtered by email.
+	List(ctx context.Context, in *ListUsersParams) (*UserList, error)
+
+	// Describe a user by ID.
+	Describe(ctx context.Context, userId string) (*User, error)
+
+	// Delete a user by ID, removing them from the organization.
+	Delete(ctx context.Context, userId string) error
+}
+
 // [DefaultProjectClient] is the default implementation of [ProjectClient].
 type DefaultProjectClient struct {
 	restClient *admin.Client
@@ -187,6 +204,11 @@ type DefaultServiceAccountClient struct {
 
 // [DefaultInviteClient] is the default implementation of [InviteClient].
 type DefaultInviteClient struct {
+	restClient *admin.Client
+}
+
+// [DefaultUserClient] is the default implementation of [UserClient].
+type DefaultUserClient struct {
 	restClient *admin.Client
 }
 
@@ -287,6 +309,9 @@ func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*A
 			restClient: adminClient,
 		},
 		Invite: &DefaultInviteClient{
+			restClient: adminClient,
+		},
+		User: &DefaultUserClient{
 			restClient: adminClient,
 		},
 	}, nil
@@ -1685,6 +1710,134 @@ func (i *DefaultInviteClient) Delete(ctx context.Context, inviteId string) error
 	return nil
 }
 
+// [ListUsersParams] contains the query parameters used when listing users.
+type ListUsersParams struct {
+	// (Optional) Case-insensitive filter on the user's email address.
+	Email *string `json:"email,omitempty"`
+
+	// (Optional) The maximum number of users to return per page.
+	Limit *int `json:"limit,omitempty"`
+
+	// (Optional) Token to retrieve the next page of results. Will be nil if there are no more results.
+	PaginationToken *string `json:"pagination_token,omitempty"`
+}
+
+// Lists users in the organization, optionally filtered by email.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - in: A pointer to [ListUsersParams] containing optional filters and pagination options. May be nil to list with defaults.
+//
+// Returns a pointer to a [UserList] or an error.
+//
+// Example:
+//
+//	users, err := adminClient.User.List(ctx, nil)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (u *DefaultUserClient) List(ctx context.Context, in *ListUsersParams) (*UserList, error) {
+	params := &admin.ListUsersParams{XPineconeApiVersion: gen.PineconeApiVersion}
+	if in != nil {
+		if in.Email != nil {
+			email := openapi_types.Email(*in.Email)
+			params.Email = &email
+		}
+		params.Limit = in.Limit
+		params.PaginationToken = in.PaginationToken
+	}
+
+	res, err := u.restClient.ListUsers(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to list users: ")
+	}
+
+	var adminUserList admin.UserList
+	err = json.NewDecoder(res.Body).Decode(&adminUserList)
+	if err != nil {
+		return nil, err
+	}
+
+	return toUserList(adminUserList), nil
+}
+
+// Describes a user by ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - userId: The ID of the user to describe.
+//
+// Returns a pointer to a [User] or an error.
+//
+// Example:
+//
+//	user, err := adminClient.User.Describe(ctx, "user-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (u *DefaultUserClient) Describe(ctx context.Context, userId string) (*User, error) {
+	userIdUUID, err := uuid.Parse(userId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid userId: %w", err)
+	}
+
+	res, err := u.restClient.FetchUser(ctx, userIdUUID, &admin.FetchUserParams{XPineconeApiVersion: gen.PineconeApiVersion})
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to describe user: ")
+	}
+
+	var adminUser admin.User
+	err = json.NewDecoder(res.Body).Decode(&adminUser)
+	if err != nil {
+		return nil, err
+	}
+
+	return toUser(adminUser), nil
+}
+
+// Deletes a user by ID, removing them from the organization.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - userId: The ID of the user to delete.
+//
+// Returns an error if deletion fails.
+//
+// Example:
+//
+//	err := adminClient.User.Delete(ctx, "user-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (u *DefaultUserClient) Delete(ctx context.Context, userId string) error {
+	userIdUUID, err := uuid.Parse(userId)
+	if err != nil {
+		return fmt.Errorf("invalid userId: %w", err)
+	}
+
+	res, err := u.restClient.DeleteUser(ctx, userIdUUID, &admin.DeleteUserParams{XPineconeApiVersion: gen.PineconeApiVersion})
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusAccepted {
+		return handleErrorResponseBody(res, "failed to delete user: ")
+	}
+
+	return nil
+}
+
 type authTokenResponse struct {
 	AccessToken string `json:"access_token"`
 	ExpiresIn   int    `json:"expires_in"`
@@ -1928,6 +2081,27 @@ func toInviteList(inviteList admin.InviteList) *InviteList {
 	}
 	if inviteList.Pagination != nil && inviteList.Pagination.Next != nil {
 		list.Pagination = &Pagination{Next: *inviteList.Pagination.Next}
+	}
+	return list
+}
+
+func toUser(user admin.User) *User {
+	return &User{
+		Id:    user.Id.String(),
+		Email: string(user.Email),
+		Name:  user.Name,
+	}
+}
+
+func toUserList(userList admin.UserList) *UserList {
+	list := &UserList{
+		Data: make([]*User, len(userList.Data)),
+	}
+	for i, user := range userList.Data {
+		list.Data[i] = toUser(user)
+	}
+	if userList.Pagination != nil && userList.Pagination.Next != nil {
+		list.Pagination = &Pagination{Next: *userList.Pagination.Next}
 	}
 	return list
 }

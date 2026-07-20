@@ -638,3 +638,93 @@ func TestInviteInvalidUUIDUnit(t *testing.T) {
 		assert.Contains(t, err.Error(), "invalid inviteId")
 	})
 }
+
+func TestToUserUnit(t *testing.T) {
+	t.Run("user with display name", func(t *testing.T) {
+		id := uuid.New()
+		name := "Ada Lovelace"
+		adminUser := admin.User{
+			Id:    id,
+			Email: "ada@example.com",
+			Name:  &name,
+		}
+
+		user := toUser(adminUser)
+
+		require.NotNil(t, user)
+		assert.Equal(t, id.String(), user.Id, "expected UUID to be stringified")
+		assert.Equal(t, "ada@example.com", user.Email, "expected email to be stringified")
+		require.NotNil(t, user.Name)
+		assert.Equal(t, name, *user.Name)
+	})
+
+	t.Run("user without display name", func(t *testing.T) {
+		adminUser := admin.User{
+			Id:    uuid.New(),
+			Email: "noname@example.com",
+			Name:  nil,
+		}
+
+		user := toUser(adminUser)
+
+		require.NotNil(t, user)
+		assert.Nil(t, user.Name, "expected nil Name when the user has not set one")
+	})
+}
+
+func TestToUserListUnit(t *testing.T) {
+	t.Run("populated data with pagination", func(t *testing.T) {
+		next := "next-token"
+		name := "Ada Lovelace"
+		adminList := admin.UserList{
+			Data: []admin.User{
+				{Id: uuid.New(), Email: "ada@example.com", Name: &name},
+				{Id: uuid.New(), Email: "noname@example.com"},
+			},
+			Pagination: &struct {
+				Next *string `json:"next,omitempty"`
+			}{Next: &next},
+		}
+
+		list := toUserList(adminList)
+
+		require.NotNil(t, list)
+		require.Len(t, list.Data, 2)
+		require.NotNil(t, list.Data[0].Name)
+		assert.Equal(t, name, *list.Data[0].Name)
+		assert.Nil(t, list.Data[1].Name)
+		require.NotNil(t, list.Pagination)
+		assert.Equal(t, next, list.Pagination.Next)
+	})
+
+	t.Run("nil pagination envelope yields nil pagination", func(t *testing.T) {
+		adminList := admin.UserList{
+			Data:       []admin.User{},
+			Pagination: nil,
+		}
+
+		list := toUserList(adminList)
+
+		require.NotNil(t, list)
+		assert.NotNil(t, list.Data, "expected non-nil (empty) data slice")
+		assert.Len(t, list.Data, 0)
+		assert.Nil(t, list.Pagination, "expected nil pagination when envelope is absent")
+	})
+}
+
+func TestUserInvalidUUIDUnit(t *testing.T) {
+	client := &DefaultUserClient{}
+
+	t.Run("Describe", func(t *testing.T) {
+		user, err := client.Describe(context.Background(), "not-a-uuid")
+		assert.Nil(t, user)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid userId")
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		err := client.Delete(context.Background(), "not-a-uuid")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid userId")
+	})
+}

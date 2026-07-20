@@ -1018,6 +1018,29 @@ type InviteList struct {
 	Pagination *Pagination `json:"pagination,omitempty"`
 }
 
+// [User] represents a user who is a member of the organization.
+type User struct {
+	// The unique ID of the user. Use this as the principal ID when creating or
+	// querying role bindings for the user.
+	Id string `json:"id"`
+
+	// The user's email address.
+	Email string `json:"email"`
+
+	// (Optional) The user's display name. Nil if the user has not set one.
+	Name *string `json:"name,omitempty"`
+}
+
+// [UserList] contains a paginated list of users.
+//
+// Fields:
+//   - Data: A list of [User] records.
+//   - Pagination: Pagination token for fetching the next page of results.
+type UserList struct {
+	Data       []*User     `json:"data"`
+	Pagination *Pagination `json:"pagination,omitempty"`
+}
+
 // Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
 type MetadataSchema struct {
 	Fields map[string]MetadataSchemaField `json:"fields"`
