@@ -369,3 +369,156 @@ func TestRoleBindingInvalidUUIDUnit(t *testing.T) {
 		assert.Contains(t, err.Error(), "invalid roleBindingId")
 	})
 }
+
+func TestToRoleBindingInputUnit(t *testing.T) {
+	t.Run("project scope with resource ID", func(t *testing.T) {
+		resourceId := "project-id"
+		input := toRoleBindingInput(RoleBindingInput{
+			ResourceType: ResourceTypeProject,
+			Role:         "ProjectEditor",
+			ResourceId:   &resourceId,
+		})
+		assert.Equal(t, "project", input.ResourceType)
+		assert.Equal(t, "ProjectEditor", input.Role)
+		require.NotNil(t, input.ResourceId)
+		assert.Equal(t, resourceId, *input.ResourceId)
+	})
+
+	t.Run("organization scope omits resource ID", func(t *testing.T) {
+		input := toRoleBindingInput(RoleBindingInput{
+			ResourceType: ResourceTypeOrganization,
+			Role:         "OrgMember",
+		})
+		assert.Equal(t, "organization", input.ResourceType)
+		assert.Equal(t, "OrgMember", input.Role)
+		assert.Nil(t, input.ResourceId)
+	})
+}
+
+func TestToServiceAccountUnit(t *testing.T) {
+	id := uuid.New()
+	createdAt := time.Now().UTC().Truncate(time.Second)
+	updatedAt := createdAt.Add(time.Hour)
+	adminServiceAccount := admin.ServiceAccount{
+		Id:        id,
+		Name:      "my-service-account",
+		ClientId:  "client-id",
+		CreatedAt: createdAt,
+		UpdatedAt: updatedAt,
+	}
+
+	serviceAccount := toServiceAccount(adminServiceAccount)
+
+	require.NotNil(t, serviceAccount)
+	assert.Equal(t, id.String(), serviceAccount.Id, "expected UUID to be stringified")
+	assert.Equal(t, "my-service-account", serviceAccount.Name)
+	assert.Equal(t, "client-id", serviceAccount.ClientId)
+	assert.Equal(t, createdAt, serviceAccount.CreatedAt)
+	assert.Equal(t, updatedAt, serviceAccount.UpdatedAt)
+}
+
+func TestToServiceAccountWithSecretUnit(t *testing.T) {
+	id := uuid.New()
+	adminServiceAccount := admin.ServiceAccountWithSecret{
+		ServiceAccount: admin.ServiceAccount{
+			Id:   id,
+			Name: "my-service-account",
+		},
+		ClientSecret: "super-secret-value",
+	}
+
+	serviceAccount := toServiceAccountWithSecret(adminServiceAccount)
+
+	require.NotNil(t, serviceAccount)
+	assert.Equal(t, id.String(), serviceAccount.ServiceAccount.Id)
+	assert.Equal(t, "my-service-account", serviceAccount.ServiceAccount.Name)
+	assert.Equal(t, "super-secret-value", serviceAccount.ClientSecret)
+}
+
+func TestToServiceAccountListUnit(t *testing.T) {
+	t.Run("populated data with pagination", func(t *testing.T) {
+		next := "next-token"
+		adminList := admin.ServiceAccountList{
+			Data: []admin.ServiceAccount{
+				{Id: uuid.New(), Name: "sa-1"},
+				{Id: uuid.New(), Name: "sa-2"},
+			},
+			Pagination: &struct {
+				Next *string `json:"next,omitempty"`
+			}{Next: &next},
+		}
+
+		list := toServiceAccountList(adminList)
+
+		require.NotNil(t, list)
+		require.Len(t, list.Data, 2)
+		assert.Equal(t, "sa-1", list.Data[0].Name)
+		assert.Equal(t, "sa-2", list.Data[1].Name)
+		require.NotNil(t, list.Pagination)
+		assert.Equal(t, next, list.Pagination.Next)
+	})
+
+	t.Run("nil pagination envelope yields nil pagination", func(t *testing.T) {
+		adminList := admin.ServiceAccountList{
+			Data:       []admin.ServiceAccount{},
+			Pagination: nil,
+		}
+
+		list := toServiceAccountList(adminList)
+
+		require.NotNil(t, list)
+		assert.NotNil(t, list.Data, "expected non-nil (empty) data slice")
+		assert.Len(t, list.Data, 0)
+		assert.Nil(t, list.Pagination, "expected nil pagination when envelope is absent")
+	})
+}
+
+func TestServiceAccountNilParamsUnit(t *testing.T) {
+	client := &DefaultServiceAccountClient{}
+
+	t.Run("Create", func(t *testing.T) {
+		serviceAccount, err := client.Create(context.Background(), nil)
+		assert.Nil(t, serviceAccount)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "CreateServiceAccountParams")
+	})
+
+	t.Run("Update", func(t *testing.T) {
+		serviceAccount, err := client.Update(context.Background(), uuid.New().String(), nil)
+		assert.Nil(t, serviceAccount)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "UpdateServiceAccountParams")
+	})
+}
+
+func TestServiceAccountInvalidUUIDUnit(t *testing.T) {
+	client := &DefaultServiceAccountClient{}
+	name := "renamed"
+
+	t.Run("Describe", func(t *testing.T) {
+		serviceAccount, err := client.Describe(context.Background(), "not-a-uuid")
+		assert.Nil(t, serviceAccount)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid serviceAccountId")
+	})
+
+	t.Run("Update", func(t *testing.T) {
+		serviceAccount, err := client.Update(context.Background(), "not-a-uuid", &UpdateServiceAccountParams{Name: &name})
+		assert.Nil(t, serviceAccount)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid serviceAccountId")
+	})
+
+	t.Run("RotateSecret", func(t *testing.T) {
+		serviceAccount, err := client.RotateSecret(context.Background(), "not-a-uuid")
+		assert.Nil(t, serviceAccount)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid serviceAccountId")
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		err := client.Delete(context.Background(), "not-a-uuid")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid serviceAccountId")
+	})
+}

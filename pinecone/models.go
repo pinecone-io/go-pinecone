@@ -933,6 +933,48 @@ type RoleBindingList struct {
 	Pagination *Pagination    `json:"pagination,omitempty"`
 }
 
+// [ServiceAccount] represents a service account. The OAuth client secret is not included;
+// it is returned only once, at creation or secret rotation, as a [ServiceAccountWithSecret].
+type ServiceAccount struct {
+	// The unique ID of the service account. Use this as the principal ID when
+	// creating or querying role bindings for the service account.
+	Id string `json:"id"`
+
+	// A short human-readable name, set by the caller at creation time.
+	Name string `json:"name"`
+
+	// The OAuth client ID used by the service account to obtain access tokens.
+	ClientId string `json:"client_id"`
+
+	// The date and time the service account was created.
+	CreatedAt time.Time `json:"created_at"`
+
+	// The date and time of the service account's most recent metadata update.
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// [ServiceAccountWithSecret] represents a service account together with a newly issued
+// OAuth client secret. The secret is returned only once — at creation or secret
+// rotation — and cannot be retrieved later. Treat ClientSecret as a credential: store
+// it securely and never log it.
+type ServiceAccountWithSecret struct {
+	// The details of the service account, without the secret.
+	ServiceAccount ServiceAccount `json:"service_account"`
+
+	// The OAuth client secret. Returned exactly once. Store it securely and never log it.
+	ClientSecret string `json:"client_secret"`
+}
+
+// [ServiceAccountList] contains a paginated list of service accounts.
+//
+// Fields:
+//   - Data: A list of [ServiceAccount] records.
+//   - Pagination: Pagination token for fetching the next page of results.
+type ServiceAccountList struct {
+	Data       []*ServiceAccount `json:"data"`
+	Pagination *Pagination       `json:"pagination,omitempty"`
+}
+
 // Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
 type MetadataSchema struct {
 	Fields map[string]MetadataSchemaField `json:"fields"`

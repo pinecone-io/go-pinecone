@@ -18,8 +18,8 @@ import (
 )
 
 // [AdminClient] provides access to Pinecone's administrative APIs, which supports
-// managing projects, organizations, API keys, and role bindings. It is constructed
-// using [NewAdminClient] or [NewAdminClientWithContext].
+// managing projects, organizations, API keys, role bindings, and service accounts.
+// It is constructed using [NewAdminClient] or [NewAdminClientWithContext].
 type AdminClient struct {
 	// Project provides methods for creating, updating, listing, describing,
 	// and deleting projects.
@@ -37,6 +37,10 @@ type AdminClient struct {
 	// deleting role bindings, which grant roles to principals (users, service
 	// accounts, API keys, and invites) at an organization or project scope.
 	RoleBinding RoleBindingClient
+
+	// ServiceAccount provides methods for creating, updating, listing, describing,
+	// deleting, and rotating the secret of service accounts within an organization.
+	ServiceAccount ServiceAccountClient
 }
 
 // [ProjectClient] provides an interface for managing Pinecone projects.
@@ -107,6 +111,31 @@ type RoleBindingClient interface {
 	Delete(ctx context.Context, roleBindingId string) error
 }
 
+// [ServiceAccountClient] provides an interface for managing service accounts within
+// an organization.
+type ServiceAccountClient interface {
+	// Create a new service account. The returned [ServiceAccountWithSecret] contains
+	// the OAuth client secret, which is returned only once.
+	Create(ctx context.Context, in *CreateServiceAccountParams) (*ServiceAccountWithSecret, error)
+
+	// Update an existing service account by ID.
+	Update(ctx context.Context, serviceAccountId string, in *UpdateServiceAccountParams) (*ServiceAccount, error)
+
+	// List all service accounts within the organization.
+	List(ctx context.Context, in *ListServiceAccountsParams) (*ServiceAccountList, error)
+
+	// Describe a service account by ID.
+	Describe(ctx context.Context, serviceAccountId string) (*ServiceAccount, error)
+
+	// RotateSecret issues a new OAuth client secret for a service account by ID. The
+	// returned [ServiceAccountWithSecret] contains the new secret, which is returned
+	// only once; the previous secret is invalidated.
+	RotateSecret(ctx context.Context, serviceAccountId string) (*ServiceAccountWithSecret, error)
+
+	// Delete a service account by ID.
+	Delete(ctx context.Context, serviceAccountId string) error
+}
+
 // [DefaultProjectClient] is the default implementation of [ProjectClient].
 type DefaultProjectClient struct {
 	restClient *admin.Client
@@ -124,6 +153,11 @@ type DefaultApiKeyClient struct {
 
 // [DefaultRoleBindingClient] is the default implementation of [RoleBindingClient].
 type DefaultRoleBindingClient struct {
+	restClient *admin.Client
+}
+
+// [DefaultServiceAccountClient] is the default implementation of [ServiceAccountClient].
+type DefaultServiceAccountClient struct {
 	restClient *admin.Client
 }
 
@@ -218,6 +252,9 @@ func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*A
 			restClient: adminClient,
 		},
 		RoleBinding: &DefaultRoleBindingClient{
+			restClient: adminClient,
+		},
+		ServiceAccount: &DefaultServiceAccountClient{
 			restClient: adminClient,
 		},
 	}, nil
@@ -1099,6 +1136,295 @@ func (r *DefaultRoleBindingClient) Delete(ctx context.Context, roleBindingId str
 	return nil
 }
 
+// [CreateServiceAccountParams] contains parameters for creating a new service account.
+type CreateServiceAccountParams struct {
+	// The human-readable name of the service account.
+	Name string `json:"name"`
+
+	// (Optional) Initial role bindings for the service account. Omitting the field or
+	// passing an empty slice creates the service account with no role bindings; roles
+	// can be added later via [RoleBindingClient].
+	RoleBindings []RoleBindingInput `json:"role_bindings,omitempty"`
+}
+
+// Creates a new service account.
+//
+// The returned [ServiceAccountWithSecret] contains the OAuth client secret, which is
+// returned only once and cannot be retrieved later. Store it securely and never log it.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - in: A pointer to [CreateServiceAccountParams] containing the service account configuration.
+//
+// Returns a pointer to a [ServiceAccountWithSecret] or an error.
+//
+// Example:
+//
+//	serviceAccountWithSecret, err := adminClient.ServiceAccount.Create(ctx, &pinecone.CreateServiceAccountParams{
+//		Name: "my-service-account",
+//		RoleBindings: []pinecone.RoleBindingInput{
+//			{ResourceType: pinecone.ResourceTypeOrganization, Role: "OrgMember"},
+//		},
+//	})
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (s *DefaultServiceAccountClient) Create(ctx context.Context, in *CreateServiceAccountParams) (*ServiceAccountWithSecret, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreateServiceAccountParams) cannot be nil")
+	}
+
+	request := admin.CreateServiceAccountRequest{
+		Name: in.Name,
+	}
+	if in.RoleBindings != nil {
+		roleBindings := make([]admin.RoleBindingInput, len(in.RoleBindings))
+		for i, roleBinding := range in.RoleBindings {
+			roleBindings[i] = toRoleBindingInput(roleBinding)
+		}
+		request.RoleBindings = &roleBindings
+	}
+
+	res, err := s.restClient.CreateServiceAccount(ctx, &admin.CreateServiceAccountParams{XPineconeApiVersion: gen.PineconeApiVersion}, request)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusCreated {
+		return nil, handleErrorResponseBody(res, "failed to create service account: ")
+	}
+
+	var adminServiceAccount admin.ServiceAccountWithSecret
+	err = json.NewDecoder(res.Body).Decode(&adminServiceAccount)
+	if err != nil {
+		return nil, err
+	}
+
+	return toServiceAccountWithSecret(adminServiceAccount), nil
+}
+
+// [UpdateServiceAccountParams] contains parameters for updating an existing service account.
+type UpdateServiceAccountParams struct {
+	// (Optional) A new name for the service account. If omitted, the name is unchanged.
+	Name *string `json:"name,omitempty"`
+}
+
+// Updates an existing service account by ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - serviceAccountId: The ID of the service account to update.
+//   - in: A pointer to [UpdateServiceAccountParams] containing updated fields.
+//
+// Returns the updated [ServiceAccount] or an error.
+//
+// Example:
+//
+//	newName := "renamed-service-account"
+//	serviceAccount, err := adminClient.ServiceAccount.Update(ctx, "service-account-id", &pinecone.UpdateServiceAccountParams{
+//		Name: &newName,
+//	})
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (s *DefaultServiceAccountClient) Update(ctx context.Context, serviceAccountId string, in *UpdateServiceAccountParams) (*ServiceAccount, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*UpdateServiceAccountParams) cannot be nil")
+	}
+
+	serviceAccountIdUUID, err := uuid.Parse(serviceAccountId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid serviceAccountId: %w", err)
+	}
+
+	request := admin.UpdateServiceAccountRequest{
+		Name: in.Name,
+	}
+
+	res, err := s.restClient.UpdateServiceAccount(ctx, serviceAccountIdUUID, &admin.UpdateServiceAccountParams{XPineconeApiVersion: gen.PineconeApiVersion}, request)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to update service account: ")
+	}
+
+	var adminServiceAccount admin.ServiceAccount
+	err = json.NewDecoder(res.Body).Decode(&adminServiceAccount)
+	if err != nil {
+		return nil, err
+	}
+
+	return toServiceAccount(adminServiceAccount), nil
+}
+
+// [ListServiceAccountsParams] contains the query parameters used when listing service accounts.
+type ListServiceAccountsParams struct {
+	// (Optional) The maximum number of service accounts to return per page.
+	Limit *int `json:"limit,omitempty"`
+
+	// (Optional) Token to retrieve the next page of results. Will be nil if there are no more results.
+	PaginationToken *string `json:"pagination_token,omitempty"`
+}
+
+// Lists all service accounts within the organization.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - in: A pointer to [ListServiceAccountsParams] containing pagination options. May be nil to list with defaults.
+//
+// Returns a pointer to a [ServiceAccountList] or an error.
+//
+// Example:
+//
+//	serviceAccounts, err := adminClient.ServiceAccount.List(ctx, nil)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (s *DefaultServiceAccountClient) List(ctx context.Context, in *ListServiceAccountsParams) (*ServiceAccountList, error) {
+	params := &admin.ListServiceAccountsParams{XPineconeApiVersion: gen.PineconeApiVersion}
+	if in != nil {
+		params.Limit = in.Limit
+		params.PaginationToken = in.PaginationToken
+	}
+
+	res, err := s.restClient.ListServiceAccounts(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to list service accounts: ")
+	}
+
+	var adminServiceAccountList admin.ServiceAccountList
+	err = json.NewDecoder(res.Body).Decode(&adminServiceAccountList)
+	if err != nil {
+		return nil, err
+	}
+
+	return toServiceAccountList(adminServiceAccountList), nil
+}
+
+// Describes a service account by ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - serviceAccountId: The ID of the service account to describe.
+//
+// Returns a pointer to a [ServiceAccount] or an error.
+//
+// Example:
+//
+//	serviceAccount, err := adminClient.ServiceAccount.Describe(ctx, "service-account-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (s *DefaultServiceAccountClient) Describe(ctx context.Context, serviceAccountId string) (*ServiceAccount, error) {
+	serviceAccountIdUUID, err := uuid.Parse(serviceAccountId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid serviceAccountId: %w", err)
+	}
+
+	res, err := s.restClient.FetchServiceAccount(ctx, serviceAccountIdUUID, &admin.FetchServiceAccountParams{XPineconeApiVersion: gen.PineconeApiVersion})
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to describe service account: ")
+	}
+
+	var adminServiceAccount admin.ServiceAccount
+	err = json.NewDecoder(res.Body).Decode(&adminServiceAccount)
+	if err != nil {
+		return nil, err
+	}
+
+	return toServiceAccount(adminServiceAccount), nil
+}
+
+// Rotates the OAuth client secret for a service account by ID.
+//
+// The returned [ServiceAccountWithSecret] contains the new secret, which is returned
+// only once and cannot be retrieved later. Store it securely and never log it. The
+// previous secret is invalidated.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - serviceAccountId: The ID of the service account whose secret should be rotated.
+//
+// Returns a pointer to a [ServiceAccountWithSecret] or an error.
+//
+// Example:
+//
+//	serviceAccountWithSecret, err := adminClient.ServiceAccount.RotateSecret(ctx, "service-account-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (s *DefaultServiceAccountClient) RotateSecret(ctx context.Context, serviceAccountId string) (*ServiceAccountWithSecret, error) {
+	serviceAccountIdUUID, err := uuid.Parse(serviceAccountId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid serviceAccountId: %w", err)
+	}
+
+	res, err := s.restClient.RotateServiceAccountSecret(ctx, serviceAccountIdUUID, &admin.RotateServiceAccountSecretParams{XPineconeApiVersion: gen.PineconeApiVersion})
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to rotate service account secret: ")
+	}
+
+	var adminServiceAccount admin.ServiceAccountWithSecret
+	err = json.NewDecoder(res.Body).Decode(&adminServiceAccount)
+	if err != nil {
+		return nil, err
+	}
+
+	return toServiceAccountWithSecret(adminServiceAccount), nil
+}
+
+// Deletes a service account by ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - serviceAccountId: The ID of the service account to delete.
+//
+// Returns an error if deletion fails.
+//
+// Example:
+//
+//	err := adminClient.ServiceAccount.Delete(ctx, "service-account-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (s *DefaultServiceAccountClient) Delete(ctx context.Context, serviceAccountId string) error {
+	serviceAccountIdUUID, err := uuid.Parse(serviceAccountId)
+	if err != nil {
+		return fmt.Errorf("invalid serviceAccountId: %w", err)
+	}
+
+	res, err := s.restClient.DeleteServiceAccount(ctx, serviceAccountIdUUID, &admin.DeleteServiceAccountParams{XPineconeApiVersion: gen.PineconeApiVersion})
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusAccepted {
+		return handleErrorResponseBody(res, "failed to delete service account: ")
+	}
+
+	return nil
+}
+
 type authTokenResponse struct {
 	AccessToken string `json:"access_token"`
 	ExpiresIn   int    `json:"expires_in"`
@@ -1280,6 +1606,44 @@ func toRoleBindingList(roleBindingList admin.RoleBindingList) *RoleBindingList {
 	}
 	if roleBindingList.Pagination != nil && roleBindingList.Pagination.Next != nil {
 		list.Pagination = &Pagination{Next: *roleBindingList.Pagination.Next}
+	}
+	return list
+}
+
+func toRoleBindingInput(roleBindingInput RoleBindingInput) admin.RoleBindingInput {
+	return admin.RoleBindingInput{
+		ResourceType: string(roleBindingInput.ResourceType),
+		Role:         roleBindingInput.Role,
+		ResourceId:   roleBindingInput.ResourceId,
+	}
+}
+
+func toServiceAccount(serviceAccount admin.ServiceAccount) *ServiceAccount {
+	return &ServiceAccount{
+		Id:        serviceAccount.Id.String(),
+		Name:      serviceAccount.Name,
+		ClientId:  serviceAccount.ClientId,
+		CreatedAt: serviceAccount.CreatedAt,
+		UpdatedAt: serviceAccount.UpdatedAt,
+	}
+}
+
+func toServiceAccountWithSecret(serviceAccount admin.ServiceAccountWithSecret) *ServiceAccountWithSecret {
+	return &ServiceAccountWithSecret{
+		ServiceAccount: *toServiceAccount(serviceAccount.ServiceAccount),
+		ClientSecret:   serviceAccount.ClientSecret,
+	}
+}
+
+func toServiceAccountList(serviceAccountList admin.ServiceAccountList) *ServiceAccountList {
+	list := &ServiceAccountList{
+		Data: make([]*ServiceAccount, len(serviceAccountList.Data)),
+	}
+	for i, serviceAccount := range serviceAccountList.Data {
+		list.Data[i] = toServiceAccount(serviceAccount)
+	}
+	if serviceAccountList.Pagination != nil && serviceAccountList.Pagination.Next != nil {
+		list.Pagination = &Pagination{Next: *serviceAccountList.Pagination.Next}
 	}
 	return list
 }
