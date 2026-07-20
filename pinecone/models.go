@@ -975,6 +975,49 @@ type ServiceAccountList struct {
 	Pagination *Pagination       `json:"pagination,omitempty"`
 }
 
+// [InviteStatus] is the lifecycle status of an [Invite].
+type InviteStatus string
+
+const (
+	InviteStatusPending   InviteStatus = "pending"
+	InviteStatusExpired   InviteStatus = "expired"
+	InviteStatusProcessed InviteStatus = "processed"
+)
+
+// [Invite] represents an invitation to join the organization.
+type Invite struct {
+	// The unique ID of the invite.
+	Id string `json:"id"`
+
+	// The email address the invite was sent to.
+	Email string `json:"email"`
+
+	// The lifecycle status of the invite. List endpoints return only "pending" and
+	// "expired" invites; "processed" is returned only when fetching a single invite by ID.
+	Status InviteStatus `json:"status"`
+
+	// The date and time the invite was created.
+	CreatedAt time.Time `json:"created_at"`
+
+	// (Optional) When the invite expires if not accepted. The default TTL is 7 days,
+	// and resending the invite extends it. Nil if the invite does not expire.
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+
+	// (Optional) The date and time the invite was accepted. Nil while the invite is
+	// still pending or expired.
+	ProcessedAt *time.Time `json:"processed_at,omitempty"`
+}
+
+// [InviteList] contains a paginated list of invites.
+//
+// Fields:
+//   - Data: A list of [Invite] records.
+//   - Pagination: Pagination token for fetching the next page of results.
+type InviteList struct {
+	Data       []*Invite   `json:"data"`
+	Pagination *Pagination `json:"pagination,omitempty"`
+}
+
 // Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
 type MetadataSchema struct {
 	Fields map[string]MetadataSchemaField `json:"fields"`

@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/google/uuid"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/pinecone-io/go-pinecone/v5/internal/gen"
 	"github.com/pinecone-io/go-pinecone/v5/internal/gen/admin"
 	"github.com/pinecone-io/go-pinecone/v5/internal/provider"
@@ -41,6 +42,10 @@ type AdminClient struct {
 	// ServiceAccount provides methods for creating, updating, listing, describing,
 	// deleting, and rotating the secret of service accounts within an organization.
 	ServiceAccount ServiceAccountClient
+
+	// Invite provides methods for creating, listing, describing, resending, and
+	// deleting invitations to join the organization.
+	Invite InviteClient
 }
 
 // [ProjectClient] provides an interface for managing Pinecone projects.
@@ -136,6 +141,25 @@ type ServiceAccountClient interface {
 	Delete(ctx context.Context, serviceAccountId string) error
 }
 
+// [InviteClient] provides an interface for managing invitations to join the organization.
+type InviteClient interface {
+	// Create and send a new invite. The role bindings must include at least one
+	// organization-scoped binding that grants organization membership.
+	Create(ctx context.Context, in *CreateInviteParams) (*Invite, error)
+
+	// List invites in the organization.
+	List(ctx context.Context, in *ListInvitesParams) (*InviteList, error)
+
+	// Describe an invite by ID.
+	Describe(ctx context.Context, inviteId string) (*Invite, error)
+
+	// Resend an existing invite by ID, extending its expiration.
+	Resend(ctx context.Context, inviteId string) (*Invite, error)
+
+	// Delete an invite by ID.
+	Delete(ctx context.Context, inviteId string) error
+}
+
 // [DefaultProjectClient] is the default implementation of [ProjectClient].
 type DefaultProjectClient struct {
 	restClient *admin.Client
@@ -158,6 +182,11 @@ type DefaultRoleBindingClient struct {
 
 // [DefaultServiceAccountClient] is the default implementation of [ServiceAccountClient].
 type DefaultServiceAccountClient struct {
+	restClient *admin.Client
+}
+
+// [DefaultInviteClient] is the default implementation of [InviteClient].
+type DefaultInviteClient struct {
 	restClient *admin.Client
 }
 
@@ -255,6 +284,9 @@ func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*A
 			restClient: adminClient,
 		},
 		ServiceAccount: &DefaultServiceAccountClient{
+			restClient: adminClient,
+		},
+		Invite: &DefaultInviteClient{
 			restClient: adminClient,
 		},
 	}, nil
@@ -1425,6 +1457,234 @@ func (s *DefaultServiceAccountClient) Delete(ctx context.Context, serviceAccount
 	return nil
 }
 
+// [CreateInviteParams] contains parameters for creating and sending a new invite.
+type CreateInviteParams struct {
+	// The email address to invite.
+	Email string `json:"email"`
+
+	// Role bindings for the invitee. Must include at least one organization-scoped
+	// binding that grants organization membership (e.g. "OrgOwner", "OrgManager",
+	// "OrgBillingAdmin", or "OrgMember"); project-scoped bindings are optional.
+	RoleBindings []RoleBindingInput `json:"role_bindings"`
+}
+
+// Creates and sends a new invite to join the organization.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - in: A pointer to [CreateInviteParams] containing the invite configuration.
+//
+// Returns a pointer to an [Invite] or an error.
+//
+// Example:
+//
+//	invite, err := adminClient.Invite.Create(ctx, &pinecone.CreateInviteParams{
+//		Email: "teammate@example.com",
+//		RoleBindings: []pinecone.RoleBindingInput{
+//			{ResourceType: pinecone.ResourceTypeOrganization, Role: "OrgMember"},
+//		},
+//	})
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (i *DefaultInviteClient) Create(ctx context.Context, in *CreateInviteParams) (*Invite, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*CreateInviteParams) cannot be nil")
+	}
+
+	roleBindings := make([]admin.RoleBindingInput, len(in.RoleBindings))
+	for idx, roleBinding := range in.RoleBindings {
+		roleBindings[idx] = toRoleBindingInput(roleBinding)
+	}
+
+	request := admin.CreateInviteRequest{
+		Email:        openapi_types.Email(in.Email),
+		RoleBindings: roleBindings,
+	}
+
+	res, err := i.restClient.CreateInvite(ctx, &admin.CreateInviteParams{XPineconeApiVersion: gen.PineconeApiVersion}, request)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to create invite: ")
+	}
+
+	var adminInvite admin.Invite
+	err = json.NewDecoder(res.Body).Decode(&adminInvite)
+	if err != nil {
+		return nil, err
+	}
+
+	return toInvite(adminInvite), nil
+}
+
+// [ListInvitesParams] contains the query parameters used when listing invites.
+type ListInvitesParams struct {
+	// (Optional) The maximum number of invites to return per page.
+	Limit *int `json:"limit,omitempty"`
+
+	// (Optional) Token to retrieve the next page of results. Will be nil if there are no more results.
+	PaginationToken *string `json:"pagination_token,omitempty"`
+}
+
+// Lists invites in the organization.
+//
+// List returns only "pending" and "expired" invites; a "processed" invite is
+// returned only when fetching a single invite by ID with [DefaultInviteClient.Describe].
+//
+// Parameters:
+//   - ctx: The request context.
+//   - in: A pointer to [ListInvitesParams] containing pagination options. May be nil to list with defaults.
+//
+// Returns a pointer to an [InviteList] or an error.
+//
+// Example:
+//
+//	invites, err := adminClient.Invite.List(ctx, nil)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (i *DefaultInviteClient) List(ctx context.Context, in *ListInvitesParams) (*InviteList, error) {
+	params := &admin.ListInvitesParams{XPineconeApiVersion: gen.PineconeApiVersion}
+	if in != nil {
+		params.Limit = in.Limit
+		params.PaginationToken = in.PaginationToken
+	}
+
+	res, err := i.restClient.ListInvites(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to list invites: ")
+	}
+
+	var adminInviteList admin.InviteList
+	err = json.NewDecoder(res.Body).Decode(&adminInviteList)
+	if err != nil {
+		return nil, err
+	}
+
+	return toInviteList(adminInviteList), nil
+}
+
+// Describes an invite by ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - inviteId: The ID of the invite to describe.
+//
+// Returns a pointer to an [Invite] or an error.
+//
+// Example:
+//
+//	invite, err := adminClient.Invite.Describe(ctx, "invite-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (i *DefaultInviteClient) Describe(ctx context.Context, inviteId string) (*Invite, error) {
+	inviteIdUUID, err := uuid.Parse(inviteId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid inviteId: %w", err)
+	}
+
+	res, err := i.restClient.FetchInvite(ctx, inviteIdUUID, &admin.FetchInviteParams{XPineconeApiVersion: gen.PineconeApiVersion})
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to describe invite: ")
+	}
+
+	var adminInvite admin.Invite
+	err = json.NewDecoder(res.Body).Decode(&adminInvite)
+	if err != nil {
+		return nil, err
+	}
+
+	return toInvite(adminInvite), nil
+}
+
+// Resends an existing invite by ID, resending the invite email and extending the
+// invite's expiration to seven days from now.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - inviteId: The ID of the invite to resend.
+//
+// Returns the updated [Invite] or an error.
+//
+// Example:
+//
+//	invite, err := adminClient.Invite.Resend(ctx, "invite-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (i *DefaultInviteClient) Resend(ctx context.Context, inviteId string) (*Invite, error) {
+	inviteIdUUID, err := uuid.Parse(inviteId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid inviteId: %w", err)
+	}
+
+	res, err := i.restClient.ResendInvite(ctx, inviteIdUUID, &admin.ResendInviteParams{XPineconeApiVersion: gen.PineconeApiVersion})
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to resend invite: ")
+	}
+
+	var adminInvite admin.Invite
+	err = json.NewDecoder(res.Body).Decode(&adminInvite)
+	if err != nil {
+		return nil, err
+	}
+
+	return toInvite(adminInvite), nil
+}
+
+// Deletes an invite by ID.
+//
+// Parameters:
+//   - ctx: The request context.
+//   - inviteId: The ID of the invite to delete.
+//
+// Returns an error if deletion fails.
+//
+// Example:
+//
+//	err := adminClient.Invite.Delete(ctx, "invite-id")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+func (i *DefaultInviteClient) Delete(ctx context.Context, inviteId string) error {
+	inviteIdUUID, err := uuid.Parse(inviteId)
+	if err != nil {
+		return fmt.Errorf("invalid inviteId: %w", err)
+	}
+
+	res, err := i.restClient.DeleteInvite(ctx, inviteIdUUID, &admin.DeleteInviteParams{XPineconeApiVersion: gen.PineconeApiVersion})
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusAccepted {
+		return handleErrorResponseBody(res, "failed to delete invite: ")
+	}
+
+	return nil
+}
+
 type authTokenResponse struct {
 	AccessToken string `json:"access_token"`
 	ExpiresIn   int    `json:"expires_in"`
@@ -1644,6 +1904,30 @@ func toServiceAccountList(serviceAccountList admin.ServiceAccountList) *ServiceA
 	}
 	if serviceAccountList.Pagination != nil && serviceAccountList.Pagination.Next != nil {
 		list.Pagination = &Pagination{Next: *serviceAccountList.Pagination.Next}
+	}
+	return list
+}
+
+func toInvite(invite admin.Invite) *Invite {
+	return &Invite{
+		Id:          invite.Id.String(),
+		Email:       string(invite.Email),
+		Status:      InviteStatus(invite.Status),
+		CreatedAt:   invite.CreatedAt,
+		ExpiresAt:   invite.ExpiresAt,
+		ProcessedAt: invite.ProcessedAt,
+	}
+}
+
+func toInviteList(inviteList admin.InviteList) *InviteList {
+	list := &InviteList{
+		Data: make([]*Invite, len(inviteList.Data)),
+	}
+	for i, invite := range inviteList.Data {
+		list.Data[i] = toInvite(invite)
+	}
+	if inviteList.Pagination != nil && inviteList.Pagination.Next != nil {
+		list.Pagination = &Pagination{Next: *inviteList.Pagination.Next}
 	}
 	return list
 }

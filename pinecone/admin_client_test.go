@@ -522,3 +522,119 @@ func TestServiceAccountInvalidUUIDUnit(t *testing.T) {
 		assert.Contains(t, err.Error(), "invalid serviceAccountId")
 	})
 }
+
+func TestToInviteUnit(t *testing.T) {
+	t.Run("pending invite with expiry and no processed time", func(t *testing.T) {
+		id := uuid.New()
+		createdAt := time.Now().UTC().Truncate(time.Second)
+		expiresAt := createdAt.Add(7 * 24 * time.Hour)
+		adminInvite := admin.Invite{
+			Id:          id,
+			Email:       "teammate@example.com",
+			Status:      "pending",
+			CreatedAt:   createdAt,
+			ExpiresAt:   &expiresAt,
+			ProcessedAt: nil,
+		}
+
+		invite := toInvite(adminInvite)
+
+		require.NotNil(t, invite)
+		assert.Equal(t, id.String(), invite.Id, "expected UUID to be stringified")
+		assert.Equal(t, "teammate@example.com", invite.Email, "expected email to be stringified")
+		assert.Equal(t, InviteStatusPending, invite.Status)
+		assert.Equal(t, createdAt, invite.CreatedAt)
+		require.NotNil(t, invite.ExpiresAt)
+		assert.Equal(t, expiresAt, *invite.ExpiresAt)
+		assert.Nil(t, invite.ProcessedAt, "expected nil ProcessedAt for a pending invite")
+	})
+
+	t.Run("processed invite carries processed time and nil expiry", func(t *testing.T) {
+		processedAt := time.Now().UTC().Truncate(time.Second)
+		adminInvite := admin.Invite{
+			Id:          uuid.New(),
+			Email:       "teammate@example.com",
+			Status:      "processed",
+			ProcessedAt: &processedAt,
+			ExpiresAt:   nil,
+		}
+
+		invite := toInvite(adminInvite)
+
+		require.NotNil(t, invite)
+		assert.Equal(t, InviteStatusProcessed, invite.Status)
+		assert.Nil(t, invite.ExpiresAt, "expected nil ExpiresAt when the invite does not expire")
+		require.NotNil(t, invite.ProcessedAt)
+		assert.Equal(t, processedAt, *invite.ProcessedAt)
+	})
+}
+
+func TestToInviteListUnit(t *testing.T) {
+	t.Run("populated data with pagination", func(t *testing.T) {
+		next := "next-token"
+		adminList := admin.InviteList{
+			Data: []admin.Invite{
+				{Id: uuid.New(), Email: "a@example.com", Status: "pending"},
+				{Id: uuid.New(), Email: "b@example.com", Status: "expired"},
+			},
+			Pagination: &struct {
+				Next *string `json:"next,omitempty"`
+			}{Next: &next},
+		}
+
+		list := toInviteList(adminList)
+
+		require.NotNil(t, list)
+		require.Len(t, list.Data, 2)
+		assert.Equal(t, "a@example.com", list.Data[0].Email)
+		assert.Equal(t, InviteStatusExpired, list.Data[1].Status)
+		require.NotNil(t, list.Pagination)
+		assert.Equal(t, next, list.Pagination.Next)
+	})
+
+	t.Run("nil pagination envelope yields nil pagination", func(t *testing.T) {
+		adminList := admin.InviteList{
+			Data:       []admin.Invite{},
+			Pagination: nil,
+		}
+
+		list := toInviteList(adminList)
+
+		require.NotNil(t, list)
+		assert.NotNil(t, list.Data, "expected non-nil (empty) data slice")
+		assert.Len(t, list.Data, 0)
+		assert.Nil(t, list.Pagination, "expected nil pagination when envelope is absent")
+	})
+}
+
+func TestInviteCreateNilParamsUnit(t *testing.T) {
+	client := &DefaultInviteClient{}
+	invite, err := client.Create(context.Background(), nil)
+	assert.Nil(t, invite)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "CreateInviteParams")
+}
+
+func TestInviteInvalidUUIDUnit(t *testing.T) {
+	client := &DefaultInviteClient{}
+
+	t.Run("Describe", func(t *testing.T) {
+		invite, err := client.Describe(context.Background(), "not-a-uuid")
+		assert.Nil(t, invite)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid inviteId")
+	})
+
+	t.Run("Resend", func(t *testing.T) {
+		invite, err := client.Resend(context.Background(), "not-a-uuid")
+		assert.Nil(t, invite)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid inviteId")
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		err := client.Delete(context.Background(), "not-a-uuid")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid inviteId")
+	})
+}
