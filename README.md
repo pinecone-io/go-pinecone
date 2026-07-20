@@ -13,10 +13,10 @@ visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v5/pinecone.
 
 go-pinecone contains
 
-- gRPC bindings for [Data Plane](https://docs.pinecone.io/reference/api/2025-10/data-plane) operations
-- REST bindings for [Control Plane](https://docs.pinecone.io/reference/api/2025-10/control-plane)
+- gRPC bindings for [Data Plane](https://docs.pinecone.io/reference/api/2026-04/data-plane) operations
+- REST bindings for [Control Plane](https://docs.pinecone.io/reference/api/2026-04/control-plane)
   operations
-- REST bindings for [Admin API](https://docs.pinecone.io/reference/api/2025-10/admin/)
+- REST bindings for [Admin API](https://docs.pinecone.io/reference/api/2026-04/admin/)
 
 See the [Pinecone API Docs](https://docs.pinecone.io/reference/) for more information.
 
@@ -121,6 +121,8 @@ When initializing an `AdminClient` you must construct a `NewAdminClientParams` o
 
 `AdminClient` is a struct used for accessing the Pinecone Admin API. A prerequisite for using this class is to have a [service account](https://docs.pinecone.io/guides/organizations/manage-service-accounts). To create a service
 account, visit the [Pinecone web console](https://app.pinecone.io) and navigate to the `Access > Service Accounts` section.
+
+`AdminClient` exposes sub-clients for managing projects, organizations, API keys, role bindings, service accounts, invites, and users (e.g. `adminClient.Project`, `adminClient.ServiceAccount`, `adminClient.Invite`, `adminClient.User`).
 
 **Authenticating via client ID and secret**
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/v5/internal/gen/admin"
@@ -187,6 +188,276 @@ func (ts *adminIntegrationTests) TestProjectsAndAPIKeys() {
 	})
 }
 
+func (ts *adminIntegrationTests) TestServiceAccounts() {
+	saName := fmt.Sprintf("test-sa-%s", uuid.New().String()[:6])
+	var newSA *ServiceAccount
+	var originalSecret string
+
+	ts.T().Run("CreateServiceAccount", func(t *testing.T) {
+		saWithSecret, err := ts.adminClient.ServiceAccount.Create(context.Background(), &CreateServiceAccountParams{
+			Name: saName,
+		})
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), saWithSecret, "Expected service account to be non-nil")
+		require.Equal(ts.T(), saName, saWithSecret.ServiceAccount.Name, "Expected service account name to match")
+		require.NotEmpty(ts.T(), saWithSecret.ServiceAccount.Id, "Expected service account ID to be set")
+		require.NotEmpty(ts.T(), saWithSecret.ServiceAccount.ClientId, "Expected client ID to be set")
+		require.NotEmpty(ts.T(), saWithSecret.ClientSecret, "Expected client secret to be returned on creation")
+		newSA = &saWithSecret.ServiceAccount
+		originalSecret = saWithSecret.ClientSecret
+	})
+
+	// If creation failed there is nothing to exercise; the failed subtest already
+	// marks the overall test as failed.
+	if newSA == nil {
+		return
+	}
+
+	ts.T().Run("DescribeServiceAccount", func(t *testing.T) {
+		descSA, err := ts.adminClient.ServiceAccount.Describe(context.Background(), newSA.Id)
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), descSA, "Expected service account to be non-nil")
+		require.Equal(ts.T(), newSA.Id, descSA.Id, "Expected service account ID to match")
+		require.Equal(ts.T(), newSA.ClientId, descSA.ClientId, "Expected client ID to match")
+	})
+
+	ts.T().Run("ListServiceAccounts", func(t *testing.T) {
+		list, err := ts.adminClient.ServiceAccount.List(context.Background(), nil)
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), list, "Expected service account list to be non-nil")
+		require.NotNil(ts.T(), list.Data, "Expected service account list data to be non-nil")
+		found := false
+		for _, sa := range list.Data {
+			if sa.Id == newSA.Id {
+				found = true
+				break
+			}
+		}
+		require.True(ts.T(), found, "Expected created service account to be in list")
+	})
+
+	ts.T().Run("UpdateServiceAccount", func(t *testing.T) {
+		newName := saName + "-updated"
+		updatedSA, err := ts.adminClient.ServiceAccount.Update(context.Background(), newSA.Id, &UpdateServiceAccountParams{
+			Name: &newName,
+		})
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), updatedSA, "Expected service account to be non-nil")
+		require.Equal(ts.T(), newName, updatedSA.Name, "Expected service account name to match")
+	})
+
+	ts.T().Run("RotateServiceAccountSecret", func(t *testing.T) {
+		rotated, err := ts.adminClient.ServiceAccount.RotateSecret(context.Background(), newSA.Id)
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), rotated, "Expected service account to be non-nil")
+		require.Equal(ts.T(), newSA.Id, rotated.ServiceAccount.Id, "Expected service account ID to match")
+		require.NotEmpty(ts.T(), rotated.ClientSecret, "Expected a new client secret to be returned")
+		require.NotEqual(ts.T(), originalSecret, rotated.ClientSecret, "Expected rotated secret to differ from the original")
+	})
+
+	ts.T().Run("DeleteServiceAccount", func(t *testing.T) {
+		err := ts.adminClient.ServiceAccount.Delete(context.Background(), newSA.Id)
+		require.NoError(ts.T(), err)
+		_, err = ts.adminClient.ServiceAccount.Describe(context.Background(), newSA.Id)
+		require.Error(ts.T(), err, "Expected describing a deleted service account to fail")
+	})
+}
+
+func (ts *adminIntegrationTests) TestRoleBindings() {
+	// A role binding needs a principal and a resource scope. Create a dedicated
+	// service account to act as the principal, then grant it an organization-scoped
+	// role. Both the binding and the principal are cleaned up before returning.
+	saName := fmt.Sprintf("test-rb-sa-%s", uuid.New().String()[:6])
+	var principal *ServiceAccount
+
+	ts.T().Run("CreatePrincipalServiceAccount", func(t *testing.T) {
+		saWithSecret, err := ts.adminClient.ServiceAccount.Create(context.Background(), &CreateServiceAccountParams{
+			Name: saName,
+		})
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), saWithSecret, "Expected service account to be non-nil")
+		principal = &saWithSecret.ServiceAccount
+	})
+
+	if principal == nil {
+		return
+	}
+	// Ensure the principal service account is removed even if a later subtest fails.
+	defer func() {
+		_ = ts.adminClient.ServiceAccount.Delete(context.Background(), principal.Id)
+	}()
+
+	var newBinding *RoleBinding
+
+	ts.T().Run("CreateRoleBinding", func(t *testing.T) {
+		binding, err := ts.adminClient.RoleBinding.Create(context.Background(), &CreateRoleBindingParams{
+			PrincipalId:   principal.Id,
+			PrincipalType: PrincipalTypeServiceAccount,
+			ResourceType:  ResourceTypeOrganization,
+			Role:          "OrgMember",
+		})
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), binding, "Expected role binding to be non-nil")
+		require.NotEmpty(ts.T(), binding.Id, "Expected role binding ID to be set")
+		require.Equal(ts.T(), principal.Id, binding.PrincipalId, "Expected principal ID to match")
+		require.Equal(ts.T(), PrincipalTypeServiceAccount, binding.PrincipalType, "Expected principal type to match")
+		require.Equal(ts.T(), "OrgMember", binding.Role, "Expected role to match")
+		newBinding = binding
+	})
+
+	if newBinding == nil {
+		return
+	}
+
+	ts.T().Run("DescribeRoleBinding", func(t *testing.T) {
+		binding, err := ts.adminClient.RoleBinding.Describe(context.Background(), newBinding.Id)
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), binding, "Expected role binding to be non-nil")
+		require.Equal(ts.T(), newBinding.Id, binding.Id, "Expected role binding ID to match")
+	})
+
+	ts.T().Run("ListRoleBindings", func(t *testing.T) {
+		principalType := PrincipalTypeServiceAccount
+		list, err := ts.adminClient.RoleBinding.List(context.Background(), &ListRoleBindingsParams{
+			PrincipalType: &principalType,
+			PrincipalId:   &principal.Id,
+		})
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), list, "Expected role binding list to be non-nil")
+		require.NotNil(ts.T(), list.Data, "Expected role binding list data to be non-nil")
+		found := false
+		for _, rb := range list.Data {
+			if rb.Id == newBinding.Id {
+				found = true
+				break
+			}
+		}
+		require.True(ts.T(), found, "Expected created role binding to be in filtered list")
+	})
+
+	ts.T().Run("DeleteRoleBinding", func(t *testing.T) {
+		err := ts.adminClient.RoleBinding.Delete(context.Background(), newBinding.Id)
+		require.NoError(ts.T(), err)
+		_, err = ts.adminClient.RoleBinding.Describe(context.Background(), newBinding.Id)
+		require.Error(ts.T(), err, "Expected describing a deleted role binding to fail")
+	})
+}
+
+func (ts *adminIntegrationTests) TestInvites() {
+	// example.com is IANA-reserved and never delivers mail, so it is safe to use for
+	// an invite that is created and immediately cleaned up.
+	email := fmt.Sprintf("test-invite-%s@example.com", uuid.New().String()[:6])
+	var newInvite *Invite
+
+	ts.T().Run("CreateInvite", func(t *testing.T) {
+		invite, err := ts.adminClient.Invite.Create(context.Background(), &CreateInviteParams{
+			Email: email,
+			RoleBindings: []RoleBindingInput{
+				{ResourceType: ResourceTypeOrganization, Role: "OrgMember"},
+			},
+		})
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), invite, "Expected invite to be non-nil")
+		require.Equal(ts.T(), email, invite.Email, "Expected invite email to match")
+		require.Equal(ts.T(), InviteStatusPending, invite.Status, "Expected a new invite to be pending")
+		require.NotEmpty(ts.T(), invite.Id, "Expected invite ID to be set")
+		newInvite = invite
+	})
+
+	if newInvite == nil {
+		return
+	}
+
+	ts.T().Run("DescribeInvite", func(t *testing.T) {
+		invite, err := ts.adminClient.Invite.Describe(context.Background(), newInvite.Id)
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), invite, "Expected invite to be non-nil")
+		require.Equal(ts.T(), newInvite.Id, invite.Id, "Expected invite ID to match")
+		require.Equal(ts.T(), email, invite.Email, "Expected invite email to match")
+	})
+
+	ts.T().Run("ListInvites", func(t *testing.T) {
+		list, err := ts.adminClient.Invite.List(context.Background(), nil)
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), list, "Expected invite list to be non-nil")
+		require.NotNil(ts.T(), list.Data, "Expected invite list data to be non-nil")
+		found := false
+		for _, inv := range list.Data {
+			if inv.Id == newInvite.Id {
+				found = true
+				break
+			}
+		}
+		require.True(ts.T(), found, "Expected pending invite to be in list")
+	})
+
+	ts.T().Run("ResendInvite", func(t *testing.T) {
+		invite, err := ts.adminClient.Invite.Resend(context.Background(), newInvite.Id)
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), invite, "Expected invite to be non-nil")
+		require.Equal(ts.T(), newInvite.Id, invite.Id, "Expected invite ID to match")
+		require.NotNil(ts.T(), invite.ExpiresAt, "Expected resent invite to carry an expiration")
+	})
+
+	ts.T().Run("DeleteInvite", func(t *testing.T) {
+		err := ts.adminClient.Invite.Delete(context.Background(), newInvite.Id)
+		require.NoError(ts.T(), err)
+		_, err = ts.adminClient.Invite.Describe(context.Background(), newInvite.Id)
+		require.Error(ts.T(), err, "Expected describing a deleted invite to fail")
+	})
+}
+
+func (ts *adminIntegrationTests) TestUsers() {
+	// Users represent real human members of the organization. The SDK cannot create
+	// users, and deleting one would remove an actual member, so this test is limited
+	// to list, describe, and email-filter coverage against existing members.
+	var sampleUser *User
+
+	ts.T().Run("ListUsers", func(t *testing.T) {
+		list, err := ts.adminClient.User.List(context.Background(), nil)
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), list, "Expected user list to be non-nil")
+		require.NotNil(ts.T(), list.Data, "Expected user list data to be non-nil")
+		if len(list.Data) == 0 {
+			// An organization with no human members (e.g. service-account-only access)
+			// leaves nothing to describe or filter; list coverage still ran above.
+			return
+		}
+		sampleUser = list.Data[0]
+		require.NotEmpty(ts.T(), sampleUser.Id, "Expected user ID to be set")
+		require.NotEmpty(ts.T(), sampleUser.Email, "Expected user email to be set")
+	})
+
+	if sampleUser == nil {
+		return
+	}
+
+	ts.T().Run("DescribeUser", func(t *testing.T) {
+		user, err := ts.adminClient.User.Describe(context.Background(), sampleUser.Id)
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), user, "Expected user to be non-nil")
+		require.Equal(ts.T(), sampleUser.Id, user.Id, "Expected user ID to match")
+		require.Equal(ts.T(), sampleUser.Email, user.Email, "Expected user email to match")
+	})
+
+	ts.T().Run("ListUsersByEmail", func(t *testing.T) {
+		list, err := ts.adminClient.User.List(context.Background(), &ListUsersParams{
+			Email: &sampleUser.Email,
+		})
+		require.NoError(ts.T(), err)
+		require.NotNil(ts.T(), list, "Expected user list to be non-nil")
+		require.NotNil(ts.T(), list.Data, "Expected user list data to be non-nil")
+		found := false
+		for _, u := range list.Data {
+			if u.Id == sampleUser.Id {
+				found = true
+				break
+			}
+		}
+		require.True(ts.T(), found, "Expected email filter to return the matching user")
+	})
+}
+
 // Unit tests:
 func TestNewAdminClientWithContextUnit(t *testing.T) {
 	// grab global env vars, and unset so they don't interfere with unit tests
@@ -264,4 +535,466 @@ func TestNewAdminClientWithContextUnit(t *testing.T) {
 	os.Setenv("PINECONE_CLIENT_ID", osClientId)
 	os.Setenv("PINECONE_CLIENT_SECRET", osClientSecret)
 	os.Setenv("PINECONE_ACCESS_TOKEN", osAccessToken)
+}
+
+func TestToRoleBindingUnit(t *testing.T) {
+	id := uuid.New()
+	createdAt := time.Now().UTC().Truncate(time.Second)
+	adminRoleBinding := admin.RoleBinding{
+		Id:            id,
+		PrincipalId:   "principal-id",
+		PrincipalType: "service_account",
+		ResourceId:    "resource-id",
+		ResourceType:  "organization",
+		Role:          "OrgMember",
+		CreatedAt:     createdAt,
+	}
+
+	roleBinding := toRoleBinding(adminRoleBinding)
+
+	require.NotNil(t, roleBinding)
+	assert.Equal(t, id.String(), roleBinding.Id, "expected UUID to be stringified")
+	assert.Equal(t, "principal-id", roleBinding.PrincipalId)
+	assert.Equal(t, PrincipalTypeServiceAccount, roleBinding.PrincipalType)
+	assert.Equal(t, "resource-id", roleBinding.ResourceId)
+	assert.Equal(t, ResourceTypeOrganization, roleBinding.ResourceType)
+	assert.Equal(t, "OrgMember", roleBinding.Role)
+	assert.Equal(t, createdAt, roleBinding.CreatedAt)
+}
+
+func TestToRoleBindingListUnit(t *testing.T) {
+	t.Run("populated data with pagination", func(t *testing.T) {
+		next := "next-token"
+		adminList := admin.RoleBindingList{
+			Data: []admin.RoleBinding{
+				{Id: uuid.New(), PrincipalType: "user", ResourceType: "project", Role: "ProjectEditor"},
+				{Id: uuid.New(), PrincipalType: "api_key", ResourceType: "organization", Role: "OrgOwner"},
+			},
+			Pagination: &struct {
+				Next *string `json:"next,omitempty"`
+			}{Next: &next},
+		}
+
+		list := toRoleBindingList(adminList)
+
+		require.NotNil(t, list)
+		require.Len(t, list.Data, 2)
+		assert.Equal(t, PrincipalTypeUser, list.Data[0].PrincipalType)
+		assert.Equal(t, PrincipalTypeAPIKey, list.Data[1].PrincipalType)
+		require.NotNil(t, list.Pagination)
+		assert.Equal(t, next, list.Pagination.Next)
+	})
+
+	t.Run("nil pagination envelope yields nil pagination", func(t *testing.T) {
+		adminList := admin.RoleBindingList{
+			Data:       []admin.RoleBinding{{Id: uuid.New()}},
+			Pagination: nil,
+		}
+
+		list := toRoleBindingList(adminList)
+
+		require.NotNil(t, list)
+		require.Len(t, list.Data, 1)
+		assert.Nil(t, list.Pagination, "expected nil pagination when envelope is absent")
+	})
+
+	t.Run("pagination envelope with nil Next yields nil pagination", func(t *testing.T) {
+		adminList := admin.RoleBindingList{
+			Data: []admin.RoleBinding{},
+			Pagination: &struct {
+				Next *string `json:"next,omitempty"`
+			}{Next: nil},
+		}
+
+		list := toRoleBindingList(adminList)
+
+		require.NotNil(t, list)
+		assert.NotNil(t, list.Data, "expected non-nil (empty) data slice")
+		assert.Len(t, list.Data, 0)
+		assert.Nil(t, list.Pagination, "expected nil pagination when Next is nil")
+	})
+}
+
+func TestRoleBindingCreateNilParamsUnit(t *testing.T) {
+	client := &DefaultRoleBindingClient{}
+	roleBinding, err := client.Create(context.Background(), nil)
+	assert.Nil(t, roleBinding)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "CreateRoleBindingParams")
+}
+
+func TestRoleBindingInvalidUUIDUnit(t *testing.T) {
+	client := &DefaultRoleBindingClient{}
+
+	t.Run("Describe", func(t *testing.T) {
+		roleBinding, err := client.Describe(context.Background(), "not-a-uuid")
+		assert.Nil(t, roleBinding)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid roleBindingId")
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		err := client.Delete(context.Background(), "not-a-uuid")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid roleBindingId")
+	})
+}
+
+func TestToRoleBindingInputUnit(t *testing.T) {
+	t.Run("project scope with resource ID", func(t *testing.T) {
+		resourceId := "project-id"
+		input := toRoleBindingInput(RoleBindingInput{
+			ResourceType: ResourceTypeProject,
+			Role:         "ProjectEditor",
+			ResourceId:   &resourceId,
+		})
+		assert.Equal(t, "project", input.ResourceType)
+		assert.Equal(t, "ProjectEditor", input.Role)
+		require.NotNil(t, input.ResourceId)
+		assert.Equal(t, resourceId, *input.ResourceId)
+	})
+
+	t.Run("organization scope omits resource ID", func(t *testing.T) {
+		input := toRoleBindingInput(RoleBindingInput{
+			ResourceType: ResourceTypeOrganization,
+			Role:         "OrgMember",
+		})
+		assert.Equal(t, "organization", input.ResourceType)
+		assert.Equal(t, "OrgMember", input.Role)
+		assert.Nil(t, input.ResourceId)
+	})
+}
+
+func TestToServiceAccountUnit(t *testing.T) {
+	id := uuid.New()
+	createdAt := time.Now().UTC().Truncate(time.Second)
+	updatedAt := createdAt.Add(time.Hour)
+	adminServiceAccount := admin.ServiceAccount{
+		Id:        id,
+		Name:      "my-service-account",
+		ClientId:  "client-id",
+		CreatedAt: createdAt,
+		UpdatedAt: updatedAt,
+	}
+
+	serviceAccount := toServiceAccount(adminServiceAccount)
+
+	require.NotNil(t, serviceAccount)
+	assert.Equal(t, id.String(), serviceAccount.Id, "expected UUID to be stringified")
+	assert.Equal(t, "my-service-account", serviceAccount.Name)
+	assert.Equal(t, "client-id", serviceAccount.ClientId)
+	assert.Equal(t, createdAt, serviceAccount.CreatedAt)
+	assert.Equal(t, updatedAt, serviceAccount.UpdatedAt)
+}
+
+func TestToServiceAccountWithSecretUnit(t *testing.T) {
+	id := uuid.New()
+	adminServiceAccount := admin.ServiceAccountWithSecret{
+		ServiceAccount: admin.ServiceAccount{
+			Id:   id,
+			Name: "my-service-account",
+		},
+		ClientSecret: "super-secret-value",
+	}
+
+	serviceAccount := toServiceAccountWithSecret(adminServiceAccount)
+
+	require.NotNil(t, serviceAccount)
+	assert.Equal(t, id.String(), serviceAccount.ServiceAccount.Id)
+	assert.Equal(t, "my-service-account", serviceAccount.ServiceAccount.Name)
+	assert.Equal(t, "super-secret-value", serviceAccount.ClientSecret)
+}
+
+func TestToServiceAccountListUnit(t *testing.T) {
+	t.Run("populated data with pagination", func(t *testing.T) {
+		next := "next-token"
+		adminList := admin.ServiceAccountList{
+			Data: []admin.ServiceAccount{
+				{Id: uuid.New(), Name: "sa-1"},
+				{Id: uuid.New(), Name: "sa-2"},
+			},
+			Pagination: &struct {
+				Next *string `json:"next,omitempty"`
+			}{Next: &next},
+		}
+
+		list := toServiceAccountList(adminList)
+
+		require.NotNil(t, list)
+		require.Len(t, list.Data, 2)
+		assert.Equal(t, "sa-1", list.Data[0].Name)
+		assert.Equal(t, "sa-2", list.Data[1].Name)
+		require.NotNil(t, list.Pagination)
+		assert.Equal(t, next, list.Pagination.Next)
+	})
+
+	t.Run("nil pagination envelope yields nil pagination", func(t *testing.T) {
+		adminList := admin.ServiceAccountList{
+			Data:       []admin.ServiceAccount{},
+			Pagination: nil,
+		}
+
+		list := toServiceAccountList(adminList)
+
+		require.NotNil(t, list)
+		assert.NotNil(t, list.Data, "expected non-nil (empty) data slice")
+		assert.Len(t, list.Data, 0)
+		assert.Nil(t, list.Pagination, "expected nil pagination when envelope is absent")
+	})
+}
+
+func TestServiceAccountNilParamsUnit(t *testing.T) {
+	client := &DefaultServiceAccountClient{}
+
+	t.Run("Create", func(t *testing.T) {
+		serviceAccount, err := client.Create(context.Background(), nil)
+		assert.Nil(t, serviceAccount)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "CreateServiceAccountParams")
+	})
+
+	t.Run("Update", func(t *testing.T) {
+		serviceAccount, err := client.Update(context.Background(), uuid.New().String(), nil)
+		assert.Nil(t, serviceAccount)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "UpdateServiceAccountParams")
+	})
+}
+
+func TestServiceAccountInvalidUUIDUnit(t *testing.T) {
+	client := &DefaultServiceAccountClient{}
+	name := "renamed"
+
+	t.Run("Describe", func(t *testing.T) {
+		serviceAccount, err := client.Describe(context.Background(), "not-a-uuid")
+		assert.Nil(t, serviceAccount)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid serviceAccountId")
+	})
+
+	t.Run("Update", func(t *testing.T) {
+		serviceAccount, err := client.Update(context.Background(), "not-a-uuid", &UpdateServiceAccountParams{Name: &name})
+		assert.Nil(t, serviceAccount)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid serviceAccountId")
+	})
+
+	t.Run("RotateSecret", func(t *testing.T) {
+		serviceAccount, err := client.RotateSecret(context.Background(), "not-a-uuid")
+		assert.Nil(t, serviceAccount)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid serviceAccountId")
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		err := client.Delete(context.Background(), "not-a-uuid")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid serviceAccountId")
+	})
+}
+
+func TestToInviteUnit(t *testing.T) {
+	t.Run("pending invite with expiry and no processed time", func(t *testing.T) {
+		id := uuid.New()
+		createdAt := time.Now().UTC().Truncate(time.Second)
+		expiresAt := createdAt.Add(7 * 24 * time.Hour)
+		adminInvite := admin.Invite{
+			Id:          id,
+			Email:       "teammate@example.com",
+			Status:      "pending",
+			CreatedAt:   createdAt,
+			ExpiresAt:   &expiresAt,
+			ProcessedAt: nil,
+		}
+
+		invite := toInvite(adminInvite)
+
+		require.NotNil(t, invite)
+		assert.Equal(t, id.String(), invite.Id, "expected UUID to be stringified")
+		assert.Equal(t, "teammate@example.com", invite.Email, "expected email to be stringified")
+		assert.Equal(t, InviteStatusPending, invite.Status)
+		assert.Equal(t, createdAt, invite.CreatedAt)
+		require.NotNil(t, invite.ExpiresAt)
+		assert.Equal(t, expiresAt, *invite.ExpiresAt)
+		assert.Nil(t, invite.ProcessedAt, "expected nil ProcessedAt for a pending invite")
+	})
+
+	t.Run("processed invite carries processed time and nil expiry", func(t *testing.T) {
+		processedAt := time.Now().UTC().Truncate(time.Second)
+		adminInvite := admin.Invite{
+			Id:          uuid.New(),
+			Email:       "teammate@example.com",
+			Status:      "processed",
+			ProcessedAt: &processedAt,
+			ExpiresAt:   nil,
+		}
+
+		invite := toInvite(adminInvite)
+
+		require.NotNil(t, invite)
+		assert.Equal(t, InviteStatusProcessed, invite.Status)
+		assert.Nil(t, invite.ExpiresAt, "expected nil ExpiresAt when the invite does not expire")
+		require.NotNil(t, invite.ProcessedAt)
+		assert.Equal(t, processedAt, *invite.ProcessedAt)
+	})
+}
+
+func TestToInviteListUnit(t *testing.T) {
+	t.Run("populated data with pagination", func(t *testing.T) {
+		next := "next-token"
+		adminList := admin.InviteList{
+			Data: []admin.Invite{
+				{Id: uuid.New(), Email: "a@example.com", Status: "pending"},
+				{Id: uuid.New(), Email: "b@example.com", Status: "expired"},
+			},
+			Pagination: &struct {
+				Next *string `json:"next,omitempty"`
+			}{Next: &next},
+		}
+
+		list := toInviteList(adminList)
+
+		require.NotNil(t, list)
+		require.Len(t, list.Data, 2)
+		assert.Equal(t, "a@example.com", list.Data[0].Email)
+		assert.Equal(t, InviteStatusExpired, list.Data[1].Status)
+		require.NotNil(t, list.Pagination)
+		assert.Equal(t, next, list.Pagination.Next)
+	})
+
+	t.Run("nil pagination envelope yields nil pagination", func(t *testing.T) {
+		adminList := admin.InviteList{
+			Data:       []admin.Invite{},
+			Pagination: nil,
+		}
+
+		list := toInviteList(adminList)
+
+		require.NotNil(t, list)
+		assert.NotNil(t, list.Data, "expected non-nil (empty) data slice")
+		assert.Len(t, list.Data, 0)
+		assert.Nil(t, list.Pagination, "expected nil pagination when envelope is absent")
+	})
+}
+
+func TestInviteCreateNilParamsUnit(t *testing.T) {
+	client := &DefaultInviteClient{}
+	invite, err := client.Create(context.Background(), nil)
+	assert.Nil(t, invite)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "CreateInviteParams")
+}
+
+func TestInviteInvalidUUIDUnit(t *testing.T) {
+	client := &DefaultInviteClient{}
+
+	t.Run("Describe", func(t *testing.T) {
+		invite, err := client.Describe(context.Background(), "not-a-uuid")
+		assert.Nil(t, invite)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid inviteId")
+	})
+
+	t.Run("Resend", func(t *testing.T) {
+		invite, err := client.Resend(context.Background(), "not-a-uuid")
+		assert.Nil(t, invite)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid inviteId")
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		err := client.Delete(context.Background(), "not-a-uuid")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid inviteId")
+	})
+}
+
+func TestToUserUnit(t *testing.T) {
+	t.Run("user with display name", func(t *testing.T) {
+		id := uuid.New()
+		name := "Ada Lovelace"
+		adminUser := admin.User{
+			Id:    id,
+			Email: "ada@example.com",
+			Name:  &name,
+		}
+
+		user := toUser(adminUser)
+
+		require.NotNil(t, user)
+		assert.Equal(t, id.String(), user.Id, "expected UUID to be stringified")
+		assert.Equal(t, "ada@example.com", user.Email, "expected email to be stringified")
+		require.NotNil(t, user.Name)
+		assert.Equal(t, name, *user.Name)
+	})
+
+	t.Run("user without display name", func(t *testing.T) {
+		adminUser := admin.User{
+			Id:    uuid.New(),
+			Email: "noname@example.com",
+			Name:  nil,
+		}
+
+		user := toUser(adminUser)
+
+		require.NotNil(t, user)
+		assert.Nil(t, user.Name, "expected nil Name when the user has not set one")
+	})
+}
+
+func TestToUserListUnit(t *testing.T) {
+	t.Run("populated data with pagination", func(t *testing.T) {
+		next := "next-token"
+		name := "Ada Lovelace"
+		adminList := admin.UserList{
+			Data: []admin.User{
+				{Id: uuid.New(), Email: "ada@example.com", Name: &name},
+				{Id: uuid.New(), Email: "noname@example.com"},
+			},
+			Pagination: &struct {
+				Next *string `json:"next,omitempty"`
+			}{Next: &next},
+		}
+
+		list := toUserList(adminList)
+
+		require.NotNil(t, list)
+		require.Len(t, list.Data, 2)
+		require.NotNil(t, list.Data[0].Name)
+		assert.Equal(t, name, *list.Data[0].Name)
+		assert.Nil(t, list.Data[1].Name)
+		require.NotNil(t, list.Pagination)
+		assert.Equal(t, next, list.Pagination.Next)
+	})
+
+	t.Run("nil pagination envelope yields nil pagination", func(t *testing.T) {
+		adminList := admin.UserList{
+			Data:       []admin.User{},
+			Pagination: nil,
+		}
+
+		list := toUserList(adminList)
+
+		require.NotNil(t, list)
+		assert.NotNil(t, list.Data, "expected non-nil (empty) data slice")
+		assert.Len(t, list.Data, 0)
+		assert.Nil(t, list.Pagination, "expected nil pagination when envelope is absent")
+	})
+}
+
+func TestUserInvalidUUIDUnit(t *testing.T) {
+	client := &DefaultUserClient{}
+
+	t.Run("Describe", func(t *testing.T) {
+		user, err := client.Describe(context.Background(), "not-a-uuid")
+		assert.Nil(t, user)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid userId")
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		err := client.Delete(context.Background(), "not-a-uuid")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid userId")
+	})
 }
