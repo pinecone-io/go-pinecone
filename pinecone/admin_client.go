@@ -982,7 +982,7 @@ type CreateRoleBindingParams struct {
 
 	// The role to assign to the principal at the resource scope.
 	// Expected "organization"-scoped values: "OrgOwner", "OrgManager", "OrgBillingAdmin", "OrgMember".
-	// Expected "project"-scoped values: "ProjectEditor", "ProjectViewer", "ControlPlaneEditor", "ControlPlaneViewer", "DataPlaneEditor", "DataPlaneViewer".
+	// Expected "project"-scoped values: "ProjectOwner", "ProjectManager", "ProjectMember", "ProjectEditor", "ProjectViewer", "ControlPlaneEditor", "ControlPlaneViewer", "DataPlaneEditor", "DataPlaneViewer".
 	Role string `json:"role"`
 
 	// (Optional) The ID of the project the binding applies to. Required when
@@ -1164,6 +1164,11 @@ func (r *DefaultRoleBindingClient) Describe(ctx context.Context, roleBindingId s
 
 // Deletes a role binding by ID.
 //
+// The API returns an error if the binding cannot be removed, including when it is the
+// last "OrgOwner" binding in the organization, or the last organization-membership
+// binding for a principal that still has other bindings. To remove a pending invite,
+// delete the invite instead of its bindings.
+//
 // Parameters:
 //   - ctx: The request context.
 //   - roleBindingId: The ID of the role binding to delete.
@@ -1197,7 +1202,7 @@ func (r *DefaultRoleBindingClient) Delete(ctx context.Context, roleBindingId str
 
 // [CreateServiceAccountParams] contains parameters for creating a new service account.
 type CreateServiceAccountParams struct {
-	// The human-readable name of the service account.
+	// The human-readable name of the service account. The name must be 1-80 characters long.
 	Name string `json:"name"`
 
 	// (Optional) Initial role bindings for the service account. Omitting the field or
@@ -1265,7 +1270,8 @@ func (s *DefaultServiceAccountClient) Create(ctx context.Context, in *CreateServ
 
 // [UpdateServiceAccountParams] contains parameters for updating an existing service account.
 type UpdateServiceAccountParams struct {
-	// (Optional) A new name for the service account. If omitted, the name is unchanged.
+	// (Optional) A new name for the service account. The name must be 1-80 characters long.
+	// If omitted, the name is unchanged.
 	Name *string `json:"name,omitempty"`
 }
 
@@ -1453,6 +1459,9 @@ func (s *DefaultServiceAccountClient) RotateSecret(ctx context.Context, serviceA
 
 // Deletes a service account by ID.
 //
+// The service account's role bindings are deleted, and OAuth tokens minted by the
+// service account are revoked within a few seconds.
+//
 // Parameters:
 //   - ctx: The request context.
 //   - serviceAccountId: The ID of the service account to delete.
@@ -1496,6 +1505,10 @@ type CreateInviteParams struct {
 }
 
 // Creates and sends a new invite to join the organization.
+//
+// The API returns an error if a pending or expired invite already exists for the email
+// (use [DefaultInviteClient.Resend] instead), or if the email already belongs to a member
+// of the organization (manage that user's roles via [RoleBindingClient] instead).
 //
 // Parameters:
 //   - ctx: The request context.
@@ -1641,6 +1654,10 @@ func (i *DefaultInviteClient) Describe(ctx context.Context, inviteId string) (*I
 
 // Resends an existing invite by ID, resending the invite email and extending the
 // invite's expiration to seven days from now.
+//
+// Resending an expired invite is allowed and returns it to "pending" status. Resending
+// an already-accepted (processed) invite returns an error. Invite emails are rate-limited
+// per organization; exceeding the limit returns an error.
 //
 // Parameters:
 //   - ctx: The request context.

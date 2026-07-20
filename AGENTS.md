@@ -10,7 +10,7 @@ The Pinecone Go SDK provides a client for interacting with Pinecone vector datab
 
 **Entry points:**
 - `Client` — Control plane client for managing indexes, collections, backups, and inference
-- `AdminClient` — Admin operations (projects, orgs, API keys)
+- `AdminClient` — Admin operations (projects, orgs, API keys, role bindings, service accounts, invites, users)
 - `IndexConnection` — Data plane client for vector operations on a specific index
 
 **Key technologies:**
@@ -25,7 +25,7 @@ Three-plane design, each with its own client struct:
 
 **Public API (`pinecone/`):**
 - `client.go` — `Client`: Control Plane (create/list/describe/delete indexes, collections, backups) + Inference
-- `admin_client.go` — `AdminClient`: Admin operations (projects, orgs, API keys)
+- `admin_client.go` — `AdminClient`: Admin operations (projects, orgs, API keys, role bindings, service accounts, invites, users)
 - `index_connection.go` — `IndexConnection`: Data Plane over gRPC (upsert, query, fetch, delete, update vectors; namespace management)
 - `models.go` — All shared types, constants, and enums (`IndexMetric`, `Cloud`, `IndexStatus`, etc.)
 - `errors.go` — `PineconeError` error type
@@ -42,7 +42,7 @@ Three-plane design, each with its own client struct:
 - `internal/utils/` — Internal utility functions
 
 **Code Generation:**
-Generated code under `internal/gen/` is produced by `codegen/build-clients.sh` from API specs in `codegen/apis/` (a private git submodule). Run `just gen` to regenerate after spec changes. The current API version is `2025-10`.
+Generated code under `internal/gen/` is produced by `codegen/build-clients.sh` from API specs in `codegen/apis/` (a private git submodule). Run `just gen` to regenerate after spec changes. The current API version is `2026-04`.
 
 ## Build & Test Commands
 

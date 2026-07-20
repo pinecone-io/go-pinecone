@@ -917,7 +917,7 @@ type RoleBindingInput struct {
 
 	// The role to assign to the principal at the resource scope.
 	// Expected "organization"-scoped values: "OrgOwner", "OrgManager", "OrgBillingAdmin", "OrgMember".
-	// Expected "project"-scoped values: "ProjectEditor", "ProjectViewer", "ControlPlaneEditor", "ControlPlaneViewer", "DataPlaneEditor", "DataPlaneViewer".
+	// Expected "project"-scoped values: "ProjectOwner", "ProjectManager", "ProjectMember", "ProjectEditor", "ProjectViewer", "ControlPlaneEditor", "ControlPlaneViewer", "DataPlaneEditor", "DataPlaneViewer".
 	Role string `json:"role"`
 
 	// (Optional) The ID of the project the binding applies to. Required when
