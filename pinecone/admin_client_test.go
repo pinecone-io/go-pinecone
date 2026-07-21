@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pinecone-io/go-pinecone/v5/internal/gen/admin"
+	"github.com/pinecone-io/go-pinecone/v6/internal/gen/admin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

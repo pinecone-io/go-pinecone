@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	db_data_grpc "github.com/pinecone-io/go-pinecone/v5/internal/gen/db_data/grpc"
-	"github.com/pinecone-io/go-pinecone/v5/internal/utils"
+	db_data_grpc "github.com/pinecone-io/go-pinecone/v6/internal/gen/db_data/grpc"
+	"github.com/pinecone-io/go-pinecone/v6/internal/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"

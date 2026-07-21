@@ -16,11 +16,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
-	"github.com/pinecone-io/go-pinecone/v5/internal/gen"
-	"github.com/pinecone-io/go-pinecone/v5/internal/gen/db_control"
-	"github.com/pinecone-io/go-pinecone/v5/internal/gen/inference"
-	"github.com/pinecone-io/go-pinecone/v5/internal/provider"
-	"github.com/pinecone-io/go-pinecone/v5/internal/utils"
+	"github.com/pinecone-io/go-pinecone/v6/internal/gen"
+	"github.com/pinecone-io/go-pinecone/v6/internal/gen/db_control"
+	"github.com/pinecone-io/go-pinecone/v6/internal/gen/inference"
+	"github.com/pinecone-io/go-pinecone/v6/internal/provider"
+	"github.com/pinecone-io/go-pinecone/v6/internal/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

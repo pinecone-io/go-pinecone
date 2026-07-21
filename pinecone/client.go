@@ -16,12 +16,12 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/pinecone-io/go-pinecone/v5/internal/gen"
-	"github.com/pinecone-io/go-pinecone/v5/internal/gen/db_control"
-	db_data_rest "github.com/pinecone-io/go-pinecone/v5/internal/gen/db_data/rest"
-	"github.com/pinecone-io/go-pinecone/v5/internal/gen/inference"
-	"github.com/pinecone-io/go-pinecone/v5/internal/provider"
-	"github.com/pinecone-io/go-pinecone/v5/internal/useragent"
+	"github.com/pinecone-io/go-pinecone/v6/internal/gen"
+	"github.com/pinecone-io/go-pinecone/v6/internal/gen/db_control"
+	db_data_rest "github.com/pinecone-io/go-pinecone/v6/internal/gen/db_data/rest"
+	"github.com/pinecone-io/go-pinecone/v6/internal/gen/inference"
+	"github.com/pinecone-io/go-pinecone/v6/internal/provider"
+	"github.com/pinecone-io/go-pinecone/v6/internal/useragent"
 	"google.golang.org/grpc"
 )
 
