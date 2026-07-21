@@ -12,10 +12,10 @@ import (
 
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
-	"github.com/pinecone-io/go-pinecone/v5/internal/gen"
-	"github.com/pinecone-io/go-pinecone/v5/internal/gen/admin"
-	"github.com/pinecone-io/go-pinecone/v5/internal/provider"
-	"github.com/pinecone-io/go-pinecone/v5/internal/useragent"
+	"github.com/pinecone-io/go-pinecone/v6/internal/gen"
+	"github.com/pinecone-io/go-pinecone/v6/internal/gen/admin"
+	"github.com/pinecone-io/go-pinecone/v6/internal/provider"
+	"github.com/pinecone-io/go-pinecone/v6/internal/useragent"
 )
 
 // [AdminClient] provides access to Pinecone's administrative APIs, which supports
