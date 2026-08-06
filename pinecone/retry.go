@@ -146,11 +146,11 @@ func (t *retryTransport) shouldRetry(attempt int, method string, resp *http.Resp
 	if err != nil {
 		return isIdempotent(method) // transport error: only safe to replay idempotent requests
 	}
-	switch resp.StatusCode {
-	case http.StatusTooManyRequests:
+	if resp.StatusCode == http.StatusTooManyRequests {
 		return true // rate-limited: request was rejected, safe to retry
-	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
-		return isIdempotent(method)
+	}
+	if resp.StatusCode >= 500 {
+		return isIdempotent(method) // transient server error
 	}
 	return false
 }
@@ -229,19 +229,22 @@ func wait(ctx context.Context, d time.Duration) bool {
 	}
 }
 
-// [RetryDialOption] returns a gRPC dial option enabling built-in retries for the data
+// [RetryDialOptions] returns gRPC dial options enabling built-in retries for the data
 // plane per policy, keyed on RESOURCE_EXHAUSTED and UNAVAILABLE. A nil policy uses
-// [DefaultRetryPolicy]. Returns a no-op option when the policy disables retries.
-// Note: gRPC caps built-in retries at 5 attempts by default.
-func RetryDialOption(policy *RetryPolicy) grpc.DialOption {
+// [DefaultRetryPolicy]. Returns nil when the policy disables retries. The per-call
+// attempt limit is raised to match the policy (gRPC's default cap is 5).
+func RetryDialOptions(policy *RetryPolicy) []grpc.DialOption {
 	if policy == nil {
 		policy = DefaultRetryPolicy()
 	}
 	cfg := buildRetryServiceConfig(policy)
 	if cfg == "" {
-		return grpc.EmptyDialOption{}
+		return nil
 	}
-	return grpc.WithDefaultServiceConfig(cfg)
+	return []grpc.DialOption{
+		grpc.WithDefaultServiceConfig(cfg),
+		grpc.WithMaxCallAttempts(policy.MaxRetries + 1),
+	}
 }
 
 // buildRetryServiceConfig renders a gRPC service config for the VectorService, or ""

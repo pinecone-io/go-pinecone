@@ -319,7 +319,7 @@ func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*Ind
 
 	// Enable gRPC data-plane retries; user-supplied dialOpts come after and win on conflict.
 	if c.baseParams.RetryPolicy != nil {
-		dialOpts = append([]grpc.DialOption{RetryDialOption(c.baseParams.RetryPolicy)}, dialOpts...)
+		dialOpts = append(RetryDialOptions(c.baseParams.RetryPolicy), dialOpts...)
 	}
 
 	idx, err := newIndexConnection(newIndexParameters{

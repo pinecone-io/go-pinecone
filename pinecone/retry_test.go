@@ -87,7 +87,7 @@ func TestRetryTransportRetriesOnRateLimitUnit(t *testing.T) {
 }
 
 func TestRetryTransportTransient5xxUnit(t *testing.T) {
-	for _, status := range []int{http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout} {
+	for _, status := range []int{http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout} {
 		srv, calls, _ := serverReturning(status, 1)
 		client := NewRetryHTTPClient(fastPolicy(3), nil)
 		resp, err := client.Get(srv.URL)
@@ -216,14 +216,13 @@ func TestBuildRetryServiceConfigUnit(t *testing.T) {
 	assert.Contains(t, cfg, `"service": "VectorService"`)
 }
 
-func TestRetryDialOptionUnit(t *testing.T) {
-	// Disabled policy → no-op option.
-	assert.IsType(t, grpc.EmptyDialOption{}, RetryDialOption(&RetryPolicy{MaxRetries: 0}))
+func TestRetryDialOptionsUnit(t *testing.T) {
+	// Disabled policy → no options.
+	assert.Nil(t, RetryDialOptions(&RetryPolicy{MaxRetries: 0}))
 
-	// Enabled policy and nil (default) → a real dial option.
-	assert.NotNil(t, RetryDialOption(fastPolicy(3)))
-	assert.NotNil(t, RetryDialOption(nil))
-	assert.IsType(t, grpc.EmptyDialOption{}, RetryDialOption(&RetryPolicy{MaxRetries: 0}))
+	// Enabled policy: service config + raised call-attempt limit.
+	assert.Len(t, RetryDialOptions(fastPolicy(3)), 2)
+	assert.Len(t, RetryDialOptions(nil), 2) // nil → default policy
 }
 
 func TestGrpcDurationUnit(t *testing.T) {
@@ -322,11 +321,15 @@ func TestNewRetryHTTPClientInvokesBaseTransportUnit(t *testing.T) {
 
 func TestRetryServiceConfigAcceptedByGrpcUnit(t *testing.T) {
 	// The rendered config must be accepted by grpc-go, not merely valid JSON.
-	conn, err := grpc.NewClient("passthrough:///localhost:0",
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		RetryDialOption(DefaultRetryPolicy()))
-	require.NoError(t, err)
-	require.NoError(t, conn.Close())
+	// A high MaxRetries (> gRPC's default 5-attempt cap) must still be accepted,
+	// since RetryDialOptions raises the per-call attempt limit to match.
+	for _, policy := range []*RetryPolicy{DefaultRetryPolicy(), fastPolicy(9)} {
+		opts := append([]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())},
+			RetryDialOptions(policy)...)
+		conn, err := grpc.NewClient("passthrough:///localhost:0", opts...)
+		require.NoError(t, err)
+		require.NoError(t, conn.Close())
+	}
 }
 
 func TestNewClientRetryPolicyWiringUnit(t *testing.T) {
