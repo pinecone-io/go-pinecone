@@ -17,6 +17,7 @@ go-pinecone contains
 - REST bindings for [Control Plane](https://docs.pinecone.io/reference/api/2026-04/control-plane)
   operations
 - REST bindings for [Admin API](https://docs.pinecone.io/reference/api/2026-04/admin/)
+- Optional automatic retries with exponential backoff (see [Configuring retries](#configuring-retries))
 
 See the [Pinecone API Docs](https://docs.pinecone.io/reference/) for more information.
 
@@ -66,7 +67,8 @@ import (
 
 func main() {
 	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
+		ApiKey:      os.Getenv("PINECONE_API_KEY"),
+		RetryPolicy: pinecone.DefaultRetryPolicy(), // optional: retry rate-limited/transient errors
 	}
 
 	pc, err := pinecone.NewClient(clientParams)
@@ -78,6 +80,8 @@ func main() {
 	}
 }
 ```
+
+See [Configuring retries](#configuring-retries) for details on the retry behavior.
 
 **Authenticating via custom headers**
 
@@ -111,6 +115,55 @@ func main() {
 	} else {
 		fmt.Println("Successfully created a new Client object!")
 	}
+}
+```
+
+### Configuring retries
+
+By default the SDK does not retry failed requests. To enable automatic retries with
+exponential backoff, set a `RetryPolicy`. When set, it applies to both the REST
+(control/data/inference) and gRPC (data plane) clients.
+
+Retries cover rate-limit (HTTP 429 / gRPC `RESOURCE_EXHAUSTED`) and transient
+(5xx / gRPC `UNAVAILABLE`) responses; other 4xx errors are never retried. For REST,
+429 is always retried, while 5xx and transport errors are retried only for idempotent
+methods to avoid duplicating non-idempotent operations. A `Retry-After` response
+header is honored when present.
+
+```go
+package main
+
+import (
+	"github.com/pinecone-io/go-pinecone/v6/pinecone"
+	"log"
+	"os"
+)
+
+func main() {
+	clientParams := pinecone.NewClientParams{
+		ApiKey:      os.Getenv("PINECONE_API_KEY"),
+		RetryPolicy: pinecone.DefaultRetryPolicy(), // 3 retries, 500ms base, 30s cap, 2x backoff
+	}
+
+	pc, err := pinecone.NewClient(clientParams)
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	}
+	_ = pc
+}
+```
+
+To customize the policy, construct a `RetryPolicy` directly:
+
+```go
+clientParams := pinecone.NewClientParams{
+	ApiKey: os.Getenv("PINECONE_API_KEY"),
+	RetryPolicy: &pinecone.RetryPolicy{
+		MaxRetries:        5,
+		BaseDelay:         time.Second,
+		MaxDelay:          time.Minute,
+		BackoffMultiplier: 2,
+	},
 }
 ```
 

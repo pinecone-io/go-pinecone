@@ -85,14 +85,16 @@ type Client struct {
 //   - Host: (Optional) The host URL of the Pinecone API. If not provided, the default value is "https://api.pinecone.io".
 //   - RestClient: An optional HTTP client to use for communication with the Pinecone API.
 //   - SourceTag: An optional string used to help Pinecone attribute API activity.
+//   - RetryPolicy: An optional [RetryPolicy] enabling retries on rate-limit/transient errors for REST and gRPC.
 //
 // See [Client] for code example.
 type NewClientParams struct {
-	ApiKey     string            // required - provide through NewClientParams or environment variable PINECONE_API_KEY
-	Headers    map[string]string // optional
-	Host       string            // optional
-	RestClient *http.Client      // optional
-	SourceTag  string            // optional
+	ApiKey      string            // required - provide through NewClientParams or environment variable PINECONE_API_KEY
+	Headers     map[string]string // optional
+	Host        string            // optional
+	RestClient  *http.Client      // optional
+	SourceTag   string            // optional
+	RetryPolicy *RetryPolicy      // optional
 }
 
 // [NewClientBaseParams] holds the parameters for creating a new [Client] instance while passing custom authentication
@@ -105,13 +107,15 @@ type NewClientParams struct {
 //     the default value is "https://api.pinecone.io".
 //   - RestClient: (Optional) An *http.Client object to use for communication with the Pinecone API.
 //   - SourceTag: (Optional) A string used to help Pinecone attribute API activity.
+//   - RetryPolicy: (Optional) A [RetryPolicy] enabling retries on rate-limit/transient errors for REST and gRPC.
 //
 // See [Client] for code example.
 type NewClientBaseParams struct {
-	Headers    map[string]string
-	Host       string
-	RestClient *http.Client
-	SourceTag  string
+	Headers     map[string]string
+	Host        string
+	RestClient  *http.Client
+	SourceTag   string
+	RetryPolicy *RetryPolicy
 }
 
 // [NewIndexConnParams] holds the parameters for creating an [IndexConnection] to a Pinecone index.
@@ -172,7 +176,7 @@ func NewClient(in NewClientParams) (*Client, error) {
 		clientHeaders[apiKeyHeader.Key] = apiKeyHeader.Value
 	}
 
-	return NewClientBase(NewClientBaseParams{Headers: clientHeaders, Host: in.Host, RestClient: in.RestClient, SourceTag: in.SourceTag})
+	return NewClientBase(NewClientBaseParams{Headers: clientHeaders, Host: in.Host, RestClient: in.RestClient, SourceTag: in.SourceTag, RetryPolicy: in.RetryPolicy})
 }
 
 // [NewClientBase] creates and initializes a new instance of [Client] with custom authentication headers.
@@ -204,6 +208,14 @@ func NewClient(in NewClientParams) (*Client, error) {
 //			panic(fmt.Errorf("Failed to create Client: %v", err))
 //		}
 func NewClientBase(in NewClientBaseParams) (*Client, error) {
+	if err := in.RetryPolicy.validate(); err != nil {
+		return nil, err
+	}
+	// Retries apply to all REST clients (control/data/inference) via a wrapped transport.
+	if in.RetryPolicy != nil {
+		in.RestClient = NewRetryHTTPClient(in.RetryPolicy, in.RestClient)
+	}
+
 	controlOptions := buildClientBaseOptions(in)
 	inferenceOptions := buildInferenceBaseOptions(in)
 	var err error
@@ -303,6 +315,11 @@ func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*Ind
 	dbDataClient, err := db_data_rest.NewClient(ensureHostHasHttps(in.Host), dbDataOptions...)
 	if err != nil {
 		return nil, err
+	}
+
+	// Enable gRPC data-plane retries; user-supplied dialOpts come after and win on conflict.
+	if c.baseParams.RetryPolicy != nil {
+		dialOpts = append(RetryDialOptions(c.baseParams.RetryPolicy), dialOpts...)
 	}
 
 	idx, err := newIndexConnection(newIndexParameters{
