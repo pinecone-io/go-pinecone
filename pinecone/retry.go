@@ -19,9 +19,8 @@ import (
 // 4xx errors are never retried. Pass it via [NewClientParams.RetryPolicy] to enable
 // retries on both the REST (control/data/inference) and gRPC (data plane) clients.
 //
-// For REST, 429 is always retried (the request was rejected, not processed), while
-// 5xx and transport errors are retried only for idempotent HTTP methods to avoid
-// duplicating non-idempotent operations.
+// For REST, 429 is always retried; 5xx and transport errors are retried only for
+// idempotent methods, to avoid duplicating non-idempotent operations.
 //
 // Fields:
 //   - MaxRetries: Number of retries after the initial attempt. 0 disables retries.
