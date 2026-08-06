@@ -67,7 +67,8 @@ import (
 
 func main() {
 	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
+		ApiKey:      os.Getenv("PINECONE_API_KEY"),
+		RetryPolicy: pinecone.DefaultRetryPolicy(), // optional: retry rate-limited/transient errors
 	}
 
 	pc, err := pinecone.NewClient(clientParams)
@@ -79,6 +80,8 @@ func main() {
 	}
 }
 ```
+
+See [Configuring retries](#configuring-retries) for details on the retry behavior.
 
 **Authenticating via custom headers**
 
