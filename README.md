@@ -1,4 +1,4 @@
-# Pinecone Go SDK &middot; ![License](https://img.shields.io/github/license/pinecone-io/go-pinecone?color=orange) [![Go Reference](https://pkg.go.dev/badge/github.com/pinecone-io/go-pinecone.svg)](https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone) [![Go Report Card](https://goreportcard.com/badge/github.com/pinecone-io/go-pinecone)](https://goreportcard.com/report/github.com/pinecone-io/go-pinecone)
+# Pinecone Go SDK &middot; ![License](https://img.shields.io/github/license/pinecone-io/go-pinecone?color=orange) [![Go Reference](https://pkg.go.dev/badge/github.com/pinecone-io/go-pinecone.svg)](https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone) 
 
 This is the official Go SDK for [Pinecone](https://www.pinecone.io).
 
