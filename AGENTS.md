@@ -1,7 +1,7 @@
 # Pinecone Go SDK - AI Assistant Guide
 
 **Project:** Pinecone Go SDK — Vector database client for AI applications
-**Go:** 1.21+
+**Go:** 1.25+
 **Module:** `github.com/pinecone-io/go-pinecone/v6`
 
 ## Project Overview
@@ -29,6 +29,7 @@ Three-plane design, each with its own client struct:
 - `index_connection.go` — `IndexConnection`: Data Plane over gRPC (upsert, query, fetch, delete, update vectors; namespace management)
 - `models.go` — All shared types, constants, and enums (`IndexMetric`, `Cloud`, `IndexStatus`, etc.)
 - `errors.go` — `PineconeError` error type
+- `retry.go` — `RetryPolicy` and `DefaultRetryPolicy()`: opt-in exponential-backoff retries, wired into both the REST transport (`NewRetryHTTPClient`) and gRPC (`RetryDialOptions`)
 
 **Internal (`internal/`):**
 - `internal/gen/` — Auto-generated client code. **Never edit manually.** Regenerate with `just gen`.
@@ -73,7 +74,14 @@ just test         # go test -count=1 -v ./pinecone
 
 # Single test by name
 go test -v -run TestNameHere ./pinecone/...
+
+# Mocked critical-path smoke gate (no credentials needed)
+go test -tags smoke -run '^TestMockedCriticalPath$' -v -count=1 ./smoke/...
 ```
+
+The `smoke/` package is guarded by the `smoke` build tag and runs against a
+mocked backend, so it needs no `PINECONE_API_KEY`. CI runs it on every PR as a
+key-free gate on the connect → upsert → query path. See `smoke/README.md`.
 
 **Integration tests require `.env`:**
 ```
@@ -207,4 +215,4 @@ Agents are invoked with `@agent-name` syntax. Agent definitions live in `.cursor
 
 ---
 
-*Last audited: February 17, 2026*
+*Last audited: August 19, 2026*
