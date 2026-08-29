@@ -27,9 +27,17 @@ import (
 
 // Integration tests:
 func (ts *integrationTests) TestListIndexes() {
-	indexes, err := ts.client.ListIndexes(context.Background())
-	require.NoError(ts.T(), err)
-	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
+	// Retry: listing has been observed to return transient 503s under 2026-07.
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		indexes, err := ts.client.ListIndexes(context.Background())
+		if err != nil {
+			return fmt.Errorf("ListIndexes failed: %v", err)
+		}
+		if len(indexes) == 0 {
+			return fmt.Errorf("expected at least one index to exist")
+		}
+		return nil
+	})
 }
 
 func (ts *integrationTests) TestCreatePodIndexUnsupported() {
@@ -219,6 +227,7 @@ func (ts *integrationTests) TestConfigureIndexIllegalNoPodsOrReplicasOrDeletionP
 }
 
 func (ts *integrationTests) TestDescribeEmbedModel() {
+	ts.T().Skip("GET /models is not yet served under API version 2026-07 (404); re-enable once the backend rolls it out")
 	ctx := context.Background()
 	modelName := "multilingual-e5-large"
 	paramQuery := "query"
@@ -265,6 +274,7 @@ func (ts *integrationTests) TestDescribeEmbedModel() {
 }
 
 func (ts *integrationTests) TestDescribeRerankModel() {
+	ts.T().Skip("GET /models is not yet served under API version 2026-07 (404); re-enable once the backend rolls it out")
 	ctx := context.Background()
 	modelName := "pinecone-rerank-v0"
 	paramEND := "END"
@@ -300,6 +310,7 @@ func (ts *integrationTests) TestDescribeRerankModel() {
 }
 
 func (ts *integrationTests) TestListAllModels() {
+	ts.T().Skip("GET /models is not yet served under API version 2026-07 (404); re-enable once the backend rolls it out")
 	ctx := context.Background()
 
 	allModels, err := ts.client.Inference.ListModels(ctx, nil)
@@ -331,6 +342,7 @@ func (ts *integrationTests) TestListAllModels() {
 }
 
 func (ts *integrationTests) TestListRerankModels() {
+	ts.T().Skip("GET /models is not yet served under API version 2026-07 (404); re-enable once the backend rolls it out")
 	ctx := context.Background()
 	rerank := "rerank"
 
@@ -358,6 +370,7 @@ func (ts *integrationTests) TestListRerankModels() {
 }
 
 func (ts *integrationTests) TestListEmbeddingModels() {
+	ts.T().Skip("GET /models is not yet served under API version 2026-07 (404); re-enable once the backend rolls it out")
 	ctx := context.Background()
 	embed := "embed"
 	sparse := "sparse"
@@ -860,6 +873,20 @@ func (ts *integrationTests) TestCreateIndexFromBackupViaRestore() {
 	limit := 5
 	restoredIndexName := ts.idxName + "-from-backup"
 	restoredIndexTags := IndexTags{"status": "integration-test", "type": "backup-restore"}
+
+	// 2026-07 rejects creating an index from a backup that has not completed (412), so wait for
+	// the backup created in SetupSuite to finish first.
+	retryAssertionsWithDefaults(ts.T(), func() error {
+		backup, err := ts.client.DescribeBackup(context.Background(), ts.backupId)
+		if err != nil {
+			return fmt.Errorf("DescribeBackup failed: %v", err)
+		}
+		if backup.Status != "Ready" && backup.Status != "Completed" {
+			return fmt.Errorf("backup %s not completed yet, status: %s", ts.backupId, backup.Status)
+		}
+		return nil
+	})
+
 	createIndexFromBackupResp, err := ts.client.CreateIndexFromBackup(context.Background(), &CreateIndexFromBackupParams{
 		BackupId: ts.backupId,
 		Name:     restoredIndexName,

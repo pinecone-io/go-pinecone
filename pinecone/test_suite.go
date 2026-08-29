@@ -238,13 +238,13 @@ func createBackup(ts *integrationTests, ctx context.Context) {
 
 	fmt.Printf("Successfully created backup with ID: %s\n", ts.backupId)
 	fmt.Printf("Waiting for backup to complete...\n")
-	retries := 5
+	retries := 30
 	for retries > 0 {
 		time.Sleep(2 * time.Second)
 		backupDesc, err := ts.client.DescribeBackup(ctx, ts.backupId)
 		require.NoError(ts.T(), err)
 
-		if backupDesc.Status == "Ready" || backupDesc.Status == "Failed" {
+		if backupDesc.Status == "Ready" || backupDesc.Status == "Completed" || backupDesc.Status == "Failed" {
 			fmt.Printf("Backup \"%s\" is ready with status: %s\n", ts.backupId, backupDesc.Status)
 			return
 		}
