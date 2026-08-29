@@ -537,7 +537,8 @@ func (ts *integrationTests) TestIntegratedInference() {
 	_, err = waitUntilIndexReady(ts, ctx, indexName)
 	require.NoError(ts.T(), err)
 
-	// Verify Schema is returned when describing the index
+	// Verify the typed schema is returned when describing the index: the declared metadata
+	// field is reported as a schema field under 2026-07.
 	retryAssertionsWithDefaults(ts.T(), func() error {
 		describedIndex, err := ts.client.DescribeIndex(ctx, indexName)
 		if err != nil {
@@ -545,8 +546,12 @@ func (ts *integrationTests) TestIntegratedInference() {
 		}
 		assert.NotNil(ts.T(), describedIndex.Spec, "Index.Spec should not be nil")
 		assert.NotNil(ts.T(), describedIndex.Spec.Serverless, "Index.Spec.Serverless should not be nil")
-		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.Schema, "Schema should not be nil in described index")
-		assert.Equal(ts.T(), len(testSchema.Fields), len(describedIndex.Spec.Serverless.Schema.Fields), "Schema fields count should match")
+		if describedIndex.Schema == nil {
+			return fmt.Errorf("Schema not yet set on described index")
+		}
+		if _, ok := describedIndex.Schema.Fields["category"]; !ok {
+			return fmt.Errorf("declared metadata field %q not yet reported in index schema", "category")
+		}
 		return nil
 	})
 

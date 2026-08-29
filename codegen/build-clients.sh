@@ -29,6 +29,16 @@ admin_oas_file="${admin_destination}/${admin_module}_${version}.oas.go"
 set -eux -o pipefail
 
 update_apis_repo() {
+    # Released spec versions are checked into codegen/apis/static/<version>;
+    # use them directly and skip the apis build toolchain (rust/spectral/npm).
+    if [ -d "codegen/apis/static/${version}" ]; then
+        echo "Using pre-built specs from codegen/apis/static/${version}"
+        mkdir -p "codegen/apis/_build"
+        rm -rf "codegen/apis/_build/${version}"
+        cp -r "codegen/apis/static/${version}" "codegen/apis/_build/${version}"
+        return
+    fi
+
     echo "Updating apis repo"
     pushd codegen/apis
             git fetch
@@ -65,8 +75,12 @@ generate_oas_client() {
     # source oas file for module and version
     oas_file="codegen/apis/_build/${version}/${module}_${version}.oas.yaml"
 
+    # -response-type-suffix avoids collisions between generated per-operation
+    # response wrappers (e.g. deleteDocuments -> DeleteDocumentsResponse) and
+    # schema types of the same name defined by the spec.
     oapi-codegen --package=${module} \
     --generate types,client \
+    -response-type-suffix ApiResponse \
     "${oas_file}" > "${destination}"
 }
 

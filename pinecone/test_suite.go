@@ -27,7 +27,6 @@ type integrationTests struct {
 	collectionName               string
 	sourceTag                    string
 	indexTags                    *IndexTags
-	schema                       *MetadataSchema
 	namespaces                   []string
 	vectorsWithClassicalMetadata []string
 	vectorsWithRockMetadata      []string
@@ -239,13 +238,13 @@ func createBackup(ts *integrationTests, ctx context.Context) {
 
 	fmt.Printf("Successfully created backup with ID: %s\n", ts.backupId)
 	fmt.Printf("Waiting for backup to complete...\n")
-	retries := 5
+	retries := 30
 	for retries > 0 {
 		time.Sleep(2 * time.Second)
 		backupDesc, err := ts.client.DescribeBackup(ctx, ts.backupId)
 		require.NoError(ts.T(), err)
 
-		if backupDesc.Status == "Ready" || backupDesc.Status == "Failed" {
+		if backupDesc.Status == "Ready" || backupDesc.Status == "Completed" || backupDesc.Status == "Failed" {
 			fmt.Printf("Backup \"%s\" is ready with status: %s\n", ts.backupId, backupDesc.Status)
 			return
 		}
@@ -321,7 +320,7 @@ func generateVectorValues(dimension int32) *[]float32 {
 	return &values
 }
 
-func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags, schema *MetadataSchema, readCapacity *ReadCapacityParams) *Index {
+func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags, readCapacity *ReadCapacityParams) *Index {
 	ctx := context.Background()
 	dimension := int32(setDimensionsForTestIndexes())
 	metric := Cosine
@@ -334,7 +333,6 @@ func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags, schema
 		Region:       "us-east-1",
 		Cloud:        "aws",
 		Tags:         &tags,
-		Schema:       schema,
 		ReadCapacity: readCapacity,
 	})
 	if err != nil {
@@ -343,27 +341,6 @@ func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags, schema
 		fmt.Printf("Successfully created a new Serverless index: %s!\n", idxName)
 	}
 	return serverlessIdx
-}
-
-func buildPodTestIndex(in *Client, name string, tags IndexTags) *Index {
-	ctx := context.Background()
-	metric := Cosine
-
-	fmt.Printf("Creating pod index: %s\n", name)
-	podIdx, err := in.CreatePodIndex(ctx, &CreatePodIndexRequest{
-		Name:        name,
-		Dimension:   int32(setDimensionsForTestIndexes()),
-		Metric:      &metric,
-		Environment: "us-east-1-aws",
-		PodType:     "p1",
-		Tags:        &tags,
-	})
-	if err != nil {
-		log.Fatalf("Failed to create pod index in buildPodTestIndex test: %v", err)
-	} else {
-		fmt.Printf("Successfully created a new pod index: %s!\n", name)
-	}
-	return podIdx
 }
 
 func retryAssertions(t *testing.T, maxRetries int, delay time.Duration, fn func() error) {
