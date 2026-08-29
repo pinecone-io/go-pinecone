@@ -56,14 +56,9 @@ func RunSuites(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, adminClient, "AdminClient should not be nil after creation")
 
-	// Create a test schema with filterable fields
-	testSchema := &MetadataSchema{
-		Fields: map[string]MetadataSchemaField{
-			"genre": {Filterable: true},
-			"year":  {Filterable: true},
-		},
-	}
-	serverlessIdx := buildServerlessTestIndex(client, "serverless-"+generateTestIndexName(), indexTags, testSchema, nil)
+	// Metadata schemas are no longer declared at index creation under 2026-07;
+	// metadata fields are indexed automatically at upsert.
+	serverlessIdx := buildServerlessTestIndex(client, "serverless-"+generateTestIndexName(), indexTags, nil)
 	podIdx := buildPodTestIndex(client, "pods-"+generateTestIndexName(), indexTags)
 
 	podTestSuite := &integrationTests{
@@ -86,7 +81,6 @@ func RunSuites(t *testing.T) {
 		sourceTag: sourceTag,
 		idxName:   serverlessIdx.Name,
 		indexTags: &indexTags,
-		schema:    testSchema,
 	}
 
 	adminTestSuite := &adminIntegrationTests{

@@ -146,28 +146,24 @@ func (ts *integrationTests) TestDescribeIndex() {
 		assert.Equal(ts.T(), ts.indexTags, index.Tags, "Index tags should match")
 	}
 
-	// Assert Schema for serverless indexes
+	// Assert the 2026-07 typed schema and computed compat fields for serverless indexes
 	if ts.indexType == "serverless" {
-		assert.NotNil(ts.T(), index.Spec, "Index.Spec should not be nil")
-		assert.NotNil(ts.T(), index.Spec.Serverless, "Index.Spec.Serverless should not be nil")
-		assert.NotNil(ts.T(), index.Spec.Serverless.Schema, "Schema should be set on the test index")
-
-		if ts.schema != nil {
-			expectedFields := ts.schema.Fields
-			actualFields := index.Spec.Serverless.Schema.Fields
-
-			// Assert field count matches
-			assert.Equal(ts.T(), len(expectedFields), len(actualFields), "Schema field count should match")
-
-			// Assert each field matches
-			for fieldName, expectedField := range expectedFields {
-				actualField, exists := actualFields[fieldName]
-				assert.True(ts.T(), exists, "Field %s should exist in schema", fieldName)
-				if exists {
-					assert.Equal(ts.T(), expectedField.Filterable, actualField.Filterable, "Field %s Filterable property should match", fieldName)
-				}
+		assert.NotNil(ts.T(), index.Schema, "Index.Schema should not be nil")
+		denseField, exists := index.Schema.Fields["_values"]
+		assert.True(ts.T(), exists, "classic index should report the reserved _values field")
+		if exists {
+			require.NotNil(ts.T(), denseField.DenseVector, "_values should be a dense vector field")
+			if ts.dimension != nil {
+				assert.Equal(ts.T(), *ts.dimension, denseField.DenseVector.Dimension, "Schema dimension should match")
 			}
 		}
+
+		assert.NotNil(ts.T(), index.Deployment, "Index.Deployment should not be nil")
+		assert.NotNil(ts.T(), index.Deployment.Managed, "Index.Deployment.Managed should not be nil")
+
+		// Deprecated computed compat fields
+		assert.NotNil(ts.T(), index.Spec, "Index.Spec should not be nil")
+		assert.NotNil(ts.T(), index.Spec.Serverless, "Index.Spec.Serverless should not be nil")
 	}
 }
 

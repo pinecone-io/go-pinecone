@@ -27,7 +27,6 @@ type integrationTests struct {
 	collectionName               string
 	sourceTag                    string
 	indexTags                    *IndexTags
-	schema                       *MetadataSchema
 	namespaces                   []string
 	vectorsWithClassicalMetadata []string
 	vectorsWithRockMetadata      []string
@@ -321,7 +320,7 @@ func generateVectorValues(dimension int32) *[]float32 {
 	return &values
 }
 
-func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags, schema *MetadataSchema, readCapacity *ReadCapacityParams) *Index {
+func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags, readCapacity *ReadCapacityParams) *Index {
 	ctx := context.Background()
 	dimension := int32(setDimensionsForTestIndexes())
 	metric := Cosine
@@ -334,7 +333,6 @@ func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags, schema
 		Region:       "us-east-1",
 		Cloud:        "aws",
 		Tags:         &tags,
-		Schema:       schema,
 		ReadCapacity: readCapacity,
 	})
 	if err != nil {
