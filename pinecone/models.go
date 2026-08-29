@@ -96,32 +96,195 @@ type IndexEmbed struct {
 // [IndexTags] is a set of key-value pairs that can be attached to a Pinecone [Index].
 type IndexTags map[string]string
 
-// [Index] is a Pinecone [Index] object. Can be either a pod-based or a serverless [Index], depending on the [IndexSpec].
+// [IndexSchema] is the schema of a Pinecone [Index] under the 2026-07 API. The schema defines the typed
+// fields that documents in the index can contain, including vector fields, semantic text fields, and
+// metadata fields.
+//
+// Indexes served by the vectors API (created by earlier API versions from dimension/metric/vector_type,
+// or created with the reserved "_values"/"_sparse_values" schema) report their vector fields under those
+// reserved names, and any metadata fields configured for filtering as [LegacyMetadataField] entries.
+type IndexSchema struct {
+	Fields map[string]IndexSchemaField `json:"fields"`
+}
+
+// [IndexSchemaField] is the configuration of a single field in an [IndexSchema]. Exactly one of the
+// pointer fields is non-nil, identifying the field's type.
+type IndexSchemaField struct {
+	DenseVector    *DenseVectorField    `json:"dense_vector,omitempty"`
+	SparseVector   *SparseVectorField   `json:"sparse_vector,omitempty"`
+	SemanticText   *SemanticTextField   `json:"semantic_text,omitempty"`
+	String         *StringField         `json:"string,omitempty"`
+	StringList     *StringListField     `json:"string_list,omitempty"`
+	Boolean        *BooleanField        `json:"boolean,omitempty"`
+	Float          *FloatField          `json:"float,omitempty"`
+	Integer        *IntegerField        `json:"integer,omitempty"`
+	LegacyMetadata *LegacyMetadataField `json:"legacy_metadata,omitempty"`
+}
+
+// [DenseVectorField] is a dense vector field configuration. Stores fixed-dimension floating-point
+// vectors for approximate nearest-neighbor (ANN) search.
+type DenseVectorField struct {
+	Dimension   int32       `json:"dimension"`
+	Metric      IndexMetric `json:"metric"`
+	Description *string     `json:"description,omitempty"`
+}
+
+// [SparseVectorField] is a sparse vector field configuration. Sparse fields take no dimension and no
+// metric; sparse scoring is not configurable.
+type SparseVectorField struct {
+	Description *string `json:"description,omitempty"`
+}
+
+// [SemanticTextField] is a semantic text field backed by an integrated embedding model, as returned
+// when describing an index created with [Client.CreateIndexForModel]. It cannot be declared when
+// creating an index directly.
+type SemanticTextField struct {
+	Model           string                  `json:"model"`
+	Dimension       *int32                  `json:"dimension,omitempty"`
+	Metric          *IndexMetric            `json:"metric,omitempty"`
+	ReadParameters  *map[string]interface{} `json:"read_parameters,omitempty"`
+	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+	Description     *string                 `json:"description,omitempty"`
+}
+
+// [StringField] is a string field configuration. When FullTextSearch is present the field is indexed
+// for full-text search; Filterable is reported on responses when the field is indexed for metadata
+// filtering.
+type StringField struct {
+	FullTextSearch *FullTextSearchConfig `json:"full_text_search,omitempty"`
+	Filterable     *bool                 `json:"filterable,omitempty"`
+	Description    *string               `json:"description,omitempty"`
+}
+
+// [FullTextSearchConfig] configures full-text search on a [StringField]. StopWords requires
+// Stemming; Ngram cannot be combined with Stemming or StopWords.
+type FullTextSearchConfig struct {
+	Language  *string      `json:"language,omitempty"`
+	Stemming  *bool        `json:"stemming,omitempty"`
+	StopWords *bool        `json:"stop_words,omitempty"`
+	Ngram     *NgramConfig `json:"ngram,omitempty"`
+}
+
+// [NgramConfig] configures character n-gram tokenization for substring matching on a full-text-search
+// [StringField].
+type NgramConfig struct {
+	MinGram    int   `json:"min_gram"`
+	MaxGram    int   `json:"max_gram"`
+	PrefixOnly *bool `json:"prefix_only,omitempty"`
+}
+
+// [StringListField] is a string array field configuration reported in index schemas. String array
+// values are indexed automatically at upsert time and cannot be declared at index creation.
+type StringListField struct {
+	Filterable  *bool   `json:"filterable,omitempty"`
+	Description *string `json:"description,omitempty"`
+}
+
+// [BooleanField] is a boolean field configuration reported in index schemas. Boolean values are
+// indexed automatically at upsert time and cannot be declared at index creation.
+type BooleanField struct {
+	Filterable  *bool   `json:"filterable,omitempty"`
+	Description *string `json:"description,omitempty"`
+}
+
+// [FloatField] is a numeric (floating-point) field configuration reported in index schemas. Numeric
+// values are indexed automatically at upsert time and cannot be declared at index creation.
+type FloatField struct {
+	Filterable  *bool   `json:"filterable,omitempty"`
+	Description *string `json:"description,omitempty"`
+}
+
+// [IntegerField] is an integer field configuration reported in index schemas. Integer values are
+// indexed automatically at upsert time and cannot be declared at index creation.
+type IntegerField struct {
+	Filterable  *bool   `json:"filterable,omitempty"`
+	Description *string `json:"description,omitempty"`
+}
+
+// [LegacyMetadataField] is a metadata field from an index that pre-dates typed schemas, carrying only
+// whether the field is indexed for filtering.
+type LegacyMetadataField struct {
+	Filterable bool `json:"filterable"`
+}
+
+// [IndexDeployment] is the deployment configuration of a Pinecone [Index] under the 2026-07 API.
+// Exactly one of the pointer fields is non-nil, identifying the deployment type.
+type IndexDeployment struct {
+	Managed *ManagedDeployment `json:"managed,omitempty"`
+	Pod     *PodDeployment     `json:"pod,omitempty"`
+	Byoc    *ByocDeployment    `json:"byoc,omitempty"`
+}
+
+// [ManagedDeployment] is the deployment configuration for a serverless (managed) index. Environment
+// is returned in responses and must not be set when creating an index.
+type ManagedDeployment struct {
+	Cloud       Cloud   `json:"cloud"`
+	Region      string  `json:"region"`
+	Environment *string `json:"environment,omitempty"`
+}
+
+// [PodDeployment] is the deployment configuration of a pod-based index.
+type PodDeployment struct {
+	Environment string `json:"environment"`
+	PodType     string `json:"pod_type"`
+	Replicas    *int32 `json:"replicas,omitempty"`
+	Shards      *int32 `json:"shards,omitempty"`
+}
+
+// [ByocDeployment] is the deployment configuration of a BYOC (bring-your-own-cloud) index.
+type ByocDeployment struct {
+	Environment string `json:"environment"`
+}
+
+// [Index] is a Pinecone [Index] object.
+//
+// Under the 2026-07 API every index carries a persisted [IndexSchema] and an [IndexDeployment].
+// The Metric, VectorType, Dimension, Spec, and Embed fields are computed from Schema and Deployment
+// for backward compatibility and are deprecated; new code should read Schema, Deployment, and
+// ReadCapacity directly.
 //
 // Fields:
 //   - Name: The name of the index.
 //   - Host: The URL address where the index is hosted.
-//   - Metric: The distance metric used for similarity search. One of 'euclidean', 'cosine', or 'dotproduct'.
-//   - VectorType: The index vector type. One of 'sparse' or 'dense'.
+//   - Schema: The [IndexSchema] of the index, defining its typed fields.
+//   - Deployment: The [IndexDeployment] of the index (managed, pod, or byoc).
+//   - ReadCapacity: The [ReadCapacity] configuration of the index, if any.
 //   - DeletionProtection: Whether deletion protection is configured for the index. Can be 'enabled' or 'disabled'.
 //   - PrivateHost: The private endpoint URL of an index.
-//   - Dimension: The dimensions of vectors stored in the index. Required for dense indexes.
-//   - Spec: The infrastructure configuration for the index. Contains either [PodSpec] or [ServerlessSpec].
+//   - SourceCollection: The name of the collection this index was created from, if any.
+//   - SourceBackupId: The ID of the backup this index was restored from, if any.
+//   - CmekId: The ID of the customer-managed encryption key (CMEK) used to encrypt this index, if any.
 //   - Status: The [IndexStatus] of the index, which includes index state information.
 //   - Tags: Custom [IndexTags] added to an index.
-//   - Embed: The [IndexEmbed] model configured for the index, if applicable.
+//   - Metric: Deprecated: computed from Schema. The distance metric of the index's vector field.
+//   - VectorType: Deprecated: computed from Schema. One of 'sparse' or 'dense'.
+//   - Dimension: Deprecated: computed from Schema. The dimension of the index's dense vector field.
+//   - Spec: Deprecated: computed from Deployment. Contains [PodSpec], [ServerlessSpec], or [BYOCSpec].
+//   - Embed: Deprecated: computed from the Schema's [SemanticTextField]. The [IndexEmbed] model configured for the index, if applicable.
 type Index struct {
 	Name               string             `json:"name"`
 	Host               string             `json:"host"`
-	Metric             IndexMetric        `json:"metric"`
-	VectorType         string             `json:"vector_type"`
+	Schema             *IndexSchema       `json:"schema,omitempty"`
+	Deployment         *IndexDeployment   `json:"deployment,omitempty"`
+	ReadCapacity       *ReadCapacity      `json:"read_capacity,omitempty"`
 	DeletionProtection DeletionProtection `json:"deletion_protection,omitempty"`
 	PrivateHost        *string            `json:"private_host,omitempty"`
-	Dimension          *int32             `json:"dimension,omitempty"`
-	Spec               *IndexSpec         `json:"spec,omitempty"`
+	SourceCollection   *string            `json:"source_collection,omitempty"`
+	SourceBackupId     *string            `json:"source_backup_id,omitempty"`
+	CmekId             *string            `json:"cmek_id,omitempty"`
 	Status             *IndexStatus       `json:"status,omitempty"`
 	Tags               *IndexTags         `json:"tags,omitempty"`
-	Embed              *IndexEmbed        `json:"embed,omitempty"`
+
+	// Deprecated: computed from Schema for backward compatibility; read Schema directly in new code.
+	Metric IndexMetric `json:"metric"`
+	// Deprecated: computed from Schema for backward compatibility; read Schema directly in new code.
+	VectorType string `json:"vector_type"`
+	// Deprecated: computed from Schema for backward compatibility; read Schema directly in new code.
+	Dimension *int32 `json:"dimension,omitempty"`
+	// Deprecated: computed from Deployment for backward compatibility; read Deployment directly in new code.
+	Spec *IndexSpec `json:"spec,omitempty"`
+	// Deprecated: computed from the Schema's [SemanticTextField] for backward compatibility.
+	Embed *IndexEmbed `json:"embed,omitempty"`
 }
 
 // [Collection] is a Pinecone [collection entity]. Only available for pod-based Indexes.
@@ -151,6 +314,7 @@ const (
 	CollectionStatusInitializing CollectionStatus = "Initializing"
 	CollectionStatusReady        CollectionStatus = "Ready"
 	CollectionStatusTerminating  CollectionStatus = "Terminating"
+	CollectionStatusTerminated   CollectionStatus = "Terminated"
 )
 
 // [PodSpecMetadataConfig] represents the metadata fields to be indexed when a Pinecone [Index] is created.
@@ -509,6 +673,203 @@ type Import struct {
 
 type IntegratedRecord map[string]interface{}
 
+// [DocumentUsage] reports the read units consumed by a documents API read operation.
+type DocumentUsage struct {
+	ReadUnits int32 `json:"read_units"`
+}
+
+// [UpsertDocumentsRequest] holds the parameters for [IndexConnection.UpsertDocuments].
+//
+// Fields:
+//   - Documents: (Required) The documents to upsert. Each [Document] must carry an "_id" field and at
+//     least one field declared in the index schema; other fields are stored as filterable metadata.
+type UpsertDocumentsRequest struct {
+	Documents []Document `json:"documents"`
+}
+
+// [UpsertDocumentsResponse] is returned by [IndexConnection.UpsertDocuments].
+type UpsertDocumentsResponse struct {
+	UpsertedCount int32 `json:"upserted_count"`
+}
+
+// [DocumentScoringMethod] defines how documents are scored against a query in
+// [IndexConnection.SearchDocuments]. The Type field determines which other fields are used:
+//   - "dense_vector": score by dense vector similarity. Requires Fields naming exactly one field, and Values.
+//   - "sparse_vector": score by sparse vector similarity. Requires Fields naming exactly one field, and SparseValues.
+//   - "text": score by BM25 text similarity. Requires Fields naming one or more fields, and Query.
+//   - "query_string": score using a Lucene query string. Requires Query; Fields must be empty
+//     (use field qualifiers inside the query string to target fields).
+type DocumentScoringMethod struct {
+	Type         string        `json:"type"`
+	Fields       []string      `json:"fields,omitempty"`
+	Query        *string       `json:"query,omitempty"`
+	Values       *[]float32    `json:"values,omitempty"`
+	SparseValues *SparseValues `json:"sparse_values,omitempty"`
+}
+
+// [SearchDocumentsRequest] holds the parameters for [IndexConnection.SearchDocuments].
+//
+// Fields:
+//   - TopK: (Required) The number of top-ranked documents to return.
+//   - ScoreBy: (Required) The scoring methods to rank documents by. A single method of any type is
+//     valid; several methods may be combined only when every one is "text" or "query_string".
+//   - Filter: (Optional) A metadata filter expression restricting the documents searched.
+//   - IncludeFields: (Optional) The document fields to return on each match alongside "_id" and
+//     "_score". When empty, no fields are returned; pass []string{"*"} to return every field.
+type SearchDocumentsRequest struct {
+	TopK          int32                   `json:"top_k"`
+	ScoreBy       []DocumentScoringMethod `json:"score_by"`
+	Filter        map[string]interface{}  `json:"filter,omitempty"`
+	IncludeFields []string                `json:"include_fields,omitempty"`
+}
+
+// [DocumentMatch] is a document returned from [IndexConnection.SearchDocuments], including the
+// document ID, similarity score, and any requested fields. Score is nil when the score is not a
+// finite number.
+type DocumentMatch struct {
+	Id     string                 `json:"_id"`
+	Score  *float32               `json:"_score"`
+	Fields map[string]interface{} `json:"fields,omitempty"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler. The wire format carries the requested fields flattened
+// alongside "_id" and "_score"; they are collected into Fields.
+func (m *DocumentMatch) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if id, ok := raw["_id"]; ok {
+		if err := json.Unmarshal(id, &m.Id); err != nil {
+			return err
+		}
+		delete(raw, "_id")
+	}
+	if score, ok := raw["_score"]; ok {
+		if err := json.Unmarshal(score, &m.Score); err != nil {
+			return err
+		}
+		delete(raw, "_score")
+	}
+	if len(raw) > 0 {
+		m.Fields = make(map[string]interface{}, len(raw))
+		for key, value := range raw {
+			var decoded interface{}
+			if err := json.Unmarshal(value, &decoded); err != nil {
+				return err
+			}
+			m.Fields[key] = decoded
+		}
+	}
+	return nil
+}
+
+// [SearchDocumentsResponse] is returned by [IndexConnection.SearchDocuments].
+type SearchDocumentsResponse struct {
+	Matches   []DocumentMatch `json:"matches"`
+	Namespace string          `json:"namespace"`
+	Usage     DocumentUsage   `json:"usage"`
+}
+
+// [FetchDocumentsRequest] holds the parameters for [IndexConnection.FetchDocuments]. Exactly one of
+// Ids or Filter must be provided.
+//
+// Fields:
+//   - Ids: A list of document IDs to fetch. Mutually exclusive with Filter.
+//   - Filter: A metadata filter expression selecting the documents to fetch. Must not be empty.
+//     Mutually exclusive with Ids.
+//   - IncludeFields: (Optional) The document fields to return. When empty, all fields are returned.
+//   - Limit: (Optional) The maximum number of documents per page for a fetch by Filter. Defaults to 100.
+//   - PaginationToken: (Optional) A token from a previous response to retrieve the next page. Only
+//     valid together with Filter.
+type FetchDocumentsRequest struct {
+	Ids             []string               `json:"ids,omitempty"`
+	Filter          map[string]interface{} `json:"filter,omitempty"`
+	IncludeFields   []string               `json:"include_fields,omitempty"`
+	Limit           *int32                 `json:"limit,omitempty"`
+	PaginationToken *string                `json:"pagination_token,omitempty"`
+}
+
+// [FetchDocumentsResponse] is returned by [IndexConnection.FetchDocuments]. Each fetched [Document]
+// carries its "_id" alongside its field values.
+type FetchDocumentsResponse struct {
+	Documents  map[string]Document `json:"documents"`
+	Namespace  string              `json:"namespace"`
+	Pagination *Pagination         `json:"pagination,omitempty"`
+	Usage      DocumentUsage       `json:"usage"`
+}
+
+// [DeleteDocumentsRequest] holds the parameters for [IndexConnection.DeleteDocuments]. Exactly one of
+// Ids, Filter, or DeleteAll must be provided.
+//
+// Fields:
+//   - Ids: A list of document IDs to delete.
+//   - Filter: A metadata filter expression selecting the documents to delete. Must not be empty; to
+//     delete every document in the namespace, set DeleteAll.
+//   - DeleteAll: If true, delete all documents in the namespace.
+type DeleteDocumentsRequest struct {
+	Ids       []string               `json:"ids,omitempty"`
+	Filter    map[string]interface{} `json:"filter,omitempty"`
+	DeleteAll bool                   `json:"delete_all,omitempty"`
+}
+
+// [DeleteDocumentsResponse] is returned by [IndexConnection.DeleteDocuments]. MatchedRecords is the
+// point-in-time number of documents that matched Filter when the delete was accepted; it is only
+// returned for a filtered delete.
+type DeleteDocumentsResponse struct {
+	MatchedRecords *int32 `json:"matched_records,omitempty"`
+}
+
+// [UpdateDocumentsRequest] holds the parameters for [IndexConnection.UpdateDocuments]. Either
+// Documents (per-document updates) or Filter with SetFields and/or RemoveFields (a filtered patch)
+// must be provided; the two forms are mutually exclusive.
+//
+// Fields:
+//   - Documents: Partial document updates. Each [Document] must carry "_id"; other entries set the
+//     named fields, and an optional "_remove_fields" entry ([]string) deletes fields.
+//   - Filter: A metadata filter expression selecting the documents to patch. Must not be empty.
+//   - SetFields: The fields to set on every document matching Filter.
+//   - RemoveFields: The names of the fields to remove from every document matching Filter.
+type UpdateDocumentsRequest struct {
+	Documents    []Document             `json:"documents,omitempty"`
+	Filter       map[string]interface{} `json:"filter,omitempty"`
+	SetFields    map[string]interface{} `json:"set_fields,omitempty"`
+	RemoveFields []string               `json:"remove_fields,omitempty"`
+}
+
+// [UpdateDocumentsResponse] is returned by [IndexConnection.UpdateDocuments]. MatchedRecords is the
+// point-in-time number of documents that matched Filter when the update was accepted; it is only
+// returned for a filtered update.
+type UpdateDocumentsResponse struct {
+	MatchedRecords *int32 `json:"matched_records,omitempty"`
+}
+
+// [ListDocumentsRequest] holds the parameters for [IndexConnection.ListDocuments].
+//
+// Fields:
+//   - Prefix: (Optional) A prefix to filter document IDs.
+//   - Limit: (Optional) The maximum number of documents per page. Defaults to 100.
+//   - PaginationToken: (Optional) A token from a previous response to retrieve the next page.
+type ListDocumentsRequest struct {
+	Prefix          *string `json:"prefix,omitempty"`
+	Limit           *int32  `json:"limit,omitempty"`
+	PaginationToken *string `json:"pagination_token,omitempty"`
+}
+
+// [ListedDocument] identifies a document returned by [IndexConnection.ListDocuments].
+type ListedDocument struct {
+	Id string `json:"_id"`
+}
+
+// [ListDocumentsResponse] is returned by [IndexConnection.ListDocuments]. Documents are in sorted
+// order by ID.
+type ListDocumentsResponse struct {
+	Documents  []ListedDocument `json:"documents"`
+	Namespace  string           `json:"namespace"`
+	Pagination *Pagination      `json:"pagination,omitempty"`
+	Usage      DocumentUsage    `json:"usage"`
+}
+
 // [SearchRecordsRequest] represents a search request for records in a specific namespace.
 //
 // Fields:
@@ -730,29 +1091,35 @@ func (spv *SupportedParameterValue) UnmarshalJSON(data []byte) error {
 //   - NamespaceCount: Number of namespaces in the backup.
 //   - RecordCount: Total number of records in the backup.
 //   - Region: Cloud region where the backup is stored.
-//   - Schema: Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
+//   - Schema: The typed [IndexSchema] of the source index, when reported.
 //   - SizeBytes: Size of the backup in bytes.
+//   - SourceIndexDeletedAt: Deletion timestamp of the source index, or nil while that index is still active.
 //   - SourceIndexId: ID of the index.
 //   - SourceIndexName: Name of the index from which the backup was taken.
 //   - Status: Current status of the backup (e.g., Initializing, Ready, Failed).
 //   - Tags: Custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'. Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to an empty string.
+//   - Dimension, Metric: Deprecated: computed from Schema's dense vector field for backward compatibility.
 type Backup struct {
-	BackupId        string          `json:"backup_id"`
-	Cloud           string          `json:"cloud"`
-	CreatedAt       *string         `json:"created_at,omitempty"`
-	Description     *string         `json:"description,omitempty"`
-	Dimension       *int32          `json:"dimension,omitempty"`
-	Metric          *IndexMetric    `json:"metric,omitempty"`
-	Name            *string         `json:"name,omitempty"`
-	NamespaceCount  *int            `json:"namespace_count,omitempty"`
-	RecordCount     *int            `json:"record_count,omitempty"`
-	Region          string          `json:"region"`
-	Schema          *MetadataSchema `json:"schema,omitempty"`
-	SizeBytes       *int            `json:"size_bytes,omitempty"`
-	SourceIndexId   string          `json:"source_index_id"`
-	SourceIndexName string          `json:"source_index_name"`
-	Status          string          `json:"status"`
-	Tags            *IndexTags      `json:"tags,omitempty"`
+	BackupId             string       `json:"backup_id"`
+	Cloud                string       `json:"cloud"`
+	CreatedAt            *string      `json:"created_at,omitempty"`
+	Description          *string      `json:"description,omitempty"`
+	Name                 *string      `json:"name,omitempty"`
+	NamespaceCount       *int64       `json:"namespace_count,omitempty"`
+	RecordCount          *int64       `json:"record_count,omitempty"`
+	Region               string       `json:"region"`
+	Schema               *IndexSchema `json:"schema,omitempty"`
+	SizeBytes            *int64       `json:"size_bytes,omitempty"`
+	SourceIndexDeletedAt *time.Time   `json:"source_index_deleted_at,omitempty"`
+	SourceIndexId        string       `json:"source_index_id"`
+	SourceIndexName      string       `json:"source_index_name"`
+	Status               string       `json:"status"`
+	Tags                 *IndexTags   `json:"tags,omitempty"`
+
+	// Deprecated: computed from Schema's dense vector field for backward compatibility.
+	Dimension *int32 `json:"dimension,omitempty"`
+	// Deprecated: computed from Schema's dense vector field for backward compatibility.
+	Metric *IndexMetric `json:"metric,omitempty"`
 }
 
 // [BackupList] contains a paginated list of backups.
