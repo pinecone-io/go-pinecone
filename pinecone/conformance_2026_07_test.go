@@ -171,11 +171,10 @@ func TestCreateServerlessSparseIndexConformanceUnit(t *testing.T) {
 	assert.NotContains(t, fields, "_values")
 }
 
-func TestCreatePodIndexConformanceUnit(t *testing.T) {
-	server, capture := newConformanceServer(t, func(r *http.Request) (int, string) {
-		return http.StatusCreated, conformancePodIndexJSON
-	})
-	client := newConformanceClient(t, server.URL)
+func TestCreatePodIndexUnsupportedUnit(t *testing.T) {
+	// The 2026-07 backend rejects deployment_type "pod" at creation; the SDK fails fast with a
+	// guided error before any request is sent.
+	client := newConformanceClient(t, "http://localhost:1")
 
 	_, err := client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
 		Name:        "pod-index",
@@ -185,25 +184,7 @@ func TestCreatePodIndexConformanceUnit(t *testing.T) {
 		Replicas:    2,
 		Shards:      1,
 	})
-	require.NoError(t, err)
-
-	request := capture.last(t)
-	assert.Equal(t, "2026-07", request.apiVersion)
-
-	deployment := request.body["deployment"].(map[string]interface{})
-	assert.Equal(t, "pod", deployment["deployment_type"])
-	assert.Equal(t, "us-west1-gcp", deployment["environment"])
-	assert.Equal(t, "p1.x2", deployment["pod_type"])
-	assert.Equal(t, float64(2), deployment["replicas"])
-	assert.Equal(t, float64(1), deployment["shards"])
-	// 2026-07 has no independent pods field; capacity is replicas x shards.
-	assert.NotContains(t, deployment, "pods")
-
-	fields := request.body["schema"].(map[string]interface{})["fields"].(map[string]interface{})
-	denseField := fields["_values"].(map[string]interface{})
-	assert.Equal(t, "dense_vector", denseField["type"])
-	assert.Equal(t, float64(3), denseField["dimension"])
-	assert.Equal(t, "cosine", denseField["metric"]) // metric defaults to cosine
+	require.ErrorContains(t, err, "creating pod indexes is not supported by the 2026-07 API")
 }
 
 func TestCreateBYOCIndexConformanceUnit(t *testing.T) {
@@ -338,9 +319,9 @@ func TestLegacyCreateGuidedErrorsUnit(t *testing.T) {
 	require.ErrorContains(t, err, "Schema (metadata schema) is not supported by the 2026-07 API")
 
 	_, err = client.CreatePodIndex(ctx, &CreatePodIndexRequest{
-		Name: "x", Dimension: 3, Environment: "e", PodType: "p1.x1", MetadataConfig: &PodSpecMetadataConfig{},
+		Name: "x", Dimension: 3, Environment: "e", PodType: "p1.x1",
 	})
-	require.ErrorContains(t, err, "MetadataConfig is not supported by the 2026-07 API")
+	require.ErrorContains(t, err, "creating pod indexes is not supported by the 2026-07 API")
 
 	_, err = client.CreateBYOCIndex(ctx, &CreateBYOCIndexRequest{
 		Name: "x", Environment: "e", Dimension: &dimension, Schema: &MetadataSchema{},

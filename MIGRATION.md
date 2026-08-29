@@ -16,11 +16,16 @@ them keeps working.
 
 ## Index creation keeps working (with translation)
 
-`CreateServerlessIndex`, `CreatePodIndex`, `CreateBYOCIndex`, and `CreateIndexForModel` keep their
+`CreateServerlessIndex`, `CreateBYOCIndex`, and `CreateIndexForModel` keep their
 signatures. Dimension/metric/vector-type declarations are translated to a schema using the reserved
 field names the vectors API addresses classic data by (`_values` for dense, `_sparse_values` for
 sparse), so the created index is identical on the backend to one created by an earlier API version
 and is still served by the vector operations (`UpsertVectors`, `QueryByVectorValues`, ...).
+
+**`CreatePodIndex` is a hard break.** The 2026-07 backend rejects pod index creation outright
+("deployment_type 'pod' is not supported on this API version"), so `CreatePodIndex` now returns a
+guided error without sending a request. Existing pod indexes remain fully usable — data operations
+and `ConfigureIndex` pod scaling keep working.
 
 A few parameters have no 2026-07 equivalent and now return a guided error before any request:
 

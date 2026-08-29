@@ -343,27 +343,6 @@ func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags, readCa
 	return serverlessIdx
 }
 
-func buildPodTestIndex(in *Client, name string, tags IndexTags) *Index {
-	ctx := context.Background()
-	metric := Cosine
-
-	fmt.Printf("Creating pod index: %s\n", name)
-	podIdx, err := in.CreatePodIndex(ctx, &CreatePodIndexRequest{
-		Name:        name,
-		Dimension:   int32(setDimensionsForTestIndexes()),
-		Metric:      &metric,
-		Environment: "us-east-1-aws",
-		PodType:     "p1",
-		Tags:        &tags,
-	})
-	if err != nil {
-		log.Fatalf("Failed to create pod index in buildPodTestIndex test: %v", err)
-	} else {
-		fmt.Printf("Successfully created a new pod index: %s!\n", name)
-	}
-	return podIdx
-}
-
 func retryAssertions(t *testing.T, maxRetries int, delay time.Duration, fn func() error) {
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		// function call passed, we return

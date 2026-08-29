@@ -135,8 +135,8 @@ func toDbCreateIndexSchema(schema IndexSchema) (db_control.CreateIndexSchema, er
 }
 
 // toDbDeploymentRequest converts a public IndexDeployment into the generated create-request
-// deployment union. Managed and BYOC are the spec'd request deployment types; pod deployments are
-// injected for the legacy CreatePodIndex path.
+// deployment union. Managed and BYOC are the only deployment types the 2026-07 create request
+// accepts; the backend rejects pod creation on this API version.
 func toDbDeploymentRequest(deployment *IndexDeployment) (*db_control.IndexDeploymentRequest, error) {
 	if deployment == nil {
 		return nil, nil
@@ -172,19 +172,7 @@ func toDbDeploymentRequest(deployment *IndexDeployment) (*db_control.IndexDeploy
 			return nil, err
 		}
 	case deployment.Pod != nil:
-		raw, err := json.Marshal(db_control.PodDeployment{
-			DeploymentType: "pod",
-			Environment:    deployment.Pod.Environment,
-			PodType:        deployment.Pod.PodType,
-			Replicas:       deployment.Pod.Replicas,
-			Shards:         deployment.Pod.Shards,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal pod deployment: %w", err)
-		}
-		if err := request.UnmarshalJSON(raw); err != nil {
-			return nil, fmt.Errorf("failed to build pod deployment: %w", err)
-		}
+		return nil, fmt.Errorf("creating pod indexes is not supported by the 2026-07 API; existing pod indexes remain fully usable")
 	}
 	return &request, nil
 }

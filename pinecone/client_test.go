@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"reflect"
@@ -33,30 +32,17 @@ func (ts *integrationTests) TestListIndexes() {
 	require.Greater(ts.T(), len(indexes), 0, "Expected at least one index to exist")
 }
 
-func (ts *integrationTests) TestCreatePodIndexDense() {
-	if ts.indexType == "serverless" {
-		ts.T().Skip("Skipping pod index tests for serverless suite")
-	}
-
-	name := uuid.New().String()
+func (ts *integrationTests) TestCreatePodIndexUnsupported() {
+	// The 2026-07 API rejects pod index creation; the SDK fails fast with a guided error.
 	metric := Cosine
-
-	defer func(ts *integrationTests, name string) {
-		err := ts.deleteIndex(name)
-		require.NoError(ts.T(), err)
-	}(ts, name)
-
-	idx, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
-		Name:        name,
+	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
+		Name:        uuid.New().String(),
 		Dimension:   2,
 		Metric:      &metric,
 		Environment: "us-east1-gcp",
 		PodType:     "p1.x1",
 	})
-	require.NoError(ts.T(), err)
-	require.Equal(ts.T(), name, idx.Name, "Index name does not match")
-	// create index should default to "dense" if no VectorType is specified
-	require.Equal(ts.T(), "dense", idx.VectorType, "Index vector type does not match")
+	require.ErrorContains(ts.T(), err, "creating pod indexes is not supported by the 2026-07 API")
 }
 
 func (ts *integrationTests) TestCreateServerlessIndexDense() {
@@ -224,107 +210,12 @@ func (ts *integrationTests) TestDeletionProtection() {
 	require.NoError(ts.T(), err)
 }
 
-func (ts *integrationTests) TestConfigureIndexIllegalScaleDown() {
-	name := uuid.New().String()
-	metric := Cosine
-
-	defer func(ts *integrationTests, name string) {
-		err := ts.deleteIndex(name)
-		require.NoError(ts.T(), err)
-	}(ts, name)
-
-	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
-		Name:        name,
-		Dimension:   2,
-		Metric:      &metric,
-		Environment: "us-east1-gcp",
-		PodType:     "p1.x2",
-	})
-	if err != nil {
-		log.Fatalf("Error creating index %s: %v", name, err)
-	}
-
-	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x1"})
-	require.ErrorContainsf(ts.T(), err, "Cannot scale down", err.Error())
-}
-
-func (ts *integrationTests) TestConfigureIndexScaleUpNoPods() {
-	name := uuid.New().String()
-	metric := Cosine
-
-	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
-		Name:        name,
-		Dimension:   2,
-		Metric:      &metric,
-		Environment: "us-east1-gcp",
-		PodType:     "p1.x2",
-	})
-	if err != nil {
-		log.Fatalf("Error creating index %s: %v", name, err)
-	}
-
-	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 2})
-	require.NoError(ts.T(), err)
-
-	// give index a bit of time to upgrade
-	time.Sleep(20 * time.Second)
-
-	err = ts.client.DeleteIndex(context.Background(), name)
-	require.NoError(ts.T(), err)
-}
-
-func (ts *integrationTests) TestConfigureIndexScaleUpNoReplicas() {
-	name := uuid.New().String()
-	metric := Cosine
-
-	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
-		Name:        name,
-		Dimension:   2,
-		Metric:      &metric,
-		Environment: "us-east1-gcp",
-		PodType:     "p1.x2",
-	})
-	if err != nil {
-		log.Fatalf("Error creating index %s: %v", name, err)
-	}
-
-	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{PodType: "p1.x4"})
-	require.NoError(ts.T(), err)
-
-	// give index a bit of time to upgrade
-	time.Sleep(20 * time.Second)
-
-	err = ts.client.DeleteIndex(context.Background(), name)
-	require.NoError(ts.T(), err)
-}
+// Pod scaling via ConfigureIndex is covered by TestConfigureIndexConformanceUnit; pod indexes
+// cannot be created under the 2026-07 API, so there is no live pod index to scale here.
 
 func (ts *integrationTests) TestConfigureIndexIllegalNoPodsOrReplicasOrDeletionProtection() {
 	_, err := ts.client.ConfigureIndex(context.Background(), ts.idxName, ConfigureIndexParams{})
 	require.ErrorContainsf(ts.T(), err, "must specify PodType, Replicas, DeletionProtection, ReadCapacity, or Tags", err.Error())
-}
-
-func (ts *integrationTests) TestConfigureIndexHitPodLimit() {
-	name := uuid.New().String()
-	metric := Cosine
-
-	defer func(ts *integrationTests, name string) {
-		err := ts.deleteIndex(name)
-		require.NoError(ts.T(), err)
-	}(ts, name)
-
-	_, err := ts.client.CreatePodIndex(context.Background(), &CreatePodIndexRequest{
-		Name:        name,
-		Dimension:   2,
-		Metric:      &metric,
-		Environment: "us-east1-gcp",
-		PodType:     "p1.x2",
-	})
-	if err != nil {
-		log.Fatalf("Error creating index %s: %v", name, err)
-	}
-
-	_, err = ts.client.ConfigureIndex(context.Background(), name, ConfigureIndexParams{Replicas: 30000})
-	require.ErrorContainsf(ts.T(), err, "You've reached the max pods allowed", err.Error())
 }
 
 func (ts *integrationTests) TestDescribeEmbedModel() {

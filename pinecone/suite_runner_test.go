@@ -27,17 +27,12 @@ func RunSuites(t *testing.T) {
 
 	// Check if we're skipping suites via environment variables
 	skipAdminSuite, skipAdminSuitePresent := os.LookupEnv("PINECONE_SKIP_ADMIN")
-	skipPodSuite, skipPodSuitePresent := os.LookupEnv("PINECONE_SKIP_POD")
 	skipServerlessSuite, skipServerlessSuitePresent := os.LookupEnv("PINECONE_SKIP_SERVERLESS")
 
 	skipAdmin := false
-	skipPod := false
 	skipServerless := false
 	if skipAdminSuitePresent && skipAdminSuite == "true" {
 		skipAdmin = true
-	}
-	if skipPodSuitePresent && skipPodSuite == "true" {
-		skipPod = true
 	}
 	if skipServerlessSuitePresent && skipServerlessSuite == "true" {
 		skipServerless = true
@@ -58,19 +53,9 @@ func RunSuites(t *testing.T) {
 
 	// Metadata schemas are no longer declared at index creation under 2026-07;
 	// metadata fields are indexed automatically at upsert.
+	// The pod suite is gone: the 2026-07 API rejects pod index creation, so there is no pod
+	// index to run it against. Existing pod indexes remain served, which unit tests cover.
 	serverlessIdx := buildServerlessTestIndex(client, "serverless-"+generateTestIndexName(), indexTags, nil)
-	podIdx := buildPodTestIndex(client, "pods-"+generateTestIndexName(), indexTags)
-
-	podTestSuite := &integrationTests{
-		apiKey:    apiKey,
-		indexType: "pods",
-		host:      podIdx.Host,
-		dimension: podIdx.Dimension,
-		client:    client,
-		sourceTag: sourceTag,
-		idxName:   podIdx.Name,
-		indexTags: &indexTags,
-	}
 
 	serverlessTestSuite := &integrationTests{
 		apiKey:    apiKey,
@@ -93,11 +78,6 @@ func RunSuites(t *testing.T) {
 		suite.Run(t, adminTestSuite)
 	} else {
 		fmt.Printf("Skipping admin suite. PINECONE_SKIP_ADMIN is set to %v\n", skipAdmin)
-	}
-	if !skipPod {
-		suite.Run(t, podTestSuite)
-	} else {
-		fmt.Printf("Skipping pod suite. PINECONE_SKIP_POD is set to %v\n", skipPod)
 	}
 	if !skipServerless {
 		suite.Run(t, serverlessTestSuite)

@@ -524,6 +524,9 @@ func (c *Client) CreateIndex(ctx context.Context, in *CreateIndexRequest) (*Inde
 
 // [CreatePodIndexRequest] holds the parameters for creating a new pods-based Index.
 //
+// Deprecated: the 2026-07 API does not support creating pod indexes; [Client.CreatePodIndex]
+// returns an error. Existing pod indexes remain fully usable.
+//
 // Fields:
 //   - Name: (Required) The name of the [Index]. Resource name must be 1-45 characters long,
 //     start and end with an alphanumeric character,
@@ -624,6 +627,11 @@ func (req CreatePodIndexRequest) TotalCount() int {
 
 // [Client.CreatePodIndex] creates and initializes a new pods-based Index via the specified [Client].
 //
+// Deprecated: the 2026-07 API does not support creating pod indexes and this method returns an
+// error. Existing pod indexes remain fully usable (data operations and [Client.ConfigureIndex]
+// scaling). Use [Client.CreateServerlessIndex], or pin an SDK version that speaks API version
+// 2026-04 to create a pod index.
+//
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
@@ -672,60 +680,7 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 	if in.Name == "" || in.Dimension <= 0 || in.Environment == "" || in.PodType == "" {
 		return nil, fmt.Errorf("fields Name, positive Dimension, Environment, and Podtype must be included in CreatePodIndexRequest")
 	}
-	if in.SourceCollection != nil {
-		return nil, fmt.Errorf("SourceCollection is not supported by the 2026-07 API: creating an index from a collection is rejected by the backend; use CreateIndexFromBackup to restore a backup instead")
-	}
-	if in.MetadataConfig != nil {
-		return nil, fmt.Errorf("MetadataConfig is not supported by the 2026-07 API: metadata fields are indexed automatically at upsert, so there is nothing to declare at create time")
-	}
-
-	var deletionProtection *db_control.DeletionProtection
-	if in.DeletionProtection != nil {
-		deletionProtection = pointerOrNil(db_control.DeletionProtection(*in.DeletionProtection))
-	}
-
-	replicas := in.ReplicaCount()
-	shards := in.ShardCount()
-
-	var tags *db_control.IndexTags
-	if in.Tags != nil {
-		tags = (*db_control.IndexTags)(in.Tags)
-	}
-
-	schema, err := classicVectorSchema("dense", &in.Dimension, in.Metric)
-	if err != nil {
-		return nil, err
-	}
-
-	deployment, err := toDbDeploymentRequest(&IndexDeployment{Pod: &PodDeployment{
-		Environment: in.Environment,
-		PodType:     in.PodType,
-		Replicas:    &replicas,
-		Shards:      &shards,
-	}})
-	if err != nil {
-		return nil, err
-	}
-
-	req := db_control.CreateIndexRequest{
-		Name:               &in.Name,
-		Schema:             schema,
-		Deployment:         deployment,
-		DeletionProtection: deletionProtection,
-		Tags:               tags,
-	}
-
-	res, err := c.restClient.CreateIndex(ctx, &db_control.CreateIndexParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusCreated {
-		return nil, handleErrorResponseBody(res, "failed to create index: ")
-	}
-
-	return decodeIndex(res.Body)
+	return nil, fmt.Errorf("creating pod indexes is not supported by the 2026-07 API; existing pod indexes remain fully usable (data operations and ConfigureIndex scaling). Use CreateServerlessIndex, or pin an SDK version that speaks API version 2026-04 to create a pod index")
 }
 
 // [CreateServerlessIndexRequest] holds the parameters for creating a new [Serverless] Index.
