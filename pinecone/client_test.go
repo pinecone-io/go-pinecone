@@ -602,11 +602,11 @@ func (ts *integrationTests) TestRerankDocumentDefaultField() {
 	ctx := context.Background()
 	rerankModel := "bge-reranker-v2-m3"
 	topN := 2
-	retunDocuments := true
+	returnDocuments := true
 	ranking, err := ts.client.Inference.Rerank(ctx, &RerankRequest{
 		Model:           rerankModel,
 		Query:           "i love apples",
-		ReturnDocuments: &retunDocuments,
+		ReturnDocuments: &returnDocuments,
 		TopN:            &topN,
 		Documents: []Document{
 			{"id": "vec1", "text": "Apple is a popular fruit known for its sweetness and crisp texture."},
@@ -635,11 +635,11 @@ func (ts *integrationTests) TestRerankDocumentCustomField() {
 	ctx := context.Background()
 	rerankModel := "bge-reranker-v2-m3"
 	topN := 2
-	retunDocuments := true
+	returnDocuments := true
 	ranking, err := ts.client.Inference.Rerank(ctx, &RerankRequest{
 		Model:           rerankModel,
 		Query:           "i love apples",
-		ReturnDocuments: &retunDocuments,
+		ReturnDocuments: &returnDocuments,
 		TopN:            &topN,
 		RankFields:      &[]string{"customField"},
 		Documents: []Document{
