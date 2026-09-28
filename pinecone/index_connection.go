@@ -72,8 +72,7 @@ func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*In
 		dialOpts...,
 	)
 	if err != nil {
-		log.Fatalf("failed to create grpc client: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to create grpc client: %w", err)
 	}
 
 	dataClient := db_data_grpc.NewVectorServiceClient(conn)
@@ -252,6 +251,11 @@ func (idx *IndexConnection) WithNamespace(namespace string) *IndexConnection {
 func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (uint32, error) {
 	vectors := make([]*db_data_grpc.Vector, len(in))
 	for i, v := range in {
+		if v != nil {
+			if err := validateMetadata(v.Metadata); err != nil {
+				return 0, err
+			}
+		}
 		vectors[i] = vecToGrpc(v)
 	}
 
@@ -328,6 +332,9 @@ type UpdateVectorRequest struct {
 func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRequest) error {
 	if in == nil {
 		return fmt.Errorf("in (*UpdateVectorRequest) cannot be nil")
+	}
+	if err := validateMetadata(in.Metadata); err != nil {
+		return err
 	}
 	hasId := in.Id != ""
 
@@ -446,11 +453,14 @@ func (idx *IndexConnection) UpdateVectorsByMetadata(ctx context.Context, in *Upd
 	if in == nil {
 		return nil, fmt.Errorf("in (*UpdateVectorsByMetadataRequest) cannot be nil")
 	}
-	if in.Filter == nil {
-		return nil, fmt.Errorf("Filter is required to update vectors by metadata")
+	if err := validateNonEmptyFilter(in.Filter); err != nil {
+		return nil, fmt.Errorf("Filter is required to update vectors by metadata: %w", err)
 	}
 	if in.Metadata == nil {
 		return nil, fmt.Errorf("Metadata is required to update vectors by metadata")
+	}
+	if err := validateMetadata(in.Metadata); err != nil {
+		return nil, err
 	}
 
 	req := &db_data_grpc.UpdateRequest{
@@ -533,6 +543,14 @@ type FetchVectorsResponse struct {
 //			fmt.Println("No vectors found")
 //	    }
 func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*FetchVectorsResponse, error) {
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("ids must contain at least one vector ID")
+	}
+	for i, id := range ids {
+		if err := validateVectorId(fmt.Sprintf("ids[%d]", i), id); err != nil {
+			return nil, err
+		}
+	}
 	req := &db_data_grpc.FetchRequest{
 		Ids:       ids,
 		Namespace: idx.namespace,
@@ -646,8 +664,11 @@ func (idx *IndexConnection) FetchVectorsByMetadata(ctx context.Context, in *Fetc
 	if in == nil {
 		return nil, fmt.Errorf("in (*FetchVectorsByMetadataRequest) cannot be nil")
 	}
-	if in.Filter == nil {
-		return nil, fmt.Errorf("Filter is required to fetch vectors by metadata")
+	if err := validateNonEmptyFilter(in.Filter); err != nil {
+		return nil, fmt.Errorf("Filter is required to fetch vectors by metadata: %w", err)
+	}
+	if in.Limit != nil && (*in.Limit < minListLimit || *in.Limit > maxFetchByMetadataLimit) {
+		return nil, fmt.Errorf("Limit must be between %d and %d, got %d", minListLimit, maxFetchByMetadataLimit, *in.Limit)
 	}
 
 	namespace := idx.namespace
@@ -773,6 +794,14 @@ type ListVectorsResponse struct {
 func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequest) (*ListVectorsResponse, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*ListVectorsRequest) cannot be nil")
+	}
+	if in.Prefix != nil {
+		if err := validateVectorId("Prefix", *in.Prefix); err != nil {
+			return nil, err
+		}
+	}
+	if in.Limit != nil && (*in.Limit < minListLimit || *in.Limit > maxListLimit) {
+		return nil, fmt.Errorf("Limit must be between %d and %d, got %d", minListLimit, maxListLimit, *in.Limit)
 	}
 	req := &db_data_grpc.ListRequest{
 		Prefix:          in.Prefix,
@@ -907,6 +936,9 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 	if in == nil {
 		return nil, fmt.Errorf("in (*QueryByVectorValuesRequest) cannot be nil")
 	}
+	if err := validateTopK(in.TopK); err != nil {
+		return nil, err
+	}
 	req := &db_data_grpc.QueryRequest{
 		Namespace:       idx.namespace,
 		TopK:            in.TopK,
@@ -930,7 +962,6 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 //   - MetadataFilter: (Optional) The filter to apply to your query.
 //   - IncludeValues: (Optional) Whether to include the values of the vectors in the response.
 //   - IncludeMetadata: (Optional) Whether to include the metadata associated with the vectors in the response.
-//   - SparseValues: (Optional) The sparse values of the query vector, if applicable.
 //   - ScanFactor: (Optional) An optimization parameter for IVF dense indexes in dedicated read node indexes.
 //     It adjusts how much of the index is scanned to find vector candidates.
 //     Range: 0.5 – 4 (default). This parameter is only supported for dedicated (DRN) dense indexes.
@@ -943,7 +974,6 @@ type QueryByVectorIdRequest struct {
 	MetadataFilter  *MetadataFilter
 	IncludeValues   bool
 	IncludeMetadata bool
-	SparseValues    *SparseValues
 	ScanFactor      *float32
 	MaxCandidates   *uint32
 }
@@ -1005,6 +1035,9 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 	if in == nil {
 		return nil, fmt.Errorf("in (*QueryByVectorIdRequest) cannot be nil")
 	}
+	if err := validateTopK(in.TopK); err != nil {
+		return nil, err
+	}
 	req := &db_data_grpc.QueryRequest{
 		Id:              in.VectorId,
 		Namespace:       idx.namespace,
@@ -1012,7 +1045,6 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 		Filter:          in.MetadataFilter,
 		IncludeValues:   in.IncludeValues,
 		IncludeMetadata: in.IncludeMetadata,
-		SparseVector:    sparseValToGrpc(in.SparseValues),
 		ScanFactor:      in.ScanFactor,
 		MaxCandidates:   in.MaxCandidates,
 	}
@@ -1115,13 +1147,16 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 			if !hasUnderscoreId && !hasId {
 				return fmt.Errorf("record must have an 'id' or '_id' field")
 			}
+			if hasUnderscoreId && hasId {
+				return fmt.Errorf("record must have only one of an 'id' or '_id' field, not both")
+			}
 		}
 		if err := encoder.Encode(record); err != nil {
 			return fmt.Errorf("failed to encode record: %v", err)
 		}
 	}
 
-	res, err := idx.restClient.UpsertRecordsNamespaceWithBody(ctx, restNamespace(idx.namespace), &db_data_rest.UpsertRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, "application/x-ndjson", &buffer)
+	res, err := idx.restClient.UpsertRecordsNamespaceWithBody(ctx, resolveNamespace(idx.namespace), &db_data_rest.UpsertRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, "application/x-ndjson", &buffer)
 	if err != nil {
 		return fmt.Errorf("failed to upsert records: %w", err)
 	}
@@ -1219,11 +1254,22 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 	if in == nil {
 		return nil, fmt.Errorf("in (*SearchRecordsRequest) cannot be nil")
 	}
+	if in.Rerank != nil && len(in.Rerank.RankFields) == 0 {
+		return nil, fmt.Errorf("rerank.RankFields must contain at least one field")
+	}
 	var convertedVector *db_data_rest.SearchRecordsVector
 	if in.Query.Vector != nil {
+		var sparseIndices *[]int64
+		if in.Query.Vector.SparseIndices != nil {
+			converted := make([]int64, len(*in.Query.Vector.SparseIndices))
+			for i, index := range *in.Query.Vector.SparseIndices {
+				converted[i] = int64(index)
+			}
+			sparseIndices = &converted
+		}
 		convertedVector = &db_data_rest.SearchRecordsVector{
 			Values:        in.Query.Vector.Values,
-			SparseIndices: in.Query.Vector.SparseIndices,
+			SparseIndices: sparseIndices,
 			SparseValues:  in.Query.Vector.SparseValues,
 		}
 	}
@@ -1240,9 +1286,13 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 		if in.Query.MatchTerms.Strategy != nil {
 			strat = *in.Query.MatchTerms.Strategy
 		}
+		var terms []string
+		if in.Query.MatchTerms.Terms != nil {
+			terms = *in.Query.MatchTerms.Terms
+		}
 		matchTerms = &db_data_rest.SearchMatchTerms{
-			Strategy: &strat,
-			Terms:    in.Query.MatchTerms.Terms,
+			Strategy: strat,
+			Terms:    terms,
 		}
 	}
 
@@ -1281,7 +1331,7 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 		}
 	}
 
-	res, err := (*idx.restClient).SearchRecordsNamespace(idx.akCtx(ctx), restNamespace(idx.namespace), &db_data_rest.SearchRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
+	res, err := (*idx.restClient).SearchRecordsNamespace(idx.akCtx(ctx), resolveNamespace(idx.namespace), &db_data_rest.SearchRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
 	if err != nil {
 		return nil, err
 	}
@@ -1393,6 +1443,9 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 //			log.Fatalf("Failed to delete vector(s) with filter: %+v. Error: %s\n", filter, err)
 //	    }
 func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, metadataFilter *MetadataFilter) error {
+	if err := validateNonEmptyFilter(metadataFilter); err != nil {
+		return fmt.Errorf("delete with an empty metadata filter is not allowed; use DeleteAllVectorsInNamespace to delete everything: %w", err)
+	}
 	req := db_data_grpc.DeleteRequest{
 		Filter:    metadataFilter,
 		Namespace: idx.namespace,
@@ -1765,7 +1818,7 @@ type ListImportsResponse struct {
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - req: A [ListImportsRequest] object containing pagination and filter options.
+//   - in: An optional [ListImportsRequest] with pagination options. Pass nil to use the defaults.
 //
 // Example:
 //
@@ -1791,22 +1844,29 @@ type ListImportsResponse struct {
 //	    }
 //
 //	    limit := int32(10)
-//	    firstImportPage, err := idxConnection.ListImports(ctx, &limit, nil)
+//	    firstImportPage, err := idxConnection.ListImports(ctx, &pinecone.ListImportsRequest{Limit: &limit})
 //	    if err != nil {
 //			log.Fatalf("Failed to list imports: %v", err)
 //	    }
 //	    fmt.Printf("First page of imports: %+v", firstImportPage.Imports)
 //
 //	    paginationToken := firstImportPage.NextPaginationToken
-//	    nextImportPage, err := idxConnection.ListImports(ctx, &limit, paginationToken)
+//	    nextImportPage, err := idxConnection.ListImports(ctx, &pinecone.ListImportsRequest{
+//	        Limit:           &limit,
+//	        PaginationToken: paginationToken,
+//	    })
 //	    if err != nil {
 //			log.Fatalf("Failed to list imports: %v", err)
 //	    }
 //	    fmt.Printf("Second page of imports: %+v", nextImportPage.Imports)
-func (idx *IndexConnection) ListImports(ctx context.Context, limit *int32, paginationToken *string) (*ListImportsResponse, error) {
-	params := db_data_rest.ListBulkImportsParams{
-		Limit:           limit,
-		PaginationToken: paginationToken,
+func (idx *IndexConnection) ListImports(ctx context.Context, in *ListImportsRequest) (*ListImportsResponse, error) {
+	params := db_data_rest.ListBulkImportsParams{XPineconeApiVersion: gen.PineconeApiVersion}
+	if in != nil {
+		if in.Limit != nil && (*in.Limit < minListLimit || *in.Limit > maxListLimit) {
+			return nil, fmt.Errorf("Limit must be between %d and %d, got %d", minListLimit, maxListLimit, *in.Limit)
+		}
+		params.Limit = in.Limit
+		params.PaginationToken = in.PaginationToken
 	}
 
 	res, err := (*idx.restClient).ListBulkImports(idx.akCtx(ctx), &params)
@@ -1978,7 +2038,7 @@ func (idx *IndexConnection) CreateNamespace(ctx context.Context, in *CreateNames
 //			log.Fatalf("Failed to describe namespace \"%s\". Error:%s", "your-namespace-name", err)
 //		}
 func (idx *IndexConnection) DescribeNamespace(ctx context.Context, namespace string) (*NamespaceDescription, error) {
-	res, err := (*idx.grpcClient).DescribeNamespace(idx.akCtx(ctx), &db_data_grpc.DescribeNamespaceRequest{Namespace: namespace})
+	res, err := (*idx.grpcClient).DescribeNamespace(idx.akCtx(ctx), &db_data_grpc.DescribeNamespaceRequest{Namespace: resolveNamespace(namespace)})
 	if err != nil {
 		return nil, err
 	}
@@ -2101,7 +2161,7 @@ func (idx *IndexConnection) ListNamespaces(ctx context.Context, in *ListNamespac
 //		}
 func (idx *IndexConnection) DeleteNamespace(ctx context.Context, namespace string) error {
 	_, err := (*idx.grpcClient).DeleteNamespace(idx.akCtx(ctx), &db_data_grpc.DeleteNamespaceRequest{
-		Namespace: namespace,
+		Namespace: resolveNamespace(namespace),
 	})
 	if err != nil {
 		return err
@@ -2245,7 +2305,7 @@ func toPaginationTokenRest(p *db_data_rest.Pagination) *string {
 	if p == nil {
 		return nil
 	}
-	return p.Next
+	return &p.Next
 }
 
 func toImport(importModel *db_data_rest.ImportModel) *Import {
@@ -2253,15 +2313,17 @@ func toImport(importModel *db_data_rest.ImportModel) *Import {
 		return nil
 	}
 
+	createdAt := importModel.CreatedAt
+
 	return &Import{
-		Id:              *importModel.Id,
-		Uri:             *importModel.Uri,
-		Status:          ImportStatus(*importModel.Status),
-		CreatedAt:       importModel.CreatedAt,
+		Id:              importModel.Id,
+		Uri:             importModel.Uri,
+		Status:          ImportStatus(importModel.Status),
+		CreatedAt:       &createdAt,
 		FinishedAt:      importModel.FinishedAt,
 		Error:           importModel.Error,
-		PercentComplete: derefOrDefault(importModel.PercentComplete, 0),
-		RecordsImported: derefOrDefault(importModel.RecordsImported, 0),
+		PercentComplete: importModel.PercentComplete,
+		RecordsImported: importModel.RecordsImported,
 	}
 }
 
@@ -2271,7 +2333,7 @@ func toImportResponse(importResponse *db_data_rest.StartImportResponse) *StartIm
 	}
 
 	return &StartImportResponse{
-		Id: derefOrDefault(importResponse.Id, ""),
+		Id: importResponse.Id,
 	}
 }
 
@@ -2280,9 +2342,12 @@ func toListImportsResponse(listImportsResponse *db_data_rest.ListImportsResponse
 		return nil
 	}
 
-	imports := make([]*Import, len(*listImportsResponse.Data))
-	for i, importModel := range *listImportsResponse.Data {
-		imports[i] = toImport(&importModel)
+	var imports []*Import
+	if listImportsResponse.Data != nil {
+		imports = make([]*Import, len(*listImportsResponse.Data))
+		for i, importModel := range *listImportsResponse.Data {
+			imports[i] = toImport(&importModel)
+		}
 	}
 
 	return &ListImportsResponse{
@@ -2349,6 +2414,7 @@ func toNamespaceDescription(ns *db_data_grpc.NamespaceDescription) *NamespaceDes
 		Name:        ns.Name,
 		RecordCount: ns.RecordCount,
 		Schema:      toMetadataSchemaGrpc(ns.Schema),
+		SizeBytes:   ns.SizeBytes,
 	}
 
 	if ns.IndexedFields != nil {
@@ -2447,12 +2513,323 @@ func toMetadataSchemaGrpc(schema *db_data_grpc.MetadataSchema) *MetadataSchema {
 	}
 }
 
-// restNamespace returns the namespace to use in REST URL path segments. Empty string is not a
-// valid path segment, so the default namespace is represented as "__default__" in REST URLs
-// which maps to the default namespace on the server.
-func restNamespace(ns string) string {
+// resolveNamespace maps "" to "__default__", the name REST paths and namespace operations require
+// for the default namespace.
+func resolveNamespace(ns string) string {
 	if ns == "" {
 		return "__default__"
 	}
 	return ns
+}
+
+// documentsRequest issues a documents API request against the connection's namespace, checks the
+// expected success status, and decodes the response body into out.
+func (idx *IndexConnection) documentsRequest(ctx context.Context, operation string, body map[string]interface{}, expectedStatus int, out interface{},
+	call func(ctx context.Context, namespace string, contentType string, body io.Reader) (*http.Response, error)) error {
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("failed to encode %s request: %w", operation, err)
+	}
+
+	res, err := call(ctx, resolveNamespace(idx.namespace), "application/json", bytes.NewReader(encoded))
+	if err != nil {
+		return fmt.Errorf("failed to %s: %w", operation, err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != expectedStatus {
+		return handleErrorResponseBody(res, fmt.Sprintf("failed to %s: ", operation))
+	}
+
+	if err := json.NewDecoder(res.Body).Decode(out); err != nil {
+		return fmt.Errorf("failed to decode %s response: %w", operation, err)
+	}
+	return nil
+}
+
+// [IndexConnection.UpsertDocuments] writes documents into the namespace of a document index (an
+// index created with [Client.CreateIndex] using a document schema). Each [Document] must carry an
+// "_id" field and at least one field declared in the index schema; any other field is stored as
+// filterable metadata.
+//
+// Returns the number of documents accepted for upsert, or an error.
+//
+// Example:
+//
+//	    count, err := idxConnection.UpsertDocuments(ctx, &pinecone.UpsertDocumentsRequest{
+//		    Documents: []pinecone.Document{
+//			    {"_id": "doc-1", "embedding": []float32{0.1, 0.2}, "genre": "drama"},
+//		    },
+//	    })
+func (idx *IndexConnection) UpsertDocuments(ctx context.Context, in *UpsertDocumentsRequest) (*UpsertDocumentsResponse, error) {
+	if in == nil || len(in.Documents) == 0 {
+		return nil, fmt.Errorf("in (*UpsertDocumentsRequest) must contain at least one Document")
+	}
+	for i, document := range in.Documents {
+		if _, ok := document["_id"]; !ok {
+			return nil, fmt.Errorf("document at index %d must have an \"_id\" field", i)
+		}
+	}
+
+	var response UpsertDocumentsResponse
+	err := idx.documentsRequest(ctx, "upsert documents", map[string]interface{}{"documents": in.Documents}, http.StatusAccepted, &response,
+		func(ctx context.Context, namespace string, contentType string, body io.Reader) (*http.Response, error) {
+			return idx.restClient.UpsertDocumentsWithBody(ctx, namespace, &db_data_rest.UpsertDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body)
+		})
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
+}
+
+// [IndexConnection.SearchDocuments] searches the namespace for the documents most similar to the
+// query described by ScoreBy, ranked by the given scoring methods. See [SearchDocumentsRequest] and
+// [DocumentScoringMethod] for the accepted combinations.
+//
+// Example:
+//
+//	    query := "vector database"
+//	    res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
+//		    TopK: 10,
+//		    ScoreBy: []pinecone.DocumentScoringMethod{
+//			    {Type: "text", Fields: []string{"title", "body"}, Query: &query},
+//		    },
+//		    IncludeFields: []string{"*"},
+//	    })
+func (idx *IndexConnection) SearchDocuments(ctx context.Context, in *SearchDocumentsRequest) (*SearchDocumentsResponse, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*SearchDocumentsRequest) cannot be nil")
+	}
+	if in.TopK < 1 {
+		return nil, fmt.Errorf("TopK must be at least 1")
+	}
+	if len(in.ScoreBy) == 0 {
+		return nil, fmt.Errorf("ScoreBy must contain at least one DocumentScoringMethod")
+	}
+	if len(in.ScoreBy) > 1 {
+		for _, method := range in.ScoreBy {
+			if method.Type != "text" && method.Type != "query_string" {
+				return nil, fmt.Errorf("several ScoreBy methods may be combined only when every one is \"text\" or \"query_string\"; a %q method must appear on its own", method.Type)
+			}
+		}
+	}
+	if in.Filter != nil && len(in.Filter) == 0 {
+		return nil, fmt.Errorf("Filter must not be empty when provided")
+	}
+
+	body := map[string]interface{}{
+		"top_k":    in.TopK,
+		"score_by": in.ScoreBy,
+	}
+	if in.Filter != nil {
+		body["filter"] = in.Filter
+	}
+	if in.IncludeFields != nil {
+		body["include_fields"] = in.IncludeFields
+	}
+
+	var response SearchDocumentsResponse
+	err := idx.documentsRequest(ctx, "search documents", body, http.StatusOK, &response,
+		func(ctx context.Context, namespace string, contentType string, body io.Reader) (*http.Response, error) {
+			return idx.restClient.SearchDocumentsWithBody(ctx, namespace, &db_data_rest.SearchDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body)
+		})
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
+}
+
+// [IndexConnection.FetchDocuments] retrieves documents from the namespace by ID or by metadata
+// filter. Exactly one of Ids or Filter must be provided; see [FetchDocumentsRequest].
+//
+// Example:
+//
+//	    res, err := idxConnection.FetchDocuments(ctx, &pinecone.FetchDocumentsRequest{
+//		    Ids: []string{"doc-1", "doc-2"},
+//	    })
+func (idx *IndexConnection) FetchDocuments(ctx context.Context, in *FetchDocumentsRequest) (*FetchDocumentsResponse, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*FetchDocumentsRequest) cannot be nil")
+	}
+	if (len(in.Ids) == 0) == (in.Filter == nil) {
+		return nil, fmt.Errorf("exactly one of Ids or Filter must be provided in FetchDocumentsRequest")
+	}
+	if in.Filter != nil && len(in.Filter) == 0 {
+		return nil, fmt.Errorf("Filter must not be empty; a fetch matching every document is rejected")
+	}
+	if in.PaginationToken != nil && in.Filter == nil {
+		return nil, fmt.Errorf("PaginationToken is only valid together with Filter")
+	}
+
+	body := map[string]interface{}{}
+	if len(in.Ids) > 0 {
+		body["ids"] = in.Ids
+	}
+	if in.Filter != nil {
+		body["filter"] = in.Filter
+	}
+	if in.IncludeFields != nil {
+		body["include_fields"] = in.IncludeFields
+	}
+	if in.Limit != nil {
+		body["limit"] = *in.Limit
+	}
+	if in.PaginationToken != nil {
+		body["pagination_token"] = *in.PaginationToken
+	}
+
+	var response FetchDocumentsResponse
+	err := idx.documentsRequest(ctx, "fetch documents", body, http.StatusOK, &response,
+		func(ctx context.Context, namespace string, contentType string, body io.Reader) (*http.Response, error) {
+			return idx.restClient.FetchDocumentsWithBody(ctx, namespace, &db_data_rest.FetchDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body)
+		})
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
+}
+
+// [IndexConnection.DeleteDocuments] deletes documents from the namespace by ID, by metadata filter,
+// or all at once. Exactly one of Ids, Filter, or DeleteAll must be provided; see
+// [DeleteDocumentsRequest]. The delete is applied asynchronously.
+//
+// Example:
+//
+//	    _, err := idxConnection.DeleteDocuments(ctx, &pinecone.DeleteDocumentsRequest{
+//		    Ids: []string{"doc-1"},
+//	    })
+func (idx *IndexConnection) DeleteDocuments(ctx context.Context, in *DeleteDocumentsRequest) (*DeleteDocumentsResponse, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*DeleteDocumentsRequest) cannot be nil")
+	}
+	selectors := 0
+	if len(in.Ids) > 0 {
+		selectors++
+	}
+	if in.Filter != nil {
+		selectors++
+	}
+	if in.DeleteAll {
+		selectors++
+	}
+	if selectors != 1 {
+		return nil, fmt.Errorf("exactly one of Ids, Filter, or DeleteAll must be provided in DeleteDocumentsRequest")
+	}
+	if in.Filter != nil && len(in.Filter) == 0 {
+		return nil, fmt.Errorf("Filter must not be empty; to delete every document in the namespace, set DeleteAll")
+	}
+
+	body := map[string]interface{}{}
+	if len(in.Ids) > 0 {
+		body["ids"] = in.Ids
+	}
+	if in.Filter != nil {
+		body["filter"] = in.Filter
+	}
+	if in.DeleteAll {
+		body["delete_all"] = true
+	}
+
+	var response DeleteDocumentsResponse
+	err := idx.documentsRequest(ctx, "delete documents", body, http.StatusAccepted, &response,
+		func(ctx context.Context, namespace string, contentType string, body io.Reader) (*http.Response, error) {
+			return idx.restClient.DeleteDocumentsWithBody(ctx, namespace, &db_data_rest.DeleteDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body)
+		})
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
+}
+
+// [IndexConnection.UpdateDocuments] applies partial updates to documents in the namespace, either as
+// per-document updates (Documents) or as a filtered patch (Filter with SetFields and/or
+// RemoveFields); see [UpdateDocumentsRequest]. The patch is applied asynchronously.
+//
+// Example:
+//
+//	    _, err := idxConnection.UpdateDocuments(ctx, &pinecone.UpdateDocumentsRequest{
+//		    Filter:    map[string]interface{}{"genre": "drama"},
+//		    SetFields: map[string]interface{}{"reviewed": true},
+//	    })
+func (idx *IndexConnection) UpdateDocuments(ctx context.Context, in *UpdateDocumentsRequest) (*UpdateDocumentsResponse, error) {
+	if in == nil {
+		return nil, fmt.Errorf("in (*UpdateDocumentsRequest) cannot be nil")
+	}
+	hasDocuments := len(in.Documents) > 0
+	hasPatch := in.Filter != nil || len(in.SetFields) > 0 || len(in.RemoveFields) > 0
+	if hasDocuments == hasPatch {
+		return nil, fmt.Errorf("either Documents or a filtered patch (Filter with SetFields and/or RemoveFields) must be provided in UpdateDocumentsRequest, not both")
+	}
+	if hasPatch {
+		if in.Filter == nil {
+			return nil, fmt.Errorf("SetFields and RemoveFields are only valid together with Filter")
+		}
+		if len(in.Filter) == 0 {
+			return nil, fmt.Errorf("Filter must not be empty; a patch matching every document is rejected")
+		}
+		if len(in.SetFields) == 0 && len(in.RemoveFields) == 0 {
+			return nil, fmt.Errorf("a filtered patch must set SetFields and/or RemoveFields")
+		}
+	}
+	if hasDocuments {
+		for i, document := range in.Documents {
+			if _, ok := document["_id"]; !ok {
+				return nil, fmt.Errorf("document at index %d must have an \"_id\" field", i)
+			}
+		}
+	}
+
+	body := map[string]interface{}{}
+	if hasDocuments {
+		body["documents"] = in.Documents
+	} else {
+		body["filter"] = in.Filter
+		if len(in.SetFields) > 0 {
+			body["set_fields"] = in.SetFields
+		}
+		if len(in.RemoveFields) > 0 {
+			body["remove_fields"] = in.RemoveFields
+		}
+	}
+
+	var response UpdateDocumentsResponse
+	err := idx.documentsRequest(ctx, "update documents", body, http.StatusAccepted, &response,
+		func(ctx context.Context, namespace string, contentType string, body io.Reader) (*http.Response, error) {
+			return idx.restClient.UpdateDocumentsWithBody(ctx, namespace, &db_data_rest.UpdateDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body)
+		})
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
+}
+
+// [IndexConnection.ListDocuments] lists the IDs of documents in the namespace, in sorted order,
+// optionally restricted to a prefix. See [ListDocumentsRequest].
+//
+// Example:
+//
+//	res, err := idxConnection.ListDocuments(ctx, &pinecone.ListDocumentsRequest{})
+func (idx *IndexConnection) ListDocuments(ctx context.Context, in *ListDocumentsRequest) (*ListDocumentsResponse, error) {
+	body := map[string]interface{}{}
+	if in != nil {
+		if in.Prefix != nil {
+			body["prefix"] = *in.Prefix
+		}
+		if in.Limit != nil {
+			body["limit"] = *in.Limit
+		}
+		if in.PaginationToken != nil {
+			body["pagination_token"] = *in.PaginationToken
+		}
+	}
+
+	var response ListDocumentsResponse
+	err := idx.documentsRequest(ctx, "list documents", body, http.StatusOK, &response,
+		func(ctx context.Context, namespace string, contentType string, body io.Reader) (*http.Response, error) {
+			return idx.restClient.ListDocumentsWithBody(ctx, namespace, &db_data_rest.ListDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body)
+		})
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
 }

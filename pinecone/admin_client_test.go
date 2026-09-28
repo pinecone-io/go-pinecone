@@ -3,6 +3,8 @@ package pinecone
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -499,10 +501,10 @@ func TestNewAdminClientWithContextUnit(t *testing.T) {
 		defer func() { newAdminClient = admin.NewClient }()
 
 		// mock getAuthToken
-		getAuthTokenFunc = func(ctx context.Context, id, secret string, opts ...admin.ClientOption) (string, error) {
+		getAuthTokenFunc = func(ctx context.Context, id, secret string, opts ...admin.ClientOption) (*authTokenResponse, error) {
 			assert.Equal(t, clientId, id)
 			assert.Equal(t, clientSecret, secret)
-			return "mock-token", nil
+			return &authTokenResponse{AccessToken: "mock-token", ExpiresIn: 1800}, nil
 		}
 		defer func() { getAuthTokenFunc = getAuthToken }()
 
@@ -997,4 +999,46 @@ func TestUserInvalidUUIDUnit(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid userId")
 	})
+}
+
+func TestOrganizationDeleteStatusCodesUnit(t *testing.T) {
+	t.Setenv("PINECONE_CLIENT_ID", "")
+	t.Setenv("PINECONE_CLIENT_SECRET", "")
+	t.Setenv("PINECONE_ACCESS_TOKEN", "")
+
+	tests := []struct {
+		name    string
+		status  int
+		wantErr bool
+	}{
+		{name: "202 accepted", status: http.StatusAccepted},
+		{name: "200 ok", status: http.StatusOK},
+		{name: "412 precondition failed", status: http.StatusPreconditionFailed, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotMethod, gotPath string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotMethod, gotPath = r.Method, r.URL.Path
+				w.WriteHeader(tt.status)
+			}))
+			defer server.Close()
+
+			client, err := NewAdminClientWithContext(context.Background(), NewAdminClientParams{
+				AccessToken: "test-token",
+				Host:        server.URL,
+			})
+			require.NoError(t, err)
+
+			err = client.Organization.Delete(context.Background(), "org-id")
+			assert.Equal(t, http.MethodDelete, gotMethod)
+			assert.Equal(t, "/admin/organizations/org-id", gotPath)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }

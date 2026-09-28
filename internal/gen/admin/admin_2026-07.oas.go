@@ -101,7 +101,7 @@ type CreateServiceAccountRequest struct {
 	// Name The human-readable name of the service account.
 	Name string `json:"name"`
 
-	// RoleBindings Optional initial role bindings. Omitting the field or passing an empty array creates the service account with no role bindings; roles can be added later via the role binding endpoints. Not returned in the response.
+	// RoleBindings Optional initial role bindings. Omitting the field or passing an empty array creates the service account with no role bindings; roles can be added later via the role binding endpoints. A service account may be granted any organization- or project-scoped role. Not returned in the response.
 	RoleBindings *[]RoleBindingInput `json:"role_bindings,omitempty"`
 }
 
@@ -3146,121 +3146,121 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 	// DeleteApiKeyWithResponse request
-	DeleteApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *DeleteApiKeyParams, reqEditors ...RequestEditorFn) (*DeleteApiKeyResponse, error)
+	DeleteApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *DeleteApiKeyParams, reqEditors ...RequestEditorFn) (*DeleteApiKeyApiResponse, error)
 
 	// FetchApiKeyWithResponse request
-	FetchApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *FetchApiKeyParams, reqEditors ...RequestEditorFn) (*FetchApiKeyResponse, error)
+	FetchApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *FetchApiKeyParams, reqEditors ...RequestEditorFn) (*FetchApiKeyApiResponse, error)
 
 	// UpdateApiKeyWithBodyWithResponse request with any body
-	UpdateApiKeyWithBodyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error)
+	UpdateApiKeyWithBodyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateApiKeyApiResponse, error)
 
-	UpdateApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error)
+	UpdateApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApiKeyApiResponse, error)
 
 	// ListInvitesWithResponse request
-	ListInvitesWithResponse(ctx context.Context, params *ListInvitesParams, reqEditors ...RequestEditorFn) (*ListInvitesResponse, error)
+	ListInvitesWithResponse(ctx context.Context, params *ListInvitesParams, reqEditors ...RequestEditorFn) (*ListInvitesApiResponse, error)
 
 	// CreateInviteWithBodyWithResponse request with any body
-	CreateInviteWithBodyWithResponse(ctx context.Context, params *CreateInviteParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateInviteResponse, error)
+	CreateInviteWithBodyWithResponse(ctx context.Context, params *CreateInviteParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateInviteApiResponse, error)
 
-	CreateInviteWithResponse(ctx context.Context, params *CreateInviteParams, body CreateInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateInviteResponse, error)
+	CreateInviteWithResponse(ctx context.Context, params *CreateInviteParams, body CreateInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateInviteApiResponse, error)
 
 	// DeleteInviteWithResponse request
-	DeleteInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *DeleteInviteParams, reqEditors ...RequestEditorFn) (*DeleteInviteResponse, error)
+	DeleteInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *DeleteInviteParams, reqEditors ...RequestEditorFn) (*DeleteInviteApiResponse, error)
 
 	// FetchInviteWithResponse request
-	FetchInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *FetchInviteParams, reqEditors ...RequestEditorFn) (*FetchInviteResponse, error)
+	FetchInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *FetchInviteParams, reqEditors ...RequestEditorFn) (*FetchInviteApiResponse, error)
 
 	// ResendInviteWithResponse request
-	ResendInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *ResendInviteParams, reqEditors ...RequestEditorFn) (*ResendInviteResponse, error)
+	ResendInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *ResendInviteParams, reqEditors ...RequestEditorFn) (*ResendInviteApiResponse, error)
 
 	// ListOrganizationsWithResponse request
-	ListOrganizationsWithResponse(ctx context.Context, params *ListOrganizationsParams, reqEditors ...RequestEditorFn) (*ListOrganizationsResponse, error)
+	ListOrganizationsWithResponse(ctx context.Context, params *ListOrganizationsParams, reqEditors ...RequestEditorFn) (*ListOrganizationsApiResponse, error)
 
 	// DeleteOrganizationWithResponse request
-	DeleteOrganizationWithResponse(ctx context.Context, organizationId string, params *DeleteOrganizationParams, reqEditors ...RequestEditorFn) (*DeleteOrganizationResponse, error)
+	DeleteOrganizationWithResponse(ctx context.Context, organizationId string, params *DeleteOrganizationParams, reqEditors ...RequestEditorFn) (*DeleteOrganizationApiResponse, error)
 
 	// FetchOrganizationWithResponse request
-	FetchOrganizationWithResponse(ctx context.Context, organizationId string, params *FetchOrganizationParams, reqEditors ...RequestEditorFn) (*FetchOrganizationResponse, error)
+	FetchOrganizationWithResponse(ctx context.Context, organizationId string, params *FetchOrganizationParams, reqEditors ...RequestEditorFn) (*FetchOrganizationApiResponse, error)
 
 	// UpdateOrganizationWithBodyWithResponse request with any body
-	UpdateOrganizationWithBodyWithResponse(ctx context.Context, organizationId string, params *UpdateOrganizationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error)
+	UpdateOrganizationWithBodyWithResponse(ctx context.Context, organizationId string, params *UpdateOrganizationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrganizationApiResponse, error)
 
-	UpdateOrganizationWithResponse(ctx context.Context, organizationId string, params *UpdateOrganizationParams, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error)
+	UpdateOrganizationWithResponse(ctx context.Context, organizationId string, params *UpdateOrganizationParams, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationApiResponse, error)
 
 	// ListProjectsWithResponse request
-	ListProjectsWithResponse(ctx context.Context, params *ListProjectsParams, reqEditors ...RequestEditorFn) (*ListProjectsResponse, error)
+	ListProjectsWithResponse(ctx context.Context, params *ListProjectsParams, reqEditors ...RequestEditorFn) (*ListProjectsApiResponse, error)
 
 	// CreateProjectWithBodyWithResponse request with any body
-	CreateProjectWithBodyWithResponse(ctx context.Context, params *CreateProjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error)
+	CreateProjectWithBodyWithResponse(ctx context.Context, params *CreateProjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectApiResponse, error)
 
-	CreateProjectWithResponse(ctx context.Context, params *CreateProjectParams, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error)
+	CreateProjectWithResponse(ctx context.Context, params *CreateProjectParams, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectApiResponse, error)
 
 	// DeleteProjectWithResponse request
-	DeleteProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *DeleteProjectParams, reqEditors ...RequestEditorFn) (*DeleteProjectResponse, error)
+	DeleteProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *DeleteProjectParams, reqEditors ...RequestEditorFn) (*DeleteProjectApiResponse, error)
 
 	// FetchProjectWithResponse request
-	FetchProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *FetchProjectParams, reqEditors ...RequestEditorFn) (*FetchProjectResponse, error)
+	FetchProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *FetchProjectParams, reqEditors ...RequestEditorFn) (*FetchProjectApiResponse, error)
 
 	// UpdateProjectWithBodyWithResponse request with any body
-	UpdateProjectWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *UpdateProjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error)
+	UpdateProjectWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *UpdateProjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectApiResponse, error)
 
-	UpdateProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *UpdateProjectParams, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error)
+	UpdateProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *UpdateProjectParams, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectApiResponse, error)
 
 	// ListProjectApiKeysWithResponse request
-	ListProjectApiKeysWithResponse(ctx context.Context, projectId openapi_types.UUID, params *ListProjectApiKeysParams, reqEditors ...RequestEditorFn) (*ListProjectApiKeysResponse, error)
+	ListProjectApiKeysWithResponse(ctx context.Context, projectId openapi_types.UUID, params *ListProjectApiKeysParams, reqEditors ...RequestEditorFn) (*ListProjectApiKeysApiResponse, error)
 
 	// CreateApiKeyWithBodyWithResponse request with any body
-	CreateApiKeyWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error)
+	CreateApiKeyWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApiKeyApiResponse, error)
 
-	CreateApiKeyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error)
+	CreateApiKeyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeyApiResponse, error)
 
 	// ListRoleBindingsWithResponse request
-	ListRoleBindingsWithResponse(ctx context.Context, params *ListRoleBindingsParams, reqEditors ...RequestEditorFn) (*ListRoleBindingsResponse, error)
+	ListRoleBindingsWithResponse(ctx context.Context, params *ListRoleBindingsParams, reqEditors ...RequestEditorFn) (*ListRoleBindingsApiResponse, error)
 
 	// CreateRoleBindingWithBodyWithResponse request with any body
-	CreateRoleBindingWithBodyWithResponse(ctx context.Context, params *CreateRoleBindingParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRoleBindingResponse, error)
+	CreateRoleBindingWithBodyWithResponse(ctx context.Context, params *CreateRoleBindingParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRoleBindingApiResponse, error)
 
-	CreateRoleBindingWithResponse(ctx context.Context, params *CreateRoleBindingParams, body CreateRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRoleBindingResponse, error)
+	CreateRoleBindingWithResponse(ctx context.Context, params *CreateRoleBindingParams, body CreateRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRoleBindingApiResponse, error)
 
 	// DeleteRoleBindingWithResponse request
-	DeleteRoleBindingWithResponse(ctx context.Context, roleBindingId openapi_types.UUID, params *DeleteRoleBindingParams, reqEditors ...RequestEditorFn) (*DeleteRoleBindingResponse, error)
+	DeleteRoleBindingWithResponse(ctx context.Context, roleBindingId openapi_types.UUID, params *DeleteRoleBindingParams, reqEditors ...RequestEditorFn) (*DeleteRoleBindingApiResponse, error)
 
 	// FetchRoleBindingWithResponse request
-	FetchRoleBindingWithResponse(ctx context.Context, roleBindingId openapi_types.UUID, params *FetchRoleBindingParams, reqEditors ...RequestEditorFn) (*FetchRoleBindingResponse, error)
+	FetchRoleBindingWithResponse(ctx context.Context, roleBindingId openapi_types.UUID, params *FetchRoleBindingParams, reqEditors ...RequestEditorFn) (*FetchRoleBindingApiResponse, error)
 
 	// ListServiceAccountsWithResponse request
-	ListServiceAccountsWithResponse(ctx context.Context, params *ListServiceAccountsParams, reqEditors ...RequestEditorFn) (*ListServiceAccountsResponse, error)
+	ListServiceAccountsWithResponse(ctx context.Context, params *ListServiceAccountsParams, reqEditors ...RequestEditorFn) (*ListServiceAccountsApiResponse, error)
 
 	// CreateServiceAccountWithBodyWithResponse request with any body
-	CreateServiceAccountWithBodyWithResponse(ctx context.Context, params *CreateServiceAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateServiceAccountResponse, error)
+	CreateServiceAccountWithBodyWithResponse(ctx context.Context, params *CreateServiceAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateServiceAccountApiResponse, error)
 
-	CreateServiceAccountWithResponse(ctx context.Context, params *CreateServiceAccountParams, body CreateServiceAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateServiceAccountResponse, error)
+	CreateServiceAccountWithResponse(ctx context.Context, params *CreateServiceAccountParams, body CreateServiceAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateServiceAccountApiResponse, error)
 
 	// DeleteServiceAccountWithResponse request
-	DeleteServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *DeleteServiceAccountParams, reqEditors ...RequestEditorFn) (*DeleteServiceAccountResponse, error)
+	DeleteServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *DeleteServiceAccountParams, reqEditors ...RequestEditorFn) (*DeleteServiceAccountApiResponse, error)
 
 	// FetchServiceAccountWithResponse request
-	FetchServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *FetchServiceAccountParams, reqEditors ...RequestEditorFn) (*FetchServiceAccountResponse, error)
+	FetchServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *FetchServiceAccountParams, reqEditors ...RequestEditorFn) (*FetchServiceAccountApiResponse, error)
 
 	// UpdateServiceAccountWithBodyWithResponse request with any body
-	UpdateServiceAccountWithBodyWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateServiceAccountResponse, error)
+	UpdateServiceAccountWithBodyWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateServiceAccountApiResponse, error)
 
-	UpdateServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, body UpdateServiceAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateServiceAccountResponse, error)
+	UpdateServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, body UpdateServiceAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateServiceAccountApiResponse, error)
 
 	// RotateServiceAccountSecretWithResponse request
-	RotateServiceAccountSecretWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *RotateServiceAccountSecretParams, reqEditors ...RequestEditorFn) (*RotateServiceAccountSecretResponse, error)
+	RotateServiceAccountSecretWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *RotateServiceAccountSecretParams, reqEditors ...RequestEditorFn) (*RotateServiceAccountSecretApiResponse, error)
 
 	// ListUsersWithResponse request
-	ListUsersWithResponse(ctx context.Context, params *ListUsersParams, reqEditors ...RequestEditorFn) (*ListUsersResponse, error)
+	ListUsersWithResponse(ctx context.Context, params *ListUsersParams, reqEditors ...RequestEditorFn) (*ListUsersApiResponse, error)
 
 	// DeleteUserWithResponse request
-	DeleteUserWithResponse(ctx context.Context, userId openapi_types.UUID, params *DeleteUserParams, reqEditors ...RequestEditorFn) (*DeleteUserResponse, error)
+	DeleteUserWithResponse(ctx context.Context, userId openapi_types.UUID, params *DeleteUserParams, reqEditors ...RequestEditorFn) (*DeleteUserApiResponse, error)
 
 	// FetchUserWithResponse request
-	FetchUserWithResponse(ctx context.Context, userId openapi_types.UUID, params *FetchUserParams, reqEditors ...RequestEditorFn) (*FetchUserResponse, error)
+	FetchUserWithResponse(ctx context.Context, userId openapi_types.UUID, params *FetchUserParams, reqEditors ...RequestEditorFn) (*FetchUserApiResponse, error)
 }
 
-type DeleteApiKeyResponse struct {
+type DeleteApiKeyApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *ErrorResponse
@@ -3271,7 +3271,7 @@ type DeleteApiKeyResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r DeleteApiKeyResponse) Status() string {
+func (r DeleteApiKeyApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3279,14 +3279,14 @@ func (r DeleteApiKeyResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DeleteApiKeyResponse) StatusCode() int {
+func (r DeleteApiKeyApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type FetchApiKeyResponse struct {
+type FetchApiKeyApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *APIKey
@@ -3297,7 +3297,7 @@ type FetchApiKeyResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r FetchApiKeyResponse) Status() string {
+func (r FetchApiKeyApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3305,14 +3305,14 @@ func (r FetchApiKeyResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r FetchApiKeyResponse) StatusCode() int {
+func (r FetchApiKeyApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type UpdateApiKeyResponse struct {
+type UpdateApiKeyApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *APIKey
@@ -3324,7 +3324,7 @@ type UpdateApiKeyResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r UpdateApiKeyResponse) Status() string {
+func (r UpdateApiKeyApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3332,14 +3332,14 @@ func (r UpdateApiKeyResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r UpdateApiKeyResponse) StatusCode() int {
+func (r UpdateApiKeyApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListInvitesResponse struct {
+type ListInvitesApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *InviteList
@@ -3351,7 +3351,7 @@ type ListInvitesResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListInvitesResponse) Status() string {
+func (r ListInvitesApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3359,14 +3359,14 @@ func (r ListInvitesResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListInvitesResponse) StatusCode() int {
+func (r ListInvitesApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type CreateInviteResponse struct {
+type CreateInviteApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Invite
@@ -3379,7 +3379,7 @@ type CreateInviteResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r CreateInviteResponse) Status() string {
+func (r CreateInviteApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3387,14 +3387,14 @@ func (r CreateInviteResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r CreateInviteResponse) StatusCode() int {
+func (r CreateInviteApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type DeleteInviteResponse struct {
+type DeleteInviteApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *ErrorResponse
@@ -3406,7 +3406,7 @@ type DeleteInviteResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r DeleteInviteResponse) Status() string {
+func (r DeleteInviteApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3414,14 +3414,14 @@ func (r DeleteInviteResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DeleteInviteResponse) StatusCode() int {
+func (r DeleteInviteApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type FetchInviteResponse struct {
+type FetchInviteApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Invite
@@ -3433,7 +3433,7 @@ type FetchInviteResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r FetchInviteResponse) Status() string {
+func (r FetchInviteApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3441,14 +3441,14 @@ func (r FetchInviteResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r FetchInviteResponse) StatusCode() int {
+func (r FetchInviteApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ResendInviteResponse struct {
+type ResendInviteApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Invite
@@ -3462,7 +3462,7 @@ type ResendInviteResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ResendInviteResponse) Status() string {
+func (r ResendInviteApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3470,14 +3470,14 @@ func (r ResendInviteResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ResendInviteResponse) StatusCode() int {
+func (r ResendInviteApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListOrganizationsResponse struct {
+type ListOrganizationsApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *OrganizationList
@@ -3487,7 +3487,7 @@ type ListOrganizationsResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListOrganizationsResponse) Status() string {
+func (r ListOrganizationsApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3495,14 +3495,14 @@ func (r ListOrganizationsResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListOrganizationsResponse) StatusCode() int {
+func (r ListOrganizationsApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type DeleteOrganizationResponse struct {
+type DeleteOrganizationApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *ErrorResponse
@@ -3513,7 +3513,7 @@ type DeleteOrganizationResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r DeleteOrganizationResponse) Status() string {
+func (r DeleteOrganizationApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3521,14 +3521,14 @@ func (r DeleteOrganizationResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DeleteOrganizationResponse) StatusCode() int {
+func (r DeleteOrganizationApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type FetchOrganizationResponse struct {
+type FetchOrganizationApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Organization
@@ -3539,7 +3539,7 @@ type FetchOrganizationResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r FetchOrganizationResponse) Status() string {
+func (r FetchOrganizationApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3547,14 +3547,14 @@ func (r FetchOrganizationResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r FetchOrganizationResponse) StatusCode() int {
+func (r FetchOrganizationApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type UpdateOrganizationResponse struct {
+type UpdateOrganizationApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Organization
@@ -3567,7 +3567,7 @@ type UpdateOrganizationResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r UpdateOrganizationResponse) Status() string {
+func (r UpdateOrganizationApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3575,14 +3575,14 @@ func (r UpdateOrganizationResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r UpdateOrganizationResponse) StatusCode() int {
+func (r UpdateOrganizationApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListProjectsResponse struct {
+type ListProjectsApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ProjectList
@@ -3592,7 +3592,7 @@ type ListProjectsResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListProjectsResponse) Status() string {
+func (r ListProjectsApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3600,14 +3600,14 @@ func (r ListProjectsResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListProjectsResponse) StatusCode() int {
+func (r ListProjectsApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type CreateProjectResponse struct {
+type CreateProjectApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Project
@@ -3620,7 +3620,7 @@ type CreateProjectResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r CreateProjectResponse) Status() string {
+func (r CreateProjectApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3628,14 +3628,14 @@ func (r CreateProjectResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r CreateProjectResponse) StatusCode() int {
+func (r CreateProjectApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type DeleteProjectResponse struct {
+type DeleteProjectApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *ErrorResponse
@@ -3646,7 +3646,7 @@ type DeleteProjectResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r DeleteProjectResponse) Status() string {
+func (r DeleteProjectApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3654,14 +3654,14 @@ func (r DeleteProjectResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DeleteProjectResponse) StatusCode() int {
+func (r DeleteProjectApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type FetchProjectResponse struct {
+type FetchProjectApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Project
@@ -3672,7 +3672,7 @@ type FetchProjectResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r FetchProjectResponse) Status() string {
+func (r FetchProjectApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3680,14 +3680,14 @@ func (r FetchProjectResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r FetchProjectResponse) StatusCode() int {
+func (r FetchProjectApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type UpdateProjectResponse struct {
+type UpdateProjectApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Project
@@ -3700,7 +3700,7 @@ type UpdateProjectResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r UpdateProjectResponse) Status() string {
+func (r UpdateProjectApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3708,14 +3708,14 @@ func (r UpdateProjectResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r UpdateProjectResponse) StatusCode() int {
+func (r UpdateProjectApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListProjectApiKeysResponse struct {
+type ListProjectApiKeysApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ListApiKeysResponse
@@ -3725,7 +3725,7 @@ type ListProjectApiKeysResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListProjectApiKeysResponse) Status() string {
+func (r ListProjectApiKeysApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3733,14 +3733,14 @@ func (r ListProjectApiKeysResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListProjectApiKeysResponse) StatusCode() int {
+func (r ListProjectApiKeysApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type CreateApiKeyResponse struct {
+type CreateApiKeyApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON201      *APIKeyWithSecret
@@ -3752,7 +3752,7 @@ type CreateApiKeyResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r CreateApiKeyResponse) Status() string {
+func (r CreateApiKeyApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3760,14 +3760,14 @@ func (r CreateApiKeyResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r CreateApiKeyResponse) StatusCode() int {
+func (r CreateApiKeyApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListRoleBindingsResponse struct {
+type ListRoleBindingsApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *RoleBindingList
@@ -3779,7 +3779,7 @@ type ListRoleBindingsResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListRoleBindingsResponse) Status() string {
+func (r ListRoleBindingsApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3787,14 +3787,14 @@ func (r ListRoleBindingsResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListRoleBindingsResponse) StatusCode() int {
+func (r ListRoleBindingsApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type CreateRoleBindingResponse struct {
+type CreateRoleBindingApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *RoleBinding
@@ -3808,7 +3808,7 @@ type CreateRoleBindingResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r CreateRoleBindingResponse) Status() string {
+func (r CreateRoleBindingApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3816,14 +3816,14 @@ func (r CreateRoleBindingResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r CreateRoleBindingResponse) StatusCode() int {
+func (r CreateRoleBindingApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type DeleteRoleBindingResponse struct {
+type DeleteRoleBindingApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *ErrorResponse
@@ -3835,7 +3835,7 @@ type DeleteRoleBindingResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r DeleteRoleBindingResponse) Status() string {
+func (r DeleteRoleBindingApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3843,14 +3843,14 @@ func (r DeleteRoleBindingResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DeleteRoleBindingResponse) StatusCode() int {
+func (r DeleteRoleBindingApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type FetchRoleBindingResponse struct {
+type FetchRoleBindingApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *RoleBinding
@@ -3862,7 +3862,7 @@ type FetchRoleBindingResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r FetchRoleBindingResponse) Status() string {
+func (r FetchRoleBindingApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3870,14 +3870,14 @@ func (r FetchRoleBindingResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r FetchRoleBindingResponse) StatusCode() int {
+func (r FetchRoleBindingApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListServiceAccountsResponse struct {
+type ListServiceAccountsApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ServiceAccountList
@@ -3889,7 +3889,7 @@ type ListServiceAccountsResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListServiceAccountsResponse) Status() string {
+func (r ListServiceAccountsApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3897,14 +3897,14 @@ func (r ListServiceAccountsResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListServiceAccountsResponse) StatusCode() int {
+func (r ListServiceAccountsApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type CreateServiceAccountResponse struct {
+type CreateServiceAccountApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON201      *ServiceAccountWithSecret
@@ -3916,7 +3916,7 @@ type CreateServiceAccountResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r CreateServiceAccountResponse) Status() string {
+func (r CreateServiceAccountApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3924,14 +3924,14 @@ func (r CreateServiceAccountResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r CreateServiceAccountResponse) StatusCode() int {
+func (r CreateServiceAccountApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type DeleteServiceAccountResponse struct {
+type DeleteServiceAccountApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *ErrorResponse
@@ -3942,7 +3942,7 @@ type DeleteServiceAccountResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r DeleteServiceAccountResponse) Status() string {
+func (r DeleteServiceAccountApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3950,14 +3950,14 @@ func (r DeleteServiceAccountResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DeleteServiceAccountResponse) StatusCode() int {
+func (r DeleteServiceAccountApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type FetchServiceAccountResponse struct {
+type FetchServiceAccountApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ServiceAccount
@@ -3969,7 +3969,7 @@ type FetchServiceAccountResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r FetchServiceAccountResponse) Status() string {
+func (r FetchServiceAccountApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3977,14 +3977,14 @@ func (r FetchServiceAccountResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r FetchServiceAccountResponse) StatusCode() int {
+func (r FetchServiceAccountApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type UpdateServiceAccountResponse struct {
+type UpdateServiceAccountApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ServiceAccount
@@ -3997,7 +3997,7 @@ type UpdateServiceAccountResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r UpdateServiceAccountResponse) Status() string {
+func (r UpdateServiceAccountApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -4005,14 +4005,14 @@ func (r UpdateServiceAccountResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r UpdateServiceAccountResponse) StatusCode() int {
+func (r UpdateServiceAccountApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type RotateServiceAccountSecretResponse struct {
+type RotateServiceAccountSecretApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ServiceAccountWithSecret
@@ -4024,7 +4024,7 @@ type RotateServiceAccountSecretResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r RotateServiceAccountSecretResponse) Status() string {
+func (r RotateServiceAccountSecretApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -4032,14 +4032,14 @@ func (r RotateServiceAccountSecretResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r RotateServiceAccountSecretResponse) StatusCode() int {
+func (r RotateServiceAccountSecretApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListUsersResponse struct {
+type ListUsersApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *UserList
@@ -4051,7 +4051,7 @@ type ListUsersResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListUsersResponse) Status() string {
+func (r ListUsersApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -4059,14 +4059,14 @@ func (r ListUsersResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListUsersResponse) StatusCode() int {
+func (r ListUsersApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type DeleteUserResponse struct {
+type DeleteUserApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *ErrorResponse
@@ -4078,7 +4078,7 @@ type DeleteUserResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r DeleteUserResponse) Status() string {
+func (r DeleteUserApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -4086,14 +4086,14 @@ func (r DeleteUserResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DeleteUserResponse) StatusCode() int {
+func (r DeleteUserApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type FetchUserResponse struct {
+type FetchUserApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *User
@@ -4105,7 +4105,7 @@ type FetchUserResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r FetchUserResponse) Status() string {
+func (r FetchUserApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -4113,382 +4113,382 @@ func (r FetchUserResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r FetchUserResponse) StatusCode() int {
+func (r FetchUserApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-// DeleteApiKeyWithResponse request returning *DeleteApiKeyResponse
-func (c *ClientWithResponses) DeleteApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *DeleteApiKeyParams, reqEditors ...RequestEditorFn) (*DeleteApiKeyResponse, error) {
+// DeleteApiKeyWithResponse request returning *DeleteApiKeyApiResponse
+func (c *ClientWithResponses) DeleteApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *DeleteApiKeyParams, reqEditors ...RequestEditorFn) (*DeleteApiKeyApiResponse, error) {
 	rsp, err := c.DeleteApiKey(ctx, apiKeyId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDeleteApiKeyResponse(rsp)
+	return ParseDeleteApiKeyApiResponse(rsp)
 }
 
-// FetchApiKeyWithResponse request returning *FetchApiKeyResponse
-func (c *ClientWithResponses) FetchApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *FetchApiKeyParams, reqEditors ...RequestEditorFn) (*FetchApiKeyResponse, error) {
+// FetchApiKeyWithResponse request returning *FetchApiKeyApiResponse
+func (c *ClientWithResponses) FetchApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *FetchApiKeyParams, reqEditors ...RequestEditorFn) (*FetchApiKeyApiResponse, error) {
 	rsp, err := c.FetchApiKey(ctx, apiKeyId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseFetchApiKeyResponse(rsp)
+	return ParseFetchApiKeyApiResponse(rsp)
 }
 
-// UpdateApiKeyWithBodyWithResponse request with arbitrary body returning *UpdateApiKeyResponse
-func (c *ClientWithResponses) UpdateApiKeyWithBodyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error) {
+// UpdateApiKeyWithBodyWithResponse request with arbitrary body returning *UpdateApiKeyApiResponse
+func (c *ClientWithResponses) UpdateApiKeyWithBodyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateApiKeyApiResponse, error) {
 	rsp, err := c.UpdateApiKeyWithBody(ctx, apiKeyId, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateApiKeyResponse(rsp)
+	return ParseUpdateApiKeyApiResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpdateApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error) {
+func (c *ClientWithResponses) UpdateApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApiKeyApiResponse, error) {
 	rsp, err := c.UpdateApiKey(ctx, apiKeyId, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateApiKeyResponse(rsp)
+	return ParseUpdateApiKeyApiResponse(rsp)
 }
 
-// ListInvitesWithResponse request returning *ListInvitesResponse
-func (c *ClientWithResponses) ListInvitesWithResponse(ctx context.Context, params *ListInvitesParams, reqEditors ...RequestEditorFn) (*ListInvitesResponse, error) {
+// ListInvitesWithResponse request returning *ListInvitesApiResponse
+func (c *ClientWithResponses) ListInvitesWithResponse(ctx context.Context, params *ListInvitesParams, reqEditors ...RequestEditorFn) (*ListInvitesApiResponse, error) {
 	rsp, err := c.ListInvites(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListInvitesResponse(rsp)
+	return ParseListInvitesApiResponse(rsp)
 }
 
-// CreateInviteWithBodyWithResponse request with arbitrary body returning *CreateInviteResponse
-func (c *ClientWithResponses) CreateInviteWithBodyWithResponse(ctx context.Context, params *CreateInviteParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateInviteResponse, error) {
+// CreateInviteWithBodyWithResponse request with arbitrary body returning *CreateInviteApiResponse
+func (c *ClientWithResponses) CreateInviteWithBodyWithResponse(ctx context.Context, params *CreateInviteParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateInviteApiResponse, error) {
 	rsp, err := c.CreateInviteWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateInviteResponse(rsp)
+	return ParseCreateInviteApiResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateInviteWithResponse(ctx context.Context, params *CreateInviteParams, body CreateInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateInviteResponse, error) {
+func (c *ClientWithResponses) CreateInviteWithResponse(ctx context.Context, params *CreateInviteParams, body CreateInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateInviteApiResponse, error) {
 	rsp, err := c.CreateInvite(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateInviteResponse(rsp)
+	return ParseCreateInviteApiResponse(rsp)
 }
 
-// DeleteInviteWithResponse request returning *DeleteInviteResponse
-func (c *ClientWithResponses) DeleteInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *DeleteInviteParams, reqEditors ...RequestEditorFn) (*DeleteInviteResponse, error) {
+// DeleteInviteWithResponse request returning *DeleteInviteApiResponse
+func (c *ClientWithResponses) DeleteInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *DeleteInviteParams, reqEditors ...RequestEditorFn) (*DeleteInviteApiResponse, error) {
 	rsp, err := c.DeleteInvite(ctx, inviteId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDeleteInviteResponse(rsp)
+	return ParseDeleteInviteApiResponse(rsp)
 }
 
-// FetchInviteWithResponse request returning *FetchInviteResponse
-func (c *ClientWithResponses) FetchInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *FetchInviteParams, reqEditors ...RequestEditorFn) (*FetchInviteResponse, error) {
+// FetchInviteWithResponse request returning *FetchInviteApiResponse
+func (c *ClientWithResponses) FetchInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *FetchInviteParams, reqEditors ...RequestEditorFn) (*FetchInviteApiResponse, error) {
 	rsp, err := c.FetchInvite(ctx, inviteId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseFetchInviteResponse(rsp)
+	return ParseFetchInviteApiResponse(rsp)
 }
 
-// ResendInviteWithResponse request returning *ResendInviteResponse
-func (c *ClientWithResponses) ResendInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *ResendInviteParams, reqEditors ...RequestEditorFn) (*ResendInviteResponse, error) {
+// ResendInviteWithResponse request returning *ResendInviteApiResponse
+func (c *ClientWithResponses) ResendInviteWithResponse(ctx context.Context, inviteId openapi_types.UUID, params *ResendInviteParams, reqEditors ...RequestEditorFn) (*ResendInviteApiResponse, error) {
 	rsp, err := c.ResendInvite(ctx, inviteId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseResendInviteResponse(rsp)
+	return ParseResendInviteApiResponse(rsp)
 }
 
-// ListOrganizationsWithResponse request returning *ListOrganizationsResponse
-func (c *ClientWithResponses) ListOrganizationsWithResponse(ctx context.Context, params *ListOrganizationsParams, reqEditors ...RequestEditorFn) (*ListOrganizationsResponse, error) {
+// ListOrganizationsWithResponse request returning *ListOrganizationsApiResponse
+func (c *ClientWithResponses) ListOrganizationsWithResponse(ctx context.Context, params *ListOrganizationsParams, reqEditors ...RequestEditorFn) (*ListOrganizationsApiResponse, error) {
 	rsp, err := c.ListOrganizations(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListOrganizationsResponse(rsp)
+	return ParseListOrganizationsApiResponse(rsp)
 }
 
-// DeleteOrganizationWithResponse request returning *DeleteOrganizationResponse
-func (c *ClientWithResponses) DeleteOrganizationWithResponse(ctx context.Context, organizationId string, params *DeleteOrganizationParams, reqEditors ...RequestEditorFn) (*DeleteOrganizationResponse, error) {
+// DeleteOrganizationWithResponse request returning *DeleteOrganizationApiResponse
+func (c *ClientWithResponses) DeleteOrganizationWithResponse(ctx context.Context, organizationId string, params *DeleteOrganizationParams, reqEditors ...RequestEditorFn) (*DeleteOrganizationApiResponse, error) {
 	rsp, err := c.DeleteOrganization(ctx, organizationId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDeleteOrganizationResponse(rsp)
+	return ParseDeleteOrganizationApiResponse(rsp)
 }
 
-// FetchOrganizationWithResponse request returning *FetchOrganizationResponse
-func (c *ClientWithResponses) FetchOrganizationWithResponse(ctx context.Context, organizationId string, params *FetchOrganizationParams, reqEditors ...RequestEditorFn) (*FetchOrganizationResponse, error) {
+// FetchOrganizationWithResponse request returning *FetchOrganizationApiResponse
+func (c *ClientWithResponses) FetchOrganizationWithResponse(ctx context.Context, organizationId string, params *FetchOrganizationParams, reqEditors ...RequestEditorFn) (*FetchOrganizationApiResponse, error) {
 	rsp, err := c.FetchOrganization(ctx, organizationId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseFetchOrganizationResponse(rsp)
+	return ParseFetchOrganizationApiResponse(rsp)
 }
 
-// UpdateOrganizationWithBodyWithResponse request with arbitrary body returning *UpdateOrganizationResponse
-func (c *ClientWithResponses) UpdateOrganizationWithBodyWithResponse(ctx context.Context, organizationId string, params *UpdateOrganizationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error) {
+// UpdateOrganizationWithBodyWithResponse request with arbitrary body returning *UpdateOrganizationApiResponse
+func (c *ClientWithResponses) UpdateOrganizationWithBodyWithResponse(ctx context.Context, organizationId string, params *UpdateOrganizationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrganizationApiResponse, error) {
 	rsp, err := c.UpdateOrganizationWithBody(ctx, organizationId, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateOrganizationResponse(rsp)
+	return ParseUpdateOrganizationApiResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpdateOrganizationWithResponse(ctx context.Context, organizationId string, params *UpdateOrganizationParams, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error) {
+func (c *ClientWithResponses) UpdateOrganizationWithResponse(ctx context.Context, organizationId string, params *UpdateOrganizationParams, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationApiResponse, error) {
 	rsp, err := c.UpdateOrganization(ctx, organizationId, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateOrganizationResponse(rsp)
+	return ParseUpdateOrganizationApiResponse(rsp)
 }
 
-// ListProjectsWithResponse request returning *ListProjectsResponse
-func (c *ClientWithResponses) ListProjectsWithResponse(ctx context.Context, params *ListProjectsParams, reqEditors ...RequestEditorFn) (*ListProjectsResponse, error) {
+// ListProjectsWithResponse request returning *ListProjectsApiResponse
+func (c *ClientWithResponses) ListProjectsWithResponse(ctx context.Context, params *ListProjectsParams, reqEditors ...RequestEditorFn) (*ListProjectsApiResponse, error) {
 	rsp, err := c.ListProjects(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListProjectsResponse(rsp)
+	return ParseListProjectsApiResponse(rsp)
 }
 
-// CreateProjectWithBodyWithResponse request with arbitrary body returning *CreateProjectResponse
-func (c *ClientWithResponses) CreateProjectWithBodyWithResponse(ctx context.Context, params *CreateProjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error) {
+// CreateProjectWithBodyWithResponse request with arbitrary body returning *CreateProjectApiResponse
+func (c *ClientWithResponses) CreateProjectWithBodyWithResponse(ctx context.Context, params *CreateProjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectApiResponse, error) {
 	rsp, err := c.CreateProjectWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateProjectResponse(rsp)
+	return ParseCreateProjectApiResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateProjectWithResponse(ctx context.Context, params *CreateProjectParams, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error) {
+func (c *ClientWithResponses) CreateProjectWithResponse(ctx context.Context, params *CreateProjectParams, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectApiResponse, error) {
 	rsp, err := c.CreateProject(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateProjectResponse(rsp)
+	return ParseCreateProjectApiResponse(rsp)
 }
 
-// DeleteProjectWithResponse request returning *DeleteProjectResponse
-func (c *ClientWithResponses) DeleteProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *DeleteProjectParams, reqEditors ...RequestEditorFn) (*DeleteProjectResponse, error) {
+// DeleteProjectWithResponse request returning *DeleteProjectApiResponse
+func (c *ClientWithResponses) DeleteProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *DeleteProjectParams, reqEditors ...RequestEditorFn) (*DeleteProjectApiResponse, error) {
 	rsp, err := c.DeleteProject(ctx, projectId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDeleteProjectResponse(rsp)
+	return ParseDeleteProjectApiResponse(rsp)
 }
 
-// FetchProjectWithResponse request returning *FetchProjectResponse
-func (c *ClientWithResponses) FetchProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *FetchProjectParams, reqEditors ...RequestEditorFn) (*FetchProjectResponse, error) {
+// FetchProjectWithResponse request returning *FetchProjectApiResponse
+func (c *ClientWithResponses) FetchProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *FetchProjectParams, reqEditors ...RequestEditorFn) (*FetchProjectApiResponse, error) {
 	rsp, err := c.FetchProject(ctx, projectId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseFetchProjectResponse(rsp)
+	return ParseFetchProjectApiResponse(rsp)
 }
 
-// UpdateProjectWithBodyWithResponse request with arbitrary body returning *UpdateProjectResponse
-func (c *ClientWithResponses) UpdateProjectWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *UpdateProjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error) {
+// UpdateProjectWithBodyWithResponse request with arbitrary body returning *UpdateProjectApiResponse
+func (c *ClientWithResponses) UpdateProjectWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *UpdateProjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectApiResponse, error) {
 	rsp, err := c.UpdateProjectWithBody(ctx, projectId, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateProjectResponse(rsp)
+	return ParseUpdateProjectApiResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpdateProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *UpdateProjectParams, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error) {
+func (c *ClientWithResponses) UpdateProjectWithResponse(ctx context.Context, projectId openapi_types.UUID, params *UpdateProjectParams, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectApiResponse, error) {
 	rsp, err := c.UpdateProject(ctx, projectId, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateProjectResponse(rsp)
+	return ParseUpdateProjectApiResponse(rsp)
 }
 
-// ListProjectApiKeysWithResponse request returning *ListProjectApiKeysResponse
-func (c *ClientWithResponses) ListProjectApiKeysWithResponse(ctx context.Context, projectId openapi_types.UUID, params *ListProjectApiKeysParams, reqEditors ...RequestEditorFn) (*ListProjectApiKeysResponse, error) {
+// ListProjectApiKeysWithResponse request returning *ListProjectApiKeysApiResponse
+func (c *ClientWithResponses) ListProjectApiKeysWithResponse(ctx context.Context, projectId openapi_types.UUID, params *ListProjectApiKeysParams, reqEditors ...RequestEditorFn) (*ListProjectApiKeysApiResponse, error) {
 	rsp, err := c.ListProjectApiKeys(ctx, projectId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListProjectApiKeysResponse(rsp)
+	return ParseListProjectApiKeysApiResponse(rsp)
 }
 
-// CreateApiKeyWithBodyWithResponse request with arbitrary body returning *CreateApiKeyResponse
-func (c *ClientWithResponses) CreateApiKeyWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error) {
+// CreateApiKeyWithBodyWithResponse request with arbitrary body returning *CreateApiKeyApiResponse
+func (c *ClientWithResponses) CreateApiKeyWithBodyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApiKeyApiResponse, error) {
 	rsp, err := c.CreateApiKeyWithBody(ctx, projectId, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateApiKeyResponse(rsp)
+	return ParseCreateApiKeyApiResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateApiKeyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error) {
+func (c *ClientWithResponses) CreateApiKeyWithResponse(ctx context.Context, projectId openapi_types.UUID, params *CreateApiKeyParams, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeyApiResponse, error) {
 	rsp, err := c.CreateApiKey(ctx, projectId, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateApiKeyResponse(rsp)
+	return ParseCreateApiKeyApiResponse(rsp)
 }
 
-// ListRoleBindingsWithResponse request returning *ListRoleBindingsResponse
-func (c *ClientWithResponses) ListRoleBindingsWithResponse(ctx context.Context, params *ListRoleBindingsParams, reqEditors ...RequestEditorFn) (*ListRoleBindingsResponse, error) {
+// ListRoleBindingsWithResponse request returning *ListRoleBindingsApiResponse
+func (c *ClientWithResponses) ListRoleBindingsWithResponse(ctx context.Context, params *ListRoleBindingsParams, reqEditors ...RequestEditorFn) (*ListRoleBindingsApiResponse, error) {
 	rsp, err := c.ListRoleBindings(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListRoleBindingsResponse(rsp)
+	return ParseListRoleBindingsApiResponse(rsp)
 }
 
-// CreateRoleBindingWithBodyWithResponse request with arbitrary body returning *CreateRoleBindingResponse
-func (c *ClientWithResponses) CreateRoleBindingWithBodyWithResponse(ctx context.Context, params *CreateRoleBindingParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRoleBindingResponse, error) {
+// CreateRoleBindingWithBodyWithResponse request with arbitrary body returning *CreateRoleBindingApiResponse
+func (c *ClientWithResponses) CreateRoleBindingWithBodyWithResponse(ctx context.Context, params *CreateRoleBindingParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRoleBindingApiResponse, error) {
 	rsp, err := c.CreateRoleBindingWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateRoleBindingResponse(rsp)
+	return ParseCreateRoleBindingApiResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateRoleBindingWithResponse(ctx context.Context, params *CreateRoleBindingParams, body CreateRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRoleBindingResponse, error) {
+func (c *ClientWithResponses) CreateRoleBindingWithResponse(ctx context.Context, params *CreateRoleBindingParams, body CreateRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRoleBindingApiResponse, error) {
 	rsp, err := c.CreateRoleBinding(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateRoleBindingResponse(rsp)
+	return ParseCreateRoleBindingApiResponse(rsp)
 }
 
-// DeleteRoleBindingWithResponse request returning *DeleteRoleBindingResponse
-func (c *ClientWithResponses) DeleteRoleBindingWithResponse(ctx context.Context, roleBindingId openapi_types.UUID, params *DeleteRoleBindingParams, reqEditors ...RequestEditorFn) (*DeleteRoleBindingResponse, error) {
+// DeleteRoleBindingWithResponse request returning *DeleteRoleBindingApiResponse
+func (c *ClientWithResponses) DeleteRoleBindingWithResponse(ctx context.Context, roleBindingId openapi_types.UUID, params *DeleteRoleBindingParams, reqEditors ...RequestEditorFn) (*DeleteRoleBindingApiResponse, error) {
 	rsp, err := c.DeleteRoleBinding(ctx, roleBindingId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDeleteRoleBindingResponse(rsp)
+	return ParseDeleteRoleBindingApiResponse(rsp)
 }
 
-// FetchRoleBindingWithResponse request returning *FetchRoleBindingResponse
-func (c *ClientWithResponses) FetchRoleBindingWithResponse(ctx context.Context, roleBindingId openapi_types.UUID, params *FetchRoleBindingParams, reqEditors ...RequestEditorFn) (*FetchRoleBindingResponse, error) {
+// FetchRoleBindingWithResponse request returning *FetchRoleBindingApiResponse
+func (c *ClientWithResponses) FetchRoleBindingWithResponse(ctx context.Context, roleBindingId openapi_types.UUID, params *FetchRoleBindingParams, reqEditors ...RequestEditorFn) (*FetchRoleBindingApiResponse, error) {
 	rsp, err := c.FetchRoleBinding(ctx, roleBindingId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseFetchRoleBindingResponse(rsp)
+	return ParseFetchRoleBindingApiResponse(rsp)
 }
 
-// ListServiceAccountsWithResponse request returning *ListServiceAccountsResponse
-func (c *ClientWithResponses) ListServiceAccountsWithResponse(ctx context.Context, params *ListServiceAccountsParams, reqEditors ...RequestEditorFn) (*ListServiceAccountsResponse, error) {
+// ListServiceAccountsWithResponse request returning *ListServiceAccountsApiResponse
+func (c *ClientWithResponses) ListServiceAccountsWithResponse(ctx context.Context, params *ListServiceAccountsParams, reqEditors ...RequestEditorFn) (*ListServiceAccountsApiResponse, error) {
 	rsp, err := c.ListServiceAccounts(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListServiceAccountsResponse(rsp)
+	return ParseListServiceAccountsApiResponse(rsp)
 }
 
-// CreateServiceAccountWithBodyWithResponse request with arbitrary body returning *CreateServiceAccountResponse
-func (c *ClientWithResponses) CreateServiceAccountWithBodyWithResponse(ctx context.Context, params *CreateServiceAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateServiceAccountResponse, error) {
+// CreateServiceAccountWithBodyWithResponse request with arbitrary body returning *CreateServiceAccountApiResponse
+func (c *ClientWithResponses) CreateServiceAccountWithBodyWithResponse(ctx context.Context, params *CreateServiceAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateServiceAccountApiResponse, error) {
 	rsp, err := c.CreateServiceAccountWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateServiceAccountResponse(rsp)
+	return ParseCreateServiceAccountApiResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateServiceAccountWithResponse(ctx context.Context, params *CreateServiceAccountParams, body CreateServiceAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateServiceAccountResponse, error) {
+func (c *ClientWithResponses) CreateServiceAccountWithResponse(ctx context.Context, params *CreateServiceAccountParams, body CreateServiceAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateServiceAccountApiResponse, error) {
 	rsp, err := c.CreateServiceAccount(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateServiceAccountResponse(rsp)
+	return ParseCreateServiceAccountApiResponse(rsp)
 }
 
-// DeleteServiceAccountWithResponse request returning *DeleteServiceAccountResponse
-func (c *ClientWithResponses) DeleteServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *DeleteServiceAccountParams, reqEditors ...RequestEditorFn) (*DeleteServiceAccountResponse, error) {
+// DeleteServiceAccountWithResponse request returning *DeleteServiceAccountApiResponse
+func (c *ClientWithResponses) DeleteServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *DeleteServiceAccountParams, reqEditors ...RequestEditorFn) (*DeleteServiceAccountApiResponse, error) {
 	rsp, err := c.DeleteServiceAccount(ctx, serviceAccountId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDeleteServiceAccountResponse(rsp)
+	return ParseDeleteServiceAccountApiResponse(rsp)
 }
 
-// FetchServiceAccountWithResponse request returning *FetchServiceAccountResponse
-func (c *ClientWithResponses) FetchServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *FetchServiceAccountParams, reqEditors ...RequestEditorFn) (*FetchServiceAccountResponse, error) {
+// FetchServiceAccountWithResponse request returning *FetchServiceAccountApiResponse
+func (c *ClientWithResponses) FetchServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *FetchServiceAccountParams, reqEditors ...RequestEditorFn) (*FetchServiceAccountApiResponse, error) {
 	rsp, err := c.FetchServiceAccount(ctx, serviceAccountId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseFetchServiceAccountResponse(rsp)
+	return ParseFetchServiceAccountApiResponse(rsp)
 }
 
-// UpdateServiceAccountWithBodyWithResponse request with arbitrary body returning *UpdateServiceAccountResponse
-func (c *ClientWithResponses) UpdateServiceAccountWithBodyWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateServiceAccountResponse, error) {
+// UpdateServiceAccountWithBodyWithResponse request with arbitrary body returning *UpdateServiceAccountApiResponse
+func (c *ClientWithResponses) UpdateServiceAccountWithBodyWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateServiceAccountApiResponse, error) {
 	rsp, err := c.UpdateServiceAccountWithBody(ctx, serviceAccountId, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateServiceAccountResponse(rsp)
+	return ParseUpdateServiceAccountApiResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpdateServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, body UpdateServiceAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateServiceAccountResponse, error) {
+func (c *ClientWithResponses) UpdateServiceAccountWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *UpdateServiceAccountParams, body UpdateServiceAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateServiceAccountApiResponse, error) {
 	rsp, err := c.UpdateServiceAccount(ctx, serviceAccountId, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateServiceAccountResponse(rsp)
+	return ParseUpdateServiceAccountApiResponse(rsp)
 }
 
-// RotateServiceAccountSecretWithResponse request returning *RotateServiceAccountSecretResponse
-func (c *ClientWithResponses) RotateServiceAccountSecretWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *RotateServiceAccountSecretParams, reqEditors ...RequestEditorFn) (*RotateServiceAccountSecretResponse, error) {
+// RotateServiceAccountSecretWithResponse request returning *RotateServiceAccountSecretApiResponse
+func (c *ClientWithResponses) RotateServiceAccountSecretWithResponse(ctx context.Context, serviceAccountId openapi_types.UUID, params *RotateServiceAccountSecretParams, reqEditors ...RequestEditorFn) (*RotateServiceAccountSecretApiResponse, error) {
 	rsp, err := c.RotateServiceAccountSecret(ctx, serviceAccountId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRotateServiceAccountSecretResponse(rsp)
+	return ParseRotateServiceAccountSecretApiResponse(rsp)
 }
 
-// ListUsersWithResponse request returning *ListUsersResponse
-func (c *ClientWithResponses) ListUsersWithResponse(ctx context.Context, params *ListUsersParams, reqEditors ...RequestEditorFn) (*ListUsersResponse, error) {
+// ListUsersWithResponse request returning *ListUsersApiResponse
+func (c *ClientWithResponses) ListUsersWithResponse(ctx context.Context, params *ListUsersParams, reqEditors ...RequestEditorFn) (*ListUsersApiResponse, error) {
 	rsp, err := c.ListUsers(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListUsersResponse(rsp)
+	return ParseListUsersApiResponse(rsp)
 }
 
-// DeleteUserWithResponse request returning *DeleteUserResponse
-func (c *ClientWithResponses) DeleteUserWithResponse(ctx context.Context, userId openapi_types.UUID, params *DeleteUserParams, reqEditors ...RequestEditorFn) (*DeleteUserResponse, error) {
+// DeleteUserWithResponse request returning *DeleteUserApiResponse
+func (c *ClientWithResponses) DeleteUserWithResponse(ctx context.Context, userId openapi_types.UUID, params *DeleteUserParams, reqEditors ...RequestEditorFn) (*DeleteUserApiResponse, error) {
 	rsp, err := c.DeleteUser(ctx, userId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDeleteUserResponse(rsp)
+	return ParseDeleteUserApiResponse(rsp)
 }
 
-// FetchUserWithResponse request returning *FetchUserResponse
-func (c *ClientWithResponses) FetchUserWithResponse(ctx context.Context, userId openapi_types.UUID, params *FetchUserParams, reqEditors ...RequestEditorFn) (*FetchUserResponse, error) {
+// FetchUserWithResponse request returning *FetchUserApiResponse
+func (c *ClientWithResponses) FetchUserWithResponse(ctx context.Context, userId openapi_types.UUID, params *FetchUserParams, reqEditors ...RequestEditorFn) (*FetchUserApiResponse, error) {
 	rsp, err := c.FetchUser(ctx, userId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseFetchUserResponse(rsp)
+	return ParseFetchUserApiResponse(rsp)
 }
 
-// ParseDeleteApiKeyResponse parses an HTTP response from a DeleteApiKeyWithResponse call
-func ParseDeleteApiKeyResponse(rsp *http.Response) (*DeleteApiKeyResponse, error) {
+// ParseDeleteApiKeyApiResponse parses an HTTP response from a DeleteApiKeyWithResponse call
+func ParseDeleteApiKeyApiResponse(rsp *http.Response) (*DeleteApiKeyApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DeleteApiKeyResponse{
+	response := &DeleteApiKeyApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -4534,15 +4534,15 @@ func ParseDeleteApiKeyResponse(rsp *http.Response) (*DeleteApiKeyResponse, error
 	return response, nil
 }
 
-// ParseFetchApiKeyResponse parses an HTTP response from a FetchApiKeyWithResponse call
-func ParseFetchApiKeyResponse(rsp *http.Response) (*FetchApiKeyResponse, error) {
+// ParseFetchApiKeyApiResponse parses an HTTP response from a FetchApiKeyWithResponse call
+func ParseFetchApiKeyApiResponse(rsp *http.Response) (*FetchApiKeyApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &FetchApiKeyResponse{
+	response := &FetchApiKeyApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -4588,15 +4588,15 @@ func ParseFetchApiKeyResponse(rsp *http.Response) (*FetchApiKeyResponse, error) 
 	return response, nil
 }
 
-// ParseUpdateApiKeyResponse parses an HTTP response from a UpdateApiKeyWithResponse call
-func ParseUpdateApiKeyResponse(rsp *http.Response) (*UpdateApiKeyResponse, error) {
+// ParseUpdateApiKeyApiResponse parses an HTTP response from a UpdateApiKeyWithResponse call
+func ParseUpdateApiKeyApiResponse(rsp *http.Response) (*UpdateApiKeyApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &UpdateApiKeyResponse{
+	response := &UpdateApiKeyApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -4649,15 +4649,15 @@ func ParseUpdateApiKeyResponse(rsp *http.Response) (*UpdateApiKeyResponse, error
 	return response, nil
 }
 
-// ParseListInvitesResponse parses an HTTP response from a ListInvitesWithResponse call
-func ParseListInvitesResponse(rsp *http.Response) (*ListInvitesResponse, error) {
+// ParseListInvitesApiResponse parses an HTTP response from a ListInvitesWithResponse call
+func ParseListInvitesApiResponse(rsp *http.Response) (*ListInvitesApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListInvitesResponse{
+	response := &ListInvitesApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -4710,15 +4710,15 @@ func ParseListInvitesResponse(rsp *http.Response) (*ListInvitesResponse, error) 
 	return response, nil
 }
 
-// ParseCreateInviteResponse parses an HTTP response from a CreateInviteWithResponse call
-func ParseCreateInviteResponse(rsp *http.Response) (*CreateInviteResponse, error) {
+// ParseCreateInviteApiResponse parses an HTTP response from a CreateInviteWithResponse call
+func ParseCreateInviteApiResponse(rsp *http.Response) (*CreateInviteApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &CreateInviteResponse{
+	response := &CreateInviteApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -4778,15 +4778,15 @@ func ParseCreateInviteResponse(rsp *http.Response) (*CreateInviteResponse, error
 	return response, nil
 }
 
-// ParseDeleteInviteResponse parses an HTTP response from a DeleteInviteWithResponse call
-func ParseDeleteInviteResponse(rsp *http.Response) (*DeleteInviteResponse, error) {
+// ParseDeleteInviteApiResponse parses an HTTP response from a DeleteInviteWithResponse call
+func ParseDeleteInviteApiResponse(rsp *http.Response) (*DeleteInviteApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DeleteInviteResponse{
+	response := &DeleteInviteApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -4839,15 +4839,15 @@ func ParseDeleteInviteResponse(rsp *http.Response) (*DeleteInviteResponse, error
 	return response, nil
 }
 
-// ParseFetchInviteResponse parses an HTTP response from a FetchInviteWithResponse call
-func ParseFetchInviteResponse(rsp *http.Response) (*FetchInviteResponse, error) {
+// ParseFetchInviteApiResponse parses an HTTP response from a FetchInviteWithResponse call
+func ParseFetchInviteApiResponse(rsp *http.Response) (*FetchInviteApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &FetchInviteResponse{
+	response := &FetchInviteApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -4900,15 +4900,15 @@ func ParseFetchInviteResponse(rsp *http.Response) (*FetchInviteResponse, error) 
 	return response, nil
 }
 
-// ParseResendInviteResponse parses an HTTP response from a ResendInviteWithResponse call
-func ParseResendInviteResponse(rsp *http.Response) (*ResendInviteResponse, error) {
+// ParseResendInviteApiResponse parses an HTTP response from a ResendInviteWithResponse call
+func ParseResendInviteApiResponse(rsp *http.Response) (*ResendInviteApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ResendInviteResponse{
+	response := &ResendInviteApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -4975,15 +4975,15 @@ func ParseResendInviteResponse(rsp *http.Response) (*ResendInviteResponse, error
 	return response, nil
 }
 
-// ParseListOrganizationsResponse parses an HTTP response from a ListOrganizationsWithResponse call
-func ParseListOrganizationsResponse(rsp *http.Response) (*ListOrganizationsResponse, error) {
+// ParseListOrganizationsApiResponse parses an HTTP response from a ListOrganizationsWithResponse call
+func ParseListOrganizationsApiResponse(rsp *http.Response) (*ListOrganizationsApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListOrganizationsResponse{
+	response := &ListOrganizationsApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5022,15 +5022,15 @@ func ParseListOrganizationsResponse(rsp *http.Response) (*ListOrganizationsRespo
 	return response, nil
 }
 
-// ParseDeleteOrganizationResponse parses an HTTP response from a DeleteOrganizationWithResponse call
-func ParseDeleteOrganizationResponse(rsp *http.Response) (*DeleteOrganizationResponse, error) {
+// ParseDeleteOrganizationApiResponse parses an HTTP response from a DeleteOrganizationWithResponse call
+func ParseDeleteOrganizationApiResponse(rsp *http.Response) (*DeleteOrganizationApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DeleteOrganizationResponse{
+	response := &DeleteOrganizationApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5076,15 +5076,15 @@ func ParseDeleteOrganizationResponse(rsp *http.Response) (*DeleteOrganizationRes
 	return response, nil
 }
 
-// ParseFetchOrganizationResponse parses an HTTP response from a FetchOrganizationWithResponse call
-func ParseFetchOrganizationResponse(rsp *http.Response) (*FetchOrganizationResponse, error) {
+// ParseFetchOrganizationApiResponse parses an HTTP response from a FetchOrganizationWithResponse call
+func ParseFetchOrganizationApiResponse(rsp *http.Response) (*FetchOrganizationApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &FetchOrganizationResponse{
+	response := &FetchOrganizationApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5130,15 +5130,15 @@ func ParseFetchOrganizationResponse(rsp *http.Response) (*FetchOrganizationRespo
 	return response, nil
 }
 
-// ParseUpdateOrganizationResponse parses an HTTP response from a UpdateOrganizationWithResponse call
-func ParseUpdateOrganizationResponse(rsp *http.Response) (*UpdateOrganizationResponse, error) {
+// ParseUpdateOrganizationApiResponse parses an HTTP response from a UpdateOrganizationWithResponse call
+func ParseUpdateOrganizationApiResponse(rsp *http.Response) (*UpdateOrganizationApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &UpdateOrganizationResponse{
+	response := &UpdateOrganizationApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5198,15 +5198,15 @@ func ParseUpdateOrganizationResponse(rsp *http.Response) (*UpdateOrganizationRes
 	return response, nil
 }
 
-// ParseListProjectsResponse parses an HTTP response from a ListProjectsWithResponse call
-func ParseListProjectsResponse(rsp *http.Response) (*ListProjectsResponse, error) {
+// ParseListProjectsApiResponse parses an HTTP response from a ListProjectsWithResponse call
+func ParseListProjectsApiResponse(rsp *http.Response) (*ListProjectsApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListProjectsResponse{
+	response := &ListProjectsApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5245,15 +5245,15 @@ func ParseListProjectsResponse(rsp *http.Response) (*ListProjectsResponse, error
 	return response, nil
 }
 
-// ParseCreateProjectResponse parses an HTTP response from a CreateProjectWithResponse call
-func ParseCreateProjectResponse(rsp *http.Response) (*CreateProjectResponse, error) {
+// ParseCreateProjectApiResponse parses an HTTP response from a CreateProjectWithResponse call
+func ParseCreateProjectApiResponse(rsp *http.Response) (*CreateProjectApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &CreateProjectResponse{
+	response := &CreateProjectApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5313,15 +5313,15 @@ func ParseCreateProjectResponse(rsp *http.Response) (*CreateProjectResponse, err
 	return response, nil
 }
 
-// ParseDeleteProjectResponse parses an HTTP response from a DeleteProjectWithResponse call
-func ParseDeleteProjectResponse(rsp *http.Response) (*DeleteProjectResponse, error) {
+// ParseDeleteProjectApiResponse parses an HTTP response from a DeleteProjectWithResponse call
+func ParseDeleteProjectApiResponse(rsp *http.Response) (*DeleteProjectApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DeleteProjectResponse{
+	response := &DeleteProjectApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5367,15 +5367,15 @@ func ParseDeleteProjectResponse(rsp *http.Response) (*DeleteProjectResponse, err
 	return response, nil
 }
 
-// ParseFetchProjectResponse parses an HTTP response from a FetchProjectWithResponse call
-func ParseFetchProjectResponse(rsp *http.Response) (*FetchProjectResponse, error) {
+// ParseFetchProjectApiResponse parses an HTTP response from a FetchProjectWithResponse call
+func ParseFetchProjectApiResponse(rsp *http.Response) (*FetchProjectApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &FetchProjectResponse{
+	response := &FetchProjectApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5421,15 +5421,15 @@ func ParseFetchProjectResponse(rsp *http.Response) (*FetchProjectResponse, error
 	return response, nil
 }
 
-// ParseUpdateProjectResponse parses an HTTP response from a UpdateProjectWithResponse call
-func ParseUpdateProjectResponse(rsp *http.Response) (*UpdateProjectResponse, error) {
+// ParseUpdateProjectApiResponse parses an HTTP response from a UpdateProjectWithResponse call
+func ParseUpdateProjectApiResponse(rsp *http.Response) (*UpdateProjectApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &UpdateProjectResponse{
+	response := &UpdateProjectApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5489,15 +5489,15 @@ func ParseUpdateProjectResponse(rsp *http.Response) (*UpdateProjectResponse, err
 	return response, nil
 }
 
-// ParseListProjectApiKeysResponse parses an HTTP response from a ListProjectApiKeysWithResponse call
-func ParseListProjectApiKeysResponse(rsp *http.Response) (*ListProjectApiKeysResponse, error) {
+// ParseListProjectApiKeysApiResponse parses an HTTP response from a ListProjectApiKeysWithResponse call
+func ParseListProjectApiKeysApiResponse(rsp *http.Response) (*ListProjectApiKeysApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListProjectApiKeysResponse{
+	response := &ListProjectApiKeysApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5536,15 +5536,15 @@ func ParseListProjectApiKeysResponse(rsp *http.Response) (*ListProjectApiKeysRes
 	return response, nil
 }
 
-// ParseCreateApiKeyResponse parses an HTTP response from a CreateApiKeyWithResponse call
-func ParseCreateApiKeyResponse(rsp *http.Response) (*CreateApiKeyResponse, error) {
+// ParseCreateApiKeyApiResponse parses an HTTP response from a CreateApiKeyWithResponse call
+func ParseCreateApiKeyApiResponse(rsp *http.Response) (*CreateApiKeyApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &CreateApiKeyResponse{
+	response := &CreateApiKeyApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5597,15 +5597,15 @@ func ParseCreateApiKeyResponse(rsp *http.Response) (*CreateApiKeyResponse, error
 	return response, nil
 }
 
-// ParseListRoleBindingsResponse parses an HTTP response from a ListRoleBindingsWithResponse call
-func ParseListRoleBindingsResponse(rsp *http.Response) (*ListRoleBindingsResponse, error) {
+// ParseListRoleBindingsApiResponse parses an HTTP response from a ListRoleBindingsWithResponse call
+func ParseListRoleBindingsApiResponse(rsp *http.Response) (*ListRoleBindingsApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListRoleBindingsResponse{
+	response := &ListRoleBindingsApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5658,15 +5658,15 @@ func ParseListRoleBindingsResponse(rsp *http.Response) (*ListRoleBindingsRespons
 	return response, nil
 }
 
-// ParseCreateRoleBindingResponse parses an HTTP response from a CreateRoleBindingWithResponse call
-func ParseCreateRoleBindingResponse(rsp *http.Response) (*CreateRoleBindingResponse, error) {
+// ParseCreateRoleBindingApiResponse parses an HTTP response from a CreateRoleBindingWithResponse call
+func ParseCreateRoleBindingApiResponse(rsp *http.Response) (*CreateRoleBindingApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &CreateRoleBindingResponse{
+	response := &CreateRoleBindingApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5733,15 +5733,15 @@ func ParseCreateRoleBindingResponse(rsp *http.Response) (*CreateRoleBindingRespo
 	return response, nil
 }
 
-// ParseDeleteRoleBindingResponse parses an HTTP response from a DeleteRoleBindingWithResponse call
-func ParseDeleteRoleBindingResponse(rsp *http.Response) (*DeleteRoleBindingResponse, error) {
+// ParseDeleteRoleBindingApiResponse parses an HTTP response from a DeleteRoleBindingWithResponse call
+func ParseDeleteRoleBindingApiResponse(rsp *http.Response) (*DeleteRoleBindingApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DeleteRoleBindingResponse{
+	response := &DeleteRoleBindingApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5794,15 +5794,15 @@ func ParseDeleteRoleBindingResponse(rsp *http.Response) (*DeleteRoleBindingRespo
 	return response, nil
 }
 
-// ParseFetchRoleBindingResponse parses an HTTP response from a FetchRoleBindingWithResponse call
-func ParseFetchRoleBindingResponse(rsp *http.Response) (*FetchRoleBindingResponse, error) {
+// ParseFetchRoleBindingApiResponse parses an HTTP response from a FetchRoleBindingWithResponse call
+func ParseFetchRoleBindingApiResponse(rsp *http.Response) (*FetchRoleBindingApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &FetchRoleBindingResponse{
+	response := &FetchRoleBindingApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5855,15 +5855,15 @@ func ParseFetchRoleBindingResponse(rsp *http.Response) (*FetchRoleBindingRespons
 	return response, nil
 }
 
-// ParseListServiceAccountsResponse parses an HTTP response from a ListServiceAccountsWithResponse call
-func ParseListServiceAccountsResponse(rsp *http.Response) (*ListServiceAccountsResponse, error) {
+// ParseListServiceAccountsApiResponse parses an HTTP response from a ListServiceAccountsWithResponse call
+func ParseListServiceAccountsApiResponse(rsp *http.Response) (*ListServiceAccountsApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListServiceAccountsResponse{
+	response := &ListServiceAccountsApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5916,15 +5916,15 @@ func ParseListServiceAccountsResponse(rsp *http.Response) (*ListServiceAccountsR
 	return response, nil
 }
 
-// ParseCreateServiceAccountResponse parses an HTTP response from a CreateServiceAccountWithResponse call
-func ParseCreateServiceAccountResponse(rsp *http.Response) (*CreateServiceAccountResponse, error) {
+// ParseCreateServiceAccountApiResponse parses an HTTP response from a CreateServiceAccountWithResponse call
+func ParseCreateServiceAccountApiResponse(rsp *http.Response) (*CreateServiceAccountApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &CreateServiceAccountResponse{
+	response := &CreateServiceAccountApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5977,15 +5977,15 @@ func ParseCreateServiceAccountResponse(rsp *http.Response) (*CreateServiceAccoun
 	return response, nil
 }
 
-// ParseDeleteServiceAccountResponse parses an HTTP response from a DeleteServiceAccountWithResponse call
-func ParseDeleteServiceAccountResponse(rsp *http.Response) (*DeleteServiceAccountResponse, error) {
+// ParseDeleteServiceAccountApiResponse parses an HTTP response from a DeleteServiceAccountWithResponse call
+func ParseDeleteServiceAccountApiResponse(rsp *http.Response) (*DeleteServiceAccountApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DeleteServiceAccountResponse{
+	response := &DeleteServiceAccountApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -6031,15 +6031,15 @@ func ParseDeleteServiceAccountResponse(rsp *http.Response) (*DeleteServiceAccoun
 	return response, nil
 }
 
-// ParseFetchServiceAccountResponse parses an HTTP response from a FetchServiceAccountWithResponse call
-func ParseFetchServiceAccountResponse(rsp *http.Response) (*FetchServiceAccountResponse, error) {
+// ParseFetchServiceAccountApiResponse parses an HTTP response from a FetchServiceAccountWithResponse call
+func ParseFetchServiceAccountApiResponse(rsp *http.Response) (*FetchServiceAccountApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &FetchServiceAccountResponse{
+	response := &FetchServiceAccountApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -6092,15 +6092,15 @@ func ParseFetchServiceAccountResponse(rsp *http.Response) (*FetchServiceAccountR
 	return response, nil
 }
 
-// ParseUpdateServiceAccountResponse parses an HTTP response from a UpdateServiceAccountWithResponse call
-func ParseUpdateServiceAccountResponse(rsp *http.Response) (*UpdateServiceAccountResponse, error) {
+// ParseUpdateServiceAccountApiResponse parses an HTTP response from a UpdateServiceAccountWithResponse call
+func ParseUpdateServiceAccountApiResponse(rsp *http.Response) (*UpdateServiceAccountApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &UpdateServiceAccountResponse{
+	response := &UpdateServiceAccountApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -6160,15 +6160,15 @@ func ParseUpdateServiceAccountResponse(rsp *http.Response) (*UpdateServiceAccoun
 	return response, nil
 }
 
-// ParseRotateServiceAccountSecretResponse parses an HTTP response from a RotateServiceAccountSecretWithResponse call
-func ParseRotateServiceAccountSecretResponse(rsp *http.Response) (*RotateServiceAccountSecretResponse, error) {
+// ParseRotateServiceAccountSecretApiResponse parses an HTTP response from a RotateServiceAccountSecretWithResponse call
+func ParseRotateServiceAccountSecretApiResponse(rsp *http.Response) (*RotateServiceAccountSecretApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &RotateServiceAccountSecretResponse{
+	response := &RotateServiceAccountSecretApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -6221,15 +6221,15 @@ func ParseRotateServiceAccountSecretResponse(rsp *http.Response) (*RotateService
 	return response, nil
 }
 
-// ParseListUsersResponse parses an HTTP response from a ListUsersWithResponse call
-func ParseListUsersResponse(rsp *http.Response) (*ListUsersResponse, error) {
+// ParseListUsersApiResponse parses an HTTP response from a ListUsersWithResponse call
+func ParseListUsersApiResponse(rsp *http.Response) (*ListUsersApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListUsersResponse{
+	response := &ListUsersApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -6282,15 +6282,15 @@ func ParseListUsersResponse(rsp *http.Response) (*ListUsersResponse, error) {
 	return response, nil
 }
 
-// ParseDeleteUserResponse parses an HTTP response from a DeleteUserWithResponse call
-func ParseDeleteUserResponse(rsp *http.Response) (*DeleteUserResponse, error) {
+// ParseDeleteUserApiResponse parses an HTTP response from a DeleteUserWithResponse call
+func ParseDeleteUserApiResponse(rsp *http.Response) (*DeleteUserApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DeleteUserResponse{
+	response := &DeleteUserApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -6343,15 +6343,15 @@ func ParseDeleteUserResponse(rsp *http.Response) (*DeleteUserResponse, error) {
 	return response, nil
 }
 
-// ParseFetchUserResponse parses an HTTP response from a FetchUserWithResponse call
-func ParseFetchUserResponse(rsp *http.Response) (*FetchUserResponse, error) {
+// ParseFetchUserApiResponse parses an HTTP response from a FetchUserWithResponse call
+func ParseFetchUserApiResponse(rsp *http.Response) (*FetchUserApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &FetchUserResponse{
+	response := &FetchUserApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

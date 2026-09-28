@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -250,13 +251,14 @@ func NewAdminClient(in NewAdminClientParams) (*AdminClient, error) {
 // cancellation of the authentication request. It validates the client ID and secret
 // from the input or environment, authenticates, and constructs an authorized [AdminClient].
 func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*AdminClient, error) {
-	var authHeader string
 	clientOptions := buildAdminClientOptions(in)
+	var authOptions []admin.ClientOption
 
 	accessToken := valueOrFallback(in.AccessToken, os.Getenv("PINECONE_ACCESS_TOKEN"))
 	if accessToken != "" {
-		// Use access token directly if provided
-		authHeader = fmt.Sprintf("Bearer %s", accessToken)
+		// A caller-supplied token can't be re-minted, so it is sent as-is.
+		authProvider := provider.NewHeaderProvider("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+		authOptions = append(authOptions, admin.WithRequestEditorFn(authProvider.Intercept))
 	} else {
 		// Fall back to client ID and secret if access token is not provided
 		clientId := valueOrFallback(in.ClientId, os.Getenv("PINECONE_CLIENT_ID"))
@@ -268,11 +270,24 @@ func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*A
 			return nil, fmt.Errorf("no ClientSecret provided, please pass an ClientSecret for authorization through NewAdminClientParams or set the PINECONE_CLIENT_SECRET environment variable")
 		}
 
-		authToken, err := getAuthTokenFunc(ctx, clientId, clientSecret, clientOptions...)
+		// Cloned so the token request never goes through the refreshing client added below.
+		tokenOptions := slices.Clone(clientOptions)
+		initial, err := getAuthTokenFunc(ctx, clientId, clientSecret, tokenOptions...)
 		if err != nil {
 			return nil, err
 		}
-		authHeader = fmt.Sprintf("Bearer %s", authToken)
+		tokens := newRefreshingTokenSource(initial, func(ctx context.Context) (*authTokenResponse, error) {
+			return getAuthTokenFunc(ctx, clientId, clientSecret, tokenOptions...)
+		})
+
+		var base admin.HttpRequestDoer = http.DefaultClient
+		if in.RestClient != nil {
+			base = in.RestClient
+		}
+		authOptions = append(authOptions,
+			admin.WithRequestEditorFn(tokens.Intercept),
+			admin.WithHTTPClient(&tokenRefreshingDoer{base: base, tokens: tokens}),
+		)
 	}
 
 	hostOverride := valueOrFallback(in.Host, os.Getenv("PINECONE_CONTROLLER_HOST"))
@@ -284,9 +299,7 @@ func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*A
 		}
 	}
 
-	authProvider := provider.NewHeaderProvider("Authorization", authHeader)
-	clientOptions = append(clientOptions, admin.WithRequestEditorFn(authProvider.Intercept))
-
+	clientOptions = append(clientOptions, authOptions...)
 	adminClient, err := newAdminClient(valueOrFallback(hostOverride, "https://api.pinecone.io"), clientOptions...)
 	if err != nil {
 		return nil, err
@@ -716,7 +729,7 @@ func (o *DefaultOrganizationClient) Delete(ctx context.Context, organizationId s
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode != http.StatusAccepted && res.StatusCode != http.StatusOK {
 		return handleErrorResponseBody(res, "failed to delete organization: ")
 	}
 	return nil
@@ -1864,18 +1877,18 @@ type authTokenResponse struct {
 	Scope       string `json:"scope"`
 }
 
-func getAuthToken(ctx context.Context, clientId string, clientSecret string, opts ...admin.ClientOption) (string, error) {
+func getAuthToken(ctx context.Context, clientId string, clientSecret string, opts ...admin.ClientOption) (*authTokenResponse, error) {
 	// build REST client for retrieving token
 	authServer := "https://login.pinecone.io"
 	tokenClient, err := admin.NewClient(authServer, opts...)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// build authentication request
 	serverURL, err := url.Parse(authServer)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	operationPath := "/oauth/token"
@@ -1885,7 +1898,7 @@ func getAuthToken(ctx context.Context, clientId string, clientSecret string, opt
 
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	bodyMap := map[string]string{
@@ -1897,13 +1910,13 @@ func getAuthToken(ctx context.Context, clientId string, clientSecret string, opt
 
 	body, err := json.Marshal(bodyMap)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	bodyReader := bytes.NewReader(body)
 	req, err := http.NewRequest("POST", queryURL.String(), bodyReader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -1911,21 +1924,21 @@ func getAuthToken(ctx context.Context, clientId string, clientSecret string, opt
 
 	res, err := tokenClient.Client.Do(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return "", handleErrorResponseBody(res, "failed to get auth token: %s")
+		return nil, handleErrorResponseBody(res, "failed to get auth token: ")
 	}
 
 	var tokenResponse authTokenResponse
 	err = json.NewDecoder(res.Body).Decode(&tokenResponse)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return tokenResponse.AccessToken, nil
+	return &tokenResponse, nil
 }
 
 func buildAdminClientOptions(in NewAdminClientParams) []admin.ClientOption {

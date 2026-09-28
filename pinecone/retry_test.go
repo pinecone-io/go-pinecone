@@ -175,8 +175,9 @@ func TestRetryTransportRetryAfterHeaderUnit(t *testing.T) {
 func TestRetryBackoffBoundsUnit(t *testing.T) {
 	tr := &retryTransport{policy: &RetryPolicy{MaxRetries: 10, BaseDelay: 100 * time.Millisecond, MaxDelay: time.Second, BackoffMultiplier: 2}}
 
-	// Retry-After hint (already bounded by the caller) is honored as-is.
+	// Retry-After hint is honored as-is up to MaxDelay, and capped beyond it.
 	assert.Equal(t, 500*time.Millisecond, tr.backoff(0, 500*time.Millisecond))
+	assert.Equal(t, time.Second, tr.backoff(0, time.Hour))
 
 	// Full jitter: 0 <= delay <= min(cap, base*mult^attempt), across many draws.
 	for attempt := 0; attempt < 8; attempt++ {
@@ -280,7 +281,7 @@ func TestRetryTransportNoRetryPostTransportErrorUnit(t *testing.T) {
 }
 
 func TestRetryTransportRetryAfterExceedsMaxDelayUnit(t *testing.T) {
-	// Server asks to wait longer than we're willing → stop, return the response.
+	// Server asks to wait longer than MaxDelay → wait MaxDelay instead and keep retrying.
 	var calls int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&calls, 1)
@@ -295,7 +296,7 @@ func TestRetryTransportRetryAfterExceedsMaxDelayUnit(t *testing.T) {
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
-	assert.Equal(t, int32(1), atomic.LoadInt32(&calls), "Retry-After beyond MaxDelay should stop retries")
+	assert.Equal(t, int32(4), atomic.LoadInt32(&calls), "Retry-After beyond MaxDelay should be capped, not stop retries")
 }
 
 func TestRetryAfterHTTPDateUnit(t *testing.T) {

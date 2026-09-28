@@ -1,4 +1,4 @@
-api_version := "2026-04"
+api_version := "2026-07"
 
 default:
     @just --list

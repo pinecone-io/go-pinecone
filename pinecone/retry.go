@@ -127,12 +127,9 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			return resp, err
 		}
 
-		retryAfter := retryAfterDelay(resp)
-		if retryAfter > t.policy.MaxDelay {
-			return resp, err // honor the server's hint over our budget: stop retrying
-		}
+		delay := t.backoff(attempt, retryAfterDelay(resp))
 		drainResponse(resp)
-		if !wait(req.Context(), t.backoff(attempt, retryAfter)) {
+		if !wait(req.Context(), delay) {
 			return nil, req.Context().Err()
 		}
 	}
@@ -164,12 +161,11 @@ func isIdempotent(method string) bool {
 	return false
 }
 
-// backoff returns the wait before the next attempt: the Retry-After hint if present
-// (already bounded by MaxDelay by the caller), else exponential growth with full
-// jitter, capped at MaxDelay.
+// backoff returns the wait before the next attempt: the Retry-After hint if present, else
+// exponential growth with full jitter. Either way the wait is capped at MaxDelay.
 func (t *retryTransport) backoff(attempt int, retryAfter time.Duration) time.Duration {
 	if retryAfter > 0 {
-		return retryAfter
+		return min(retryAfter, t.policy.MaxDelay)
 	}
 	d := float64(t.policy.BaseDelay) * math.Pow(t.policy.BackoffMultiplier, float64(attempt))
 	if d > float64(t.policy.MaxDelay) {

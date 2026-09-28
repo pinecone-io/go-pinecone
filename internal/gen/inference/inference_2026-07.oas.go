@@ -1012,23 +1012,23 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 	// EmbedWithBodyWithResponse request with any body
-	EmbedWithBodyWithResponse(ctx context.Context, params *EmbedParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EmbedResponse, error)
+	EmbedWithBodyWithResponse(ctx context.Context, params *EmbedParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EmbedApiResponse, error)
 
-	EmbedWithResponse(ctx context.Context, params *EmbedParams, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*EmbedResponse, error)
+	EmbedWithResponse(ctx context.Context, params *EmbedParams, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*EmbedApiResponse, error)
 
 	// ListModelsWithResponse request
-	ListModelsWithResponse(ctx context.Context, params *ListModelsParams, reqEditors ...RequestEditorFn) (*ListModelsResponse, error)
+	ListModelsWithResponse(ctx context.Context, params *ListModelsParams, reqEditors ...RequestEditorFn) (*ListModelsApiResponse, error)
 
 	// GetModelWithResponse request
-	GetModelWithResponse(ctx context.Context, modelName string, params *GetModelParams, reqEditors ...RequestEditorFn) (*GetModelResponse, error)
+	GetModelWithResponse(ctx context.Context, modelName string, params *GetModelParams, reqEditors ...RequestEditorFn) (*GetModelApiResponse, error)
 
 	// RerankWithBodyWithResponse request with any body
-	RerankWithBodyWithResponse(ctx context.Context, params *RerankParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RerankResponse, error)
+	RerankWithBodyWithResponse(ctx context.Context, params *RerankParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RerankApiResponse, error)
 
-	RerankWithResponse(ctx context.Context, params *RerankParams, body RerankJSONRequestBody, reqEditors ...RequestEditorFn) (*RerankResponse, error)
+	RerankWithResponse(ctx context.Context, params *RerankParams, body RerankJSONRequestBody, reqEditors ...RequestEditorFn) (*RerankApiResponse, error)
 }
 
-type EmbedResponse struct {
+type EmbedApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *EmbeddingsList
@@ -1038,7 +1038,7 @@ type EmbedResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r EmbedResponse) Status() string {
+func (r EmbedApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1046,14 +1046,14 @@ func (r EmbedResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r EmbedResponse) StatusCode() int {
+func (r EmbedApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListModelsResponse struct {
+type ListModelsApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelInfoList
@@ -1063,7 +1063,7 @@ type ListModelsResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListModelsResponse) Status() string {
+func (r ListModelsApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1071,14 +1071,14 @@ func (r ListModelsResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListModelsResponse) StatusCode() int {
+func (r ListModelsApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetModelResponse struct {
+type GetModelApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelInfo
@@ -1088,7 +1088,7 @@ type GetModelResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetModelResponse) Status() string {
+func (r GetModelApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1096,14 +1096,14 @@ func (r GetModelResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetModelResponse) StatusCode() int {
+func (r GetModelApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type RerankResponse struct {
+type RerankApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *RerankResult
@@ -1113,7 +1113,7 @@ type RerankResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r RerankResponse) Status() string {
+func (r RerankApiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1121,74 +1121,74 @@ func (r RerankResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r RerankResponse) StatusCode() int {
+func (r RerankApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-// EmbedWithBodyWithResponse request with arbitrary body returning *EmbedResponse
-func (c *ClientWithResponses) EmbedWithBodyWithResponse(ctx context.Context, params *EmbedParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EmbedResponse, error) {
+// EmbedWithBodyWithResponse request with arbitrary body returning *EmbedApiResponse
+func (c *ClientWithResponses) EmbedWithBodyWithResponse(ctx context.Context, params *EmbedParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EmbedApiResponse, error) {
 	rsp, err := c.EmbedWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseEmbedResponse(rsp)
+	return ParseEmbedApiResponse(rsp)
 }
 
-func (c *ClientWithResponses) EmbedWithResponse(ctx context.Context, params *EmbedParams, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*EmbedResponse, error) {
+func (c *ClientWithResponses) EmbedWithResponse(ctx context.Context, params *EmbedParams, body EmbedJSONRequestBody, reqEditors ...RequestEditorFn) (*EmbedApiResponse, error) {
 	rsp, err := c.Embed(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseEmbedResponse(rsp)
+	return ParseEmbedApiResponse(rsp)
 }
 
-// ListModelsWithResponse request returning *ListModelsResponse
-func (c *ClientWithResponses) ListModelsWithResponse(ctx context.Context, params *ListModelsParams, reqEditors ...RequestEditorFn) (*ListModelsResponse, error) {
+// ListModelsWithResponse request returning *ListModelsApiResponse
+func (c *ClientWithResponses) ListModelsWithResponse(ctx context.Context, params *ListModelsParams, reqEditors ...RequestEditorFn) (*ListModelsApiResponse, error) {
 	rsp, err := c.ListModels(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListModelsResponse(rsp)
+	return ParseListModelsApiResponse(rsp)
 }
 
-// GetModelWithResponse request returning *GetModelResponse
-func (c *ClientWithResponses) GetModelWithResponse(ctx context.Context, modelName string, params *GetModelParams, reqEditors ...RequestEditorFn) (*GetModelResponse, error) {
+// GetModelWithResponse request returning *GetModelApiResponse
+func (c *ClientWithResponses) GetModelWithResponse(ctx context.Context, modelName string, params *GetModelParams, reqEditors ...RequestEditorFn) (*GetModelApiResponse, error) {
 	rsp, err := c.GetModel(ctx, modelName, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetModelResponse(rsp)
+	return ParseGetModelApiResponse(rsp)
 }
 
-// RerankWithBodyWithResponse request with arbitrary body returning *RerankResponse
-func (c *ClientWithResponses) RerankWithBodyWithResponse(ctx context.Context, params *RerankParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RerankResponse, error) {
+// RerankWithBodyWithResponse request with arbitrary body returning *RerankApiResponse
+func (c *ClientWithResponses) RerankWithBodyWithResponse(ctx context.Context, params *RerankParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RerankApiResponse, error) {
 	rsp, err := c.RerankWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRerankResponse(rsp)
+	return ParseRerankApiResponse(rsp)
 }
 
-func (c *ClientWithResponses) RerankWithResponse(ctx context.Context, params *RerankParams, body RerankJSONRequestBody, reqEditors ...RequestEditorFn) (*RerankResponse, error) {
+func (c *ClientWithResponses) RerankWithResponse(ctx context.Context, params *RerankParams, body RerankJSONRequestBody, reqEditors ...RequestEditorFn) (*RerankApiResponse, error) {
 	rsp, err := c.Rerank(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRerankResponse(rsp)
+	return ParseRerankApiResponse(rsp)
 }
 
-// ParseEmbedResponse parses an HTTP response from a EmbedWithResponse call
-func ParseEmbedResponse(rsp *http.Response) (*EmbedResponse, error) {
+// ParseEmbedApiResponse parses an HTTP response from a EmbedWithResponse call
+func ParseEmbedApiResponse(rsp *http.Response) (*EmbedApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &EmbedResponse{
+	response := &EmbedApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -1227,15 +1227,15 @@ func ParseEmbedResponse(rsp *http.Response) (*EmbedResponse, error) {
 	return response, nil
 }
 
-// ParseListModelsResponse parses an HTTP response from a ListModelsWithResponse call
-func ParseListModelsResponse(rsp *http.Response) (*ListModelsResponse, error) {
+// ParseListModelsApiResponse parses an HTTP response from a ListModelsWithResponse call
+func ParseListModelsApiResponse(rsp *http.Response) (*ListModelsApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListModelsResponse{
+	response := &ListModelsApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -1274,15 +1274,15 @@ func ParseListModelsResponse(rsp *http.Response) (*ListModelsResponse, error) {
 	return response, nil
 }
 
-// ParseGetModelResponse parses an HTTP response from a GetModelWithResponse call
-func ParseGetModelResponse(rsp *http.Response) (*GetModelResponse, error) {
+// ParseGetModelApiResponse parses an HTTP response from a GetModelWithResponse call
+func ParseGetModelApiResponse(rsp *http.Response) (*GetModelApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetModelResponse{
+	response := &GetModelApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -1321,15 +1321,15 @@ func ParseGetModelResponse(rsp *http.Response) (*GetModelResponse, error) {
 	return response, nil
 }
 
-// ParseRerankResponse parses an HTTP response from a RerankWithResponse call
-func ParseRerankResponse(rsp *http.Response) (*RerankResponse, error) {
+// ParseRerankApiResponse parses an HTTP response from a RerankWithResponse call
+func ParseRerankApiResponse(rsp *http.Response) (*RerankApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &RerankResponse{
+	response := &RerankApiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

@@ -13,10 +13,10 @@ visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v6/pinecone.
 
 go-pinecone contains
 
-- gRPC bindings for [Data Plane](https://docs.pinecone.io/reference/api/2026-04/data-plane) operations
-- REST bindings for [Control Plane](https://docs.pinecone.io/reference/api/2026-04/control-plane)
+- gRPC bindings for [Data Plane](https://docs.pinecone.io/reference/api/2026-07/data-plane) operations
+- REST bindings for [Control Plane](https://docs.pinecone.io/reference/api/2026-07/control-plane)
   operations
-- REST bindings for [Admin API](https://docs.pinecone.io/reference/api/2026-04/admin/)
+- REST bindings for [Admin API](https://docs.pinecone.io/reference/api/2026-07/admin/)
 - Optional automatic retries with exponential backoff (see [Configuring retries](#configuring-retries))
 
 See the [Pinecone API Docs](https://docs.pinecone.io/reference/) for more information.
@@ -127,8 +127,8 @@ exponential backoff, set a `RetryPolicy`. When set, it applies to both the REST
 Retries cover rate-limit (HTTP 429 / gRPC `RESOURCE_EXHAUSTED`) and transient
 (5xx / gRPC `UNAVAILABLE`) responses; other 4xx errors are never retried. For REST,
 429 is always retried, while 5xx and transport errors are retried only for idempotent
-methods to avoid duplicating non-idempotent operations. A `Retry-After` response
-header is honored when present.
+methods to avoid duplicating non-idempotent operations. A `Retry-After` header on a REST
+response sets the wait before the next attempt, capped at `MaxDelay`.
 
 ```go
 package main
@@ -274,12 +274,12 @@ func main() {
 	}
 
 	indexName := "my-serverless-index"
-	metric := pinecone.Cosine
+	metric := pinecone.IndexMetricCosine
 	dimension := int32(3)
 
 	idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
 		Name:      indexName,
-		Cloud:     pinecone.Aws,
+		Cloud:     pinecone.CloudAWS,
 		Region:    "us-east-1",
 		Metric:    &metric,
 		Dimension: &dimension,
@@ -324,11 +324,11 @@ func main() {
 
 	indexName := "my-serverless-index"
 	vectorType := "sparse"
-	metric := pinecone.Dotproduct
+	metric := pinecone.IndexMetricDotproduct
 
 	idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
 		Name:       indexName,
-		Cloud:      pinecone.Aws,
+		Cloud:      pinecone.CloudAWS,
 		Region:     "us-east-1",
 		Metric:     &metric,
 		VectorType: &vectorType,
@@ -345,7 +345,7 @@ func main() {
 
 **Create a serverless integrated index**
 
-Integrated inference requires a serverless index configured for a specific embedding model. You can either create a new index for a model, or configure an existing index for a model. To create an index that accepts source text and converts it to vectors automatically using an embedding model hosted by Pinecone, use the `Client.CreateIndexForModel` method:
+Integrated inference requires a serverless index configured for a specific embedding model. The model is chosen when the index is created and can't be changed afterwards, but its read and write parameters can be updated with `ConfigureIndex` (see [Configure an index](#configure-an-index)). To create an index that accepts source text and converts it to vectors automatically using an embedding model hosted by Pinecone, use the `Client.CreateIndexForModel` method:
 
 ```go
 package main
@@ -374,7 +374,7 @@ func main() {
 
 	index, err := pc.CreateIndexForModel(ctx, &pinecone.CreateIndexForModelRequest{
 		Name:   "my-integrated-index",
-		Cloud:  pinecone.Aws,
+		Cloud:  pinecone.CloudAWS,
 		Region: "us-east-1",
 		Embed: pinecone.CreateIndexForModelEmbed{
 			Model:    "multilingual-e5-large",
@@ -390,61 +390,11 @@ func main() {
 }
 ```
 
-**Create a pod-based index**
+**Pod-based indexes**
 
-The following example creates a pod-based index with a metadata configuration. If no metadata configuration is
-provided, all metadata fields are automatically indexed.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v6/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	indexName := "my-pod-index"
-	metric := pinecone.Cosine
-
-	podIndexMetadata := &pinecone.PodSpecMetadataConfig{
-		Indexed: &[]string{"title", "description"},
-	}
-
-	idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
-		Name:           indexName,
-		Dimension:      3,
-		Environment:    "us-west1-gcp",
-		PodType:        "s1",
-		MetadataConfig: podIndexMetadata,
-		Metric:         &metric,
-		Tags:           &pinecone.IndexTags{"environment": "development"},
-	})
-
-	if err != nil {
-		log.Fatalf("Failed to create pod index: %v", err)
-	} else {
-		fmt.Printf("Successfully created pod index: %s", idx.Name)
-	}
-
-}
-```
+Pinecone API version `2026-07` does not support creating pod-based indexes. Existing pod-based indexes can still be
+described, listed, deleted, and scaled with `ConfigureIndex` (see [Configure an index](#configure-an-index)). To create
+a new index, use `CreateServerlessIndex` or `CreateIndex`. See [MIGRATION.md](./MIGRATION.md) for details.
 
 ### List indexes
 
@@ -570,7 +520,7 @@ func main() {
 
 ### Configure an index
 
-There are multiple ways to configure Pinecone indexes. You are able to configure Deletion Protection and Tags for both pod-based and Serverless indexes. Additionally, you can configure the size of your pods and the number of replicas for pod-based indexes. Examples for each of these configurations are provided below.
+There are multiple ways to configure Pinecone indexes. You are able to configure Deletion Protection and Tags for both pod-based and Serverless indexes. Additionally, you can configure the size of your pods and the number of replicas for pod-based indexes, and the read and write parameters of the embedding model for integrated indexes. Examples for each of these configurations are provided below.
 
 ```go
 package main
@@ -648,16 +598,19 @@ func main() {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
 
-	// To convert an existing serverless index into an integrated index
-	model := "multilingual-e5-large"
-	_, err := pc.ConfigureIndex(ctx, "my-serverless-index", pinecone.ConfigureIndexParams{
-		Embed: &pinecone.ConfigureIndexEmbed{
-			FieldMap: &map[string]interface{}{
-				"text": "my-text-field",
+	// To update the read parameters of an integrated index's embedding model:
+	_, err := pc.ConfigureIndex(ctx, "my-integrated-index", pinecone.ConfigureIndexParams{
+		Schema: &pinecone.ConfigureIndexSchema{
+			Fields: map[string]pinecone.ConfigureSemanticTextField{
+				"chunk_text": {
+					ReadParameters: &map[string]interface{}{"input_type": "query", "truncate": "NONE"},
+				},
 			},
-			Model: &model,
 		},
 	})
+	if err != nil {
+		fmt.Printf("Failed to configure index: %v\n", err)
+	}
 }
 ```
 
@@ -994,13 +947,13 @@ The following example imports vectors from an Amazon S3 bucket into a Pinecone s
 
     indexName := "sample-index"
     dimension := int32(3)
-    metric := pinecone.Cosine
+    metric := pinecone.IndexMetricCosine
 
     idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
         Name:      indexName,
         Dimension: &dimension,
         Metric:    &metric,
-        Cloud:     pinecone.Aws,
+        Cloud:     pinecone.CloudAWS,
         Region:    "us-east-1",
     })
 
@@ -1998,7 +1951,7 @@ You can also describe a single model by name:
 
 When using an index with integrated inference, embedding and reranking operations are tied to index operations and do not require extra steps. This allows working with an index that accepts source text and converts it to vectors automatically using an embedding model hosted by Pinecone.
 
-Integrated inference requires a serverless index configured for a specific embedding model. You can either create a new index for a model or configure an existing index for a model. See **Create a serverless integrated index** above for specifics on creating these indexes.
+Integrated inference requires a serverless index configured for a specific embedding model, chosen when the index is created with `CreateIndexForModel`. See **Create a serverless integrated index** above for specifics on creating these indexes.
 
 Once you have an index configured for a specific embedding model, use the `IndexConnection.UpsertRecords` method to convert your source data to embeddings and upsert them into a namespace.
 

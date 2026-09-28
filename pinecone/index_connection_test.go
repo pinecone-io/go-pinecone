@@ -488,7 +488,7 @@ func (ts *integrationTests) TestImportFlowHappyPath() {
 	assert.Equal(ts.T(), startRes.Id, describeRes.Id)
 
 	limit := int32(10)
-	listRes, err := ts.idxConn.ListImports(ctx, &limit, nil)
+	listRes, err := ts.idxConn.ListImports(ctx, &ListImportsRequest{Limit: &limit})
 	assert.NoError(ts.T(), err)
 	assert.NotNil(ts.T(), listRes)
 
@@ -537,7 +537,8 @@ func (ts *integrationTests) TestIntegratedInference() {
 	_, err = waitUntilIndexReady(ts, ctx, indexName)
 	require.NoError(ts.T(), err)
 
-	// Verify Schema is returned when describing the index
+	// Verify the typed schema is returned when describing the index: the declared metadata
+	// field is reported as a schema field under 2026-07.
 	retryAssertionsWithDefaults(ts.T(), func() error {
 		describedIndex, err := ts.client.DescribeIndex(ctx, indexName)
 		if err != nil {
@@ -545,8 +546,12 @@ func (ts *integrationTests) TestIntegratedInference() {
 		}
 		assert.NotNil(ts.T(), describedIndex.Spec, "Index.Spec should not be nil")
 		assert.NotNil(ts.T(), describedIndex.Spec.Serverless, "Index.Spec.Serverless should not be nil")
-		assert.NotNil(ts.T(), describedIndex.Spec.Serverless.Schema, "Schema should not be nil in described index")
-		assert.Equal(ts.T(), len(testSchema.Fields), len(describedIndex.Spec.Serverless.Schema.Fields), "Schema fields count should match")
+		if describedIndex.Schema == nil {
+			return fmt.Errorf("Schema not yet set on described index")
+		}
+		if _, ok := describedIndex.Schema.Fields["category"]; !ok {
+			return fmt.Errorf("declared metadata field %q not yet reported in index schema", "category")
+		}
 		return nil
 	})
 
@@ -980,7 +985,7 @@ func TestMarshalDescribeIndexStatsResponseUnit(t *testing.T) {
 				Dimension:        uint32Pointer(3),
 				IndexFullness:    0.5,
 				TotalVectorCount: 100,
-				Metric:           indexMetricPointer(Cosine),
+				Metric:           indexMetricPointer(IndexMetricCosine),
 				VectorType:       pointerOrNil("dense"),
 				MemoryFullness:   float32Pointer(0.25),
 				StorageFullness:  float32Pointer(0.75),
@@ -1750,6 +1755,7 @@ func TestToNamespaceDescriptionUnit(t *testing.T) {
 			IndexedFields: &db_data_grpc.IndexedFields{
 				Fields: []string{"genre"},
 			},
+			SizeBytes: 2048,
 		}
 
 		result := toNamespaceDescription(ns)
@@ -1760,6 +1766,7 @@ func TestToNamespaceDescriptionUnit(t *testing.T) {
 		require.True(t, result.Schema.Fields["genre"].Filterable)
 		require.NotNil(t, result.IndexedFields)
 		require.Equal(t, []string{"genre"}, result.IndexedFields.Fields)
+		require.EqualValues(t, 2048, result.SizeBytes)
 	})
 }
 
@@ -1817,7 +1824,7 @@ func TestRestNamespaceUnit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := restNamespace(tt.input)
+			result := resolveNamespace(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -1834,4 +1841,101 @@ func slicesEqual[T comparable](a, b []float32) bool {
 		}
 	}
 	return true
+}
+
+type requireSecurityCreds struct{}
+
+func (requireSecurityCreds) GetRequestMetadata(context.Context, ...string) (map[string]string, error) {
+	return nil, nil
+}
+
+func (requireSecurityCreds) RequireTransportSecurity() bool { return true }
+
+func TestNewIndexConnectionReturnsGrpcClientErrorUnit(t *testing.T) {
+	// Per-RPC credentials that require transport security are rejected by grpc.NewClient on a
+	// plaintext host, so the constructor must return that error rather than exit the process.
+	idxConn, err := newIndexConnection(newIndexParameters{host: "http://localhost:5081"},
+		grpc.WithPerRPCCredentials(requireSecurityCreds{}))
+	require.Error(t, err)
+	assert.Nil(t, idxConn)
+	assert.Contains(t, err.Error(), "failed to create grpc client")
+}
+
+func TestUpsertRecordsRejectsBothIdFieldsUnit(t *testing.T) {
+	idxConn := &IndexConnection{}
+	err := idxConn.UpsertRecords(context.Background(), []*IntegratedRecord{
+		{"_id": "rec1", "id": "rec1", "text": "hello"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not both")
+}
+
+func TestSearchRecordsRequiresRerankFieldsUnit(t *testing.T) {
+	idxConn := &IndexConnection{}
+	_, err := idxConn.SearchRecords(context.Background(), &SearchRecordsRequest{
+		Query:  SearchRecordsQuery{TopK: 5, Inputs: &map[string]interface{}{"text": "hello"}},
+		Rerank: &SearchRecordsRerank{Model: "bge-reranker-v2-m3"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "RankFields")
+}
+
+func TestValidateMetadataRejectsNullUnit(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   *structpb.Value
+		wantErr bool
+	}{
+		{name: "string", value: structpb.NewStringValue("a")},
+		{name: "number", value: structpb.NewNumberValue(1)},
+		{name: "bool", value: structpb.NewBoolValue(true)},
+		{name: "string list", value: structpb.NewListValue(&structpb.ListValue{Values: []*structpb.Value{structpb.NewStringValue("a")}})},
+		{name: "null", value: structpb.NewNullValue(), wantErr: true},
+		{name: "unset kind", value: &structpb.Value{}, wantErr: true},
+		{name: "number list", value: structpb.NewListValue(&structpb.ListValue{Values: []*structpb.Value{structpb.NewNumberValue(1)}}), wantErr: true},
+		{name: "struct", value: structpb.NewStructValue(&structpb.Struct{}), wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateMetadata(&Metadata{Fields: map[string]*structpb.Value{"field": tt.value}})
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+type namespaceCapturingClient struct {
+	db_data_grpc.VectorServiceClient
+	namespaces []string
+}
+
+func (c *namespaceCapturingClient) DescribeNamespace(ctx context.Context, in *db_data_grpc.DescribeNamespaceRequest, opts ...grpc.CallOption) (*db_data_grpc.NamespaceDescription, error) {
+	c.namespaces = append(c.namespaces, in.Namespace)
+	return &db_data_grpc.NamespaceDescription{Name: in.Namespace}, nil
+}
+
+func (c *namespaceCapturingClient) DeleteNamespace(ctx context.Context, in *db_data_grpc.DeleteNamespaceRequest, opts ...grpc.CallOption) (*db_data_grpc.DeleteResponse, error) {
+	c.namespaces = append(c.namespaces, in.Namespace)
+	return &db_data_grpc.DeleteResponse{}, nil
+}
+
+func TestNamespaceOperationsResolveDefaultNamespaceUnit(t *testing.T) {
+	fake := &namespaceCapturingClient{}
+	var client db_data_grpc.VectorServiceClient = fake
+	idxConn := &IndexConnection{grpcClient: &client}
+	ctx := context.Background()
+
+	_, err := idxConn.DescribeNamespace(ctx, "")
+	require.NoError(t, err)
+	_, err = idxConn.DescribeNamespace(ctx, "__default__")
+	require.NoError(t, err)
+	_, err = idxConn.DescribeNamespace(ctx, "movies")
+	require.NoError(t, err)
+	require.NoError(t, idxConn.DeleteNamespace(ctx, ""))
+
+	assert.Equal(t, []string{"__default__", "__default__", "movies", "__default__"}, fake.namespaces)
 }

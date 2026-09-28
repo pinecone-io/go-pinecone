@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -253,9 +254,7 @@ func TestMarshalIndexUnit(t *testing.T) {
 				c.Errorf("Failed to marshal Index: %v", err)
 				return
 			}
-			if string(got) != tt.want {
-				c.Errorf("Marshal Index got = %s, want = %s", string(got), tt.want)
-			}
+			assert.JSONEq(c, tt.want, string(got))
 		})
 	}
 }

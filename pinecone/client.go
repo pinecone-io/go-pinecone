@@ -15,6 +15,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/pinecone-io/go-pinecone/v6/internal/gen"
 	"github.com/pinecone-io/go-pinecone/v6/internal/gen/db_control"
@@ -410,166 +411,89 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	return indexes, nil
 }
 
-// [CreatePodIndexRequest] holds the parameters for creating a new pods-based Index.
+// [CreateIndexRequest] holds the parameters for creating an index from an explicit schema with
+// [Client.CreateIndex].
 //
 // Fields:
-//   - Name: (Required) The name of the [Index]. Resource name must be 1-45 characters long,
-//     start and end with an alphanumeric character,
-//     and consist only of lower case alphanumeric characters or '-'.
-//   - Dimension: (Required) The [dimensionality] of the vectors to be inserted in the Index.
-//   - Metric: (Required) The distance metric to be used for [similarity] search. You can use
-//     'euclidean', 'cosine', or 'dotproduct'. Defaults to 'cosine'.
-//   - DeletionProtection: (Optional) determines whether [deletion protection] is "enabled" or "disabled" for the index.
-//     When "enabled", the index cannot be deleted. Defaults to "disabled".
-//   - Environment: (Required) The [cloud environment] where the Index will be hosted.
-//   - PodType: (Required) The [type of pod] to use for the [Index]. One of `s1`, `p1`, or `p2` appended with `.` and
-//     one of `x1`, `x2`, `x4`, or `x8`.
-//   - Shards: (Optional) The number of shards to use for the Index (defaults to 1).
-//     Shards split your data across multiple pods, so you can fit more data into an Index.
-//   - Replicas: (Optional) The number of [replicas] to use for the Index (defaults to 1). Replicas duplicate your Index.
-//     They provide higher availability and throughput. Replicas can be scaled up or down as your needs change.
-//   - SourceCollection: (Optional) The name of the [Collection] to be used as the source for the Index.
-//   - MetadataConfig: (Optional) The [metadata configuration] for the behavior of Pinecone's internal metadata Index. By
-//     default, all metadata is indexed; when `metadata_config` is present,
-//     only specified metadata fields are indexed. These configurations are
-//     only valid for use with pod-based Indexes.
+//   - Name: (Optional) The name of the [Index]. Must be unique within the project, 1-45 characters,
+//     start and end with an alphanumeric character, and consist only of lower case alphanumeric
+//     characters or '-'. If empty, Pinecone generates a name. Provide a name if you need to retry
+//     the request safely: a retry with the same name fails with a conflict instead of creating a
+//     second index.
+//   - Schema: (Required) The [IndexSchema] defining the index's fields. At creation you can declare
+//     [DenseVectorField], [SparseVectorField], and [StringField] with FullTextSearch set. Metadata
+//     fields don't need to be declared; they are indexed automatically when you upsert data.
+//     A schema containing only the reserved fields "_values" (dense) and/or "_sparse_values"
+//     (sparse) creates a vector index, used with the vector operations such as
+//     [IndexConnection.UpsertVectors]. Any other schema creates a document index, used with the
+//     document operations such as [IndexConnection.UpsertDocuments].
+//   - Deployment: (Optional) The [IndexDeployment] describing where the index runs. Defaults to a
+//     serverless index on AWS in "us-east-1".
+//   - ReadCapacity: (Optional) The read capacity configuration. Defaults to OnDemand. BYOC
+//     deployments must set Dedicated explicitly.
+//   - CmekId: (Optional) The ID of a customer-managed encryption key (CMEK) to use for this index.
+//   - DeletionProtection: (Optional) Whether deletion protection is "enabled" or "disabled" for the
+//     index. Defaults to "disabled".
 //   - Tags: (Optional) A map of tags to associate with the Index.
-//
-// To create a new pods-based Index, use the [Client.CreatePodIndex] method.
-//
-// Example:
-//
-//	    ctx := context.Background()
-//
-//	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
-//	    }
-//
-//	    pc, err := pinecone.NewClient(clientParams)
-//	    if err != nil {
-//	        panic(fmt.Errorf("Failed to create Client: %v", err))
-//	    }
-//
-//	    podIndexMetadata := &pinecone.PodSpecMetadataConfig{
-//		       Indexed: &[]string{"title", "description"},
-//	    }
-//
-//	    indexName := "my-pod-index"
-//
-//	    idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
-//	        Name:        indexName,
-//	        Dimension:   3,
-//	        Metric:      pinecone.Cosine,
-//	        Environment: "us-west1-gcp",
-//	        PodType:     "s1",
-//	        MetadataConfig: podIndexMetadata,
-//	        })
-//
-//	    if err != nil {
-//		       log.Fatalf("Failed to create pod index: %v", err)
-//	    } else {
-//		       fmt.Printf("Successfully created pod index: %s", idx.Name)
-//	    }
-//
-// [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
-// [similarity]: https://docs.pinecone.io/guides/indexes/understanding-indexes#distance-metrics
-// [metadata configuration]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes#selective-metadata-indexing
-// [cloud environment]: https://docs.pinecone.io/guides/indexes/understanding-indexes#pod-environments
-// [replicas]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes#add-replicas
-// [type of pod]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size
-// [deletion protection]: https://docs.pinecone.io/guides/indexes/prevent-index-deletion#enable-deletion-protection
-type CreatePodIndexRequest struct {
+type CreateIndexRequest struct {
 	Name               string
-	Dimension          int32
-	Environment        string
-	PodType            string
-	Shards             int32
-	Replicas           int32
-	Metric             *IndexMetric
+	Schema             IndexSchema
+	Deployment         *IndexDeployment
+	ReadCapacity       *ReadCapacityParams
+	CmekId             *string
 	DeletionProtection *DeletionProtection
-	SourceCollection   *string
-	MetadataConfig     *PodSpecMetadataConfig
 	Tags               *IndexTags
 }
 
-// [CreatePodIndexRequestReplicaCount] ensures the replica count of a pods-based Index is >1.
-// It returns a pointer to the number of replicas on a [CreatePodIndexRequest] object.
-func (req CreatePodIndexRequest) ReplicaCount() int32 {
-	return minOne(req.Replicas)
-}
-
-// [CreatePodIndexRequestShardCount] ensures the number of shards on a pods-based Index is >1. It returns a pointer to the number of shards on
-// a [CreatePodIndexRequest] object.
-func (req CreatePodIndexRequest) ShardCount() int32 {
-	return minOne(req.Shards)
-}
-
-// [CreatePodIndexRequest.TotalCount] calculates and returns the total number of pods (replicas*shards) on a [CreatePodIndexRequest] object.
-func (req CreatePodIndexRequest) TotalCount() int {
-	return int(req.ReplicaCount() * req.ShardCount())
-}
-
-// [Client.CreatePodIndex] creates and initializes a new pods-based Index via the specified [Client].
+// [Client.CreateIndex] creates a new [Index] from an explicit [IndexSchema] and, optionally, an
+// [IndexDeployment]. Use it to create document indexes, such as indexes with full-text search or
+// with named dense and sparse vector fields. To create a vector index from a dimension and metric,
+// you can also use [Client.CreateServerlessIndex] or [Client.CreateBYOCIndex].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - in: A pointer to a [CreatePodIndexRequest] object. See [CreatePodIndexRequest] for more information.
+//   - in: A pointer to a [CreateIndexRequest] object. See [CreateIndexRequest] for more information.
 //
 // Returns a pointer to an [Index] object or an error.
 //
 // Example:
 //
-//	    ctx := context.Background()
-//
-//	    clientParams := pinecone.NewClientParams{
-//		       ApiKey:    "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
-//	    }
-//
-//	    pc, err := pinecone.NewClient(clientParams)
-//	    if err != nil {
-//	        panic(fmt.Errorf("Failed to create Client: %v", err))
-//	    }
-//
-//	    podIndexMetadata := &pinecone.PodSpecMetadataConfig{
-//		       Indexed: &[]string{"title", "description"},
-//	    }
-//
-//	    indexName := "my-pod-index"
-//
-//		idx, err := pc.CreatePodIndex(ctx, &pinecone.CreatePodIndexRequest{
-//		    Name:        indexName,
-//		    Dimension:   3,
-//		    Metric:      pinecone.Cosine,
-//		    Environment: "us-west1-gcp",
-//		    PodType:     "s1",
-//		    MetadataConfig: podIndexMetadata,
-//		})
-//
-//		if err != nil {
-//	    	log.Fatalf("Failed to create pod index:", err)
-//		} else {
-//			   fmt.Printf("Successfully created pod index: %s", idx.Name)
-//		}
-func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) (*Index, error) {
+//	    // A hybrid document index with named dense and sparse fields.
+//	    idx, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
+//		    Name: "hybrid",
+//		    Schema: pinecone.IndexSchema{
+//			    Fields: map[string]pinecone.IndexSchemaField{
+//				    "embedding":    {DenseVector: &pinecone.DenseVectorField{Dimension: 1536, Metric: pinecone.IndexMetricDotproduct}},
+//				    "sparse_terms": {SparseVector: &pinecone.SparseVectorField{}},
+//			    },
+//		    },
+//		    Deployment: &pinecone.IndexDeployment{
+//			    Managed: &pinecone.ManagedDeployment{Cloud: pinecone.CloudAWS, Region: "us-east-1"},
+//		    },
+//	    })
+func (c *Client) CreateIndex(ctx context.Context, in *CreateIndexRequest) (*Index, error) {
 	if in == nil {
-		return nil, fmt.Errorf("in (*CreatePodIndexRequest) cannot be nil")
+		return nil, fmt.Errorf("in (*CreateIndexRequest) cannot be nil")
 	}
-	if in.Name == "" || in.Dimension <= 0 || in.Environment == "" || in.PodType == "" {
-		return nil, fmt.Errorf("fields Name, positive Dimension, Environment, and Podtype must be included in CreatePodIndexRequest")
-	}
-
-	var deletionProtection *db_control.DeletionProtection
-	if in.DeletionProtection != nil {
-		deletionProtection = pointerOrNil(db_control.DeletionProtection(*in.DeletionProtection))
+	if len(in.Schema.Fields) == 0 {
+		return nil, fmt.Errorf("Schema must contain at least one field")
 	}
 
-	pods := in.TotalCount()
-	replicas := in.ReplicaCount()
-	shards := in.ShardCount()
-	vectorType := "dense"
+	schema, err := toDbCreateIndexSchema(in.Schema)
+	if err != nil {
+		return nil, err
+	}
+
+	deployment, err := toDbDeploymentRequest(in.Deployment)
+	if err != nil {
+		return nil, err
+	}
+
+	readCapacity, err := readCapacityParamsToReadCapacity(in.ReadCapacity)
+	if err != nil {
+		return nil, err
+	}
 
 	var tags *db_control.IndexTags
 	if in.Tags != nil {
@@ -577,36 +501,13 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 	}
 
 	req := db_control.CreateIndexRequest{
-		Name:               in.Name,
-		Dimension:          &in.Dimension,
-		Metric:             (*string)(in.Metric),
-		DeletionProtection: deletionProtection,
+		Name:               pointerOrNil(in.Name),
+		Schema:             schema,
+		Deployment:         deployment,
+		ReadCapacity:       readCapacity,
+		CmekId:             in.CmekId,
+		DeletionProtection: (*db_control.DeletionProtection)(in.DeletionProtection),
 		Tags:               tags,
-		VectorType:         &vectorType,
-	}
-
-	podSpec := db_control.IndexSpec1{
-		Pod: db_control.PodSpec{
-			Environment:      in.Environment,
-			PodType:          in.PodType,
-			Pods:             &pods,
-			Replicas:         &replicas,
-			Shards:           &shards,
-			SourceCollection: in.SourceCollection,
-		}}
-
-	if in.MetadataConfig != nil {
-		podSpec.Pod.MetadataConfig = &struct {
-			Indexed *[]string `json:"indexed,omitempty"`
-		}{
-			Indexed: in.MetadataConfig.Indexed,
-		}
-	}
-
-	// Apply pod spec to the request
-	err := req.Spec.FromIndexSpec1(podSpec)
-	if err != nil {
-		return nil, err
 	}
 
 	res, err := c.restClient.CreateIndex(ctx, &db_control.CreateIndexParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
@@ -632,7 +533,8 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //     For serverless Indexes, you define only the cloud and region where the [Index] should be hosted.
 //   - Region: (Required) The [region] where you would like your [Index] to be created.
 //   - Metric: (Optional) The metric used to measure the [similarity] between vectors ('euclidean', 'cosine', or 'dotproduct'). Defaults
-//     to `cosine` or `dotproduct` depending on the VectorType.
+//     to `cosine` or `dotproduct` depending on the VectorType. Setting `dotproduct` on a dense index does not enable
+//     sparse vectors; to store dense and sparse vectors in one index, use [Client.CreateIndex] with a [SparseVectorField].
 //   - DeletionProtection: (Optional) Determines whether [deletion protection] is "enabled" or "disabled" for the index.
 //     When "enabled", the index cannot be deleted. Defaults to "disabled".
 //   - Dimension: (Optional) The [dimensionality] of the vectors to be inserted in the [Index].
@@ -640,10 +542,10 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //     If `sparse`, the vector dimension should not be specified, and the Metric must be set to `dotproduct`. Defaults to `dense`.
 //   - ReadCapacity: (Optional) The read capacity configuration for the serverless index. Used to configure dedicated read capacity
 //     with specific node types and scaling strategies.
-//   - Schema: (Optional) Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
+//   - Schema: Not supported; setting it returns an error. Metadata fields are indexed automatically when you upsert data.
 //   - Tags: (Optional) A map of tags to associate with the Index.
-//   - SourceCollection: (Optional) The name of the [Collection] to use as the source for the index. NOTE: Collections can only be created
-//     from pods-based indexes.
+//   - SourceCollection: Not supported; setting it returns an error. To restore data into a new index, use
+//     [Client.CreateIndexFromBackup].
 //
 // To create a new Serverless Index, use the [Client.CreateServerlessIndex] method.
 //
@@ -666,8 +568,8 @@ func (c *Client) CreatePodIndex(ctx context.Context, in *CreatePodIndexRequest) 
 //		idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
 //		    Name:      indexName,
 //			Dimension: 3,
-//			Metric:  pinecone.Cosine,
-//			Cloud:   pinecone.Aws,
+//			Metric:  pinecone.IndexMetricCosine,
+//			Cloud:   pinecone.CloudAWS,
 //			Region:  "us-east-1",
 //	    })
 //
@@ -754,8 +656,8 @@ type ReadCapacityOnDemandConfig struct{}
 //	    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
 //		    Name:    indexName,
 //		    Dimension: 3,
-//		    Metric:  pinecone.Cosine,
-//		    Cloud:   pinecone.Aws,
+//		    Metric:  pinecone.IndexMetricCosine,
+//		    Cloud:   pinecone.CloudAWS,
 //		    Region:  "us-east-1",
 //		})
 //
@@ -770,6 +672,13 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 	}
 	if in.Name == "" || in.Cloud == "" || in.Region == "" {
 		return nil, fmt.Errorf("fields Name, Cloud, and Region must be included in CreateServerlessIndexRequest")
+	}
+
+	if in.SourceCollection != nil {
+		return nil, fmt.Errorf("SourceCollection is not supported by Pinecone API version 2026-07, which does not support creating an index from a collection; use CreateIndexFromBackup to restore a backup into a new index")
+	}
+	if in.Schema != nil {
+		return nil, fmt.Errorf("Schema is not supported by Pinecone API version 2026-07: metadata fields are indexed automatically when you upsert data, so they don't need to be declared")
 	}
 
 	vectorType, err := validateVectorType(in.VectorType, in.Dimension, in.Metric)
@@ -792,29 +701,26 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 		return nil, err
 	}
 
-	serverlessSpec := db_control.IndexSpec0{
-		Serverless: db_control.ServerlessSpec{
-			Cloud:            string(in.Cloud),
-			Region:           in.Region,
-			SourceCollection: in.SourceCollection,
-			Schema:           fromMetadataSchemaToRest(in.Schema),
-			ReadCapacity:     readCapacity,
-		},
+	schema, err := classicVectorSchema(vectorType, in.Dimension, in.Metric)
+	if err != nil {
+		return nil, err
+	}
+
+	deployment, err := toDbDeploymentRequest(&IndexDeployment{Managed: &ManagedDeployment{
+		Cloud:  in.Cloud,
+		Region: in.Region,
+	}})
+	if err != nil {
+		return nil, err
 	}
 
 	req := db_control.CreateIndexRequest{
-		Name:               in.Name,
-		Dimension:          in.Dimension,
-		Metric:             (*string)(in.Metric),
+		Name:               &in.Name,
+		Schema:             schema,
+		Deployment:         deployment,
+		ReadCapacity:       readCapacity,
 		DeletionProtection: deletionProtection,
-		VectorType:         &vectorType,
 		Tags:               tags,
-	}
-
-	// Apply serverless spec to the request
-	err = req.Spec.FromIndexSpec0(serverlessSpec)
-	if err != nil {
-		return nil, err
 	}
 
 	res, err := c.restClient.CreateIndex(ctx, &db_control.CreateIndexParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
@@ -840,8 +746,8 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 //   - DeletionProtection: (Optional) Whether [deletion protection] is enabled or disabled for the index.
 //     When enabled, the index cannot be deleted. Defaults to disabled.
 //   - Embed: (Required) The [CreateIndexForModelEmbed] object for embedding model configuration.
-//     Once set, the model cannot be changed, but embedding configurations such as field map, read parameters,
-//     or write parameters can be updated.
+//     The model and field map cannot be changed after the index is created; the read and write
+//     parameters can be updated with [Client.ConfigureIndex].
 //   - FieldMap: Identifies the name of the text field from your document model that will be embedded.
 //   - Metric: The [similarity metric] to be used for similarity search. Options: 'euclidean', 'cosine', or 'dotproduct'.
 //     If not specified, the metric will default according to the model and cannot be updated once set.
@@ -873,7 +779,7 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 //
 //	    request := &pinecone.CreateIndexForModelRequest{
 //	        Name:   "my-index",
-//	        Cloud:  pinecone.Aws,
+//	        Cloud:  pinecone.CloudAWS,
 //	        Region: "us-east-1",
 //	        Embed: pinecone.CreateIndexForModelEmbed{
 //			    Model:    "multilingual-e5-large",
@@ -915,8 +821,8 @@ type CreateIndexForModelRequest struct {
 //   - WriteParameters: (Optional) Write parameters for the embedding model.
 //
 // The `CreateIndexForModelEmbed` struct is used as part of the [CreateIndexForModelRequest] when creating an index
-// with an associated embedding model. Once an index is created, the `model` field cannot be changed, but other
-// configurations such as `field_map`, `read_parameters`, and `write_parameters` can be updated.
+// with an associated embedding model. The model and field map cannot be changed after the index is created; the
+// read and write parameters can be updated with [Client.ConfigureIndex] using [ConfigureIndexParams].Schema.
 //
 // [similarity metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#similarity-metrics
 type CreateIndexForModelEmbed struct {
@@ -958,7 +864,7 @@ type CreateIndexForModelEmbed struct {
 //	    idx, err := pc.CreateIndexForModel(ctx, &pinecone.CreateIndexForModelRequest{
 //		    Name:    indexName,
 //		    Dimension: 3,
-//		    Cloud:   pinecone.Aws,
+//		    Cloud:   pinecone.CloudAWS,
 //		    Region:  "us-east-1",
 //		    Embed: pinecone.CreateIndexForModelEmbed{
 //			    Model:    "multilingual-e5-large",
@@ -1036,6 +942,8 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 //     start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 //   - Environment: (Required) The environment identifier for the BYOC index.
 //   - Metric: (Optional) The metric used to measure the [similarity] between vectors ('euclidean', 'cosine', or 'dotproduct').
+//     Setting `dotproduct` on a dense index does not enable sparse vectors; to store dense and sparse vectors in one index,
+//     use [Client.CreateIndex] with a [SparseVectorField].
 //   - Dimension: (Optional) The [dimensionality] of the vectors to be inserted in the [Index].
 //   - VectorType: (Optional) The index vector type. You can use `dense` or `sparse`. If `dense`, the vector dimension must be specified.
 //     If `sparse`, the vector dimension should not be specified, and the Metric must be set to `dotproduct`. Defaults to `dense`.
@@ -1043,7 +951,7 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 //     When "enabled", the index cannot be deleted. Defaults to "disabled".
 //   - ReadCapacity: (Optional) The read capacity configuration for the serverless index. Used to configure dedicated read capacity
 //     with specific node types and scaling strategies.
-//   - Schema: (Optional) Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
+//   - Schema: Not supported; setting it returns an error. Metadata fields are indexed automatically when you upsert data.
 //   - Tags: (Optional) A map of tags to associate with the Index.
 //
 // To create a new BYOC Index, use the [Client.CreateBYOCIndex] method.
@@ -1067,7 +975,7 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 //		    Name:        indexName,
 //			Environment: "my-environment",
 //			Dimension:   3,
-//			Metric:      pinecone.Cosine,
+//			Metric:      pinecone.IndexMetricCosine,
 //	    })
 //
 //		if err != nil {
@@ -1121,7 +1029,7 @@ type CreateBYOCIndexRequest struct {
 //		    Name:        indexName,
 //		    Environment: "my-environment",
 //		    Dimension:  3,
-//		    Metric:     pinecone.Cosine,
+//		    Metric:     pinecone.IndexMetricCosine,
 //		})
 //
 //		if err != nil {
@@ -1137,6 +1045,10 @@ func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest
 		return nil, fmt.Errorf("fields Name, and Environment must be included in CreateBYOCIndexRequest")
 	}
 
+	if in.Schema != nil {
+		return nil, fmt.Errorf("Schema is not supported by Pinecone API version 2026-07: metadata fields are indexed automatically when you upsert data, so they don't need to be declared")
+	}
+
 	deletionProtection := derefOrDefault(in.DeletionProtection, "disabled")
 
 	var tags *db_control.IndexTags
@@ -1149,32 +1061,30 @@ func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest
 		return nil, err
 	}
 
-	byocSpec := db_control.IndexSpec2{
-		Byoc: db_control.ByocSpec{
-			Environment:  in.Environment,
-			Schema:       fromMetadataSchemaToRest(in.Schema),
-			ReadCapacity: readCapacity,
-		},
-	}
-
 	vectorType, err := validateVectorType(in.VectorType, in.Dimension, in.Metric)
 	if err != nil {
 		return nil, err
 	}
 
-	req := db_control.CreateIndexRequest{
-		Name:               in.Name,
-		VectorType:         &vectorType,
-		Dimension:          in.Dimension,
-		Metric:             (*string)(in.Metric),
-		DeletionProtection: (*db_control.DeletionProtection)(&deletionProtection),
-		Tags:               tags,
-	}
-
-	// Apply BYOC spec to the request
-	err = req.Spec.FromIndexSpec2(byocSpec)
+	schema, err := classicVectorSchema(vectorType, in.Dimension, in.Metric)
 	if err != nil {
 		return nil, err
+	}
+
+	deployment, err := toDbDeploymentRequest(&IndexDeployment{Byoc: &ByocDeployment{
+		Environment: in.Environment,
+	}})
+	if err != nil {
+		return nil, err
+	}
+
+	req := db_control.CreateIndexRequest{
+		Name:               &in.Name,
+		Schema:             schema,
+		Deployment:         deployment,
+		ReadCapacity:       readCapacity,
+		DeletionProtection: (*db_control.DeletionProtection)(&deletionProtection),
+		Tags:               tags,
 	}
 
 	res, err := c.restClient.CreateIndex(ctx, &db_control.CreateIndexParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
@@ -1285,9 +1195,10 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	return nil
 }
 
-// [ConfigureIndexParams] contains parameters for configuring an [Index]. For both pod-based
-// and serverless indexes you can configure the DeletionProtection status for an [Index].
-// For pod-based indexes you can also configure the number of Replicas and the PodType.
+// [ConfigureIndexParams] contains parameters for configuring an [Index]. For any index you can
+// configure DeletionProtection and Tags. For serverless and BYOC indexes you can also configure
+// ReadCapacity, for pod-based indexes the number of Replicas and the PodType, and for indexes with
+// integrated embedding the read and write parameters of the embedding model through Schema.
 // Each of the fields is optional, but at least one field must be set.
 // See [scale a pods-based index] for more information.
 //
@@ -1301,7 +1212,12 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //   - DeletionProtection: (Optional) DeletionProtection determines whether [deletion protection]
 //     is "enabled" or "disabled" for the index. When "enabled", the index cannot be deleted. Defaults to "disabled".
 //   - Tags: (Optional) A map of tags to associate with the Index.
-//   - Embed: (Optional) The [ConfigureIndexEmbed] object for integrated index configuration.
+//   - Embed: Not supported; setting it returns an error. To update the read or write parameters of an
+//     index's embedding model, use Schema.
+//   - ReadCapacity: (Optional) The [ReadCapacityParams] to apply to a serverless or BYOC index.
+//     Fields omitted from a Dedicated configuration keep their current values.
+//   - Schema: (Optional) The [ConfigureIndexSchema] updating the read or write parameters of the
+//     embedding model on an index created with [Client.CreateIndexForModel].
 //
 // Example:
 //
@@ -1329,14 +1245,49 @@ type ConfigureIndexParams struct {
 	Tags               IndexTags
 	Embed              *ConfigureIndexEmbed
 	ReadCapacity       *ReadCapacityParams
+	Schema             *ConfigureIndexSchema
+}
+
+// [ConfigureIndexSchema] holds schema updates for [Client.ConfigureIndex]. Only the read and write
+// parameters of an index's semantic text field can be updated; the embedding model and field map
+// can't be changed after the index is created.
+//
+// Fields:
+//   - Fields: (Required) The semantic text field to update, keyed by field name. Exactly one field
+//     must be given. The field name is the text field named in the FieldMap the index was created
+//     with, and appears as a [SemanticTextField] in the index's [IndexSchema].
+//
+// Example:
+//
+//	    _, err := pc.ConfigureIndex(ctx, "my-integrated-index", pinecone.ConfigureIndexParams{
+//		    Schema: &pinecone.ConfigureIndexSchema{
+//			    Fields: map[string]pinecone.ConfigureSemanticTextField{
+//				    "chunk_text": {ReadParameters: &map[string]interface{}{"input_type": "query", "truncate": "NONE"}},
+//			    },
+//		    },
+//	    })
+type ConfigureIndexSchema struct {
+	Fields map[string]ConfigureSemanticTextField
+}
+
+// [ConfigureSemanticTextField] holds updated parameters for a semantic text field.
+//
+// Fields:
+//   - Model: (Optional) The field's current embedding model. The model can't be changed; set this
+//     only to confirm the current model when updating parameters.
+//   - ReadParameters: (Optional) The model parameters to apply at query time.
+//   - WriteParameters: (Optional) The model parameters to apply at write time.
+type ConfigureSemanticTextField struct {
+	Model           *string
+	ReadParameters  *map[string]interface{}
+	WriteParameters *map[string]interface{}
 }
 
 // [ConfigureIndexEmbed] contains parameters for configuring the integrated inference embedding settings for an [Index].
-// You can convert an existing serverless index to an integrated index by specifying the Model and FieldMap.
-// The index vector type and dimension must match the model vector type and dimension, and the index similarity metric must be supported by the model.
-// Refer to the [model guide](https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models) for available models and model details.
 //
-// You can later change the embedding configuration to update the field map, read parameters, or write parameters. Once set, the model cannot be changed.
+// Deprecated: Pinecone API version 2026-07 no longer supports configuring an index's embedding through Embed, so
+// setting [ConfigureIndexParams].Embed returns an error. To update the read or write parameters of the embedding
+// model, use [ConfigureIndexParams].Schema. The model and field map can't be changed after the index is created.
 //
 // Fields:
 //   - FieldMap: (Optional) Identifies the name of the text field from your document model that will be embedded.
@@ -1350,8 +1301,9 @@ type ConfigureIndexEmbed struct {
 	WriteParameters *map[string]interface{}
 }
 
-// [Client.ConfigureIndex] is used to configure an existing [Index] allowing you to update the index's deletion protection status, tags, read capacity configuration,
-// and integrated inference embedding settings. You can also [scale a pods-based index] up or down by changing the size of the pods or the number of replicas.
+// [Client.ConfigureIndex] is used to configure an existing [Index] allowing you to update the index's deletion protection status, tags,
+// read capacity configuration, and the read and write parameters of an integrated embedding model. You can also
+// [scale a pods-based index] up or down by changing the size of the pods or the number of replicas.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1392,8 +1344,14 @@ type ConfigureIndexEmbed struct {
 //
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
 func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIndexParams) (*Index, error) {
-	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" && in.Tags == nil && in.ReadCapacity == nil && in.Embed == nil {
-		return nil, fmt.Errorf("must specify PodType, Replicas, DeletionProtection, ReadCapacity, Embed, or Tags when configuring an index")
+	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" && in.Tags == nil && in.ReadCapacity == nil && in.Schema == nil && in.Embed == nil {
+		return nil, fmt.Errorf("must specify PodType, Replicas, DeletionProtection, ReadCapacity, Schema, or Tags when configuring an index")
+	}
+	if in.Embed != nil {
+		return nil, fmt.Errorf("Embed is not supported by Pinecone API version 2026-07: to update the read or write parameters of an index's embedding model, use Schema")
+	}
+	if in.Schema != nil && len(in.Schema.Fields) != 1 {
+		return nil, fmt.Errorf("Schema must contain exactly one field to update")
 	}
 
 	podType := pointerOrNil(in.PodType)
@@ -1401,106 +1359,53 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	deletionProtection := pointerOrNil(in.DeletionProtection)
 
 	// Describe index in order to merge existing tags with incoming tags,
-	// and evaluate index spec type to determine which spec to apply.
+	// and evaluate the deployment type to validate type-specific parameters.
 	idxDesc, err := c.DescribeIndex(ctx, name)
 	if err != nil {
 		return nil, err
 	}
 	existingTags := idxDesc.Tags
 
-	specType := ""
-	if idxDesc.Spec.Pod != nil {
-		specType = "pod"
-	} else if idxDesc.Spec.Serverless != nil {
-		specType = "serverless"
-	} else if idxDesc.Spec.BYOC != nil {
-		specType = "byoc"
-	} else {
-		return nil, fmt.Errorf("unknown index spec type")
+	isPod := idxDesc.Deployment != nil && idxDesc.Deployment.Pod != nil
+
+	// Validate that deployment-specific parameters match the index type
+	if isPod && in.ReadCapacity != nil {
+		return nil, fmt.Errorf("cannot configure ReadCapacity on a pod index; ReadCapacity is only supported for serverless and BYOC indexes")
+	}
+	if !isPod && (podType != nil || replicas != nil) {
+		return nil, fmt.Errorf("cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes")
 	}
 
 	var request db_control.ConfigureIndexRequest
-	request.Spec = &db_control.ConfigureIndexRequest_Spec{}
 
-	// Validate that spec-specific parameters match the index type
-	if specType == "pod" && in.ReadCapacity != nil {
-		return nil, fmt.Errorf("cannot configure ReadCapacity on a pod index; ReadCapacity is only supported for serverless and BYOC indexes")
-	}
-	if (specType == "serverless" || specType == "byoc") && (podType != nil || replicas != nil) {
-		return nil, fmt.Errorf("cannot configure PodType or Replicas on a %s index; these parameters are only supported for pod indexes", specType)
-	}
-
-	// Apply pod configurations
-	switch specType {
-	case "pod":
-		if podType != nil || replicas != nil {
-			podSpec := db_control.ConfigureIndexRequestSpec1{
-				Pod: struct {
-					PodType  *string `json:"pod_type,omitempty"`
-					Replicas *int32  `json:"replicas,omitempty"`
-				}{
-					PodType:  podType,
-					Replicas: replicas,
-				},
-			}
-
-			// Apply the pod spec to the request
-			if err := request.Spec.FromConfigureIndexRequestSpec1(podSpec); err != nil {
-				return nil, err
-			}
-		}
-	case "serverless":
-		if in.ReadCapacity != nil {
-			readCapacity, err := patchReadCapacity(in.ReadCapacity, idxDesc.Spec.Serverless.ReadCapacity)
-			if err != nil {
-				return nil, err
-			}
-			serverlessSpec := db_control.ConfigureIndexRequestSpec0{
-				Serverless: struct {
-					ReadCapacity *db_control.ReadCapacity `json:"read_capacity,omitempty"`
-				}{
-					ReadCapacity: readCapacity,
-				},
-			}
-			// Apply the serverless spec to the request
-			if err := request.Spec.FromConfigureIndexRequestSpec0(serverlessSpec); err != nil {
-				return nil, err
-			}
-		}
-	case "byoc":
-		if in.ReadCapacity != nil {
-			readCapacity, err := patchReadCapacity(in.ReadCapacity, idxDesc.Spec.BYOC.ReadCapacity)
-			if err != nil {
-				return nil, err
-			}
-			byocSpec := db_control.ConfigureIndexRequestSpec2{
-				Byoc: struct {
-					ReadCapacity *db_control.ReadCapacity `json:"read_capacity,omitempty"`
-				}{
-					ReadCapacity: readCapacity,
-				},
-			}
-			// Apply the serverless spec to the request
-			if err := request.Spec.FromConfigureIndexRequestSpec2(byocSpec); err != nil {
-				return nil, err
-			}
+	// Pod scaling nests under deployment (no deployment_type key is accepted).
+	if podType != nil || replicas != nil {
+		request.Deployment = &db_control.PatchIndexDeploymentRequest{
+			PodType:  podType,
+			Replicas: replicas,
 		}
 	}
 
-	// Apply embedding configurations
-	if in.Embed != nil {
-		request.Embed =
-			&struct {
-				FieldMap        *map[string]interface{} `json:"field_map,omitempty"`
-				Model           *string                 `json:"model,omitempty"`
-				ReadParameters  *map[string]interface{} `json:"read_parameters,omitempty"`
-				WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
-			}{
-				FieldMap:        in.Embed.FieldMap,
-				Model:           in.Embed.Model,
-				ReadParameters:  in.Embed.ReadParameters,
-				WriteParameters: in.Embed.WriteParameters,
+	// Read capacity is a top-level patch covering managed and BYOC indexes.
+	if in.ReadCapacity != nil {
+		readCapacity, err := patchReadCapacity(in.ReadCapacity, idxDesc.ReadCapacity)
+		if err != nil {
+			return nil, err
+		}
+		request.ReadCapacity = readCapacity
+	}
+
+	if in.Schema != nil {
+		fields := make(map[string]db_control.PatchSemanticTextField, len(in.Schema.Fields))
+		for fieldName, field := range in.Schema.Fields {
+			fields[fieldName] = db_control.PatchSemanticTextField{
+				Type:            db_control.PatchSemanticTextFieldTypeSemanticText,
+				Model:           field.Model,
+				ReadParameters:  field.ReadParameters,
+				WriteParameters: field.WriteParameters,
 			}
+		}
+		request.Schema = &db_control.PatchIndexSchema{Fields: fields}
 	}
 
 	request.DeletionProtection = (*db_control.DeletionProtection)(deletionProtection)
@@ -1574,6 +1479,10 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	var collectionsResponse db_control.CollectionList
 	if err := json.NewDecoder(res.Body).Decode(&collectionsResponse); err != nil {
 		return nil, err
+	}
+
+	if collectionsResponse.Collections == nil {
+		return nil, nil
 	}
 
 	var collections []*Collection
@@ -1870,11 +1779,13 @@ func (c *Client) CreateBackup(ctx context.Context, in *CreateBackupParams) (*Bac
 //   - Name: The name of the index to be created. Must be 1–45 characters, lowercase alphanumeric or '-'.
 //   - DeletionProtection: Optional value configuring deletion protection for the new index. Can be either 'enabled' or 'disabled'.
 //   - Tags: Optional custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
+//   - ReadCapacity: Optional read capacity for the new index. Defaults to OnDemand when nil.
 type CreateIndexFromBackupParams struct {
 	BackupId           string              `json:"backup_id"`
 	Name               string              `json:"name"`
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 	Tags               *IndexTags          `json:"tags,omitempty"`
+	ReadCapacity       *ReadCapacityParams `json:"read_capacity,omitempty"`
 }
 
 // [CreateIndexFromBackupResponse] contains the response returned after creating an index from a backup. RestoreJobId can be used
@@ -1933,11 +1844,16 @@ func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromB
 	if in.Name == "" {
 		return nil, fmt.Errorf("Name must be included in CreateIndexFromBackupRequest")
 	}
+	readCapacity, err := readCapacityParamsToReadCapacity(in.ReadCapacity)
+	if err != nil {
+		return nil, err
+	}
 
 	res, err := c.restClient.CreateIndexFromBackupOperation(ctx, in.BackupId, &db_control.CreateIndexFromBackupOperationParams{XPineconeApiVersion: gen.PineconeApiVersion}, db_control.CreateIndexFromBackupRequest{
 		Name:               in.Name,
 		DeletionProtection: (*db_control.DeletionProtection)(in.DeletionProtection),
 		Tags:               (*db_control.IndexTags)(in.Tags),
+		ReadCapacity:       readCapacity,
 	})
 	if err != nil {
 		return nil, err
@@ -2009,10 +1925,12 @@ func (c *Client) DescribeBackup(ctx context.Context, backupId string) (*Backup, 
 //   - IndexName: Optional filter to list backups for a specific index. Otherwise, all backups in the project will be listed.
 //   - Limit: Optional maximum number of backups to return.
 //   - PaginationToken: Optional token to retrieve the next page of results. Will be nil if there are no more results.
+//   - IncludeDeleted: Optional. With IndexName, also list backups of deleted indexes that had that name. Requires IndexName.
 type ListBackupsParams struct {
 	IndexName       *string `json:"index_name,omitempty"`
 	Limit           *int    `json:"limit,omitempty"`
 	PaginationToken *string `json:"pagination_token,omitempty"`
+	IncludeDeleted  *bool   `json:"include_deleted,omitempty"`
 }
 
 // [Client.ListBackups] lists backups for a specific [Index], or all of the backups in a Pinecone project.
@@ -2053,6 +1971,9 @@ func (c *Client) ListBackups(ctx context.Context, in *ListBackupsParams) (*Backu
 			return nil, err
 		}
 	} else if in.IndexName == nil {
+		if in.IncludeDeleted != nil {
+			return nil, fmt.Errorf("IncludeDeleted requires IndexName")
+		}
 		response, err = c.restClient.ListProjectBackups(ctx, &db_control.ListProjectBackupsParams{
 			Limit:           in.Limit,
 			PaginationToken: in.PaginationToken,
@@ -2062,6 +1983,7 @@ func (c *Client) ListBackups(ctx context.Context, in *ListBackupsParams) (*Backu
 		}
 	} else {
 		response, err = c.restClient.ListIndexBackups(ctx, *in.IndexName, &db_control.ListIndexBackupsParams{
+			IncludeDeleted:  in.IncludeDeleted,
 			Limit:           in.Limit,
 			PaginationToken: in.PaginationToken,
 		})
@@ -2355,7 +2277,9 @@ func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedR
 	return decodeEmbedResponse(res.Body)
 }
 
-// [Document] is a map representing the document to be reranked.
+// [Document] is a map representing a document. It is used both for the document operations on an
+// [IndexConnection] (where it carries an "_id" field plus the document's field values) and as the
+// document input to [InferenceService.Rerank].
 type Document map[string]interface{}
 
 // [RerankRequest] holds the parameters for calling [InferenceService.Rerank] and reranking documents
@@ -2514,6 +2438,9 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 //
 //	     fmt.Printf("Model (multilingual-e5-large): %+v\n", model)
 func (i *InferenceService) DescribeModel(ctx context.Context, modelName string) (*ModelInfo, error) {
+	if modelName == "" {
+		return nil, fmt.Errorf("modelName must not be empty")
+	}
 	res, err := i.client.GetModel(ctx, modelName, &inference.GetModelParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
@@ -2612,75 +2539,16 @@ func (c *Client) extractAuthHeader() map[string]string {
 	return nil
 }
 
-func getIndexSpecType(spec db_control.IndexModel_Spec) string {
-	rawJSON, err := spec.MarshalJSON()
-	if err != nil {
-		return "unknown"
-	}
-	var rawData map[string]interface{}
-	err = json.Unmarshal(rawJSON, &rawData)
-	if err != nil {
-		return "unknown"
-	}
-	if _, ok := rawData["pod"]; ok {
-		return "pod"
-	} else if _, ok := rawData["serverless"]; ok {
-		return "serverless"
-	} else if _, ok := rawData["byoc"]; ok {
-		return "byoc"
-	}
-	return "unknown"
-}
-
 func toIndex(idx *db_control.IndexModel) (*Index, error) {
 	if idx == nil {
 		return nil, nil
 	}
 
-	spec := &IndexSpec{}
-	specType := getIndexSpecType(idx.Spec)
+	deployment := toIndexDeployment(idx.Deployment)
 
-	switch specType {
-	case "pod":
-		if podSpec, err := idx.Spec.AsIndexModelSpec1(); err == nil {
-			spec.Pod = &PodSpec{
-				Environment:      podSpec.Pod.Environment,
-				PodType:          podSpec.Pod.PodType,
-				PodCount:         derefOrDefault(podSpec.Pod.Pods, 1),
-				Replicas:         derefOrDefault(podSpec.Pod.Replicas, 1),
-				ShardCount:       derefOrDefault(podSpec.Pod.Shards, 1),
-				SourceCollection: podSpec.Pod.SourceCollection,
-			}
-			if podSpec.Pod.MetadataConfig != nil {
-				spec.Pod.MetadataConfig = &PodSpecMetadataConfig{Indexed: podSpec.Pod.MetadataConfig.Indexed}
-			}
-		}
-	case "serverless":
-		if serverlessSpec, err := idx.Spec.AsIndexModelSpec0(); err == nil {
-			readCapacity, err := toReadCapacity(&serverlessSpec.Serverless.ReadCapacity)
-			if err != nil {
-				return nil, err
-			}
-			spec.Serverless = &ServerlessSpec{
-				Cloud:            Cloud(serverlessSpec.Serverless.Cloud),
-				Region:           serverlessSpec.Serverless.Region,
-				SourceCollection: serverlessSpec.Serverless.SourceCollection,
-				Schema:           toMetadataSchemaFromRest(serverlessSpec.Serverless.Schema),
-				ReadCapacity:     readCapacity,
-			}
-		}
-	case "byoc":
-		if byocSpec, err := idx.Spec.AsIndexModelSpec2(); err == nil {
-			readCapacity, err := toReadCapacity(&byocSpec.Byoc.ReadCapacity)
-			if err != nil {
-				return nil, err
-			}
-			spec.BYOC = &BYOCSpec{
-				Environment:  byocSpec.Byoc.Environment,
-				Schema:       toMetadataSchemaFromRest(byocSpec.Byoc.Schema),
-				ReadCapacity: readCapacity,
-			}
-		}
+	readCapacity, err := toReadCapacity(idx.ReadCapacity)
+	if err != nil {
+		return nil, err
 	}
 
 	status := &IndexStatus{
@@ -2688,41 +2556,28 @@ func toIndex(idx *db_control.IndexModel) (*Index, error) {
 		State: IndexStatusState(idx.Status.State),
 	}
 
-	var embed *IndexEmbed
-	if idx.Embed != nil {
-		var metric *IndexMetric
-		if idx.Embed.Metric != nil {
-			convertedMetric := IndexMetric(*idx.Embed.Metric)
-			metric = &convertedMetric
-		}
-
-		embed = &IndexEmbed{
-			Dimension:       idx.Embed.Dimension,
-			FieldMap:        idx.Embed.FieldMap,
-			Metric:          metric,
-			Model:           idx.Embed.Model,
-			ReadParameters:  idx.Embed.ReadParameters,
-			VectorType:      idx.Embed.VectorType,
-			WriteParameters: idx.Embed.WriteParameters,
-		}
-	}
-
 	tags := (*IndexTags)(idx.Tags)
-	deletionProtection := derefOrDefault(idx.DeletionProtection, "disabled")
+	deletionProtection := valueOrFallback(string(idx.DeletionProtection), "disabled")
 
-	return &Index{
+	index := &Index{
 		Name:               idx.Name,
 		Host:               idx.Host,
 		PrivateHost:        idx.PrivateHost,
-		Metric:             IndexMetric(idx.Metric),
-		VectorType:         idx.VectorType,
+		Schema:             toIndexSchema(&idx.Schema),
+		Deployment:         deployment,
+		ReadCapacity:       readCapacity,
+		SourceCollection:   idx.SourceCollection,
+		SourceBackupId:     idx.SourceBackupId,
+		CmekId:             idx.CmekId,
 		DeletionProtection: DeletionProtection(deletionProtection),
-		Dimension:          idx.Dimension,
-		Spec:               spec,
 		Status:             status,
 		Tags:               tags,
-		Embed:              embed,
-	}, nil
+	}
+
+	// Populate the deprecated computed fields (Metric, VectorType, Dimension, Spec, Embed).
+	applyIndexCompatFields(index)
+
+	return index, nil
 }
 
 func decodeIndex(resBody io.ReadCloser) (*Index, error) {
@@ -2781,24 +2636,39 @@ func toBackup(backup *db_control.BackupModel) *Backup {
 		return nil
 	}
 
-	return &Backup{
-		BackupId:        backup.BackupId,
-		Cloud:           backup.Cloud,
-		CreatedAt:       backup.CreatedAt,
-		Description:     backup.Description,
-		Dimension:       backup.Dimension,
-		Metric:          (*IndexMetric)(backup.Metric),
-		Name:            backup.Name,
-		NamespaceCount:  backup.NamespaceCount,
-		RecordCount:     backup.RecordCount,
-		Region:          backup.Region,
-		Schema:          toMetadataSchemaFromRest(backup.Schema),
-		SizeBytes:       backup.SizeBytes,
-		SourceIndexId:   backup.SourceIndexId,
-		SourceIndexName: backup.SourceIndexName,
-		Status:          backup.Status,
-		Tags:            (*IndexTags)(backup.Tags),
+	var createdAt *string
+	if backup.CreatedAt != nil {
+		formatted := backup.CreatedAt.Format(time.RFC3339Nano)
+		createdAt = &formatted
 	}
+
+	result := &Backup{
+		BackupId:             backup.BackupId,
+		Cloud:                backup.Cloud,
+		CreatedAt:            createdAt,
+		Description:          backup.Description,
+		Name:                 backup.Name,
+		NamespaceCount:       backup.NamespaceCount,
+		RecordCount:          backup.RecordCount,
+		Region:               backup.Region,
+		Schema:               toIndexSchema(backup.Schema),
+		SizeBytes:            backup.SizeBytes,
+		SourceIndexDeletedAt: backup.SourceIndexDeletedAt,
+		SourceIndexId:        backup.SourceIndexId,
+		SourceIndexName:      backup.SourceIndexName,
+		Status:               backup.Status,
+		Tags:                 (*IndexTags)(backup.Tags),
+	}
+
+	// Populate the deprecated computed Dimension/Metric from the schema's dense vector field.
+	if dense := denseFieldForCompat(result.Schema); dense != nil {
+		dimension := dense.Dimension
+		metric := dense.Metric
+		result.Dimension = &dimension
+		result.Metric = &metric
+	}
+
+	return result
 }
 
 func decodeBackup(resBody io.ReadCloser) (*Backup, error) {
@@ -2815,11 +2685,17 @@ func toRestoreJob(restoreJob *db_control.RestoreJobModel) *RestoreJob {
 		return nil
 	}
 
+	var percentComplete *float32
+	if restoreJob.PercentComplete != nil {
+		converted := float32(*restoreJob.PercentComplete)
+		percentComplete = &converted
+	}
+
 	return &RestoreJob{
 		BackupId:        restoreJob.BackupId,
 		CompletedAt:     restoreJob.CompletedAt,
-		CreatedAt:       restoreJob.CreatedAt,
-		PercentComplete: restoreJob.PercentComplete,
+		CreatedAt:       derefOrDefault(restoreJob.CreatedAt, time.Time{}),
+		PercentComplete: percentComplete,
 		RestoreJobId:    restoreJob.RestoreJobId,
 		Status:          restoreJob.Status,
 		TargetIndexId:   restoreJob.TargetIndexId,
@@ -2860,7 +2736,7 @@ func decodeEmbedResponse(resBody io.ReadCloser) (*EmbedResponse, error) {
 		case "dense":
 			dbDenseEmbedding, err := embedding.AsDenseEmbedding()
 			if err != nil {
-				return nil, fmt.Errorf("failed to decode SparseEmbedding: %w", err)
+				return nil, fmt.Errorf("failed to decode DenseEmbedding: %w", err)
 			}
 			decodedEmbeddings[i] = Embedding{DenseEmbedding: &DenseEmbedding{
 				VectorType: dbDenseEmbedding.VectorType,
@@ -3084,7 +2960,7 @@ func validateVectorType(vectorType *string, dimension *int32, metric *IndexMetri
 		case "sparse":
 			if dimension != nil {
 				return "", fmt.Errorf("Dimension should not be specified when VectorType is 'sparse'")
-			} else if metric != nil && *metric != Dotproduct {
+			} else if metric != nil && *metric != IndexMetricDotproduct {
 				return "", fmt.Errorf("Metric should be 'dotproduct' when VectorType is 'sparse'")
 			}
 		case "dense":
@@ -3135,31 +3011,6 @@ func derefOrDefault[T any](ptr *T, defaultValue T) T {
 	return *ptr
 }
 
-func minOne(x int32) int32 {
-	if x < 1 { // ensure x is at least 1
-		return 1
-	}
-	return x
-}
-
-// Converts the inline struct defined in the generated REST API to a MetadataSchema
-func toMetadataSchemaFromRest(schema *db_control.MetadataSchema) *MetadataSchema {
-	if schema == nil {
-		return nil
-	}
-
-	fields := make(map[string]MetadataSchemaField)
-	for key, value := range schema.Fields {
-		fields[key] = MetadataSchemaField{
-			Filterable: derefOrDefault(value.Filterable, false),
-		}
-	}
-
-	return &MetadataSchema{
-		Fields: fields,
-	}
-}
-
 // Converts MetadataSchema to the inline struct defined in the generated REST API
 func fromMetadataSchemaToRest(schema *MetadataSchema) *db_control.MetadataSchema {
 	if schema == nil {
@@ -3167,33 +3018,46 @@ func fromMetadataSchemaToRest(schema *MetadataSchema) *db_control.MetadataSchema
 	}
 
 	fields := make(map[string]struct {
-		Filterable *bool `json:"filterable,omitempty"`
+		Filterable db_control.MetadataSchemaFieldsFilterable `json:"filterable"`
 	})
 
 	for key, value := range schema.Fields {
-		filterable := value.Filterable
 		fields[key] = struct {
-			Filterable *bool `json:"filterable,omitempty"`
+			Filterable db_control.MetadataSchemaFieldsFilterable `json:"filterable"`
 		}{
-			Filterable: &filterable,
+			Filterable: db_control.MetadataSchemaFieldsFilterable(value.Filterable),
 		}
 	}
 
 	return &db_control.MetadataSchema{
-		Fields: fields,
+		Fields: &fields,
 	}
 }
 
-// Takes the new ReadCapacityParams and the index's current ReadCapacity configuration to validate the patch request
-func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.ReadCapacity, error) {
+// Takes the new ReadCapacityParams and the index's current ReadCapacity configuration and builds the
+// read-capacity PATCH for ConfigureIndex. Fields omitted from a Dedicated patch keep their current value.
+func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.ReadCapacityPatch, error) {
 	// nil new params -> return nil
-	if new == nil {
+	if new == nil || (new.Dedicated == nil && new.OnDemand == nil) {
 		return nil, nil
+	}
+
+	if new.Dedicated != nil && new.OnDemand != nil {
+		return nil, fmt.Errorf("both Dedicated and OnDemand cannot be specified in ReadCapacityParams")
+	}
+
+	var result db_control.ReadCapacityPatch
+
+	if new.OnDemand != nil {
+		if err := result.FromReadCapacityOnDemandSpec(db_control.ReadCapacityOnDemandSpec{Mode: "OnDemand"}); err != nil {
+			return nil, err
+		}
+		return &result, nil
 	}
 
 	// nil / OnDemand -> Dedicated
 	// When converting from OnDemand to Dedicated, NodeType, Replicas, and Shards are required
-	if new.Dedicated != nil && (old == nil || old.OnDemand != nil) {
+	if old == nil || old.OnDemand != nil {
 		if new.Dedicated.NodeType == nil ||
 			new.Dedicated.Scaling == nil ||
 			new.Dedicated.Scaling.Manual == nil ||
@@ -3203,15 +3067,29 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 		}
 	}
 
-	readCapacity, err := readCapacityParamsToReadCapacity(new)
-	if err != nil {
+	patchConfig := db_control.ReadCapacityDedicatedPatchConfig{
+		NodeType: new.Dedicated.NodeType,
+	}
+	if new.Dedicated.Scaling != nil && new.Dedicated.Scaling.Manual != nil {
+		patchConfig.Scaling = pointerOrNil("Manual")
+		patchConfig.Manual = &db_control.ScalingConfigManualPatch{
+			Replicas: new.Dedicated.Scaling.Manual.Replicas,
+			Shards:   new.Dedicated.Scaling.Manual.Shards,
+		}
+	}
+
+	if err := result.FromReadCapacityDedicatedPatchSpec(db_control.ReadCapacityDedicatedPatchSpec{
+		Dedicated: patchConfig,
+		Mode:      "Dedicated",
+	}); err != nil {
 		return nil, err
 	}
 
-	return readCapacity, nil
+	return &result, nil
 }
 
-// Converts the ReadCapacityParams to db_control.ReadCapacity - used for CreateIndex, CreateIndexForModel, and ConfigureIndex operations
+// Converts the ReadCapacityParams to db_control.ReadCapacity - used for CreateServerlessIndex,
+// CreateBYOCIndex, CreateIndex, CreateIndexForModel, and CreateIndexFromBackup operations
 func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.ReadCapacity, error) {
 	// If no ReadCapacityParams provided or if it's an empty struct, return nil to use server default (OnDemand)
 	if request == nil || (request.Dedicated == nil && request.OnDemand == nil) {
@@ -3235,24 +3113,25 @@ func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.
 		return &result, nil
 	}
 
-	// Dedicated
-	dedicatedConfig := db_control.ReadCapacityDedicatedConfig{
-		NodeType: request.Dedicated.NodeType,
+	// Dedicated: the 2026-07 create request requires node type and a manual scaling configuration.
+	if request.Dedicated.NodeType == nil ||
+		request.Dedicated.Scaling == nil ||
+		request.Dedicated.Scaling.Manual == nil ||
+		request.Dedicated.Scaling.Manual.Replicas == nil ||
+		request.Dedicated.Scaling.Manual.Shards == nil {
+		return nil, fmt.Errorf("Dedicated read capacity must be configured with a node type, scaling strategy, and manual scaling configuration")
 	}
 
-	// Scaling if provided
-	if request.Dedicated.Scaling != nil && request.Dedicated.Scaling.Manual != nil {
-		dedicatedConfig.Scaling = pointerOrNil("Manual")
-		dedicatedConfig.Manual = &db_control.ScalingConfigManual{
-			Replicas: request.Dedicated.Scaling.Manual.Replicas,
-			Shards:   request.Dedicated.Scaling.Manual.Shards,
-		}
-	}
-
-	// Dedicated spec
 	dedicatedSpec := db_control.ReadCapacityDedicatedSpec{
-		Dedicated: dedicatedConfig,
-		Mode:      "Dedicated",
+		Dedicated: db_control.ReadCapacityDedicatedConfig{
+			NodeType: *request.Dedicated.NodeType,
+			Scaling:  "Manual",
+			Manual: db_control.ScalingConfigManual{
+				Replicas: *request.Dedicated.Scaling.Manual.Replicas,
+				Shards:   *request.Dedicated.Scaling.Manual.Shards,
+			},
+		},
+		Mode: "Dedicated",
 	}
 	if err := result.FromReadCapacityDedicatedSpec(dedicatedSpec); err != nil {
 		return nil, err
@@ -3304,8 +3183,9 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 			return nil, err
 		}
 
+		nodeType := dedicatedSpec.Dedicated.NodeType
 		dedicated := &ReadCapacityDedicated{
-			NodeType: dedicatedSpec.Dedicated.NodeType,
+			NodeType: &nodeType,
 			Status: ReadCapacityStatus{
 				State:           dedicatedSpec.Status.State,
 				CurrentReplicas: dedicatedSpec.Status.CurrentReplicas,
@@ -3315,14 +3195,14 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 		}
 
 		// Scaling
-		if dedicatedSpec.Dedicated.Scaling != nil {
-			if strings.ToLower(*dedicatedSpec.Dedicated.Scaling) == "manual" {
-				dedicated.Scaling = &ReadCapacityScaling{
-					Manual: &ReadCapacityManualScaling{
-						Replicas: dedicatedSpec.Dedicated.Manual.Replicas,
-						Shards:   dedicatedSpec.Dedicated.Manual.Shards,
-					},
-				}
+		if strings.EqualFold(dedicatedSpec.Dedicated.Scaling, "manual") {
+			replicas := dedicatedSpec.Dedicated.Manual.Replicas
+			shards := dedicatedSpec.Dedicated.Manual.Shards
+			dedicated.Scaling = &ReadCapacityScaling{
+				Manual: &ReadCapacityManualScaling{
+					Replicas: &replicas,
+					Shards:   &shards,
+				},
 			}
 		}
 

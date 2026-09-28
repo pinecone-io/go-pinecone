@@ -42,7 +42,7 @@ Three-plane design, each with its own client struct:
 - `internal/utils/` — Internal utility functions
 
 **Code Generation:**
-Generated code under `internal/gen/` is produced by `codegen/build-clients.sh` from API specs in `codegen/apis/` (a private git submodule). Run `just gen` to regenerate after spec changes. The current API version is `2026-04`.
+Generated code under `internal/gen/` is produced by `codegen/build-clients.sh` from API specs in `codegen/apis/` (a private git submodule). Run `just gen` to regenerate after spec changes. The current API version is `2026-07`.
 
 ## Build & Test Commands
 
