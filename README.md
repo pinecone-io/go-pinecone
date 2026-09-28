@@ -13,7 +13,8 @@ visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v6/pinecone.
 
 go-pinecone contains
 
-- gRPC bindings for [Data Plane](https://docs.pinecone.io/reference/api/2026-07/data-plane) operations
+- gRPC (vector operations) and REST (documents, records, imports) bindings for
+  [Data Plane](https://docs.pinecone.io/reference/api/2026-07/data-plane) operations
 - REST bindings for [Control Plane](https://docs.pinecone.io/reference/api/2026-07/control-plane)
   operations
 - REST bindings for [Admin API](https://docs.pinecone.io/reference/api/2026-07/admin/)
@@ -127,8 +128,11 @@ exponential backoff, set a `RetryPolicy`. When set, it applies to both the REST
 Retries cover rate-limit (HTTP 429 / gRPC `RESOURCE_EXHAUSTED`) and transient
 (5xx / gRPC `UNAVAILABLE`) responses; other 4xx errors are never retried. For REST,
 429 is always retried, while 5xx and transport errors are retried only for idempotent
-methods to avoid duplicating non-idempotent operations. A `Retry-After` header on a REST
-response sets the wait before the next attempt, capped at `MaxDelay`.
+methods (GET, PUT, DELETE) to avoid duplicating non-idempotent operations, so POST calls such as
+document and record operations, imports, `Embed`, and `Rerank` are retried only on 429. gRPC
+data-plane calls are retried on `RESOURCE_EXHAUSTED` and `UNAVAILABLE` for every method, including
+writes, so a retried write may be applied twice. A `Retry-After` header on a REST response sets the
+wait before the next attempt, capped at `MaxDelay`; gRPC retries don't use it.
 
 ```go
 package main
@@ -179,7 +183,9 @@ account, visit the [Pinecone web console](https://app.pinecone.io) and navigate 
 
 **Authenticating via client ID and secret**
 
-After creating a service account, you will be provided with a client ID and secret. These values can be passed via the `NewAdminClientParams` struct, or by setting the `PINECONE_CLIENT_ID` and `PINECONE_CLIENT_SECRET` environment variables. The `NewAdminClient` function handles the authentication handshake, and returns an authenticated `AdminClient`.
+After creating a service account, you will be provided with a client ID and secret. These values can be passed via the `NewAdminClientParams` struct, or by setting the `PINECONE_CLIENT_ID` and `PINECONE_CLIENT_SECRET` environment variables. The `NewAdminClient` function handles the authentication handshake, and returns an authenticated `AdminClient`. The client refreshes its access token before it expires, so a long-lived `AdminClient` keeps working.
+
+You can instead pass an existing access token as `AccessToken` (or set `PINECONE_ACCESS_TOKEN`). It takes precedence over a client ID and secret, and is used as-is: it isn't refreshed, so requests fail once it expires.
 
 ```go
 package main
@@ -220,7 +226,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create API key: %v", err)
 	}
-	fmt.Printf("Created API key: %s\n", apiKey.Id)
+	fmt.Printf("Created API key: %s\n", apiKey.Key.Id)
 
 	// List all projects
 	projects, err := adminClient.Project.List(ctx)
@@ -548,7 +554,7 @@ func main() {
 	}
 
 	// To scale the size of your pods-based index from "x2" to "x4":
-	_, err := pc.ConfigureIndex(ctx,
+	_, err = pc.ConfigureIndex(ctx,
 		"my-pod-index",
 		pinecone.ConfigureIndexParams{
 			PodType: "p1.x4",
@@ -559,7 +565,7 @@ func main() {
 	}
 
 	// To scale the number of replicas to 4:
-	_, err := pc.ConfigureIndex(ctx,
+	_, err = pc.ConfigureIndex(ctx,
 		"my-pod-index",
 		pinecone.ConfigureIndexParams{
 			Replicas: 4,
@@ -570,7 +576,7 @@ func main() {
 	}
 
 	// To scale both the size of your pods and the number of replicas:
-	_, err := pc.ConfigureIndex(ctx,
+	_, err = pc.ConfigureIndex(ctx,
 		"my-pod-index",
 		pinecone.ConfigureIndexParams{
 			PodType: "p1.x4",
@@ -582,7 +588,7 @@ func main() {
 	}
 
 	// To add or remove IndexTags
-	_, err := pc.ConfigureIndex(ctx,
+	_, err = pc.ConfigureIndex(ctx,
 		"my-pod-index",
 		pinecone.ConfigureIndexParams{
 			Tags: pinecone.IndexTags{
@@ -593,13 +599,13 @@ func main() {
 	)
 
 	// To enable deletion protection:
-	_, err := pc.ConfigureIndex(ctx, "my-index", pinecone.ConfigureIndexParams{DeletionProtection: "enabled"})
+	_, err = pc.ConfigureIndex(ctx, "my-index", pinecone.ConfigureIndexParams{DeletionProtection: "enabled"})
 	if err != nil {
 		fmt.Printf("Failed to configure index: %v\n", err)
 	}
 
 	// To update the read parameters of an integrated index's embedding model:
-	_, err := pc.ConfigureIndex(ctx, "my-integrated-index", pinecone.ConfigureIndexParams{
+	_, err = pc.ConfigureIndex(ctx, "my-integrated-index", pinecone.ConfigureIndexParams{
 		Schema: &pinecone.ConfigureIndexSchema{
 			Fields: map[string]pinecone.ConfigureSemanticTextField{
 				"chunk_text": {
@@ -647,7 +653,7 @@ func main() {
 
 	idx, err := pc.DescribeIndex(ctx, indexName)
 	if err != nil {
-		log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+		log.Fatalf("Failed to describe index: %v", err)
 	} else {
 		desc := fmt.Sprintf("Description: \n  Name: %s\n  Dimension: %d\n  Host: %s\n  Metric: %s\n"+
 			"  DeletionProtection"+
@@ -667,7 +673,8 @@ Pinecone indexes support working with vector data using operations such as upser
 ### Targeting an index
 
 To perform data operations on an index, you target it using the `Index` method on a `Client` object which returns a pointer to an `IndexConnection`. Calling `Index` will create and dial the index via a new gRPC connection. You can target a specific `Namespace` when calling `Index`, but if you want to reuse the connection with different namespaces, you can call `IndexConnection.WithNamespace`. If no `Namespace` is provided when establishing a new
-`IndexConnection`, the default of `"__default__"` will be used.
+`IndexConnection`, the default namespace is used. The API reports it as `"__default__"`, and either
+`""` or `"__default__"` can be passed wherever a namespace is expected.
 
 You will need your index's `Host` value, which you can retrieve via `DescribeIndex` or `ListIndexes`.
 
@@ -698,7 +705,7 @@ func main() {
 
 	idx, err := pc.DescribeIndex(ctx, "pinecone-index")
 	if err != nil {
-		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+		log.Fatalf("Failed to describe index: %v", err)
 	}
 
 	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -726,7 +733,7 @@ You can list all namespaces in an index in a paginated format, describe a specif
 
 	idx, err := pc.DescribeIndex(ctx, "example-index")
 	if err != nil {
-		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+		log.Fatalf("Failed to describe index: %v", err)
 	}
 
 	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -788,7 +795,7 @@ func main() {
 
 	idx, err := pc.DescribeIndex(ctx, "example-index")
 	if err != nil {
-		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+		log.Fatalf("Failed to describe index: %v", err)
 	}
 
 	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "my-namespace"})
@@ -804,22 +811,22 @@ func main() {
 	vectors := []*pinecone.Vector{
 		{
 			Id:           "A",
-			Values:       []float32{0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
+			Values:       &[]float32{0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
 			Metadata:     metadata,
 		},
 		{
 			Id:           "B",
-			Values:       []float32{0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2},
+			Values:       &[]float32{0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2},
 			Metadata:     metadata,
 		},
 		{
 			Id:           "C",
-			Values:       []float32{0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3},
+			Values:       &[]float32{0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3},
 			Metadata:     metadata,
 		},
 		{
 			Id:           "D",
-			Values:       []float32{0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4},
+			Values:       &[]float32{0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4},
 			Metadata:     metadata,
 		},
 	}
@@ -863,7 +870,7 @@ func main() {
 
 	idx, err := pc.DescribeIndex(ctx, "example-sparse-index")
 	if err != nil {
-		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+		log.Fatalf("Failed to describe index: %v", err)
 	}
 
 	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -964,7 +971,7 @@ The following example imports vectors from an Amazon S3 bucket into a Pinecone s
     idx, err = pc.DescribeIndex(ctx, "pinecone-index")
 
 	if err != nil {
-        log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+        log.Fatalf("Failed to describe index: %v", err)
     }
 
     idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -1027,7 +1034,7 @@ func main() {
 
 	idx, err := pc.DescribeIndex(ctx, "example-index")
 	if err != nil {
-		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+		log.Fatalf("Failed to describe index: %v", err)
 	}
 
 	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
@@ -1058,7 +1065,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error encountered when querying by vector: %v", err)
 	} else {
-		fmt.Printf(prettifyStruct(res))
+		fmt.Println(prettifyStruct(res))
 	}
 }
 
@@ -1157,7 +1164,7 @@ func main() {
 
 	idx, err := pc.DescribeIndex(ctx, "example-index")
 	if err != nil {
-		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+		log.Fatalf("Failed to describe index: %v", err)
 	}
 
 	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
@@ -1174,7 +1181,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error encountered when querying by vector ID `%v`: %v", vectorId, err)
 	} else {
-		fmt.Printf(prettifyStruct(res.Matches))
+		fmt.Println(prettifyStruct(res.Matches))
 	}
 }
 ```
@@ -1213,7 +1220,7 @@ func main() {
 
 	idx, err := pc.DescribeIndex(ctx, "example-index")
 	if err != nil {
-		log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+		log.Fatalf("Failed to describe index: %v", err)
 	}
 
 	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
@@ -1262,7 +1269,7 @@ func main() {
 
 	idx, err := pc.DescribeIndex(ctx, "example-index")
 	if err != nil {
-		log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+		log.Fatalf("Failed to describe index: %v", err)
 	}
 
 	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -1316,7 +1323,7 @@ func main() {
 
 	idx, err := pc.DescribeIndex(ctx, "example-index")
 	if err != nil {
-		log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+		log.Fatalf("Failed to describe index: %v", err)
 	}
 
 	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
@@ -1327,7 +1334,7 @@ func main() {
 	// deletes all vectors in "example-namespace"
 	err = idxConnection.DeleteAllVectorsInNamespace(ctx)
 	if err != nil {
-		log.Fatalf("Failed to delete vectors in namespace: \"%s\". Error: %s", idxConnection.Namespace, err)
+		log.Fatalf("Failed to delete vectors in namespace: \"%s\". Error: %s", idxConnection.Namespace(), err)
 	}
 }
 ```
@@ -1369,7 +1376,7 @@ func main() {
 
 	idx, err := pc.DescribeIndex(ctx, "example-index")
 	if err != nil {
-		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+		log.Fatalf("Failed to describe index: %v", err)
 	}
 
 	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
@@ -1381,7 +1388,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to fetch vectors: %v", err)
 	} else {
-		fmt.Printf(prettifyStruct(res))
+		fmt.Println(prettifyStruct(res))
 	}
 }
 
@@ -1444,7 +1451,7 @@ func main() {
 
 	idx, err := pc.DescribeIndex(ctx, "pinecone-index")
 	if err != nil {
-		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+		log.Fatalf("Failed to describe index: %v", err)
 	}
 
 	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "ns1"})
@@ -1505,7 +1512,7 @@ func main() {
 
 	idx, err := pc.DescribeIndex(ctx, "example-index")
 	if err != nil {
-		log.Fatalf("Failed to describe index \"%v\": %v", idx.Name, err)
+		log.Fatalf("Failed to describe index: %v", err)
 	}
 
 	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
@@ -1523,7 +1530,7 @@ func main() {
 	if len(res.VectorIds) == 0 {
 		fmt.Println("No vectors found")
 	} else {
-		fmt.Printf(prettifyStruct(res))
+		fmt.Println(prettifyStruct(res))
 	}
 }
 
@@ -1723,7 +1730,7 @@ A backup is a static copy of a serverless index that only consumes storage. It i
 
 	pc, err := pinecone.NewClient(clientParams)
 	if err != nil {
-		log.Fatalf("Failed to create Client: %w", err)
+		log.Fatalf("Failed to create Client: %v", err)
 	}
 
 	indexName := "my-index"
@@ -1737,12 +1744,12 @@ A backup is a static copy of a serverless index that only consumes storage. It i
 		Description: &backupDesc,
 	})
 	if err != nil {
-		log.Fatalf("Failed to create backup: %w", err)
+		log.Fatalf("Failed to create backup: %v", err)
 	}
 
 	backup, err = pc.DescribeBackup(ctx, backup.BackupId)
 	if err != nil {
-		log.Fatalf("Failed to describe backup: %w", err)
+		log.Fatalf("Failed to describe backup: %v", err)
 	}
 
 	// wait for backup to be "Complete" before triggering a restore job
@@ -1754,7 +1761,7 @@ A backup is a static copy of a serverless index that only consumes storage. It i
 		IndexName: &indexName,
 	})
 	if err != nil {
-		log.Fatalf("Failed to list backups: %w", err)
+		log.Fatalf("Failed to list backups: %v", err)
 	}
 
 	// create a new serverless index from the backup
@@ -1766,13 +1773,13 @@ A backup is a static copy of a serverless index that only consumes storage. It i
 		Tags:     &restoredIndexTags,
 	})
 	if err != nil {
-		log.Fatalf("Failed to create index from backup: %w", err)
+		log.Fatalf("Failed to create index from backup: %v", err)
 	}
 
 	// check the status of the index restoration
 	restoreJob, err := pc.DescribeRestoreJob(ctx, createIndexFromBackupResp.RestoreJobId)
 	if err != nil {
-		log.Fatalf("Failed to describe restore job: %w", err)
+		log.Fatalf("Failed to describe restore job: %v", err)
 	}
 ```
 
@@ -1801,8 +1808,8 @@ Send text to Pinecone's inference API to generate embeddings for documents and q
 		"Many people enjoy the beautiful mosques in Turkey.",
 	}
 	docParameters := pinecone.EmbedParameters{
-		InputType: "passage",
-		Truncate: "END",
+		"input_type": "passage",
+		"truncate":   "END",
 	}
 
 	docEmbeddingsResponse, err := pc.Inference.Embed(ctx, &pinecone.EmbedRequest{
@@ -1818,11 +1825,11 @@ Send text to Pinecone's inference API to generate embeddings for documents and q
 	// << Upsert documents into Pinecone >>
 
 	userQuery := []string{
-		"How should I prepare my turkey?"
+		"How should I prepare my turkey?",
 	}
 	queryParameters := pinecone.EmbedParameters{
-		InputType: "query",
-		Truncate: "END",
+		"input_type": "query",
+		"truncate":   "END",
 	}
 	queryEmbeddingsResponse, err := pc.Inference.Embed(ctx, &pinecone.EmbedRequest{
 		Model: embeddingModel,
@@ -1849,7 +1856,7 @@ indicating higher relevance.
     ctx := context.Background()
 
     pc, err := pinecone.NewClient(pinecone.NewClientParams{
-        ApiKey: "YOUR-API-KEY"
+        ApiKey: "YOUR-API-KEY",
 	})
 
     if err != nil {
@@ -1870,7 +1877,7 @@ indicating higher relevance.
     topN := 3
     returnDocuments := false
     rankFields := []string{"body"}
-    modelParams := map[string]string{
+    modelParams := map[string]interface{}{
       "truncate": "END",
     }
 
@@ -1979,7 +1986,7 @@ Note the following requirements for each record:
 	idx, err := pc.DescribeIndex(ctx, "your-index-name")
 
 	if err != nil {
-		log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+		log.Fatalf("Failed to describe index: %v", err)
 	}
 
 	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "my-namespace"})

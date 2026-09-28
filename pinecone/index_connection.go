@@ -22,16 +22,16 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-// [IndexConnection] holds the parameters for a Pinecone [IndexConnection] object. You can
-// instantiate a [IndexConnection] by calling the [Client.Index] method with a [NewIndexConnParams] object.
-// You can use [IndexConnection.WithNamespace] to create a new [IndexConnection] that targets a different namespace
-// while sharing the underlying gRPC connection.
+// IndexConnection is a data-plane client for one index host, targeting one namespace. Create one
+// with [Client.Index]; use [IndexConnection.WithNamespace] to target another namespace over the
+// same gRPC connection.
 //
-// Fields:
-//   - namespace: The namespace where index operations will be performed.
-//   - additionalMetadata: Additional metadata to be sent with each RPC request.
-//   - dataClient: The gRPC client for the index.
-//   - grpcConn: The gRPC connection.
+// Vector, namespace, and stats methods use gRPC. On failure they return the gRPC status error
+// unchanged (inspect it with status.FromError), not a [PineconeError]. Records, import, and
+// document methods use REST and return a [PineconeError] for non-success responses.
+//
+// When the Client has a RetryPolicy, gRPC calls that fail with RESOURCE_EXHAUSTED or UNAVAILABLE
+// are retried on every method, writes included.
 type IndexConnection struct {
 	namespace          string
 	additionalMetadata map[string]string
@@ -87,7 +87,9 @@ func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*In
 	return &idx, nil
 }
 
-// [IndexConnection.Close] closes the grpc.ClientConn to a Pinecone [Index].
+// Close closes the underlying gRPC connection. Connections derived with
+// [IndexConnection.WithNamespace] share it, so closing any of them closes all of them; call Close
+// once, after every derived connection is done.
 //
 // Returns an error if the connection cannot be closed, otherwise returns nil.
 //
@@ -106,7 +108,7 @@ func newIndexConnection(in newIndexParameters, dialOpts ...grpc.DialOption) (*In
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -123,12 +125,13 @@ func (idx *IndexConnection) Close() error {
 	return err
 }
 
-// [IndexConnection.Namespace] allows returning the namespace the instance of [IndexConnection] is targeting.
+// Namespace returns the namespace this connection targets, as it was set. "" means the default
+// namespace, which the API reports as "__default__".
 func (idx *IndexConnection) Namespace() string {
 	return idx.namespace
 }
 
-// [IndexConnection.WithNamespace] creates a new copy of [IndexConnection] that targets a new namespace within that index while
+// WithNamespace creates a new copy of [IndexConnection] that targets a new namespace within that index while
 // sharing the underlying gRPC connection. This is useful for performing operations across namespaces in an index without re-creating the index connection.
 //
 // Example:
@@ -144,7 +147,7 @@ func (idx *IndexConnection) Namespace() string {
 //		}
 //		idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //		if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //		}
 //
 //		idxConnNs1, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "namespace1"})
@@ -164,19 +167,19 @@ func (idx *IndexConnection) Namespace() string {
 //		vectors := []*pinecone.Vector{
 //			{
 //				Id:       "abc-1",
-//				Values:   values,
+//				Values:   &values,
 //				Metadata: metadata,
 //			},
 //		}
 //
 //		_, err = idxConnNs1.UpsertVectors(ctx, vectors)
 //		if err != nil {
-//			log.Fatalf("Failed to upsert vectors in %s. Error: %v", idxConnNs1.Namespace, err)
+//			log.Fatalf("Failed to upsert vectors in %s. Error: %v", idxConnNs1.Namespace(), err)
 //		}
 //		idxConnNs2 := idxConnNs1.WithNamespace("namespace2")
 //		_, err = idxConnNs2.UpsertVectors(ctx, vectors)
 //		if err != nil {
-//			log.Fatalf("Failed to upsert vectors in %s. Error: %v", idxConnNs2.Namespace, err)
+//			log.Fatalf("Failed to upsert vectors in %s. Error: %v", idxConnNs2.Namespace(), err)
 //		}
 func (idx *IndexConnection) WithNamespace(namespace string) *IndexConnection {
 	return &IndexConnection{
@@ -188,7 +191,10 @@ func (idx *IndexConnection) WithNamespace(namespace string) *IndexConnection {
 	}
 }
 
-// [IndexConnection.UpsertVectors] upserts vectors into a Pinecone [Index].
+// UpsertVectors writes vectors into the connection's namespace, overwriting any vector with the
+// same ID. It sends a single request and does no batching; the API accepts at most 1000 vectors per
+// request, and request size is also capped. Each vector needs Values, SparseValues, or both.
+// Metadata values must be strings, numbers, booleans, or lists of strings.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -211,7 +217,7 @@ func (idx *IndexConnection) WithNamespace(namespace string) *IndexConnection {
 //
 //		idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //		if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //		}
 //
 //		idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -222,11 +228,11 @@ func (idx *IndexConnection) WithNamespace(namespace string) *IndexConnection {
 //		metadataMap := map[string]interface{}{
 //			"genre": "classical",
 //		}
-//		metadata, err := structpb.NewStruct(metadataMap)
+//		metadata, err := pinecone.NewMetadata(metadataMap)
 //		if err != nil {
 //			log.Fatalf("Failed to create metadata map. Error: %v", err)
 //		}
-//	   	denseValues := []float32{1.0, 2.0}
+//		denseValues := []float32{1.0, 2.0}
 //
 //		sparseValues := pinecone.SparseValues{
 //			Indices: []uint32{0, 1},
@@ -273,21 +279,22 @@ func (idx *IndexConnection) UpsertVectors(ctx context.Context, in []*Vector) (ui
 	return res.UpsertedCount, nil
 }
 
-// [UpdateVectorRequest] holds the parameters for the [IndexConnection.UpdateVector] method.
-//
-// Fields:
-//   - Id: The unique ID of the vector to update.
-//   - Values: The values with which you want to update the vector.
-//   - SparseValues: The sparse values with which you want to update the vector.
-//   - Metadata: The metadata with which you want to update the vector.
+// UpdateVectorRequest holds the parameters for the [IndexConnection.UpdateVector] method.
 type UpdateVectorRequest struct {
-	Id           string
-	Values       []float32
+	// Id is the unique ID of the vector to update.
+	Id string
+	// Values are the values with which you want to update the vector.
+	Values []float32
+	// SparseValues are the sparse values with which you want to update the vector.
 	SparseValues *SparseValues
-	Metadata     *Metadata
+	// Metadata holds metadata keys to set or overwrite. Keys not listed keep their current values;
+	// an update never removes a key. Null values are rejected.
+	Metadata *Metadata
 }
 
-// [IndexConnection.UpdateVector] updates a vector in a Pinecone [Index] by ID.
+// UpdateVector updates a vector in the connection's namespace by ID. Id plus at least one of
+// Values, SparseValues, or Metadata is required. Values and SparseValues replace the stored values;
+// Metadata is merged into the stored metadata.
 //
 // Returns an error if the request fails, returns nil otherwise.
 //
@@ -311,7 +318,7 @@ type UpdateVectorRequest struct {
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -363,27 +370,26 @@ func (idx *IndexConnection) UpdateVector(ctx context.Context, in *UpdateVectorRe
 	return err
 }
 
-// [UpdateVectorsByMetadataRequest] holds the parameters for the [IndexConnection.UpdateVectorsByMetadata] method.
-//
-// Fields:
-//   - Filter: (Required) The metadata filter used to match vectors.
-//   - Metadata: (Required) The metadata with which you want to update the matched vectors.
-//   - DryRun: (Optional) If true, return the number of vectors that match the filter, but do not execute the update. Default is false.
+// UpdateVectorsByMetadataRequest holds the parameters for the [IndexConnection.UpdateVectorsByMetadata] method.
 type UpdateVectorsByMetadataRequest struct {
-	Filter   *MetadataFilter
+	// Filter (Required) is the metadata filter used to match vectors. It must contain at least one
+	// condition; an empty filter is rejected.
+	Filter *MetadataFilter
+	// Metadata (Required) holds metadata keys to set or overwrite on every matched vector. Keys
+	// not listed keep their current values. Null values are rejected.
 	Metadata *Metadata
-	DryRun   *bool
+	// DryRun (Optional), if true, returns the number of vectors that match the filter without
+	// executing the update. Default is false.
+	DryRun *bool
 }
 
-// [UpdateVectorsByMetadataResponse] is returned by the [IndexConnection.UpdateVectorsByMetadata] method.
-//
-// Fields:
-//   - MatchedRecords: The number of vectors that matched the filter.
+// UpdateVectorsByMetadataResponse is returned by the [IndexConnection.UpdateVectorsByMetadata] method.
 type UpdateVectorsByMetadataResponse struct {
+	// MatchedRecords is the number of vectors that matched the filter.
 	MatchedRecords int32 `json:"matched_records,omitempty"`
 }
 
-// [IndexConnection.UpdateVectorsByMetadata] updates vectors in a Pinecone [Index] that match a metadata filter.
+// UpdateVectorsByMetadata updates vectors in a Pinecone [Index] that match a metadata filter.
 // You can update metadata for all vectors that match the filter criteria, and optionally use DryRun to
 // count how many vectors would be updated without actually performing the update.
 //
@@ -409,7 +415,7 @@ type UpdateVectorsByMetadataResponse struct {
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -488,19 +494,19 @@ func (idx *IndexConnection) UpdateVectorsByMetadata(ctx context.Context, in *Upd
 	}
 }
 
-// [FetchVectorsResponse] is returned by the [IndexConnection.FetchVectors] method.
-//
-// Fields:
-//   - Vectors: The vectors fetched.
-//   - Usage: The usage information for the request.
-//   - Namespace: The namespace from which the vectors were fetched.
+// FetchVectorsResponse is returned by the [IndexConnection.FetchVectors] method.
 type FetchVectorsResponse struct {
-	Vectors   map[string]*Vector `json:"vectors,omitempty"`
-	Usage     *Usage             `json:"usage,omitempty"`
-	Namespace string             `json:"namespace"`
+	// Vectors are the fetched vectors, keyed by ID.
+	Vectors map[string]*Vector `json:"vectors,omitempty"`
+	// Usage is the usage information for the request.
+	Usage *Usage `json:"usage,omitempty"`
+	// Namespace is the namespace from which the vectors were fetched.
+	Namespace string `json:"namespace"`
 }
 
-// [IndexConnection.FetchVectors] fetches vectors by ID from a Pinecone [Index].
+// FetchVectors fetches vectors by ID from the connection's namespace. IDs that are not found are
+// absent from the returned map rather than reported as an error. ids must be non-empty and each ID
+// must be 1–512 characters; violations are rejected. The API accepts at most 1000 IDs per request.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -524,7 +530,7 @@ type FetchVectorsResponse struct {
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -573,35 +579,34 @@ func (idx *IndexConnection) FetchVectors(ctx context.Context, ids []string) (*Fe
 	}, nil
 }
 
-// [FetchVectorsByMetadataRequest] holds the parameters passed into the [IndexConnection.FetchVectorsByMetadata] method.
-//
-// Fields:
-//   - Filter: (Required) The metadata filter used to match vectors.
-//   - Limit: (Optional) The maximum number of vectors to return. If unspecified, the server will use a default value.
-//   - PaginationToken: (Optional) The token for paginating through results. Use this to continue a previous listing operation.
-//   - Namespace: (Optional) The namespace from which to fetch vectors. If unspecified, the [IndexConnection]'s default namespace is used.
+// FetchVectorsByMetadataRequest holds the parameters passed into the [IndexConnection.FetchVectorsByMetadata] method.
 type FetchVectorsByMetadataRequest struct {
-	Filter          *MetadataFilter
-	Limit           *uint32
+	// Filter (Required) is the metadata filter used to match vectors. It must contain at least one
+	// condition; an empty filter is rejected.
+	Filter *MetadataFilter
+	// Limit (Optional) is the maximum number of vectors per page, 1–10000. Defaults to 100.
+	Limit *uint32
+	// PaginationToken (Optional) is the token for paginating through results. Use it to
+	// continue a previous listing operation.
 	PaginationToken *string
-	Namespace       *string
+	// Namespace (Optional) is the namespace from which to fetch vectors. If nil, the connection's
+	// namespace is used.
+	Namespace *string
 }
 
-// [FetchVectorsByMetadataResponse] is returned by the [IndexConnection.FetchVectorsByMetadata] method.
-//
-// Fields:
-//   - Vectors: The fetched vectors, in the form of a map between the fetched ids and the fetched vectors.
-//   - Usage: The usage information for the request.
-//   - Namespace: The namespace from which the vectors were fetched.
-//   - Pagination: The pagination information for continuing past this listing, if more results are available.
+// FetchVectorsByMetadataResponse is returned by the [IndexConnection.FetchVectorsByMetadata] method.
 type FetchVectorsByMetadataResponse struct {
-	Vectors    map[string]*Vector `json:"vectors,omitempty"`
-	Usage      *Usage             `json:"usage,omitempty"`
-	Namespace  string             `json:"namespace"`
-	Pagination *Pagination        `json:"pagination,omitempty"`
+	// Vectors are the fetched vectors, keyed by ID.
+	Vectors map[string]*Vector `json:"vectors,omitempty"`
+	// Usage is the usage information for the request.
+	Usage *Usage `json:"usage,omitempty"`
+	// Namespace is the namespace from which the vectors were fetched.
+	Namespace string `json:"namespace"`
+	// Pagination holds the token for the next page, or is nil when there are no more results.
+	Pagination *Pagination `json:"pagination,omitempty"`
 }
 
-// [IndexConnection.FetchVectorsByMetadata] fetches vectors matching a metadata filter. You can filter vectors
+// FetchVectorsByMetadata fetches vectors matching a metadata filter. You can filter vectors
 // by metadata, limit the number of vectors returned, and paginate through results.
 //
 // Returns a pointer to a [FetchVectorsByMetadataResponse] object or an error if the request fails.
@@ -626,7 +631,7 @@ type FetchVectorsByMetadataResponse struct {
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -710,34 +715,30 @@ func (idx *IndexConnection) FetchVectorsByMetadata(ctx context.Context, in *Fetc
 	}, nil
 }
 
-// [ListVectorsRequest] holds the parameters passed into the [IndexConnection.ListVectors] method.
-//
-// Fields:
-//   - Prefix: (Optional) The prefix by which to filter. If unspecified,
-//     an empty string will be used which will list all vector ids in the namespace
-//   - Limit: (Optional) The maximum number of vectors to return. If unspecified, the server will use a default value.
-//   - PaginationToken: (Optional) The token for paginating through results.
+// ListVectorsRequest holds the parameters passed into the [IndexConnection.ListVectors] method.
 type ListVectorsRequest struct {
-	Prefix          *string
-	Limit           *uint32
+	// Prefix (Optional) limits results to IDs starting with this value. Leave it nil to list every
+	// ID; a non-nil Prefix must be 1–512 characters.
+	Prefix *string
+	// Limit (Optional) is the maximum number of IDs per page, 1–100. Defaults to 100.
+	Limit *uint32
+	// PaginationToken (Optional) is the token for paginating through results.
 	PaginationToken *string
 }
 
-// [ListVectorsResponse] is returned by the [IndexConnection.ListVectors] method.
-//
-// Fields:
-//   - VectorIds: The unique IDs of the returned vectors.
-//   - Usage: The usage information for the request.
-//   - NextPaginationToken: The token for paginating through results.
-//   - Namespace: The namespace vector ids are listed from.
+// ListVectorsResponse is returned by the [IndexConnection.ListVectors] method.
 type ListVectorsResponse struct {
-	VectorIds           []*string `json:"vector_ids,omitempty"`
-	Usage               *Usage    `json:"usage,omitempty"`
-	NextPaginationToken *string   `json:"next_pagination_token,omitempty"`
-	Namespace           string    `json:"namespace"`
+	// VectorIds are the unique IDs of the returned vectors.
+	VectorIds []*string `json:"vector_ids,omitempty"`
+	// Usage is the usage information for the request.
+	Usage *Usage `json:"usage,omitempty"`
+	// NextPaginationToken is the token for the next page, or nil when there are no more results.
+	NextPaginationToken *string `json:"next_pagination_token,omitempty"`
+	// Namespace is the namespace the vector IDs are listed from.
+	Namespace string `json:"namespace"`
 }
 
-// [IndexConnection.ListVectors] lists vectors in a Pinecone index. You can filter vectors by prefix,
+// ListVectors lists vectors in a Pinecone index. You can filter vectors by prefix,
 // limit the number of vectors returned, and paginate through results.
 //
 // Note: ListVectors is only available for Serverless indexes.
@@ -765,7 +766,7 @@ type ListVectorsResponse struct {
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -827,45 +828,48 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 	}, nil
 }
 
-// [QueryByVectorValuesRequest] holds the parameters for the [IndexConnection.QueryByVectorValues] method.
-//
-// Fields:
-//   - Vector: (Required) The query vector used to find similar vectors.
-//   - TopK: (Required) The number of vectors to return.
-//   - MetadataFilter: (Optional) The filter to apply to your query.
-//   - IncludeValues: (Optional) Whether to include the values of the vectors in the response.
-//   - IncludeMetadata: (Optional) Whether to include the metadata associated with the vectors in the response.
-//   - SparseValues: (Optional) The sparse values of the query vector, if applicable.
-//   - ScanFactor: (Optional) An optimization parameter for IVF dense indexes in dedicated read node indexes.
-//     It adjusts how much of the index is scanned to find vector candidates.
-//     Range: 0.5 – 4 (default). This parameter is only supported for dedicated (DRN) dense indexes.
-//   - MaxCandidates: (Optional) An optimization parameter that controls the maximum number of candidate dense
-//     vectors to rerank. Reranking computes exact distances to improve recall but increases query latency.
-//     Range: TopK – 100000. This parameter is only supported for dedicated (DRN) dense indexes.
+// QueryByVectorValuesRequest holds the parameters for the [IndexConnection.QueryByVectorValues] method.
 type QueryByVectorValuesRequest struct {
-	Vector          []float32
-	TopK            uint32
-	MetadataFilter  *MetadataFilter
-	IncludeValues   bool
+	// Vector is the dense query vector, with a size matching the index's dimension. Required on
+	// dense indexes; set it together with SparseValues for a hybrid query (dotproduct indexes).
+	// Leave it nil on sparse indexes, which accept only SparseValues.
+	Vector []float32
+	// TopK (Required) is the number of matches to return, 1–10000.
+	TopK uint32
+	// MetadataFilter (Optional) is the filter to apply to your query.
+	MetadataFilter *MetadataFilter
+	// IncludeValues (Optional) controls whether the values of the vectors are included in
+	// the response.
+	IncludeValues bool
+	// IncludeMetadata (Optional) controls whether the metadata associated with the vectors
+	// is included in the response.
 	IncludeMetadata bool
-	SparseValues    *SparseValues
-	ScanFactor      *float32
-	MaxCandidates   *uint32
+	// SparseValues are the sparse query values. Required on sparse indexes; on dense indexes they
+	// can only accompany Vector.
+	SparseValues *SparseValues
+	// ScanFactor (Optional) is an optimization parameter for IVF dense indexes in dedicated read
+	// node indexes. It adjusts how much of the index is scanned to find vector candidates.
+	// Range: 0.5 – 4 (default). Only supported for dedicated (DRN) dense indexes.
+	ScanFactor *float32
+	// MaxCandidates (Optional) is an optimization parameter that controls the maximum number
+	// of candidate dense vectors to rerank. Reranking computes exact distances to improve
+	// recall but increases query latency. Range: TopK – 100000. Only supported for
+	// dedicated (DRN) dense indexes.
+	MaxCandidates *uint32
 }
 
-// [QueryVectorsResponse] is returned by the [IndexConnection.QueryByVectorValues] method.
-//
-// Fields:
-//   - Matches: The vectors that are most similar to the query vector.
-//   - Usage: The usage information for the request.
-//   - Namespace: The namespace from which the vectors were queried.
+// QueryVectorsResponse is returned by [IndexConnection.QueryByVectorValues] and
+// [IndexConnection.QueryByVectorId].
 type QueryVectorsResponse struct {
-	Matches   []*ScoredVector `json:"matches,omitempty"`
-	Usage     *Usage          `json:"usage,omitempty"`
-	Namespace string          `json:"namespace"`
+	// Matches are the matches, ordered from most to least similar.
+	Matches []*ScoredVector `json:"matches,omitempty"`
+	// Usage is the usage information for the request.
+	Usage *Usage `json:"usage,omitempty"`
+	// Namespace is the namespace from which the vectors were queried.
+	Namespace string `json:"namespace"`
 }
 
-// [IndexConnection.QueryByVectorValues] queries a Pinecone [Index] for vectors that are most similar to a provided query vector.
+// QueryByVectorValues queries a Pinecone [Index] for vectors that are most similar to a provided query vector.
 //
 // Returns a pointer to a [QueryVectorsResponse] object or an error if the request fails.
 //
@@ -892,7 +896,7 @@ type QueryVectorsResponse struct {
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -954,37 +958,39 @@ func (idx *IndexConnection) QueryByVectorValues(ctx context.Context, in *QueryBy
 	return idx.query(ctx, req)
 }
 
-// [QueryByVectorIdRequest] holds the parameters for the [IndexConnection.QueryByVectorId] method.
-//
-// Fields:
-//   - VectorId: (Required) The unique ID of the vector used to find similar vectors.
-//   - TopK: (Required) The number of vectors to return.
-//   - MetadataFilter: (Optional) The filter to apply to your query.
-//   - IncludeValues: (Optional) Whether to include the values of the vectors in the response.
-//   - IncludeMetadata: (Optional) Whether to include the metadata associated with the vectors in the response.
-//   - ScanFactor: (Optional) An optimization parameter for IVF dense indexes in dedicated read node indexes.
-//     It adjusts how much of the index is scanned to find vector candidates.
-//     Range: 0.5 – 4 (default). This parameter is only supported for dedicated (DRN) dense indexes.
-//   - MaxCandidates: (Optional) An optimization parameter that controls the maximum number of candidate dense
-//     vectors to rerank. Reranking computes exact distances to improve recall but increases query latency.
-//     Range: TopK – 100000. This parameter is only supported for dedicated (DRN) dense indexes.
+// QueryByVectorIdRequest holds the parameters for the [IndexConnection.QueryByVectorId] method.
 type QueryByVectorIdRequest struct {
-	VectorId        string
-	TopK            uint32
-	MetadataFilter  *MetadataFilter
-	IncludeValues   bool
+	// VectorId (Required) is the unique ID of the vector used to find similar vectors.
+	VectorId string
+	// TopK (Required) is the number of matches to return, 1–10000.
+	TopK uint32
+	// MetadataFilter (Optional) is the filter to apply to your query.
+	MetadataFilter *MetadataFilter
+	// IncludeValues (Optional) controls whether the values of the vectors are included in
+	// the response.
+	IncludeValues bool
+	// IncludeMetadata (Optional) controls whether the metadata associated with the vectors
+	// is included in the response.
 	IncludeMetadata bool
-	ScanFactor      *float32
-	MaxCandidates   *uint32
+	// ScanFactor (Optional) is an optimization parameter for IVF dense indexes in dedicated read
+	// node indexes. It adjusts how much of the index is scanned to find vector candidates.
+	// Range: 0.5 – 4 (default). Only supported for dedicated (DRN) dense indexes.
+	ScanFactor *float32
+	// MaxCandidates (Optional) is an optimization parameter that controls the maximum number
+	// of candidate dense vectors to rerank. Reranking computes exact distances to improve
+	// recall but increases query latency. Range: TopK – 100000. Only supported for
+	// dedicated (DRN) dense indexes.
+	MaxCandidates *uint32
 }
 
-// [IndexConnection.QueryByVectorId] uses a vector ID to query a Pinecone [Index] and retrieve vectors that are most similar to the
+// QueryByVectorId uses a vector ID to query a Pinecone [Index] and retrieve vectors that are most similar to the
 // provided ID's underlying vector.
 //
 // Returns a pointer to a [QueryVectorsResponse] object or an error if the request fails.
 //
-// Note: QueryByVectorId executes a nearest neighbors search, meaning that unless TopK=1 in the [QueryByVectorIdRequest]
-// object, it will return 2+ vectors. The vector with a score of 1.0 is the vector with the same ID as the query vector.
+// Note: QueryByVectorId returns up to TopK matches, and the stored vector itself is normally one of
+// them. Its own score depends on the index metric. A MetadataFilter can exclude it, and fewer than
+// TopK matches come back when fewer vectors qualify.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -1006,7 +1012,7 @@ type QueryByVectorIdRequest struct {
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -1052,14 +1058,18 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 	return idx.query(ctx, req)
 }
 
-// [IndexConnection.UpsertRecords] upserts records into an integrated [Pinecone Index].
+// UpsertRecords upserts records into the connection's namespace of an
+// [index with integrated embedding]; Pinecone embeds each record's field_map text field
+// server-side. Each record must carry exactly one of an "_id" or "id" field, plus the field named in
+// the index's field_map; all other fields are stored as metadata. A request may contain at most 96
+// records (2 MiB total).
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - in: The [IntegratedRecord] objects to upsert.
+//   - records: The [IntegratedRecord] objects to upsert.
 //
-// Returns an error if the request fails.
+// Returns an error if the request fails; a non-success response is a [PineconeError].
 //
 // Example:
 //
@@ -1076,7 +1086,7 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "my-namespace"})
@@ -1127,14 +1137,13 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 //			},
 //	    }
 //
-//	    err = idxConnection.UpsertRecords(ctx, &records)
+//	    err = idxConnection.UpsertRecords(ctx, records)
 //	    if err != nil {
-//			log.Fatalf("Failed to upsert vectors. Error: %v", err)
-//	    } else {
-//			log.Printf("Successfully upserted %d vector(s)!\n", count)
+//			log.Fatalf("Failed to upsert records. Error: %v", err)
 //	    }
+//	    log.Printf("Successfully upserted %d record(s)!\n", len(records))
 //
-// [Pinecone Index]: https://docs.pinecone.io/reference/api/2025-01/control-plane/create_for_model
+// [index with integrated embedding]: https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models
 func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*IntegratedRecord) error {
 	var buffer bytes.Buffer
 	encoder := json.NewEncoder(&buffer)
@@ -1168,6 +1177,18 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 	return nil
 }
 
+// SearchRecords searches the connection's namespace with query text (Query.Inputs), a query vector
+// (Query.Vector), or a record ID (Query.Id) and returns the most similar records with their scores,
+// optionally reranked. Text queries require an [index with integrated embedding].
+//
+// Returns a pointer to a [SearchRecordsResponse], or an error; a non-success response is a
+// [PineconeError].
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime,
+//     allowing for the request to be canceled or to timeout according to the context's deadline.
+//   - in: The [SearchRecordsRequest] describing the query, the fields to return, and optional reranking.
+//
 // Example:
 //
 //	    ctx := context.Background()
@@ -1183,12 +1204,12 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //		}
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "my-namespace"})
 //
-//	    records := []*IntegratedRecord{
+//	    records := []*pinecone.IntegratedRecord{
 //			{
 //				"_id":        "rec1",
 //				"chunk_text": "Apple's first product, the Apple I, was released in 1976 and was hand-built by co-founder Steve Wozniak.",
@@ -1236,8 +1257,8 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 //			log.Fatalf("Failed to upsert vectors. Error: %v", err)
 //	    }
 //
-//	    res, err := idxConnection.SearchRecords(ctx, &SearchRecordsRequest{
-//			Query: SearchRecordsQuery{
+//	    res, err := idxConnection.SearchRecords(ctx, &pinecone.SearchRecordsRequest{
+//			Query: pinecone.SearchRecordsQuery{
 //				TopK: 5,
 //				Inputs: &map[string]interface{}{
 //					"text": "Disease prevention",
@@ -1249,7 +1270,7 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 //	    }
 //	    fmt.Printf("Search results: %+v\n", res)
 //
-// [Pinecone Index]: https://docs.pinecone.io/reference/api/2025-01/control-plane/create_for_model
+// [index with integrated embedding]: https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models
 func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecordsRequest) (*SearchRecordsResponse, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*SearchRecordsRequest) cannot be nil")
@@ -1343,13 +1364,11 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 	return decodeSearchRecordsResponse(res.Body)
 }
 
-// [IndexConnection.DeleteVectorsById] deletes vectors by ID from a Pinecone [Index].
+// DeleteVectorsById deletes vectors by ID from the connection's namespace. The delete is
+// irreversible. IDs that don't exist are ignored rather than reported as an error. The API accepts at
+// most 1000 IDs per request. Returns an error if the request fails, otherwise returns nil.
 //
-// Returns an error if the request fails, otherwise returns nil. This method will also return
-// nil if the passed vector ID does not exist in the index or namespace.
-//
-// Note: You must create an [IndexConnection] with a Namespace in [NewIndexConnParams] in order to delete vectors
-// in a namespace other than the default: "".
+// To target another namespace, set Namespace in [NewIndexConnParams] or use [IndexConnection.WithNamespace].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -1371,7 +1390,7 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "custom-namespace"})
@@ -1393,18 +1412,19 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 	return idx.delete(ctx, &req)
 }
 
-// [IndexConnection.DeleteVectorsByFilter] deletes vectors from a Pinecone [Index], given a filter.
+// DeleteVectorsByFilter deletes every vector in the connection's namespace whose metadata matches
+// metadataFilter. The delete is irreversible.
 //
+// metadataFilter must contain at least one condition; a nil or empty filter is rejected.
+// Use [IndexConnection.DeleteAllVectorsInNamespace] to delete everything.
 // Returns an error if the request fails, otherwise returns nil.
 //
-// Note: [DeleteVectorsByFilter] is only available on pods-based indexes.
-// Additionally, you must create an [IndexConnection] using the [Client.Index] method with a Namespace in [NewIndexConnParams]
-// in order to delete vectors in a namespace other than the default: "".
+// To target another namespace, set Namespace in [NewIndexConnParams] or use [IndexConnection.WithNamespace].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - MetadataFilter: The filter to apply to the deletion.
+//   - metadataFilter: The filter selecting the vectors to delete.
 //
 // Example:
 //
@@ -1421,7 +1441,7 @@ func (idx *IndexConnection) DeleteVectorsById(ctx context.Context, ids []string)
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -1454,12 +1474,11 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, metadataF
 	return idx.delete(ctx, &req)
 }
 
-// [IndexConnection.DeleteAllVectorsInNamespace] deletes all vectors in a specific namespace.
-//
+// DeleteAllVectorsInNamespace deletes every vector in the connection's namespace. The delete is
+// irreversible. The namespace itself remains; use [IndexConnection.DeleteNamespace] to remove it.
 // Returns an error if the request fails, otherwise returns nil.
 //
-// Note: You must instantiate an [IndexConnection] using the [Client.Index] method with a Namespace in [NewIndexConnParams]
-// in order to delete vectors in a namespace other than the default: "".
+// To target another namespace, set Namespace in [NewIndexConnParams] or use [IndexConnection.WithNamespace].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -1480,7 +1499,7 @@ func (idx *IndexConnection) DeleteVectorsByFilter(ctx context.Context, metadataF
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "your-namespace"})
@@ -1501,29 +1520,30 @@ func (idx *IndexConnection) DeleteAllVectorsInNamespace(ctx context.Context) err
 	return idx.delete(ctx, &req)
 }
 
-// [DescribeIndexStatsResponse] is returned by the [IndexConnection.DescribeIndexStats] method.
-//
-// Fields:
-//   - Dimension: The dimension of the [Index].
-//   - IndexFullness: The fullness level of the [Index]. Note: only available on pods-based indexes.
-//   - TotalVectorCount: The total number of vectors in the [Index].
-//   - Metric: The similarity metric configured for the [Index], when available.
-//   - VectorType: The vector type configured for the [Index], when available.
-//   - MemoryFullness: Memory utilization for pod-based indexes (nil for serverless).
-//   - StorageFullness: Storage utilization for pod-based indexes (nil for serverless).
-//   - Namespaces: The namespace(s) in the [Index].
+// DescribeIndexStatsResponse is returned by the [IndexConnection.DescribeIndexStats] method.
 type DescribeIndexStatsResponse struct {
-	Dimension        *uint32                      `json:"dimension"`
-	IndexFullness    float32                      `json:"index_fullness"`
-	TotalVectorCount uint32                       `json:"total_vector_count"`
-	Metric           *IndexMetric                 `json:"metric,omitempty"`
-	VectorType       *string                      `json:"vector_type,omitempty"`
-	MemoryFullness   *float32                     `json:"memory_fullness,omitempty"`
-	StorageFullness  *float32                     `json:"storage_fullness,omitempty"`
-	Namespaces       map[string]*NamespaceSummary `json:"namespaces,omitempty"`
+	// Dimension is the dimension of the [Index].
+	Dimension *uint32 `json:"dimension"`
+	// IndexFullness is the fullness level of the [Index]. Only available on pod-based indexes.
+	IndexFullness float32 `json:"index_fullness"`
+	// TotalVectorCount is the total number of vectors in the [Index].
+	TotalVectorCount uint32 `json:"total_vector_count"`
+	// Metric is the similarity metric configured for the [Index], when available.
+	Metric *IndexMetric `json:"metric,omitempty"`
+	// VectorType is the vector type configured for the [Index], when available.
+	VectorType *string `json:"vector_type,omitempty"`
+	// MemoryFullness is the fraction of memory used by a dedicated index; nil when the index does
+	// not report it.
+	MemoryFullness *float32 `json:"memory_fullness,omitempty"`
+	// StorageFullness is the fraction of storage used by a dedicated index; nil when the index does
+	// not report it.
+	StorageFullness *float32 `json:"storage_fullness,omitempty"`
+	// Namespaces summarizes the namespace(s) in the [Index], keyed by namespace name.
+	Namespaces map[string]*NamespaceSummary `json:"namespaces,omitempty"`
 }
 
-// [IndexConnection.DescribeIndexStats] returns statistics about a Pinecone [Index].
+// DescribeIndexStats returns statistics about a Pinecone [Index]. Statistics cover every namespace
+// in the index, regardless of the connection's namespace.
 //
 // Returns a pointer to a [DescribeIndexStatsResponse] object or an error if the request fails.
 //
@@ -1546,7 +1566,7 @@ type DescribeIndexStatsResponse struct {
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index:", err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -1558,22 +1578,24 @@ type DescribeIndexStatsResponse struct {
 //	    if err != nil {
 //			log.Fatalf("Failed to describe index \"%s\". Error: %s", idx.Name, err)
 //	    } else {
-//			log.Fatalf("%+v", *res)
+//			fmt.Printf("%+v\n", *res)
 //	    }
 func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIndexStatsResponse, error) {
 	return idx.DescribeIndexStatsFiltered(ctx, nil)
 }
 
-// [IndexConnection.DescribeIndexStatsFiltered] returns statistics about a Pinecone [Index], filtered by a given filter.
+// DescribeIndexStatsFiltered returns statistics about a Pinecone [Index], filtered by a given filter.
 //
 // Returns a pointer to a [DescribeIndexStatsResponse] object or an error if the request fails.
 //
-// Note: DescribeIndexStatsFiltered is only available on pods-based indexes.
+// Note: a non-empty filter is supported only on pod-based indexes; serverless indexes reject it (a
+// nil filter behaves like [IndexConnection.DescribeIndexStats]). Only the per-namespace counts
+// reflect the filter; TotalVectorCount and IndexFullness describe the whole index.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - MetadataFilter: The filter to apply to the request.
+//   - metadataFilter: The filter to apply to the request.
 //
 // Example:
 //
@@ -1590,7 +1612,7 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -1602,7 +1624,7 @@ func (idx *IndexConnection) DescribeIndexStats(ctx context.Context) (*DescribeIn
 //			"genre": "classical",
 //	    }
 //
-//	    filter, err := pinecone.NewMetadataFilter1(MetadataFilter)
+//	    filter, err := pinecone.NewMetadataFilter(MetadataFilter)
 //	    if err != nil {
 //			log.Fatalf("Failed to create filter %+v. Error: %s", MetadataFilter, err)
 //	    }
@@ -1651,28 +1673,30 @@ func (idx *IndexConnection) DescribeIndexStatsFiltered(ctx context.Context, meta
 	}, nil
 }
 
-// [StartImportResponse] holds the response parameters for the [IndexConnection.StartImport] method.
-//
-// Fields:
-//   - Id: The ID of the import process that was started.
+// StartImportResponse holds the response parameters for the [IndexConnection.StartImport] method.
 type StartImportResponse struct {
+	// Id is the ID of the import process that was started.
 	Id string `json:"id,omitempty"`
 }
 
-// [IndexConnection.StartImport] imports data from a storage provider into an [Index]. The uri parameter must start with the
-// scheme of a supported storage provider (e.g. "s3://"). For buckets that are not publicly readable, you will also need to
-// separately configure a [storage integration] and pass the integration id.
+// StartImport starts an asynchronous import of Parquet files from object storage into the index.
+// The uri names a directory, not a single file: s3://BUCKET/DIR (AWS-hosted indexes only),
+// gs://BUCKET/DIR, or https://ACCOUNT.blob.core.windows.net/CONTAINER/DIR. For buckets that are not
+// publicly readable, configure a [storage integration] and pass its ID. Indexes with integrated
+// embedding do not support import. StartImport returns once the import is accepted; poll
+// [IndexConnection.DescribeImport] for progress.
 //
 // Returns a pointer to a [StartImportResponse] object with the [Import] ID or an error if the request fails.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - uri: The URI of the data to import. The URI must start with the scheme of a supported storage provider.
+//   - uri: The directory URI of the Parquet files to import; see the forms above.
 //   - integrationId: If your bucket requires authentication to access, you need to pass the id of your storage integration using this property.
 //     Pass nil if not required.
-//   - errorMode: If set to "continue", the import operation will continue even if some records fail to import.
-//     Pass "abort" to stop the import operation if any records fail. Will default to "continue" if nil is passed.
+//   - errorMode: How the import handles records that fail: "abort" stops the import at the first
+//     failure, and "continue" skips failing records. Pass string([ImportErrorModeAbort]) or
+//     string([ImportErrorModeContinue]), or nil for the default, "abort".
 //
 // Example:
 //
@@ -1689,7 +1713,7 @@ type StartImportResponse struct {
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -1698,8 +1722,8 @@ type StartImportResponse struct {
 //	    }
 //
 //	    uri := "s3://BUCKET_NAME/PATH/TO/DIR"
-//	    errorMode := "continue" // or "abort"
-//	    importRes, err := idxConnection.StartImport(ctx, uri, nil, (*pinecone.ImportErrorMode)(&errorMode))
+//	    errorMode := string(pinecone.ImportErrorModeContinue)
+//	    importRes, err := idxConnection.StartImport(ctx, uri, nil, &errorMode)
 //	    if err != nil {
 //			log.Fatalf("Failed to start import: %v", err)
 //	    }
@@ -1735,7 +1759,7 @@ func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integra
 	return decodeStartImportResponse(res.Body)
 }
 
-// [IndexConnection.DescribeImport] retrieves information about a specific [Import] operation.
+// DescribeImport retrieves information about a specific [Import] operation.
 //
 // Returns a pointer to an [Import] object representing the current state of the import process, or an error if the request fails.
 //
@@ -1760,7 +1784,7 @@ func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integra
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
 //	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
@@ -1790,27 +1814,24 @@ func (idx *IndexConnection) DescribeImport(ctx context.Context, id string) (*Imp
 	return toImport(importModel), nil
 }
 
-// [ListImportsRequest] holds the parameters for the [IndexConnection.ListImports] method.
-//
-// Fields:
-//   - Limit: The maximum number of imports to return.
-//   - PaginationToken: The token to retrieve the next page of imports, if available.
+// ListImportsRequest holds the parameters for the [IndexConnection.ListImports] method.
 type ListImportsRequest struct {
-	Limit           *int32
+	// Limit (Optional) is the maximum number of imports per page, 1–100. Defaults to 100.
+	Limit *int32
+	// PaginationToken (Optional) is the NextPaginationToken from a previous [ListImportsResponse].
+	// Omit it to fetch the first page.
 	PaginationToken *string
 }
 
-// [ListImportsResponse] holds the result of listing [Import] objects.
-//
-// Fields:
-//   - Imports: The list of [Import] objects returned.
-//   - NextPaginationToken: The token for paginating through results, if more imports are available.
+// ListImportsResponse holds the result of listing [Import] objects.
 type ListImportsResponse struct {
-	Imports             []*Import `json:"imports,omitempty"`
-	NextPaginationToken *string   `json:"next_pagination_token,omitempty"`
+	// Imports are the [Import] objects returned.
+	Imports []*Import `json:"imports,omitempty"`
+	// NextPaginationToken is the token for the next page, or nil when there are no more results.
+	NextPaginationToken *string `json:"next_pagination_token,omitempty"`
 }
 
-// [IndexConnection.ListImports] returns information about [Import] operations. It returns operations in a
+// ListImports returns information about [Import] operations. It returns operations in a
 // paginated form, with a pagination token to fetch the next page of results.
 //
 // Returns a pointer to a [ListImportsResponse] object or an error if the request fails.
@@ -1835,10 +1856,10 @@ type ListImportsResponse struct {
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //	    }
 //
-//	    idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
+//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
 //	    if err != nil {
 //			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	    }
@@ -1887,7 +1908,7 @@ func (idx *IndexConnection) ListImports(ctx context.Context, in *ListImportsRequ
 	return listImportsResponse, nil
 }
 
-// [IndexConnection.CancelImport] cancels an [Import] operation by id.
+// CancelImport cancels an [Import] operation by id.
 //
 // Returns an error if the request fails.
 //
@@ -1911,10 +1932,10 @@ func (idx *IndexConnection) ListImports(ctx context.Context, in *ListImportsRequ
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //		}
 //
-//	    idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
+//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
 //	    if err != nil {
 //			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //		}
@@ -1937,18 +1958,17 @@ func (idx *IndexConnection) CancelImport(ctx context.Context, id string) error {
 	return nil
 }
 
-// [CreateNamespaceParams] holds the parameters for creating a new namespace within a serverless index.
-//
-// Fields:
-//   - Name: (Required) The unique name of the namespace to create.
-//   - Schema: (Optional) Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
-//     When `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed.
+// CreateNamespaceParams holds the parameters for creating a new namespace within a serverless index.
 type CreateNamespaceParams struct {
-	Name   string
+	// Name (Required) is the namespace name: at most 512 ASCII bytes with no NUL byte. Creating
+	// a name that already exists fails with codes.AlreadyExists.
+	Name string
+	// Schema (Optional) lists the metadata fields to index (at most 50, each with Filterable true).
+	// When nil, the namespace inherits the index's metadata configuration.
 	Schema *MetadataSchema
 }
 
-// [IndexConnection.CreateNamespace] creates a new namespace within a serverless index.
+// CreateNamespace creates a new namespace within a serverless index.
 //
 // Returns a pointer to a [NamespaceDescription] object or an error if the request fails.
 //
@@ -2001,7 +2021,9 @@ func (idx *IndexConnection) CreateNamespace(ctx context.Context, in *CreateNames
 	return toNamespaceDescription(res), nil
 }
 
-// [IndexConnection.DescribeNamespace] describes a namespace within a serverless index.
+// DescribeNamespace describes a namespace within a serverless index. The namespace argument is used
+// as given; the connection's own namespace is ignored. Pass "" or "__default__" for the default
+// namespace. Use [IndexConnection.ListNamespaces] to describe many namespaces.
 //
 // Returns a pointer to a [NamespaceDescription] object or an error if the request fails.
 //
@@ -2025,10 +2047,10 @@ func (idx *IndexConnection) CreateNamespace(ctx context.Context, in *CreateNames
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //		}
 //
-//	    idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
+//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
 //	    if err != nil {
 //			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //		}
@@ -2037,6 +2059,7 @@ func (idx *IndexConnection) CreateNamespace(ctx context.Context, in *CreateNames
 //	    if err != nil {
 //			log.Fatalf("Failed to describe namespace \"%s\". Error:%s", "your-namespace-name", err)
 //		}
+//	    fmt.Printf("Namespace %s has %d records\n", namespace.Name, namespace.RecordCount)
 func (idx *IndexConnection) DescribeNamespace(ctx context.Context, namespace string) (*NamespaceDescription, error) {
 	res, err := (*idx.grpcClient).DescribeNamespace(idx.akCtx(ctx), &db_data_grpc.DescribeNamespaceRequest{Namespace: resolveNamespace(namespace)})
 	if err != nil {
@@ -2046,38 +2069,34 @@ func (idx *IndexConnection) DescribeNamespace(ctx context.Context, namespace str
 	return toNamespaceDescription(res), nil
 }
 
-// [ListNamespacesResponse] is returned by the [IndexConnection.ListNamespaces] method.
-//
-// Fields:
-//   - Namespaces: A slice of [NamespaceDescription] objects.
-//   - Pagination: The [Pagination] object for paginating results.
-//   - TotalCount: The total number of namespaces in the index matching the prefix.
+// ListNamespacesResponse is returned by the [IndexConnection.ListNamespaces] method.
 type ListNamespacesResponse struct {
+	// Namespaces are the [NamespaceDescription] objects returned.
 	Namespaces []*NamespaceDescription
+	// Pagination is the [Pagination] object for paginating results.
 	Pagination *Pagination
+	// TotalCount is the total number of namespaces in the index matching the prefix.
 	TotalCount int32
 }
 
-// [ListNamespacesParams] holds the parameters for the [IndexConnection.ListNamespaces] method.
-//
-// Fields:
-//   - PaginationToken: The token to retrieve the next page of namespaces, if available.
-//   - Limit: The maximum number of namespaces to return.
-//   - Prefix: The prefix of the namespaces to list.
+// ListNamespacesParams holds the parameters for the [IndexConnection.ListNamespaces] method.
 type ListNamespacesParams struct {
+	// PaginationToken (Optional) is Pagination.Next from the previous response.
 	PaginationToken *string
-	Limit           *uint32
-	Prefix          *string
+	// Limit (Optional) is the maximum number of namespaces per page, 1–100. Defaults to 100.
+	Limit *uint32
+	// Prefix (Optional) returns only namespaces whose names start with this value.
+	Prefix *string
 }
 
-// [IndexConnection.DescribeNamespace] lists namespaces within a serverless index.
+// ListNamespaces lists namespaces within a serverless index.
 //
 // Returns a pointer to a [ListNamespacesResponse] object or an error if the request fails.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - in: A [ListNamespacesParams] object containing limit and pagination options.
+//   - in: Optional limit, prefix, and pagination options; nil lists from the start with defaults.
 //
 // Example:
 //
@@ -2094,19 +2113,22 @@ type ListNamespacesParams struct {
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //		}
 //
-//	    idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
+//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
 //	    if err != nil {
 //			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //		}
 //
 //	    limit := uint32(10)
-//	    namespaces, err := pc.ListNamespaces(ctx, &pinecone.ListNamespacesParams{ Limit: &limit })
+//	    namespaces, err := idxConnection.ListNamespaces(ctx, &pinecone.ListNamespacesParams{Limit: &limit})
 //	    if err != nil {
 //			log.Fatalf("Failed to list namespaces for index \"%s\". Error:%s", idx.Name, err)
 //		}
+//	    for _, ns := range namespaces.Namespaces {
+//		    fmt.Printf("%s: %d records\n", ns.Name, ns.RecordCount)
+//	    }
 func (idx *IndexConnection) ListNamespaces(ctx context.Context, in *ListNamespacesParams) (*ListNamespacesResponse, error) {
 	var listRequest *db_data_grpc.ListNamespacesRequest
 	if in != nil {
@@ -2123,7 +2145,10 @@ func (idx *IndexConnection) ListNamespaces(ctx context.Context, in *ListNamespac
 	return toListNamespacesResponse(res), nil
 }
 
-// [IndexConnection.DeleteNamespace] describes a namespace within a serverless index.
+// DeleteNamespace deletes the named namespace, and every record in it, from a serverless index. The
+// delete is irreversible. The namespace argument is used as given; the connection's own namespace is
+// ignored. Pass "" or "__default__" for the default namespace. To empty a namespace but keep it, use
+// [IndexConnection.DeleteAllVectorsInNamespace].
 //
 // Returns an error if the request fails.
 //
@@ -2147,15 +2172,15 @@ func (idx *IndexConnection) ListNamespaces(ctx context.Context, in *ListNamespac
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//			log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//			log.Fatalf("Failed to describe index: %v", err)
 //		}
 //
-//	    idxConnection, err := pc.Index(NewIndexConnParams{Host: idx.Host})
+//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
 //	    if err != nil {
 //			log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //		}
 //
-//	    err := pc.DeleteNamespace(ctx, "your-namespace-name")
+//	    err = idxConnection.DeleteNamespace(ctx, "your-namespace-name")
 //	    if err != nil {
 //			log.Fatalf("Failed to delete namespace \"%s\". Error:%s", "your-namespace-name", err)
 //		}
@@ -2547,20 +2572,28 @@ func (idx *IndexConnection) documentsRequest(ctx context.Context, operation stri
 	return nil
 }
 
-// [IndexConnection.UpsertDocuments] writes documents into the namespace of a document index (an
+// UpsertDocuments writes documents into the namespace of a document index (an
 // index created with [Client.CreateIndex] using a document schema). Each [Document] must carry an
 // "_id" field and at least one field declared in the index schema; any other field is stored as
-// filterable metadata.
+// filterable metadata. A document with an existing "_id" is overwritten. A request may contain at
+// most 1000 documents, each at most 2,000,000 bytes, with a 2 MiB total request body. Null field
+// values are dropped. The upsert is applied asynchronously, so documents may not be immediately
+// visible to [IndexConnection.SearchDocuments] or [IndexConnection.FetchDocuments].
 //
-// Returns the number of documents accepted for upsert, or an error.
+// Returns an [UpsertDocumentsResponse] whose UpsertedCount is the number of documents accepted for
+// upsert, or an error.
 //
 // Example:
 //
-//	    count, err := idxConnection.UpsertDocuments(ctx, &pinecone.UpsertDocumentsRequest{
+//	    res, err := idxConnection.UpsertDocuments(ctx, &pinecone.UpsertDocumentsRequest{
 //		    Documents: []pinecone.Document{
 //			    {"_id": "doc-1", "embedding": []float32{0.1, 0.2}, "genre": "drama"},
 //		    },
 //	    })
+//	    if err != nil {
+//		    log.Fatalf("Failed to upsert documents: %v", err)
+//	    }
+//	    fmt.Println(res.UpsertedCount)
 func (idx *IndexConnection) UpsertDocuments(ctx context.Context, in *UpsertDocumentsRequest) (*UpsertDocumentsResponse, error) {
 	if in == nil || len(in.Documents) == 0 {
 		return nil, fmt.Errorf("in (*UpsertDocumentsRequest) must contain at least one Document")
@@ -2582,7 +2615,7 @@ func (idx *IndexConnection) UpsertDocuments(ctx context.Context, in *UpsertDocum
 	return &response, nil
 }
 
-// [IndexConnection.SearchDocuments] searches the namespace for the documents most similar to the
+// SearchDocuments searches the namespace for the documents most similar to the
 // query described by ScoreBy, ranked by the given scoring methods. See [SearchDocumentsRequest] and
 // [DocumentScoringMethod] for the accepted combinations.
 //
@@ -2639,7 +2672,7 @@ func (idx *IndexConnection) SearchDocuments(ctx context.Context, in *SearchDocum
 	return &response, nil
 }
 
-// [IndexConnection.FetchDocuments] retrieves documents from the namespace by ID or by metadata
+// FetchDocuments retrieves documents from the namespace by ID or by metadata
 // filter. Exactly one of Ids or Filter must be provided; see [FetchDocumentsRequest].
 //
 // Example:
@@ -2689,7 +2722,7 @@ func (idx *IndexConnection) FetchDocuments(ctx context.Context, in *FetchDocumen
 	return &response, nil
 }
 
-// [IndexConnection.DeleteDocuments] deletes documents from the namespace by ID, by metadata filter,
+// DeleteDocuments deletes documents from the namespace by ID, by metadata filter,
 // or all at once. Exactly one of Ids, Filter, or DeleteAll must be provided; see
 // [DeleteDocumentsRequest]. The delete is applied asynchronously.
 //
@@ -2741,7 +2774,7 @@ func (idx *IndexConnection) DeleteDocuments(ctx context.Context, in *DeleteDocum
 	return &response, nil
 }
 
-// [IndexConnection.UpdateDocuments] applies partial updates to documents in the namespace, either as
+// UpdateDocuments applies partial updates to documents in the namespace, either as
 // per-document updates (Documents) or as a filtered patch (Filter with SetFields and/or
 // RemoveFields); see [UpdateDocumentsRequest]. The patch is applied asynchronously.
 //
@@ -2803,8 +2836,8 @@ func (idx *IndexConnection) UpdateDocuments(ctx context.Context, in *UpdateDocum
 	return &response, nil
 }
 
-// [IndexConnection.ListDocuments] lists the IDs of documents in the namespace, in sorted order,
-// optionally restricted to a prefix. See [ListDocumentsRequest].
+// ListDocuments lists the IDs of documents in the namespace, in sorted order,
+// optionally restricted to a prefix. See [ListDocumentsRequest]; pass nil to list with defaults.
 //
 // Example:
 //

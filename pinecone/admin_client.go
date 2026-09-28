@@ -19,7 +19,7 @@ import (
 	"github.com/pinecone-io/go-pinecone/v6/internal/useragent"
 )
 
-// [AdminClient] provides access to Pinecone's administrative APIs, which supports
+// AdminClient provides access to Pinecone's administrative APIs, which supports
 // managing projects, organizations, API keys, role bindings, service accounts,
 // invites, and users. It is constructed using [NewAdminClient] or
 // [NewAdminClientWithContext].
@@ -54,7 +54,7 @@ type AdminClient struct {
 	User UserClient
 }
 
-// [ProjectClient] provides an interface for managing Pinecone projects.
+// ProjectClient provides an interface for managing Pinecone projects.
 type ProjectClient interface {
 	// Create a new project.
 	Create(ctx context.Context, in *CreateProjectParams) (*Project, error)
@@ -68,11 +68,12 @@ type ProjectClient interface {
 	// Describe an existing project by ID.
 	Describe(ctx context.Context, projectId string) (*Project, error)
 
-	// Delete a project by ID.
+	// Delete a project by ID. The project's indexes, collections, backups, and assistants must be
+	// deleted first.
 	Delete(ctx context.Context, projectId string) error
 }
 
-// [OrganizationClient] provides an interface for managing organizations.
+// OrganizationClient provides an interface for managing organizations.
 type OrganizationClient interface {
 	// List all organizations available to the authenticated service account.
 	List(ctx context.Context) ([]*Organization, error)
@@ -83,13 +84,15 @@ type OrganizationClient interface {
 	// Update an existing organization by ID.
 	Update(ctx context.Context, organizationId string, in *UpdateOrganizationParams) (*Organization, error)
 
-	// Delete an organization by ID. All projects within the organization must be deleted first.
+	// Delete an organization by ID. The organization must be on the Free plan, have an active payment
+	// status, and have no projects.
 	Delete(ctx context.Context, organizationId string) error
 }
 
-// [APIKeyClient] provides an interface for managing API keys within a project.
+// APIKeyClient provides an interface for managing API keys within a project.
 type APIKeyClient interface {
-	// Create a new API key.
+	// Create a new API key. The returned [APIKeyWithSecret] contains the secret, which is returned
+	// only once.
 	Create(ctx context.Context, projectId string, in *CreateAPIKeyParams) (*APIKeyWithSecret, error)
 
 	// Update an existing API key by ID.
@@ -105,7 +108,7 @@ type APIKeyClient interface {
 	Delete(ctx context.Context, apiKeyId string) error
 }
 
-// [RoleBindingClient] provides an interface for managing role bindings, which grant
+// RoleBindingClient provides an interface for managing role bindings, which grant
 // roles to principals (users, service accounts, API keys, and invites) at an
 // organization or project scope.
 type RoleBindingClient interface {
@@ -122,7 +125,7 @@ type RoleBindingClient interface {
 	Delete(ctx context.Context, roleBindingId string) error
 }
 
-// [ServiceAccountClient] provides an interface for managing service accounts within
+// ServiceAccountClient provides an interface for managing service accounts within
 // an organization.
 type ServiceAccountClient interface {
 	// Create a new service account. The returned [ServiceAccountWithSecret] contains
@@ -147,7 +150,7 @@ type ServiceAccountClient interface {
 	Delete(ctx context.Context, serviceAccountId string) error
 }
 
-// [InviteClient] provides an interface for managing invitations to join the organization.
+// InviteClient provides an interface for managing invitations to join the organization.
 type InviteClient interface {
 	// Create and send a new invite. The role bindings must include at least one
 	// organization-scoped binding that grants organization membership.
@@ -166,7 +169,7 @@ type InviteClient interface {
 	Delete(ctx context.Context, inviteId string) error
 }
 
-// [UserClient] provides an interface for managing users within the organization.
+// UserClient provides an interface for managing users within the organization.
 type UserClient interface {
 	// List users in the organization, optionally filtered by email.
 	List(ctx context.Context, in *ListUsersParams) (*UserList, error)
@@ -178,78 +181,100 @@ type UserClient interface {
 	Delete(ctx context.Context, userId string) error
 }
 
-// [DefaultProjectClient] is the default implementation of [ProjectClient].
+// DefaultProjectClient is the default implementation of [ProjectClient].
 type DefaultProjectClient struct {
 	restClient *admin.Client
 }
 
-// [DefaultOrganizationClient] is the default implementation of [OrganizationClient].
+// DefaultOrganizationClient is the default implementation of [OrganizationClient].
 type DefaultOrganizationClient struct {
 	restClient *admin.Client
 }
 
-// [DefaultApiKeyClient] is the default implementation of [APIKeyClient].
+// DefaultApiKeyClient is the default implementation of [APIKeyClient].
 type DefaultApiKeyClient struct {
 	restClient *admin.Client
 }
 
-// [DefaultRoleBindingClient] is the default implementation of [RoleBindingClient].
+// DefaultRoleBindingClient is the default implementation of [RoleBindingClient].
 type DefaultRoleBindingClient struct {
 	restClient *admin.Client
 }
 
-// [DefaultServiceAccountClient] is the default implementation of [ServiceAccountClient].
+// DefaultServiceAccountClient is the default implementation of [ServiceAccountClient].
 type DefaultServiceAccountClient struct {
 	restClient *admin.Client
 }
 
-// [DefaultInviteClient] is the default implementation of [InviteClient].
+// DefaultInviteClient is the default implementation of [InviteClient].
 type DefaultInviteClient struct {
 	restClient *admin.Client
 }
 
-// [DefaultUserClient] is the default implementation of [UserClient].
+// DefaultUserClient is the default implementation of [UserClient].
 type DefaultUserClient struct {
 	restClient *admin.Client
 }
 
-// [NewAdminClientParams] contains parameters used to configure the [AdminClient].
+// NewAdminClientParams contains parameters used to configure the [AdminClient].
 // You must provide either a client ID and secret, or an access token, either directly or via environment
-// variables (PINECONE_CLIENT_ID, PINECONE_CLIENT_SECRET, PINECONE_ACCESS_TOKEN).
+// variables (PINECONE_CLIENT_ID, PINECONE_CLIENT_SECRET, PINECONE_ACCESS_TOKEN). If both are available,
+// the access token takes precedence.
 type NewAdminClientParams struct {
-	// The OAuth client ID used for authentication.
+	// (Optional) The OAuth client ID of a service account. Falls back to PINECONE_CLIENT_ID.
+	// Ignored when an access token is provided.
 	ClientId string
 
-	// The OAuth client secret used for authentication.
+	// (Optional) The OAuth client secret of a service account. Falls back to PINECONE_CLIENT_SECRET.
+	// Ignored when an access token is provided.
 	ClientSecret string
 
-	// The OAuth access token used for authentication.
+	// (Optional) An OAuth access token sent as-is as the Bearer token. Falls back to
+	// PINECONE_ACCESS_TOKEN. Takes precedence over ClientId and ClientSecret. It is never refreshed.
 	AccessToken string
 
-	// The host URL of the Pinecone API. If not provided, the default value is "https://api.pinecone.io".
+	// (Optional) The host URL of the Pinecone Admin API. Falls back to PINECONE_CONTROLLER_HOST, then
+	// "https://api.pinecone.io". "https://" is prepended if no scheme is given. Does not affect the
+	// OAuth token endpoint.
 	Host string
 
-	// (Optional) Additional headers to include in the request.
+	// (Optional) Additional headers to include in every Admin API request. Merged over headers parsed
+	// from the PINECONE_ADDITIONAL_HEADERS environment variable (a JSON object); values here take
+	// precedence. Not sent on the OAuth token request.
 	Headers *map[string]string
 
-	// (Optional) The HTTP client to use for the request.
+	// (Optional) The HTTP client used for Admin API requests and the OAuth token request.
 	RestClient *http.Client
 
-	// (Optional) The source tag to include in the request.
+	// (Optional) A source tag appended to the User-Agent header for request attribution.
 	SourceTag *string
 }
 
-// [NewAdminClient] returns a new [AdminClient] using the given parameters,
-// using context.Background as the default context. It validates the client ID and secret
-// from the input or environment, authenticates, and constructs an authorized [AdminClient].
+// NewAdminClient returns a new [AdminClient] using the given parameters and context.Background.
+//
+// Credentials are resolved in this order:
+//   - If AccessToken (or PINECONE_ACCESS_TOKEN) is set, it is sent as the Bearer token as-is. ClientId
+//     and ClientSecret are ignored, even if passed explicitly, and no token exchange is performed. This
+//     token is never refreshed; once it expires, requests fail with an authentication error.
+//   - Otherwise ClientId and ClientSecret (or PINECONE_CLIENT_ID and PINECONE_CLIENT_SECRET) are
+//     exchanged for an access token using the OAuth client credentials flow. The client refreshes this
+//     token before it expires and, if a request is rejected with 401 Unauthorized, obtains a new token
+//     and retries the request once.
 func NewAdminClient(in NewAdminClientParams) (*AdminClient, error) {
 	return NewAdminClientWithContext(context.Background(), in)
 }
 
-// [NewAdminClientWithContext] returns a new [AdminClient] using the provided
-// context and parameters. This function allows for finer control over timeout, and
-// cancellation of the authentication request. It validates the client ID and secret
-// from the input or environment, authenticates, and constructs an authorized [AdminClient].
+// NewAdminClientWithContext returns a new [AdminClient] using the provided context and parameters.
+// The context bounds the initial OAuth token request only.
+//
+// Credentials are resolved in this order:
+//   - If AccessToken (or PINECONE_ACCESS_TOKEN) is set, it is sent as the Bearer token as-is. ClientId
+//     and ClientSecret are ignored, even if passed explicitly, and no token exchange is performed. This
+//     token is never refreshed; once it expires, requests fail with an authentication error.
+//   - Otherwise ClientId and ClientSecret (or PINECONE_CLIENT_ID and PINECONE_CLIENT_SECRET) are
+//     exchanged for an access token using the OAuth client credentials flow. The client refreshes this
+//     token before it expires and, if a request is rejected with 401 Unauthorized, obtains a new token
+//     and retries the request once.
 func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*AdminClient, error) {
 	clientOptions := buildAdminClientOptions(in)
 	var authOptions []admin.ClientOption
@@ -336,7 +361,7 @@ var (
 	newAdminClient   = admin.NewClient
 )
 
-// [CreateProjectParams] contains parameters for creating a new project.
+// CreateProjectParams contains parameters for creating a new project.
 type CreateProjectParams struct {
 	// The name of the new project.
 	Name string `json:"name"`
@@ -349,7 +374,7 @@ type CreateProjectParams struct {
 	MaxPods *int `json:"max_pods,omitempty"`
 }
 
-// Creates a new project.
+// Create creates a new project.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -396,7 +421,7 @@ func (p *DefaultProjectClient) Create(ctx context.Context, in *CreateProjectPara
 	return toProject(adminProject), nil
 }
 
-// [UpdateProjectParams] contains parameters for updating an existing project.
+// UpdateProjectParams contains parameters for updating an existing project.
 type UpdateProjectParams struct {
 	// (Optional) The name of the new project.
 	Name *string `json:"name,omitempty"`
@@ -409,7 +434,7 @@ type UpdateProjectParams struct {
 	MaxPods *int `json:"max_pods,omitempty"`
 }
 
-// Updates an existing project by ID.
+// Update updates an existing project by ID.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -420,8 +445,9 @@ type UpdateProjectParams struct {
 //
 // Example:
 //
+//	newName := "renamed-project"
 //	project, err := adminClient.Project.Update(ctx, "project-id", &pinecone.UpdateProjectParams{
-//		Name: "renamed-project",
+//		Name: &newName,
 //	})
 //	if err != nil {
 //		log.Fatal(err)
@@ -461,7 +487,7 @@ func (p *DefaultProjectClient) Update(ctx context.Context, projectId string, in 
 	return toProject(adminProject), nil
 }
 
-// Lists all projects available to the authenticated service account.
+// List lists all projects available to the authenticated service account.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -506,7 +532,7 @@ func (p *DefaultProjectClient) List(ctx context.Context) ([]*Project, error) {
 	return projects, nil
 }
 
-// Describes an existing project by ID.
+// Describe describes an existing project by ID.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -545,7 +571,10 @@ func (p *DefaultProjectClient) Describe(ctx context.Context, projectId string) (
 	return toProject(adminProject), nil
 }
 
-// Deletes a project by ID.
+// Delete deletes a project by ID.
+//
+// The project's indexes, collections, backups, and assistants must be deleted first; otherwise the
+// API returns an error. The project's API keys, quotas, and role bindings are deleted with it.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -578,7 +607,7 @@ func (p *DefaultProjectClient) Delete(ctx context.Context, projectId string) err
 	return nil
 }
 
-// Lists all organizations available to the authenticated service account.
+// List lists all organizations available to the authenticated service account.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -623,7 +652,7 @@ func (o *DefaultOrganizationClient) List(ctx context.Context) ([]*Organization, 
 	return organizations, nil
 }
 
-// Describes an organization by ID.
+// Describe describes an organization by ID.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -657,13 +686,13 @@ func (o *DefaultOrganizationClient) Describe(ctx context.Context, organizationId
 	return toOrganization(adminOrganization), nil
 }
 
-// [UpdateOrganizationParams] contains parameters for updating an existing organization.
+// UpdateOrganizationParams contains parameters for updating an existing organization.
 type UpdateOrganizationParams struct {
 	// (Optional) The new name of the organization.
 	Name *string `json:"name"`
 }
 
-// Updates an existing organization by ID.
+// Update updates an existing organization by ID.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -674,8 +703,9 @@ type UpdateOrganizationParams struct {
 //
 // Example:
 //
+//	newName := "Renamed Org"
 //	org, err := adminClient.Organization.Update(ctx, "organization-id", &pinecone.UpdateOrganizationParams{
-//		Name: "Renamed Org",
+//		Name: &newName,
 //	})
 //	if err != nil {
 //		log.Fatal(err)
@@ -708,7 +738,10 @@ func (o *DefaultOrganizationClient) Update(ctx context.Context, organizationId s
 	return toOrganization(adminOrganization), nil
 }
 
-// Deletes an organization by ID. All projects within the organization must be deleted first.
+// Delete deletes an organization by ID. Deletion is permanent.
+//
+// The organization must be on the Free plan, have an active payment status with no outstanding
+// invoices, and have no remaining projects; otherwise the API returns an error.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -735,7 +768,7 @@ func (o *DefaultOrganizationClient) Delete(ctx context.Context, organizationId s
 	return nil
 }
 
-// [CreateAPIKeyParams] contains parameters for creating a new API key.
+// CreateAPIKeyParams contains parameters for creating a new API key.
 type CreateAPIKeyParams struct {
 	// The name of the API key. The name must be 1-80 characters long.
 	Name string `json:"name"`
@@ -746,7 +779,10 @@ type CreateAPIKeyParams struct {
 	Roles *[]string `json:"roles,omitempty"`
 }
 
-// Creates a new API key.
+// Create creates a new API key.
+//
+// The returned [APIKeyWithSecret] contains the key's secret Value, which is returned only once and
+// cannot be retrieved later. Store it securely and never log it.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -797,18 +833,19 @@ func (a *DefaultApiKeyClient) Create(ctx context.Context, projectId string, in *
 	return toAPIKeyWithSecret(adminApiKey), nil
 }
 
-// [UpdateAPIKeyParams] contains parameters for updating an existing API key.
+// UpdateAPIKeyParams contains parameters for updating an existing API key.
 type UpdateAPIKeyParams struct {
 	// (Optional) A new name for the API key. The name must be 1-80 characters long. If omitted, the name will not be updated.
 	Name *string `json:"name,omitempty"`
 
 	// (Optional) A new set of roles for the API key. Existing roles will be removed if not included.
-	// Expected values:ProjectEditor, ProjectViewer, ControlPlaneEditor, ControlPlaneViewer, DataPlaneEditor, DataPlaneViewer
+	// Expected values: "ProjectEditor", "ProjectViewer", "ControlPlaneEditor", "ControlPlaneViewer",
+	// "DataPlaneEditor", "DataPlaneViewer".
 	// If this field is omitted, the roles will not be updated.
 	Roles *[]string `json:"roles,omitempty"`
 }
 
-// Updates an existing API key by ID.
+// Update updates an existing API key by ID.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -819,8 +856,9 @@ type UpdateAPIKeyParams struct {
 //
 // Example:
 //
+//	newName := "updated-name"
 //	apiKey, err := adminClient.APIKey.Update(ctx, "api-key-id", &pinecone.UpdateAPIKeyParams{
-//		Name: "updated-name",
+//		Name: &newName,
 //	})
 //	if err != nil {
 //		log.Fatal(err)
@@ -859,7 +897,7 @@ func (a *DefaultApiKeyClient) Update(ctx context.Context, apiKeyId string, in *U
 	return toAPIKey(adminApiKey), nil
 }
 
-// Lists all API keys within a project by project ID.
+// List lists all API keys within a project by project ID.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -910,7 +948,7 @@ func (a *DefaultApiKeyClient) List(ctx context.Context, projectId string) ([]*AP
 	return apiKeys, nil
 }
 
-// Describes an API key by ID.
+// Describe describes an API key by ID.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -949,7 +987,7 @@ func (a *DefaultApiKeyClient) Describe(ctx context.Context, apiKeyId string) (*A
 	return toAPIKey(adminApiKey), nil
 }
 
-// Deletes an API key by ID.
+// Delete deletes an API key by ID.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -982,7 +1020,7 @@ func (a *DefaultApiKeyClient) Delete(ctx context.Context, apiKeyId string) error
 	return nil
 }
 
-// [CreateRoleBindingParams] contains parameters for creating a new role binding.
+// CreateRoleBindingParams contains parameters for creating a new role binding.
 type CreateRoleBindingParams struct {
 	// The ID of the principal to grant the role to. The format depends on PrincipalType.
 	PrincipalId string `json:"principal_id"`
@@ -1003,7 +1041,7 @@ type CreateRoleBindingParams struct {
 	ResourceId *string `json:"resource_id,omitempty"`
 }
 
-// Creates a new role binding, granting a role to a principal at an organization or project scope.
+// Create creates a new role binding, granting a role to a principal at an organization or project scope.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -1054,7 +1092,7 @@ func (r *DefaultRoleBindingClient) Create(ctx context.Context, in *CreateRoleBin
 	return toRoleBinding(adminRoleBinding), nil
 }
 
-// [ListRoleBindingsParams] contains the query parameters used when listing role bindings.
+// ListRoleBindingsParams contains the query parameters used when listing role bindings.
 // All fields are optional filters. PrincipalType is required when PrincipalId is set,
 // and ResourceType is required when ResourceId is set.
 type ListRoleBindingsParams struct {
@@ -1073,14 +1111,16 @@ type ListRoleBindingsParams struct {
 	// (Optional) Filter by role.
 	Role *string `json:"role,omitempty"`
 
-	// (Optional) The maximum number of role bindings to return per page.
+	// (Optional) The maximum number of role bindings to return per page, from 1 to 100. Defaults to 100.
 	Limit *int `json:"limit,omitempty"`
 
-	// (Optional) Token to retrieve the next page of results. Will be nil if there are no more results.
+	// (Optional) The Pagination.Next value from a previous response, used to fetch the following
+	// page. Reuse the same filters and Limit as the request that produced it; changing them can skip
+	// or repeat results.
 	PaginationToken *string `json:"pagination_token,omitempty"`
 }
 
-// Lists role bindings, optionally filtered by principal, resource, or role.
+// List lists role bindings, optionally filtered by principal, resource, or role.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -1136,7 +1176,7 @@ func (r *DefaultRoleBindingClient) List(ctx context.Context, in *ListRoleBinding
 	return toRoleBindingList(adminRoleBindingList), nil
 }
 
-// Describes a role binding by ID.
+// Describe describes a role binding by ID.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -1175,7 +1215,7 @@ func (r *DefaultRoleBindingClient) Describe(ctx context.Context, roleBindingId s
 	return toRoleBinding(adminRoleBinding), nil
 }
 
-// Deletes a role binding by ID.
+// Delete deletes a role binding by ID.
 //
 // The API returns an error if the binding cannot be removed, including when it is the
 // last "OrgOwner" binding in the organization, or the last organization-membership
@@ -1213,7 +1253,7 @@ func (r *DefaultRoleBindingClient) Delete(ctx context.Context, roleBindingId str
 	return nil
 }
 
-// [CreateServiceAccountParams] contains parameters for creating a new service account.
+// CreateServiceAccountParams contains parameters for creating a new service account.
 type CreateServiceAccountParams struct {
 	// The human-readable name of the service account. The name must be 1-80 characters long.
 	Name string `json:"name"`
@@ -1224,7 +1264,7 @@ type CreateServiceAccountParams struct {
 	RoleBindings []RoleBindingInput `json:"role_bindings,omitempty"`
 }
 
-// Creates a new service account.
+// Create creates a new service account.
 //
 // The returned [ServiceAccountWithSecret] contains the OAuth client secret, which is
 // returned only once and cannot be retrieved later. Store it securely and never log it.
@@ -1281,14 +1321,14 @@ func (s *DefaultServiceAccountClient) Create(ctx context.Context, in *CreateServ
 	return toServiceAccountWithSecret(adminServiceAccount), nil
 }
 
-// [UpdateServiceAccountParams] contains parameters for updating an existing service account.
+// UpdateServiceAccountParams contains parameters for updating an existing service account.
 type UpdateServiceAccountParams struct {
 	// (Optional) A new name for the service account. The name must be 1-80 characters long.
 	// If omitted, the name is unchanged.
 	Name *string `json:"name,omitempty"`
 }
 
-// Updates an existing service account by ID.
+// Update updates an existing service account by ID.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -1339,16 +1379,18 @@ func (s *DefaultServiceAccountClient) Update(ctx context.Context, serviceAccount
 	return toServiceAccount(adminServiceAccount), nil
 }
 
-// [ListServiceAccountsParams] contains the query parameters used when listing service accounts.
+// ListServiceAccountsParams contains the query parameters used when listing service accounts.
 type ListServiceAccountsParams struct {
-	// (Optional) The maximum number of service accounts to return per page.
+	// (Optional) The maximum number of service accounts to return per page, from 1 to 100. Defaults to 100.
 	Limit *int `json:"limit,omitempty"`
 
-	// (Optional) Token to retrieve the next page of results. Will be nil if there are no more results.
+	// (Optional) The Pagination.Next value from a previous response, used to fetch the following
+	// page. Reuse the same filters and Limit as the request that produced it; changing them can skip
+	// or repeat results.
 	PaginationToken *string `json:"pagination_token,omitempty"`
 }
 
-// Lists all service accounts within the organization.
+// List lists all service accounts within the organization.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -1388,7 +1430,7 @@ func (s *DefaultServiceAccountClient) List(ctx context.Context, in *ListServiceA
 	return toServiceAccountList(adminServiceAccountList), nil
 }
 
-// Describes a service account by ID.
+// Describe describes a service account by ID.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -1427,11 +1469,13 @@ func (s *DefaultServiceAccountClient) Describe(ctx context.Context, serviceAccou
 	return toServiceAccount(adminServiceAccount), nil
 }
 
-// Rotates the OAuth client secret for a service account by ID.
+// RotateSecret rotates the OAuth client secret for a service account by ID.
 //
 // The returned [ServiceAccountWithSecret] contains the new secret, which is returned
 // only once and cannot be retrieved later. Store it securely and never log it. The
-// previous secret is invalidated.
+// previous secret is invalidated. Access tokens already issued with the previous secret remain
+// valid until they expire. An [AdminClient] created with the previous secret fails once it next
+// needs to refresh its token; create a new client with the new secret.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -1470,7 +1514,7 @@ func (s *DefaultServiceAccountClient) RotateSecret(ctx context.Context, serviceA
 	return toServiceAccountWithSecret(adminServiceAccount), nil
 }
 
-// Deletes a service account by ID.
+// Delete deletes a service account by ID.
 //
 // The service account's role bindings are deleted, and OAuth tokens minted by the
 // service account are revoked within a few seconds.
@@ -1506,7 +1550,7 @@ func (s *DefaultServiceAccountClient) Delete(ctx context.Context, serviceAccount
 	return nil
 }
 
-// [CreateInviteParams] contains parameters for creating and sending a new invite.
+// CreateInviteParams contains parameters for creating and sending a new invite.
 type CreateInviteParams struct {
 	// The email address to invite.
 	Email string `json:"email"`
@@ -1517,10 +1561,10 @@ type CreateInviteParams struct {
 	RoleBindings []RoleBindingInput `json:"role_bindings"`
 }
 
-// Creates and sends a new invite to join the organization.
+// Create creates and sends a new invite to join the organization.
 //
 // The API returns an error if a pending or expired invite already exists for the email
-// (use [DefaultInviteClient.Resend] instead), or if the email already belongs to a member
+// (use [InviteClient.Resend] instead), or if the email already belongs to a member
 // of the organization (manage that user's roles via [RoleBindingClient] instead).
 //
 // Parameters:
@@ -1574,19 +1618,21 @@ func (i *DefaultInviteClient) Create(ctx context.Context, in *CreateInviteParams
 	return toInvite(adminInvite), nil
 }
 
-// [ListInvitesParams] contains the query parameters used when listing invites.
+// ListInvitesParams contains the query parameters used when listing invites.
 type ListInvitesParams struct {
-	// (Optional) The maximum number of invites to return per page.
+	// (Optional) The maximum number of invites to return per page, from 1 to 100. Defaults to 100.
 	Limit *int `json:"limit,omitempty"`
 
-	// (Optional) Token to retrieve the next page of results. Will be nil if there are no more results.
+	// (Optional) The Pagination.Next value from a previous response, used to fetch the following
+	// page. Reuse the same filters and Limit as the request that produced it; changing them can skip
+	// or repeat results.
 	PaginationToken *string `json:"pagination_token,omitempty"`
 }
 
-// Lists invites in the organization.
+// List lists invites in the organization.
 //
 // List returns only "pending" and "expired" invites; a "processed" invite is
-// returned only when fetching a single invite by ID with [DefaultInviteClient.Describe].
+// returned only when fetching a single invite by ID with [InviteClient.Describe].
 //
 // Parameters:
 //   - ctx: The request context.
@@ -1626,7 +1672,7 @@ func (i *DefaultInviteClient) List(ctx context.Context, in *ListInvitesParams) (
 	return toInviteList(adminInviteList), nil
 }
 
-// Describes an invite by ID.
+// Describe describes an invite by ID.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -1665,12 +1711,11 @@ func (i *DefaultInviteClient) Describe(ctx context.Context, inviteId string) (*I
 	return toInvite(adminInvite), nil
 }
 
-// Resends an existing invite by ID, resending the invite email and extending the
+// Resend resends an existing invite by ID, resending the invite email and extending the
 // invite's expiration to seven days from now.
 //
 // Resending an expired invite is allowed and returns it to "pending" status. Resending
-// an already-accepted (processed) invite returns an error. Invite emails are rate-limited
-// per organization; exceeding the limit returns an error.
+// an already-accepted (processed) invite returns an error.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -1709,7 +1754,7 @@ func (i *DefaultInviteClient) Resend(ctx context.Context, inviteId string) (*Inv
 	return toInvite(adminInvite), nil
 }
 
-// Deletes an invite by ID.
+// Delete deletes an invite by ID.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -1742,19 +1787,21 @@ func (i *DefaultInviteClient) Delete(ctx context.Context, inviteId string) error
 	return nil
 }
 
-// [ListUsersParams] contains the query parameters used when listing users.
+// ListUsersParams contains the query parameters used when listing users.
 type ListUsersParams struct {
 	// (Optional) Case-insensitive filter on the user's email address.
 	Email *string `json:"email,omitempty"`
 
-	// (Optional) The maximum number of users to return per page.
+	// (Optional) The maximum number of users to return per page, from 1 to 100. Defaults to 100.
 	Limit *int `json:"limit,omitempty"`
 
-	// (Optional) Token to retrieve the next page of results. Will be nil if there are no more results.
+	// (Optional) The Pagination.Next value from a previous response, used to fetch the following
+	// page. Reuse the same filters and Limit as the request that produced it; changing them can skip
+	// or repeat results.
 	PaginationToken *string `json:"pagination_token,omitempty"`
 }
 
-// Lists users in the organization, optionally filtered by email.
+// List lists users in the organization, optionally filtered by email.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -1798,7 +1845,7 @@ func (u *DefaultUserClient) List(ctx context.Context, in *ListUsersParams) (*Use
 	return toUserList(adminUserList), nil
 }
 
-// Describes a user by ID.
+// Describe describes a user by ID.
 //
 // Parameters:
 //   - ctx: The request context.
@@ -1837,7 +1884,7 @@ func (u *DefaultUserClient) Describe(ctx context.Context, userId string) (*User,
 	return toUser(adminUser), nil
 }
 
-// Deletes a user by ID, removing them from the organization.
+// Delete deletes a user by ID, removing them from the organization.
 //
 // Parameters:
 //   - ctx: The request context.

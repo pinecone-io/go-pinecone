@@ -11,8 +11,8 @@ import (
 
 // ExampleNewClient_withRetries enables automatic retries with exponential backoff.
 // A RetryPolicy applies to both the REST (control/data/inference) and gRPC (data
-// plane) clients: 429 and transient 5xx / gRPC UNAVAILABLE responses are retried,
-// other 4xx errors are not.
+// plane) clients: 429 and gRPC RESOURCE_EXHAUSTED/UNAVAILABLE are retried; REST 5xx
+// and transport errors are retried only for idempotent methods (GET, PUT, DELETE).
 func ExampleNewClient_withRetries() {
 	pc, err := pinecone.NewClient(pinecone.NewClientParams{
 		ApiKey:      os.Getenv("PINECONE_API_KEY"),

@@ -14,27 +14,37 @@ import (
 	"google.golang.org/grpc"
 )
 
-// [RetryPolicy] configures exponential-backoff retries for rate-limited (HTTP 429 /
-// gRPC RESOURCE_EXHAUSTED) and transient (5xx / gRPC UNAVAILABLE) responses. Other
-// 4xx errors are never retried. Pass it via [NewClientParams.RetryPolicy] to enable
-// retries on both the REST (control/data/inference) and gRPC (data plane) clients.
+// RetryPolicy configures retries with exponential backoff and full jitter for rate-limited (HTTP 429 /
+// gRPC RESOURCE_EXHAUSTED) and transient (5xx / gRPC UNAVAILABLE) responses. Other 4xx errors are
+// never retried. Set it on [NewClientParams] or [NewClientBaseParams] to enable retries on both the
+// REST (control plane, inference, REST data plane) and gRPC (data plane) clients; a nil policy
+// disables retries. [AdminClient] has no RetryPolicy field; pass [NewRetryHTTPClient] as
+// [NewAdminClientParams].RestClient instead.
 //
-// For REST, 429 is always retried; 5xx and transport errors are retried only for
-// idempotent methods, to avoid duplicating non-idempotent operations.
+// For REST, 429 is always retried; 5xx and transport errors are retried only for idempotent methods
+// (GET, PUT, DELETE), to avoid duplicating non-idempotent operations. Calls that use POST, which
+// includes document and record operations, imports, Embed, Rerank, and index creation, are
+// therefore retried only on 429. A Retry-After header on a retryable REST response replaces the
+// computed backoff, capped at MaxDelay.
 //
-// Fields:
-//   - MaxRetries: Number of retries after the initial attempt. 0 disables retries.
-//   - BaseDelay: Initial backoff before the first retry. Required when MaxRetries > 0.
-//   - MaxDelay: Upper bound on any single backoff. Required when MaxRetries > 0.
-//   - BackoffMultiplier: Growth factor applied to the delay each attempt (e.g. 2.0).
+// gRPC data-plane calls (upsert, query, fetch, update, delete, stats, and namespaces) are retried on
+// RESOURCE_EXHAUSTED and UNAVAILABLE regardless of method, so a retried write may be applied twice.
+// gRPC retries don't consult Retry-After.
 type RetryPolicy struct {
-	MaxRetries        int
-	BaseDelay         time.Duration
-	MaxDelay          time.Duration
+	// MaxRetries is the number of retries after the initial attempt. 0 disables retries.
+	MaxRetries int
+	// BaseDelay is the upper bound of the first retry's delay. Each retry waits a random duration
+	// between 0 and min(BaseDelay*BackoffMultiplier^n, MaxDelay), so a retry can happen
+	// immediately. Required when MaxRetries > 0, and must be <= MaxDelay.
+	BaseDelay time.Duration
+	// MaxDelay is the upper bound on any single backoff. Required when MaxRetries > 0.
+	MaxDelay time.Duration
+	// BackoffMultiplier is the growth factor applied to the delay bound each attempt. Must be >= 1
+	// when MaxRetries > 0 (2 is typical).
 	BackoffMultiplier float64
 }
 
-// [DefaultRetryPolicy] returns a sensible default: 3 retries, 500ms base delay,
+// DefaultRetryPolicy returns a sensible default: 3 retries, 500ms base delay,
 // 30s cap, doubling each attempt.
 func DefaultRetryPolicy() *RetryPolicy {
 	return &RetryPolicy{
@@ -70,9 +80,12 @@ func (p *RetryPolicy) validate() error {
 	return nil
 }
 
-// [NewRetryHTTPClient] returns an *http.Client that retries per policy. If base is
+// NewRetryHTTPClient returns an *http.Client that retries per policy. If base is
 // provided its settings are preserved and its transport is wrapped; otherwise a new
 // client is created. A nil policy uses [DefaultRetryPolicy].
+//
+// Retries and backoff waits happen inside the transport, so base.Timeout covers all attempts
+// combined. Request bodies are buffered in memory so they can be replayed.
 func NewRetryHTTPClient(policy *RetryPolicy, base *http.Client) *http.Client {
 	if policy == nil {
 		policy = DefaultRetryPolicy()
@@ -224,10 +237,10 @@ func wait(ctx context.Context, d time.Duration) bool {
 	}
 }
 
-// [RetryDialOptions] returns gRPC dial options enabling built-in retries for the data
+// RetryDialOptions returns gRPC dial options enabling built-in retries for the data
 // plane per policy, keyed on RESOURCE_EXHAUSTED and UNAVAILABLE. A nil policy uses
 // [DefaultRetryPolicy]. Returns nil when the policy disables retries. The per-call
-// attempt limit is raised to match the policy (gRPC's default cap is 5).
+// attempt limit is set to MaxRetries+1 (gRPC otherwise caps attempts at 5).
 func RetryDialOptions(policy *RetryPolicy) []grpc.DialOption {
 	if policy == nil {
 		policy = DefaultRetryPolicy()

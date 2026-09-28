@@ -24,6 +24,7 @@ and admin — to Pinecone API version `2026-07`. The `X-Pinecone-Api-Version` he
 - `Backup` field types changed. [Details](#type-changes)
 - Some invalid requests now fail locally instead of at the server.
   [Details](#new-client-side-validation)
+- A few behaviors changed without a signature change. [Details](#behavior-changes)
 
 ## The index model: schema + deployment
 
@@ -175,7 +176,7 @@ reports, and drops `ScalingDownPodSize`, which it never does (pod size can only 
 Requests the server would always refuse now fail locally, before anything is sent:
 
 - `QueryByVectorValues` / `QueryByVectorId`: `TopK` must be 1–10000.
-- `FetchVectors`: at least one ID; IDs (and `ListVectors` prefixes) must be 1–512 characters with
+- `FetchVectors`: at least one ID; IDs (and `ListVectors` prefixes) must be 1–512 bytes with
   no NUL byte.
 - `ListVectors` / `ListImports`: `Limit` 1–100. `FetchVectorsByMetadata`: `Limit` 1–10000, non-empty `Filter`.
 - `DeleteVectorsByFilter` / `UpdateVectorsByMetadata`: empty filters are rejected; use
@@ -184,11 +185,26 @@ Requests the server would always refuse now fail locally, before anything is sen
   number, boolean, or list of strings. Null values are rejected.
 - `UpsertRecords`: a record must carry exactly one of `_id` or `id`.
 - `SearchRecords`: a `Rerank` must name at least one `RankFields` entry.
+- `DescribeModel`: the model name must not be empty.
+- `ListBackups`: `IncludeDeleted` requires `IndexName`.
 - Dedicated read capacity at create time requires `NodeType` plus manual `Replicas` and `Shards`.
+
+## Behavior changes
+
+- `Client.Index` returns an error when the gRPC client can't be created, instead of exiting the
+  process.
+- With a `RetryPolicy`, a `Retry-After` longer than `MaxDelay` is capped at `MaxDelay` and retries
+  continue; previously the SDK stopped retrying.
+- `AdminClient` refreshes client-credentials access tokens before they expire, and retries a request
+  once with a new token after a 401. Access tokens passed in directly are still used as-is.
+- `DescribeNamespace` and `DeleteNamespace` accept `""` for the default namespace, as the other
+  operations do.
+- `Organization.Delete` treats the API's 202 Accepted as success; previously a successful delete
+  returned an error.
 
 ## What you don't need to change
 
 Vector operations against existing indexes are unaffected. Inference (`Embed`, `Rerank`,
-`ListModels`, `GetModel`) and Admin keep their signatures; the `2026-07` admin changes only add new
+`ListModels`, `DescribeModel`) and Admin keep their signatures; the `2026-07` admin changes only add new
 functionality. `ConfigureIndex` pod scaling, tags, deletion protection, and read capacity all keep
 working; the `Embed` parameter is replaced by `Schema`.

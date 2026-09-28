@@ -26,20 +26,13 @@ import (
 	"google.golang.org/grpc"
 )
 
-// [Client] holds the parameters for connecting to the Pinecone service. It is returned by the [NewClient] and [NewClientBase]
+// Client holds the parameters for connecting to the Pinecone service. It is returned by the [NewClient] and [NewClientBase]
 // functions. To use Client, first build the parameters of the request using [NewClientParams] (or [NewClientBaseParams]).
 // Then, pass those parameters into the [NewClient] (or [NewClientBase]) function to create a new [Client] object.
 // Once instantiated, you can use [Client] to execute Pinecone API requests (e.g. create an [Index], list Indexes,
 // etc.), and Inference API requests. Read more about different Pinecone API routes [here].
 //
 // Note: Client methods are safe for concurrent use.
-//
-// Fields:
-//   - Inference: An [InferenceService] object that exposes methods for interacting with the Pinecone [Inference API].
-//   - restClient: Optional underlying *http.Client object used to communicate with the Pinecone API,
-//     provided through [NewClientParams.RestClient] or [NewClientBaseParams.RestClient]. If not provided,
-//     a default client is created for you.
-//   - baseParams: A [NewClientBaseParams] object that holds the configuration for the Pinecone client.
 //
 // Example:
 //
@@ -57,12 +50,12 @@ import (
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//		       log.Fatalf("Failed to describe index: %v", err)
 //	    } else {
 //		       fmt.Printf("Successfully found the \"%s\" index!\n", idx.Name)
 //	    }
 //
-//	    idxConnection, err := pc.Index(idx.Host)
+//	    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
 //	    if err != nil {
 //		       log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
 //	    } else {
@@ -70,71 +63,78 @@ import (
 //	    }
 //
 // [here]: https://docs.pinecone.io/reference/api/control-plane/list_indexes
+//
 // [Inference API]: https://docs.pinecone.io/reference/api/2024-07/inference/generate-embeddings
 type Client struct {
+	// Inference exposes methods for interacting with the Pinecone [Inference API].
 	Inference  *InferenceService
 	restClient *db_control.Client
 	baseParams *NewClientBaseParams
 }
 
-// [NewClientParams] holds the parameters for creating a new [Client] instance while authenticating via an API key.
-//
-// Fields:
-//   - ApiKey: (Required) The API key used to authenticate with the Pinecone API.
-//     This value must be passed by the user unless it is set as an environment variable ("PINECONE_API_KEY").
-//   - Headers: (Optional) An optional map of HTTP headers to include in each API request.
-//   - Host: (Optional) The host URL of the Pinecone API. If not provided, the default value is "https://api.pinecone.io".
-//   - RestClient: An optional HTTP client to use for communication with the Pinecone API.
-//   - SourceTag: An optional string used to help Pinecone attribute API activity.
-//   - RetryPolicy: An optional [RetryPolicy] enabling retries on rate-limit/transient errors for REST and gRPC.
+// NewClientParams holds the parameters for creating a new [Client] instance while authenticating via an API key.
 //
 // See [Client] for code example.
 type NewClientParams struct {
-	ApiKey      string            // required - provide through NewClientParams or environment variable PINECONE_API_KEY
-	Headers     map[string]string // optional
-	Host        string            // optional
-	RestClient  *http.Client      // optional
-	SourceTag   string            // optional
-	RetryPolicy *RetryPolicy      // optional
-}
-
-// [NewClientBaseParams] holds the parameters for creating a new [Client] instance while passing custom authentication
-// headers. If there is no API key or authentication provided through Headers, API calls will fail.
-//
-// Fields:
-//   - Headers: (Optional) A map of HTTP headers to include in each API request.
-//     "Authorization" and "X-Project-Id" headers are required if authenticating using a JWT.
-//   - Host: (Optional) The host URL of the Pinecone API. If not provided,
-//     the default value is "https://api.pinecone.io".
-//   - RestClient: (Optional) An *http.Client object to use for communication with the Pinecone API.
-//   - SourceTag: (Optional) A string used to help Pinecone attribute API activity.
-//   - RetryPolicy: (Optional) A [RetryPolicy] enabling retries on rate-limit/transient errors for REST and gRPC.
-//
-// See [Client] for code example.
-type NewClientBaseParams struct {
-	Headers     map[string]string
-	Host        string
-	RestClient  *http.Client
-	SourceTag   string
+	// ApiKey (Required) is the API key used to authenticate with the Pinecone API. It may be omitted
+	// if the PINECONE_API_KEY environment variable is set.
+	ApiKey string
+	// Headers (Optional) is a map of HTTP headers to include in each REST API request. Headers from
+	// the PINECONE_ADDITIONAL_HEADERS environment variable (a JSON object) are merged in; values in
+	// Headers take precedence. The "Api-Key" header is always set from ApiKey, and NewClient writes
+	// it into this map. gRPC data-plane calls made through [IndexConnection] send only the
+	// authentication header, not other custom headers.
+	Headers map[string]string
+	// Host (Optional) is the host URL of the Pinecone API, used for control-plane and inference
+	// requests. Defaults to the PINECONE_CONTROLLER_HOST environment variable, or
+	// "https://api.pinecone.io" if unset. "https://" is prepended when no scheme is given.
+	Host string
+	// RestClient (Optional) is the HTTP client used to communicate with the Pinecone API.
+	RestClient *http.Client
+	// SourceTag (Optional) is a string used to help Pinecone attribute API activity.
+	SourceTag string
+	// RetryPolicy (Optional) enables retries on rate-limit and transient errors for REST and gRPC.
 	RetryPolicy *RetryPolicy
 }
 
-// [NewIndexConnParams] holds the parameters for creating an [IndexConnection] to a Pinecone index.
+// NewClientBaseParams holds the parameters for creating a new [Client] instance while passing custom authentication
+// headers. If there is no API key or authentication provided through Headers, API calls will fail.
 //
-// Fields:
-//   - Host: (Required) The host URL of the Pinecone index. To find your host url use the [Client.DescribeIndex] or [Client.ListIndexes] methods.
-//     Alternatively, the host is displayed in the Pinecone web console.
-//   - Namespace: (Optional) The index namespace to use for operations. If not provided, the default namespace of "" will be used.
-//   - AdditionalMetadata: (Optional) Metadata to be sent with each RPC request.
+// See [Client] for code example.
+type NewClientBaseParams struct {
+	// Headers (Optional) is a map of HTTP headers to include in each REST API request.
+	// "Authorization" and "X-Project-Id" headers are required if authenticating using a JWT. Headers
+	// from the PINECONE_ADDITIONAL_HEADERS environment variable (a JSON object) are merged in; values
+	// in Headers take precedence. gRPC data-plane calls made through [IndexConnection] send only the
+	// authentication header, not other custom headers.
+	Headers map[string]string
+	// Host (Optional) is the host URL of the Pinecone API, used for control-plane and inference
+	// requests. Defaults to the PINECONE_CONTROLLER_HOST environment variable, or
+	// "https://api.pinecone.io" if unset. "https://" is prepended when no scheme is given.
+	Host string
+	// RestClient (Optional) is the HTTP client used to communicate with the Pinecone API.
+	RestClient *http.Client
+	// SourceTag (Optional) is a string used to help Pinecone attribute API activity.
+	SourceTag string
+	// RetryPolicy (Optional) enables retries on rate-limit and transient errors for REST and gRPC.
+	RetryPolicy *RetryPolicy
+}
+
+// NewIndexConnParams holds the parameters for creating an [IndexConnection] to a Pinecone index.
 //
 // See [Client.Index] for code example.
 type NewIndexConnParams struct {
-	Host               string            // required - obtained through DescribeIndex or ListIndexes
-	Namespace          string            // optional - if not provided the default namespace of "" will be used
-	AdditionalMetadata map[string]string // optional
+	// Host (Required) is the host URL of the Pinecone index. Find it with [Client.DescribeIndex] or
+	// [Client.ListIndexes], or in the Pinecone web console.
+	Host string
+	// Namespace (Optional) is the index namespace to use for operations. "" (the zero value) and
+	// "__default__" both refer to the default namespace.
+	Namespace string
+	// AdditionalMetadata (Optional) is metadata to send with each RPC request.
+	AdditionalMetadata map[string]string
 }
 
-// [NewClient] creates and initializes a new instance of [Client].
+// NewClient creates and initializes a new instance of [Client].
 // This function sets up the Pinecone client with the necessary configuration for authentication and communication.
 //
 // Parameters:
@@ -180,7 +180,7 @@ func NewClient(in NewClientParams) (*Client, error) {
 	return NewClientBase(NewClientBaseParams{Headers: clientHeaders, Host: in.Host, RestClient: in.RestClient, SourceTag: in.SourceTag, RetryPolicy: in.RetryPolicy})
 }
 
-// [NewClientBase] creates and initializes a new instance of [Client] with custom authentication headers.
+// NewClientBase creates and initializes a new instance of [Client] with custom authentication headers.
 //
 // Parameters:
 //   - in: A [NewClientBaseParams] object that includes the necessary configuration for the Pinecone client. See
@@ -246,7 +246,7 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 	return &c, nil
 }
 
-// [Client.Index] creates an [IndexConnection] to a specified host.
+// Index creates an [IndexConnection] to a specified host.
 //
 // Parameters:
 //   - in: A [NewIndexConnParams] object that includes the necessary configuration to create an [IndexConnection].
@@ -272,7 +272,7 @@ func NewClientBase(in NewClientBaseParams) (*Client, error) {
 //
 //	    idx, err := pc.DescribeIndex(ctx, "your-index-name")
 //	    if err != nil {
-//		       log.Fatalf("Failed to describe index \"%s\". Error:%s", idx.Name, err)
+//		       log.Fatalf("Failed to describe index: %v", err)
 //	    } else {
 //		       fmt.Printf("Successfully found the \"%s\" index!\n", idx.Name)
 //	    }
@@ -346,7 +346,7 @@ func ensureHostHasHttps(host string) string {
 	return host
 }
 
-// [Client.ListIndexes] retrieves a list of all Indexes in a Pinecone [project].
+// ListIndexes retrieves a list of all Indexes in a Pinecone [project].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -411,41 +411,44 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	return indexes, nil
 }
 
-// [CreateIndexRequest] holds the parameters for creating an index from an explicit schema with
+// CreateIndexRequest holds the parameters for creating an index from an explicit schema with
 // [Client.CreateIndex].
-//
-// Fields:
-//   - Name: (Optional) The name of the [Index]. Must be unique within the project, 1-45 characters,
-//     start and end with an alphanumeric character, and consist only of lower case alphanumeric
-//     characters or '-'. If empty, Pinecone generates a name. Provide a name if you need to retry
-//     the request safely: a retry with the same name fails with a conflict instead of creating a
-//     second index.
-//   - Schema: (Required) The [IndexSchema] defining the index's fields. At creation you can declare
-//     [DenseVectorField], [SparseVectorField], and [StringField] with FullTextSearch set. Metadata
-//     fields don't need to be declared; they are indexed automatically when you upsert data.
-//     A schema containing only the reserved fields "_values" (dense) and/or "_sparse_values"
-//     (sparse) creates a vector index, used with the vector operations such as
-//     [IndexConnection.UpsertVectors]. Any other schema creates a document index, used with the
-//     document operations such as [IndexConnection.UpsertDocuments].
-//   - Deployment: (Optional) The [IndexDeployment] describing where the index runs. Defaults to a
-//     serverless index on AWS in "us-east-1".
-//   - ReadCapacity: (Optional) The read capacity configuration. Defaults to OnDemand. BYOC
-//     deployments must set Dedicated explicitly.
-//   - CmekId: (Optional) The ID of a customer-managed encryption key (CMEK) to use for this index.
-//   - DeletionProtection: (Optional) Whether deletion protection is "enabled" or "disabled" for the
-//     index. Defaults to "disabled".
-//   - Tags: (Optional) A map of tags to associate with the Index.
 type CreateIndexRequest struct {
-	Name               string
-	Schema             IndexSchema
-	Deployment         *IndexDeployment
-	ReadCapacity       *ReadCapacityParams
-	CmekId             *string
+	// Name (Optional) is the name of the [Index]. Must be unique within the project, 1-45
+	// characters, start and end with an alphanumeric character, and consist only of lower case
+	// alphanumeric characters or '-'. If empty, Pinecone generates a name. Provide a name if you
+	// need to retry the request safely: a retry with the same name fails with a conflict instead of
+	// creating a second index.
+	Name string
+	// Schema (Required) is the [IndexSchema] defining the index's fields. At creation you can
+	// declare [DenseVectorField], [SparseVectorField], and [StringField] with FullTextSearch set.
+	// Metadata fields don't need to be declared; they are indexed automatically when you upsert data.
+	// A schema containing only the reserved fields "_values" (dense) and/or "_sparse_values"
+	// (sparse) creates a vector index, used with the vector operations such as
+	// [IndexConnection.UpsertVectors]. Any other schema creates a document index, used with the
+	// document operations such as [IndexConnection.UpsertDocuments]. At most one dense and one
+	// sparse vector field, and at most 100 full-text-search fields, are allowed. Field names must be
+	// at most 64 bytes and must not start with '$' or '_', except that "_values" and
+	// "_sparse_values" may make up the entire schema. The schema can't be changed after the index is
+	// created, apart from the embedding settings updated with [Client.ConfigureIndex].
+	Schema IndexSchema
+	// Deployment (Optional) describes where the index runs. Defaults to a serverless index on AWS in
+	// "us-east-1".
+	Deployment *IndexDeployment
+	// ReadCapacity (Optional) is the read capacity configuration. Defaults to OnDemand. Some BYOC
+	// environments reject OnDemand and require Dedicated.
+	ReadCapacity *ReadCapacityParams
+	// CmekId (Optional) is the ID of a customer-managed encryption key (CMEK) to use for this index.
+	// Not supported for pod-based or BYOC deployments.
+	CmekId *string
+	// DeletionProtection (Optional) determines whether deletion protection is "enabled" or
+	// "disabled" for the index. Defaults to "disabled".
 	DeletionProtection *DeletionProtection
-	Tags               *IndexTags
+	// Tags (Optional) is a map of tags to associate with the index. See [IndexTags] for the limits.
+	Tags *IndexTags
 }
 
-// [Client.CreateIndex] creates a new [Index] from an explicit [IndexSchema] and, optionally, an
+// CreateIndex creates a new [Index] from an explicit [IndexSchema] and, optionally, an
 // [IndexDeployment]. Use it to create document indexes, such as indexes with full-text search or
 // with named dense and sparse vector fields. To create a vector index from a dimension and metric,
 // you can also use [Client.CreateServerlessIndex] or [Client.CreateBYOCIndex].
@@ -523,29 +526,7 @@ func (c *Client) CreateIndex(ctx context.Context, in *CreateIndexRequest) (*Inde
 	return decodeIndex(res.Body)
 }
 
-// [CreateServerlessIndexRequest] holds the parameters for creating a new [Serverless] Index.
-//
-// Fields:
-//   - Name: (Required) The name of the [Index]. Resource name must be 1-45 characters long,
-//     start and end with an alphanumeric character,
-//     and consist only of lower case alphanumeric characters or '-'.
-//   - Cloud: (Required) The public [cloud provider] where you would like your [Index] hosted.
-//     For serverless Indexes, you define only the cloud and region where the [Index] should be hosted.
-//   - Region: (Required) The [region] where you would like your [Index] to be created.
-//   - Metric: (Optional) The metric used to measure the [similarity] between vectors ('euclidean', 'cosine', or 'dotproduct'). Defaults
-//     to `cosine` or `dotproduct` depending on the VectorType. Setting `dotproduct` on a dense index does not enable
-//     sparse vectors; to store dense and sparse vectors in one index, use [Client.CreateIndex] with a [SparseVectorField].
-//   - DeletionProtection: (Optional) Determines whether [deletion protection] is "enabled" or "disabled" for the index.
-//     When "enabled", the index cannot be deleted. Defaults to "disabled".
-//   - Dimension: (Optional) The [dimensionality] of the vectors to be inserted in the [Index].
-//   - VectorType: (Optional) The index vector type. You can use `dense` or `sparse`. If `dense`, the vector dimension must be specified.
-//     If `sparse`, the vector dimension should not be specified, and the Metric must be set to `dotproduct`. Defaults to `dense`.
-//   - ReadCapacity: (Optional) The read capacity configuration for the serverless index. Used to configure dedicated read capacity
-//     with specific node types and scaling strategies.
-//   - Schema: Not supported; setting it returns an error. Metadata fields are indexed automatically when you upsert data.
-//   - Tags: (Optional) A map of tags to associate with the Index.
-//   - SourceCollection: Not supported; setting it returns an error. To restore data into a new index, use
-//     [Client.CreateIndexFromBackup].
+// CreateServerlessIndexRequest holds the parameters for creating a new [Serverless] Index.
 //
 // To create a new Serverless Index, use the [Client.CreateServerlessIndex] method.
 //
@@ -565,70 +546,92 @@ func (c *Client) CreateIndex(ctx context.Context, in *CreateIndexRequest) (*Inde
 //
 //		indexName := "my-serverless-index"
 //
+//		dimension := int32(3)
+//		metric := pinecone.IndexMetricCosine
 //		idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
 //		    Name:      indexName,
-//			Dimension: 3,
-//			Metric:  pinecone.IndexMetricCosine,
+//			Dimension: &dimension,
+//			Metric:  &metric,
 //			Cloud:   pinecone.CloudAWS,
 //			Region:  "us-east-1",
 //	    })
 //
 //		if err != nil {
-//		    log.Fatalf("Failed to create serverless index: %s", indexName)
+//		    log.Fatalf("Failed to create serverless index: %v", err)
 //		} else {
 //		    fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //		}
 //
-// [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
 // [Serverless]: https://docs.pinecone.io/guides/indexes/understanding-indexes#serverless-indexes
+//
+// [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
 // [similarity]: https://docs.pinecone.io/guides/indexes/understanding-indexes#distance-metrics
 // [region]: https://docs.pinecone.io/troubleshooting/available-cloud-regions
 // [cloud provider]: https://docs.pinecone.io/troubleshooting/available-cloud-regions#regions-available-for-serverless-indexes
 // [deletion protection]: https://docs.pinecone.io/guides/indexes/prevent-index-deletion#enable-deletion-protection
 type CreateServerlessIndexRequest struct {
-	Name               string
-	Cloud              Cloud
-	Region             string
-	Metric             *IndexMetric
+	// Name (Required) is the name of the [Index]. Must be 1-45 characters long, start and end with an
+	// alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
+	Name string
+	// Cloud (Required) is the public [cloud provider] where the index is hosted.
+	Cloud Cloud
+	// Region (Required) is the [region] where the index is created.
+	Region string
+	// Metric (Optional) is the metric used to measure the [similarity] between vectors ('euclidean',
+	// 'cosine', or 'dotproduct'). Defaults to `cosine` or `dotproduct` depending on the VectorType.
+	// Setting `dotproduct` on a dense index does not enable sparse vectors; to store dense and sparse
+	// vectors in one index, use [Client.CreateIndex] with a [SparseVectorField].
+	Metric *IndexMetric
+	// DeletionProtection (Optional) determines whether [deletion protection] is "enabled" or
+	// "disabled" for the index. When "enabled", the index cannot be deleted. Defaults to "disabled".
 	DeletionProtection *DeletionProtection
-	Dimension          *int32
-	VectorType         *string
-	ReadCapacity       *ReadCapacityParams
-	Schema             *MetadataSchema
-	Tags               *IndexTags
-	SourceCollection   *string
+	// Dimension is the [dimensionality] of the vectors to be inserted in the index. Required unless
+	// VectorType is "sparse", in which case it must be omitted.
+	Dimension *int32
+	// VectorType (Optional) is the index vector type, `dense` or `sparse`. If `dense`, Dimension must
+	// be specified. If `sparse`, Dimension should not be specified, and Metric must be `dotproduct`.
+	// Defaults to `dense`.
+	VectorType *string
+	// ReadCapacity (Optional) is the read capacity configuration for the index. Use it to configure
+	// dedicated read capacity with specific node types and scaling strategies.
+	ReadCapacity *ReadCapacityParams
+	// Schema is not supported; setting it returns an error. Metadata fields are indexed
+	// automatically when you upsert data.
+	Schema *MetadataSchema
+	// Tags (Optional) is a map of tags to associate with the index. See [IndexTags] for the limits.
+	Tags *IndexTags
+	// SourceCollection is not supported; setting it returns an error. To restore data into a new
+	// index, use [Client.CreateIndexFromBackup].
+	SourceCollection *string
 }
 
-// [ReadCapacityParams] represents the read capacity configuration for creating or configuring a serverless or integrated index.
-// If [ReadCapacityParams] are nil, the index will be created with OnDemand read capacity.
-//
-// Fields:
-//   - Dedicated: Dedicated read capacity mode. Requires node_type and scaling configuration.
-//   - OnDemand: OnDemand read capacity mode. No configuration is required.
+// ReadCapacityParams is the read capacity configuration for a new index, or for an index changed
+// with [Client.ConfigureIndex]. Set exactly one of Dedicated or OnDemand. When nil, a new index uses
+// OnDemand read capacity; some BYOC environments reject OnDemand and require Dedicated.
 type ReadCapacityParams struct {
+	// Dedicated selects Dedicated read capacity mode. Requires NodeType and Scaling configuration.
 	Dedicated *ReadCapacityDedicatedConfig `json:"dedicated,omitempty"`
-	OnDemand  *ReadCapacityOnDemandConfig  `json:"on_demand,omitempty"`
+	// OnDemand selects OnDemand read capacity mode. No configuration is required.
+	OnDemand *ReadCapacityOnDemandConfig `json:"on_demand,omitempty"`
 }
 
-// [ReadCapacityDedicatedConfig] represents Dedicated read capacity configuration for indexes.
+// ReadCapacityDedicatedConfig represents Dedicated read capacity configuration for indexes.
 // When creating a Dedicated index or converting an existing OnDemand index to Dedicated, you must specify NodeType, Scaling.Manual.Replicas,
 // and Scaling.Manual.Shards.
-//
-// Fields:
-//   - NodeType: The type of machines to use. Available options: "b1" and "t1".
-//     "t1" includes increased processing power and memory.
-//   - Scaling: The scaling strategy configuration. Currently supports manual scaling.
 type ReadCapacityDedicatedConfig struct {
-	NodeType *string              `json:"node_type"`
-	Scaling  *ReadCapacityScaling `json:"scaling,omitempty"`
+	// NodeType is the type of machines to use. Available options: "b1" and "t1". "t1" includes
+	// increased processing power and memory.
+	NodeType *string `json:"node_type"`
+	// Scaling is the scaling strategy configuration. Currently supports manual scaling.
+	Scaling *ReadCapacityScaling `json:"scaling,omitempty"`
 }
 
-// [ReadCapacityOnDemandConfig] represents OnDemand read capacity configuration for indexes.
+// ReadCapacityOnDemandConfig represents OnDemand read capacity configuration for indexes.
 // The struct is intentionally empty because OnDemand does not support configuration values.
 // When creating an OnDemand index, you can leave [ReadCapacityParams] empty in the create request.
 type ReadCapacityOnDemandConfig struct{}
 
-// [Client.CreateServerlessIndex] creates and initializes a new serverless index via the specified [Client].
+// CreateServerlessIndex creates and initializes a new serverless index via the specified [Client].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -653,16 +656,18 @@ type ReadCapacityOnDemandConfig struct{}
 //
 //	    indexName := "my-serverless-index"
 //
+//	    dimension := int32(3)
+//	    metric := pinecone.IndexMetricCosine
 //	    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
 //		    Name:    indexName,
-//		    Dimension: 3,
-//		    Metric:  pinecone.IndexMetricCosine,
+//		    Dimension: &dimension,
+//		    Metric:  &metric,
 //		    Cloud:   pinecone.CloudAWS,
 //		    Region:  "us-east-1",
 //		})
 //
 //		if err != nil {
-//		    log.Fatalf("Failed to create serverless index: %s", indexName)
+//		    log.Fatalf("Failed to create serverless index: %v", err)
 //		} else {
 //		    fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //		}
@@ -736,31 +741,7 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 	return decodeIndex(res.Body)
 }
 
-// [CreateIndexForModelRequest] defines the desired configuration for creating an index with an associated embedding model.
-//
-// Fields:
-//   - Name: (Required) The name of the [Index]. Resource name must be 1-45 characters long,
-//     start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
-//   - Cloud: (Required) The public [cloud provider] where you would like your [Index] hosted.
-//   - Region: (Required) The [region] where you would like your [Index] to be created.
-//   - DeletionProtection: (Optional) Whether [deletion protection] is enabled or disabled for the index.
-//     When enabled, the index cannot be deleted. Defaults to disabled.
-//   - Embed: (Required) The [CreateIndexForModelEmbed] object for embedding model configuration.
-//     The model and field map cannot be changed after the index is created; the read and write
-//     parameters can be updated with [Client.ConfigureIndex].
-//   - FieldMap: Identifies the name of the text field from your document model that will be embedded.
-//   - Metric: The [similarity metric] to be used for similarity search. Options: 'euclidean', 'cosine', or 'dotproduct'.
-//     If not specified, the metric will default according to the model and cannot be updated once set.
-//   - Model: The name of the embedding model to use for the index.
-//   - ReadParameters: The read parameters for the embedding model.
-//   - WriteParameters: The write parameters for the embedding model.
-//   - ReadCapacity: (Optional) The read capacity configuration for the serverless index. Used to configure dedicated read capacity
-//     with specific node types and scaling strategies.
-//   - Schema: (Optional) Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed.
-//   - Tags: (Optional) Custom user tags added to an index.
-//     Keys must be 80 characters or less, values must be 120 characters or less.
-//     Keys must be alphanumeric, '_', or '-'. Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '.
-//     To unset a key, set the value to be an empty string.
+// CreateIndexForModelRequest defines the desired configuration for creating an index with an associated embedding model.
 //
 // To create an index with an associated embedding model, use the [Client.CreateIndexForModel] method.
 //
@@ -798,43 +779,56 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 // [deletion protection]: https://docs.pinecone.io/guides/indexes/manage-indexes#enable-deletion-protection
 // [similarity metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#similarity-metrics
 type CreateIndexForModelRequest struct {
-	Name               string
-	Cloud              Cloud
-	Region             string
+	// Name (Required) is the name of the [Index]. Must be 1-45 characters long, start and end with an
+	// alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
+	Name string
+	// Cloud (Required) is the public [cloud provider] where the index is hosted.
+	Cloud Cloud
+	// Region (Required) is the [region] where the index is created.
+	Region string
+	// DeletionProtection (Optional) determines whether [deletion protection] is "enabled" or
+	// "disabled" for the index. When "enabled", the index cannot be deleted. Defaults to "disabled".
 	DeletionProtection *DeletionProtection
-	Embed              CreateIndexForModelEmbed
-	ReadCapacity       *ReadCapacityParams
-	Schema             *MetadataSchema
-	Tags               *IndexTags
+	// Embed (Required) is the [CreateIndexForModelEmbed] embedding model configuration. The model
+	// can't be changed after the index is created; the read and write parameters can be updated
+	// with [Client.ConfigureIndex].
+	Embed CreateIndexForModelEmbed
+	// ReadCapacity (Optional) is the read capacity configuration for the index. Use it to configure
+	// dedicated read capacity with specific node types and scaling strategies.
+	ReadCapacity *ReadCapacityParams
+	// Schema (Optional) configures the behavior of Pinecone's internal metadata index. By default,
+	// all metadata is indexed.
+	Schema *MetadataSchema
+	// Tags (Optional) are custom user tags added to the index. See [IndexTags] for the limits.
+	Tags *IndexTags
 }
 
-// [CreateIndexForModelEmbed] defines the embedding model configuration for an index.
-//
-// Fields:
-//   - Model: (Required) The name of the embedding model to use for the index.
-//   - FieldMap: (Required) Identifies the name of the text field from your document model that will be embedded.
-//   - Dimension: (Optional) The dimensionality of the vectors to be inserted in the Index. If not specified, the dimension
-//     will be defaulted according to the model.
-//   - Metric: (Optional) The [similarity metric] to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'.
-//     If not specified, the metric will be defaulted according to the model. Cannot be updated once set.
-//   - ReadParameters: (Optional) Read parameters for the embedding model.
-//   - WriteParameters: (Optional) Write parameters for the embedding model.
+// CreateIndexForModelEmbed defines the embedding model configuration for an index.
 //
 // The `CreateIndexForModelEmbed` struct is used as part of the [CreateIndexForModelRequest] when creating an index
-// with an associated embedding model. The model and field map cannot be changed after the index is created; the
-// read and write parameters can be updated with [Client.ConfigureIndex] using [ConfigureIndexParams].Schema.
+// with an associated embedding model. The model can't be changed after the index is created; the read and
+// write parameters can be updated with [Client.ConfigureIndex] using [ConfigureIndexParams].Schema.
 //
 // [similarity metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#similarity-metrics
 type CreateIndexForModelEmbed struct {
-	Model           string
-	FieldMap        map[string]interface{}
-	Dimension       *int
-	Metric          *IndexMetric
-	ReadParameters  *map[string]interface{}
+	// Model (Required) is the name of the embedding model to use for the index.
+	Model string
+	// FieldMap (Required) identifies the name of the text field from your document model that will
+	// be embedded.
+	FieldMap map[string]interface{}
+	// Dimension (Optional) is the dimensionality of the vectors to be inserted in the index.
+	// Defaults according to the model.
+	Dimension *int
+	// Metric (Optional) is the [similarity metric] used for similarity search: 'euclidean',
+	// 'cosine', or 'dotproduct'. Defaults according to the model. Cannot be updated once set.
+	Metric *IndexMetric
+	// ReadParameters (Optional) are the read parameters for the embedding model.
+	ReadParameters *map[string]interface{}
+	// WriteParameters (Optional) are the write parameters for the embedding model.
 	WriteParameters *map[string]interface{}
 }
 
-// [Client.CreateIndexForModel] creates and initializes a new serverless Index via the specified [Client] that is configured
+// CreateIndexForModel creates and initializes a new serverless Index via the specified [Client] that is configured
 // for use with one of Pinecone's integrated inference models. After the index is created, you can upsert and search for records
 // using the [IndexConnection.UpsertRecords] and [IndexConnection.SearchRecords] methods.
 //
@@ -863,7 +857,6 @@ type CreateIndexForModelEmbed struct {
 //
 //	    idx, err := pc.CreateIndexForModel(ctx, &pinecone.CreateIndexForModelRequest{
 //		    Name:    indexName,
-//		    Dimension: 3,
 //		    Cloud:   pinecone.CloudAWS,
 //		    Region:  "us-east-1",
 //		    Embed: pinecone.CreateIndexForModelEmbed{
@@ -873,7 +866,7 @@ type CreateIndexForModelEmbed struct {
 //		})
 //
 //		if err != nil {
-//		    log.Fatalf("Failed to create serverless index: %s", indexName)
+//		    log.Fatalf("Failed to create serverless index: %v", err)
 //		} else {
 //		    fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //		}
@@ -935,24 +928,7 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 	return decodeIndex(res.Body)
 }
 
-// [CreateBYOCIndexRequest] holds the parameters for creating a new BYOC ([Bring Your Own Cloud]) Index.
-//
-// Fields:
-//   - Name: (Required) The name of the [Index]. Resource name must be 1-45 characters long,
-//     start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
-//   - Environment: (Required) The environment identifier for the BYOC index.
-//   - Metric: (Optional) The metric used to measure the [similarity] between vectors ('euclidean', 'cosine', or 'dotproduct').
-//     Setting `dotproduct` on a dense index does not enable sparse vectors; to store dense and sparse vectors in one index,
-//     use [Client.CreateIndex] with a [SparseVectorField].
-//   - Dimension: (Optional) The [dimensionality] of the vectors to be inserted in the [Index].
-//   - VectorType: (Optional) The index vector type. You can use `dense` or `sparse`. If `dense`, the vector dimension must be specified.
-//     If `sparse`, the vector dimension should not be specified, and the Metric must be set to `dotproduct`. Defaults to `dense`.
-//   - DeletionProtection: (Optional) Determines whether [deletion protection] is "enabled" or "disabled" for the index.
-//     When "enabled", the index cannot be deleted. Defaults to "disabled".
-//   - ReadCapacity: (Optional) The read capacity configuration for the serverless index. Used to configure dedicated read capacity
-//     with specific node types and scaling strategies.
-//   - Schema: Not supported; setting it returns an error. Metadata fields are indexed automatically when you upsert data.
-//   - Tags: (Optional) A map of tags to associate with the Index.
+// CreateBYOCIndexRequest holds the parameters for creating a new BYOC ([Bring Your Own Cloud]) Index.
 //
 // To create a new BYOC Index, use the [Client.CreateBYOCIndex] method.
 //
@@ -971,36 +947,60 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 //
 //		indexName := "my-byoc-index"
 //
+//		dimension := int32(3)
+//		metric := pinecone.IndexMetricCosine
 //		idx, err := pc.CreateBYOCIndex(ctx, &pinecone.CreateBYOCIndexRequest{
 //		    Name:        indexName,
 //			Environment: "my-environment",
-//			Dimension:   3,
-//			Metric:      pinecone.IndexMetricCosine,
+//			Dimension:   &dimension,
+//			Metric:      &metric,
 //	    })
 //
 //		if err != nil {
-//		    log.Fatalf("Failed to create BYOC index: %s", indexName)
+//		    log.Fatalf("Failed to create BYOC index: %v", err)
 //		} else {
 //		    fmt.Printf("Successfully created BYOC index: %s", idx.Name)
 //		}
 //
+// [Bring Your Own Cloud]: https://docs.pinecone.io/guides/production/bring-your-own-cloud
+//
 // [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
 // [similarity]: https://docs.pinecone.io/guides/indexes/understanding-indexes#distance-metrics
 // [deletion protection]: https://docs.pinecone.io/guides/indexes/prevent-index-deletion#enable-deletion-protection
-// [Bring Your Own Cloud]: https://docs.pinecone.io/guides/production/bring-your-own-cloud
 type CreateBYOCIndexRequest struct {
-	Name               string
-	Environment        string
-	Dimension          *int32
-	VectorType         *string
-	Metric             *IndexMetric
+	// Name (Required) is the name of the [Index]. Must be 1-45 characters long, start and end with an
+	// alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
+	Name string
+	// Environment (Required) is the environment identifier for the BYOC index.
+	Environment string
+	// Dimension is the [dimensionality] of the vectors to be inserted in the index. Required unless
+	// VectorType is "sparse", in which case it must be omitted.
+	Dimension *int32
+	// VectorType (Optional) is the index vector type, `dense` or `sparse`. If `dense`, Dimension must
+	// be specified. If `sparse`, Dimension should not be specified, and Metric must be `dotproduct`.
+	// Defaults to `dense`.
+	VectorType *string
+	// Metric (Optional) is the metric used to measure the [similarity] between vectors ('euclidean',
+	// 'cosine', or 'dotproduct'). Defaults to `cosine` for dense indexes and `dotproduct` for sparse
+	// indexes. Setting `dotproduct` on a dense index does not enable sparse vectors; to store dense
+	// and sparse vectors in one index, use [Client.CreateIndex] with a [SparseVectorField].
+	Metric *IndexMetric
+	// DeletionProtection (Optional) determines whether [deletion protection] is "enabled" or
+	// "disabled" for the index. When "enabled", the index cannot be deleted. Defaults to "disabled".
 	DeletionProtection *DeletionProtection
-	ReadCapacity       *ReadCapacityParams
-	Schema             *MetadataSchema
-	Tags               *IndexTags
+	// ReadCapacity (Optional) is the read capacity configuration for the index. Defaults to
+	// OnDemand when nil. Some BYOC environments support only Dedicated read capacity and reject
+	// OnDemand, including the default; in those, set Dedicated with NodeType,
+	// Scaling.Manual.Replicas, and Scaling.Manual.Shards.
+	ReadCapacity *ReadCapacityParams
+	// Schema is not supported; setting it returns an error. Metadata fields are indexed
+	// automatically when you upsert data.
+	Schema *MetadataSchema
+	// Tags (Optional) is a map of tags to associate with the index. See [IndexTags] for the limits.
+	Tags *IndexTags
 }
 
-// [Client.CreateBYOCIndex] creates and initializes a new BYOC (Bring Your Own Cloud) Index via the specified [Client].
+// CreateBYOCIndex creates and initializes a new BYOC (Bring Your Own Cloud) Index via the specified [Client].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1025,15 +1025,17 @@ type CreateBYOCIndexRequest struct {
 //
 //	    indexName := "my-byoc-index"
 //
+//	    dimension := int32(3)
+//	    metric := pinecone.IndexMetricCosine
 //	    idx, err := pc.CreateBYOCIndex(ctx, &pinecone.CreateBYOCIndexRequest{
 //		    Name:        indexName,
 //		    Environment: "my-environment",
-//		    Dimension:  3,
-//		    Metric:     pinecone.IndexMetricCosine,
+//		    Dimension:  &dimension,
+//		    Metric:     &metric,
 //		})
 //
 //		if err != nil {
-//		    log.Fatalf("Failed to create BYOC index: %s", indexName)
+//		    log.Fatalf("Failed to create BYOC index: %v", err)
 //		} else {
 //		    fmt.Printf("Successfully created BYOC index: %s", idx.Name)
 //		}
@@ -1100,7 +1102,7 @@ func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest
 	return decodeIndex(res.Body)
 }
 
-// [Client.DescribeIndex] retrieves information about a specific [Index]. See [Index] for more information.
+// DescribeIndex retrieves information about a specific [Index]. See [Index] for more information.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1150,7 +1152,10 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 	return decodeIndex(res.Body)
 }
 
-// [Client.DeleteIndex] deletes a specific [Index].
+// DeleteIndex deletes a specific [Index]. Deletion is asynchronous: the index may still be listed,
+// in the Terminating state, for a short time after DeleteIndex returns. DeleteIndex returns a
+// [PineconeError] with Code 403 if deletion protection is enabled (disable it with
+// [Client.ConfigureIndex] first), or with Code 412 if a collection is being created from the index.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1195,29 +1200,12 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 	return nil
 }
 
-// [ConfigureIndexParams] contains parameters for configuring an [Index]. For any index you can
+// ConfigureIndexParams contains parameters for configuring an [Index]. For any index you can
 // configure DeletionProtection and Tags. For serverless and BYOC indexes you can also configure
 // ReadCapacity, for pod-based indexes the number of Replicas and the PodType, and for indexes with
 // integrated embedding the read and write parameters of the embedding model through Schema.
 // Each of the fields is optional, but at least one field must be set.
 // See [scale a pods-based index] for more information.
-//
-// Fields:
-//   - PodType: (Optional) The pod size to scale the index to. For a "p1" pod type,
-//     you could pass "p1.x2" to scale your index to the "x2" size, or you could pass "p1.x4"
-//     to scale your index to the "x4" size, and so forth. Only applies to pod-based indexes.
-//   - Replicas: (Optional) The number of replicas to scale the index to. This is capped by
-//     the maximum number of replicas allowed in your Pinecone project. To configure this number,
-//     go to [app.pinecone.io], select your project, and configure the maximum number of pods.
-//   - DeletionProtection: (Optional) DeletionProtection determines whether [deletion protection]
-//     is "enabled" or "disabled" for the index. When "enabled", the index cannot be deleted. Defaults to "disabled".
-//   - Tags: (Optional) A map of tags to associate with the Index.
-//   - Embed: Not supported; setting it returns an error. To update the read or write parameters of an
-//     index's embedding model, use Schema.
-//   - ReadCapacity: (Optional) The [ReadCapacityParams] to apply to a serverless or BYOC index.
-//     Fields omitted from a Dedicated configuration keep their current values.
-//   - Schema: (Optional) The [ConfigureIndexSchema] updating the read or write parameters of the
-//     embedding model on an index created with [Client.CreateIndexForModel].
 //
 // Example:
 //
@@ -1233,29 +1221,54 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //			panic(fmt.Errorf("Failed to create Client: %v", err))
 //		}
 //
-//	    idx, err := pc.ConfigureIndex(ctx, "my-index", ConfigureIndexParams{ DeletionProtection: "enabled", Replicas: 4 })
+//	    idx, err := pc.ConfigureIndex(ctx, "my-pod-index", pinecone.ConfigureIndexParams{
+//		    DeletionProtection: pinecone.DeletionProtectionEnabled,
+//		    Replicas:           4,
+//	    })
+//	    if err != nil {
+//		    log.Fatalf("Failed to configure index: %v", err)
+//	    }
+//	    fmt.Printf("Configured index %s\n", idx.Name)
+//
+// [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
 //
 // [app.pinecone.io]: https://app.pinecone.io
-// [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
 // [deletion protection]: https://docs.pinecone.io/guides/indexes/prevent-index-deletion#enable-deletion-protection
 type ConfigureIndexParams struct {
-	PodType            string
-	Replicas           int32
+	// PodType (Optional) is the pod size to scale the index to. For a "p1" pod type, pass "p1.x2"
+	// to scale to the "x2" size, "p1.x4" for the "x4" size, and so forth. The pod size can only be
+	// increased, and the pod family can't be changed. Only applies to pod-based indexes; setting it on
+	// any other index returns an error.
+	PodType string
+	// Replicas (Optional) is the number of replicas to scale the index to. This is capped by the
+	// maximum number of replicas allowed in your Pinecone project, which you can configure at
+	// [app.pinecone.io]. Only applies to pod-based indexes; setting it on any other index returns an
+	// error.
+	Replicas int32
+	// DeletionProtection (Optional) determines whether [deletion protection] is "enabled" or
+	// "disabled" for the index. When "enabled", the index cannot be deleted.
 	DeletionProtection DeletionProtection
-	Tags               IndexTags
-	Embed              *ConfigureIndexEmbed
-	ReadCapacity       *ReadCapacityParams
-	Schema             *ConfigureIndexSchema
+	// Tags (Optional) is a map of tags to merge into the index's existing tags. To unset a key, set
+	// its value to "".
+	Tags IndexTags
+	// Embed is not supported; setting it returns an error without calling the API.
+	//
+	// Deprecated: Pinecone API version 2026-07 no longer supports configuring an index's embedding
+	// through Embed. To update the read or write parameters of the embedding model, use Schema.
+	Embed *ConfigureIndexEmbed
+	// ReadCapacity (Optional) is the [ReadCapacityParams] to apply to a serverless or BYOC index;
+	// setting it on a pod-based index returns an error. Converting an OnDemand index to Dedicated
+	// requires NodeType, Scaling.Manual.Replicas, and Scaling.Manual.Shards. Fields omitted from a
+	// Dedicated configuration keep their current values. Some BYOC environments reject switching to
+	// OnDemand.
+	ReadCapacity *ReadCapacityParams
+	// Schema (Optional) is the [ConfigureIndexSchema] updating the read or write parameters of the
+	// embedding model on an index with integrated embedding.
+	Schema *ConfigureIndexSchema
 }
 
-// [ConfigureIndexSchema] holds schema updates for [Client.ConfigureIndex]. Only the read and write
-// parameters of an index's semantic text field can be updated; the embedding model and field map
-// can't be changed after the index is created.
-//
-// Fields:
-//   - Fields: (Required) The semantic text field to update, keyed by field name. Exactly one field
-//     must be given. The field name is the text field named in the FieldMap the index was created
-//     with, and appears as a [SemanticTextField] in the index's [IndexSchema].
+// ConfigureIndexSchema holds a semantic text field update for [Client.ConfigureIndex]. It updates the
+// read and write parameters of an index's integrated embedding model; the model can't be changed.
 //
 // Example:
 //
@@ -1267,77 +1280,77 @@ type ConfigureIndexParams struct {
 //		    },
 //	    })
 type ConfigureIndexSchema struct {
+	// Fields (Required) is the semantic text field to update, keyed by the name of the
+	// [SemanticTextField] in the index's [IndexSchema]. Exactly one field must be given.
 	Fields map[string]ConfigureSemanticTextField
 }
 
-// [ConfigureSemanticTextField] holds updated parameters for a semantic text field.
-//
-// Fields:
-//   - Model: (Optional) The field's current embedding model. The model can't be changed; set this
-//     only to confirm the current model when updating parameters.
-//   - ReadParameters: (Optional) The model parameters to apply at query time.
-//   - WriteParameters: (Optional) The model parameters to apply at write time.
+// ConfigureSemanticTextField holds updated parameters for a semantic text field.
 type ConfigureSemanticTextField struct {
-	Model           *string
-	ReadParameters  *map[string]interface{}
+	// Model (Optional) is the field's embedding model. The model can't be changed, so if set it must
+	// match the current model.
+	Model *string
+	// ReadParameters (Optional) are the model parameters to apply at query time.
+	ReadParameters *map[string]interface{}
+	// WriteParameters (Optional) are the model parameters to apply at write time.
 	WriteParameters *map[string]interface{}
 }
 
-// [ConfigureIndexEmbed] contains parameters for configuring the integrated inference embedding settings for an [Index].
+// ConfigureIndexEmbed contains parameters for configuring the integrated inference embedding settings for an [Index].
 //
 // Deprecated: Pinecone API version 2026-07 no longer supports configuring an index's embedding through Embed, so
 // setting [ConfigureIndexParams].Embed returns an error. To update the read or write parameters of the embedding
-// model, use [ConfigureIndexParams].Schema. The model and field map can't be changed after the index is created.
-//
-// Fields:
-//   - FieldMap: (Optional) Identifies the name of the text field from your document model that will be embedded.
-//   - Model: (Optional) The name of the embedding model to use with the index.
-//   - ReadParameters: (Optional) The read parameters for the embedding model.
-//   - WriteParameters: (Optional) The write parameters for the embedding model.
+// model, use [ConfigureIndexParams].Schema. The model can't be changed after the index is created.
 type ConfigureIndexEmbed struct {
-	FieldMap        *map[string]interface{}
-	Model           *string
-	ReadParameters  *map[string]interface{}
+	// FieldMap (Optional) identifies the name of the text field from your document model that will
+	// be embedded.
+	FieldMap *map[string]interface{}
+	// Model (Optional) is the name of the embedding model to use with the index.
+	Model *string
+	// ReadParameters (Optional) are the read parameters for the embedding model.
+	ReadParameters *map[string]interface{}
+	// WriteParameters (Optional) are the write parameters for the embedding model.
 	WriteParameters *map[string]interface{}
 }
 
-// [Client.ConfigureIndex] is used to configure an existing [Index] allowing you to update the index's deletion protection status, tags,
+// ConfigureIndex is used to configure an existing [Index] allowing you to update the index's deletion protection status, tags,
 // read capacity configuration, and the read and write parameters of an integrated embedding model. You can also
-// [scale a pods-based index] up or down by changing the size of the pods or the number of replicas.
+// [scale a pods-based index] by increasing the pod size or changing the number of replicas.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
 //   - name: The name of the [Index] to configure.
-//   - in: A pointer to a ConfigureIndexParams object that contains the parameters for configuring the [Index].
+//   - in: A [ConfigureIndexParams] object that contains the parameters for configuring the [Index].
 //
-// Note: You can only scale an [Index] up, not down. If you want to scale an [Index] down,
-// you must create a new index with the desired configuration.
+// Note: For pod-based indexes, Replicas can be scaled up or down, and PodType can be changed to a
+// larger size in the same pod family (for example "p1.x2" to "p1.x4"). The pod size can't be
+// decreased and the pod family can't be changed; to do either, create a new index.
 //
 // Returns a pointer to a configured [Index] object or an error.
 //
 // Example:
 //
 //		// To scale the size of your pods-based index from "x2" to "x4":
-//		 _, err := pc.ConfigureIndex(ctx, "my-pod-index", ConfigureIndexParams{PodType: "p1.x4"})
+//		 _, err := pc.ConfigureIndex(ctx, "my-pod-index", pinecone.ConfigureIndexParams{PodType: "p1.x4"})
 //		 if err != nil {
 //		     fmt.Printf("Failed to configure index: %v\n", err)
 //		 }
 //
 //		// To scale the number of replicas:
-//		 _, err := pc.ConfigureIndex(ctx, "my-pod-index", ConfigureIndexParams{Replicas: 4})
+//		 _, err = pc.ConfigureIndex(ctx, "my-pod-index", pinecone.ConfigureIndexParams{Replicas: 4})
 //		 if err != nil {
 //		     fmt.Printf("Failed to configure index: %v\n", err)
 //		 }
 //
 //		// To scale both the size of your pods and the number of replicas to 4:
-//		 _, err := pc.ConfigureIndex(ctx, "my-pod-index", ConfigureIndexParams{PodType: "p1.x4", Replicas: 4})
+//		 _, err = pc.ConfigureIndex(ctx, "my-pod-index", pinecone.ConfigureIndexParams{PodType: "p1.x4", Replicas: 4})
 //		 if err != nil {
 //		     fmt.Printf("Failed to configure index: %v\n", err)
 //		 }
 //
 //	    // To enable deletion protection:
-//		 _, err := pc.ConfigureIndex(ctx, "my-index", ConfigureIndexParams{DeletionProtection: "enabled"})
+//		 _, err = pc.ConfigureIndex(ctx, "my-index", pinecone.ConfigureIndexParams{DeletionProtection: "enabled"})
 //		 if err != nil {
 //		     fmt.Printf("Failed to configure index: %v\n", err)
 //		 }
@@ -1425,7 +1438,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	return decodeIndex(res.Body)
 }
 
-// [Client.ListCollections] retrieves a list of all Collections in a Pinecone [project]. See [understanding collections] for more information.
+// ListCollections retrieves a list of all Collections in a Pinecone [project]. See [understanding collections] for more information.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1493,7 +1506,7 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	return collections, nil
 }
 
-// [Client.DescribeCollection] retrieves information about a specific [Collection]. See [understanding collections]
+// DescribeCollection retrieves information about a specific [Collection]. See [understanding collections]
 // for more information.
 //
 // Parameters:
@@ -1550,11 +1563,7 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string) 
 	return decodeCollection(res.Body)
 }
 
-// [CreateCollectionRequest] holds the parameters for creating a new [Collection].
-//
-// Fields:
-//   - Name: (Required) The name of the [Collection].
-//   - Source: (Required) The name of the Index to be used as the source for the [Collection].
+// CreateCollectionRequest holds the parameters for creating a new [Collection].
 //
 // To create a new [Collection], use the [Client.CreateCollection] method.
 //
@@ -1584,11 +1593,13 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string) 
 //		       fmt.Printf("Successfully created collection \"%s\".", collection.Name)
 //	    }
 type CreateCollectionRequest struct {
-	Name   string
+	// Name (Required) is the name of the [Collection].
+	Name string
+	// Source (Required) is the name of the index to use as the source for the [Collection].
 	Source string
 }
 
-// [Client.CreateCollection] creates and initializes a new [Collection] via the specified [Client].
+// CreateCollection creates and initializes a new [Collection] via the specified [Client].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1648,7 +1659,7 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 	return decodeCollection(res.Body)
 }
 
-// [Client.DeleteCollection] deletes a specific [Collection]
+// DeleteCollection deletes a specific [Collection].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1677,7 +1688,7 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 //
 //	    err = pc.DeleteCollection(ctx, collectionName)
 //	    if err != nil {
-//		       log.Fatalf("Failed to create collection: %s\n", err)
+//		       log.Fatalf("Failed to delete collection: %v", err)
 //	    } else {
 //		       log.Printf("Successfully deleted collection \"%s\"\n", collectionName)
 //	    }
@@ -1695,19 +1706,18 @@ func (c *Client) DeleteCollection(ctx context.Context, collectionName string) er
 	return nil
 }
 
-// [CreateBackupParams] contains the input parameters for creating a backup of a Pinecone index.
-//
-// Fields:
-//   - IndexName: The unique name of the index to back up.
-//   - Description: Optional description of the backup.
-//   - Name: Optional name for the backup.
+// CreateBackupParams contains the input parameters for creating a backup of a Pinecone index.
 type CreateBackupParams struct {
-	IndexName   string  `json:"index_name"`
+	// IndexName (Required) is the name of the index to back up.
+	IndexName string `json:"index_name"`
+	// Description (Optional) is a description of the backup.
 	Description *string `json:"description,omitempty"`
-	Name        *string `json:"name,omitempty"`
+	// Name (Optional) is a name for the backup.
+	Name *string `json:"name,omitempty"`
 }
 
-// [Client.CreateBackup] creates a [Backup] for an index.
+// CreateBackup creates a [Backup] for an index. The returned [Backup] starts with Status
+// "Initializing"; poll [Client.DescribeBackup] until Status is "Ready" before restoring from it.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1744,7 +1754,7 @@ type CreateBackupParams struct {
 //		        Description: &backupDesc,
 //		 })
 //		 if err != nil {
-//			    log.Fatalf("Failed to create collection: %v", err)
+//			    log.Fatalf("Failed to create backup: %v", err)
 //		 } else {
 //			    fmt.Printf("Successfully created backup \"%s\" of index \"%s\".", backup.BackupId, index.Name)
 //		 }
@@ -1772,34 +1782,37 @@ func (c *Client) CreateBackup(ctx context.Context, in *CreateBackupParams) (*Bac
 	return decodeBackup(res.Body)
 }
 
-// [CreateIndexFromBackupParams] contains the parameters needed to create a Pinecone index from a backup.
-//
-// Fields:
-//   - BackupId: The unique identifier of the backup to restore from.
-//   - Name: The name of the index to be created. Must be 1–45 characters, lowercase alphanumeric or '-'.
-//   - DeletionProtection: Optional value configuring deletion protection for the new index. Can be either 'enabled' or 'disabled'.
-//   - Tags: Optional custom user tags added to an index. Keys must be 80 characters or less. Values must be 120 characters or less. Keys must be alphanumeric, '_', or '-'.  Values must be alphanumeric, ';', '@', '_', '-', '.', '+', or ' '. To unset a key, set the value to be an empty string.
-//   - ReadCapacity: Optional read capacity for the new index. Defaults to OnDemand when nil.
+// CreateIndexFromBackupParams contains the parameters needed to create a Pinecone index from a backup.
 type CreateIndexFromBackupParams struct {
-	BackupId           string              `json:"backup_id"`
-	Name               string              `json:"name"`
+	// BackupId (Required) is the unique identifier of the backup to restore from.
+	BackupId string `json:"backup_id"`
+	// Name (Required) is the name of the index to be created. Must be 1-45 characters, lowercase
+	// alphanumeric or '-'.
+	Name string `json:"name"`
+	// DeletionProtection (Optional) determines whether deletion protection is "enabled" or
+	// "disabled" for the new index.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
-	Tags               *IndexTags          `json:"tags,omitempty"`
-	ReadCapacity       *ReadCapacityParams `json:"read_capacity,omitempty"`
+	// Tags (Optional) are custom user tags added to the index. See [IndexTags] for the limits.
+	Tags *IndexTags `json:"tags,omitempty"`
+	// ReadCapacity (Optional) is the read capacity for the new index. Defaults to OnDemand when nil.
+	// Dedicated capacity must be large enough to hold the backup's data.
+	ReadCapacity *ReadCapacityParams `json:"read_capacity,omitempty"`
 }
 
-// [CreateIndexFromBackupResponse] contains the response returned after creating an index from a backup. RestoreJobId can be used
+// CreateIndexFromBackupResponse contains the response returned after creating an index from a backup. RestoreJobId can be used
 // to track the progress of an index restoration through the [Client.DescribeRestoreJob] method.
-//
-// Fields:
-//   - IndexId: The ID of the index that was created from the backup.
-//   - RestoreJobId: The ID of the restore job initiated to restore the backup.
 type CreateIndexFromBackupResponse struct {
-	IndexId      string `json:"index_id"`
+	// IndexId is the ID of the index that was created from the backup.
+	IndexId string `json:"index_id"`
+	// RestoreJobId is the ID of the restore job initiated to restore the backup.
 	RestoreJobId string `json:"restore_job_id"`
 }
 
-// [Client.CreateIndexFromBackup] creates a new [Index] from a [Backup].
+// CreateIndexFromBackup creates a new [Index] from a [Backup]. The new index inherits the schema of
+// the backup's source index, including full-text-search fields and integrated embedding, and the
+// request can't override it. Backups of pod-based and BYOC indexes can't be restored, and the backup
+// must be Ready. The restore runs asynchronously; track it with [Client.DescribeRestoreJob] using the
+// returned RestoreJobId.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1877,12 +1890,12 @@ func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromB
 	}, nil
 }
 
-// [Client.DescribeBackup] describes a specific [Backup] by ID.
+// DescribeBackup describes a specific [Backup] by ID.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - in: A string representing the ID of the [Backup] to describe.
+//   - backupId: The ID of the [Backup] to describe.
 //
 // Returns a pointer to a [Backup] object or an error.
 //
@@ -1899,7 +1912,7 @@ func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromB
 //
 //	    backup, err := pc.DescribeBackup(ctx, "my-backup-id")
 //		if err != nil {
-//			   log.Fatalf("Failed to describe backup ID %s: %w", "my-backup-id", err)
+//			   log.Fatalf("Failed to describe backup ID %s: %v", "my-backup-id", err)
 //		}
 func (c *Client) DescribeBackup(ctx context.Context, backupId string) (*Backup, error) {
 	if backupId == "" {
@@ -1919,21 +1932,23 @@ func (c *Client) DescribeBackup(ctx context.Context, backupId string) (*Backup, 
 	return decodeBackup(res.Body)
 }
 
-// [ListBackupsParams] contains the query parameters used when listing backups.
-//
-// Fields:
-//   - IndexName: Optional filter to list backups for a specific index. Otherwise, all backups in the project will be listed.
-//   - Limit: Optional maximum number of backups to return.
-//   - PaginationToken: Optional token to retrieve the next page of results. Will be nil if there are no more results.
-//   - IncludeDeleted: Optional. With IndexName, also list backups of deleted indexes that had that name. Requires IndexName.
+// ListBackupsParams contains the query parameters used when listing backups.
 type ListBackupsParams struct {
-	IndexName       *string `json:"index_name,omitempty"`
-	Limit           *int    `json:"limit,omitempty"`
+	// IndexName (Optional) limits the results to backups of the given index. If nil, all backups in
+	// the project are listed. The API returns a 404 error if no active index has this name, or, when
+	// IncludeDeleted is true, if no index with this name ever existed.
+	IndexName *string `json:"index_name,omitempty"`
+	// Limit (Optional) is the maximum number of backups to return per page. Defaults to 100.
+	Limit *int `json:"limit,omitempty"`
+	// PaginationToken (Optional) is the token from a previous response used to retrieve the next
+	// page of results.
 	PaginationToken *string `json:"pagination_token,omitempty"`
-	IncludeDeleted  *bool   `json:"include_deleted,omitempty"`
+	// IncludeDeleted (Optional), with IndexName, also lists backups of deleted indexes that had
+	// that name. Requires IndexName.
+	IncludeDeleted *bool `json:"include_deleted,omitempty"`
 }
 
-// [Client.ListBackups] lists backups for a specific [Index], or all of the backups in a Pinecone project.
+// ListBackups lists backups for a specific [Index], or all of the backups in a Pinecone project.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1960,7 +1975,7 @@ type ListBackupsParams struct {
 //	           Limit: &limit,
 //	    })
 //	    if err != nil {
-//			   log.Fatalf("Failed to list backups: %w", err)
+//			   log.Fatalf("Failed to list backups: %v", err)
 //		}
 func (c *Client) ListBackups(ctx context.Context, in *ListBackupsParams) (*BackupList, error) {
 	var response *http.Response
@@ -2000,12 +2015,12 @@ func (c *Client) ListBackups(ctx context.Context, in *ListBackupsParams) (*Backu
 	return decodeBackupList(response.Body)
 }
 
-// [Client.DeleteBackup] deletes a specific [Backup] by ID.
+// DeleteBackup deletes a specific [Backup] by ID.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - in: A string representing the ID of the [Backup] to delete.
+//   - backupId: The ID of the [Backup] to delete.
 //
 // Returns an error if the deletion fails.
 //
@@ -2020,9 +2035,9 @@ func (c *Client) ListBackups(ctx context.Context, in *ListBackupsParams) (*Backu
 //			panic(fmt.Errorf("Failed to create Client: %v", err))
 //		}
 //
-//		err := pc.DeleteBackup(ctx, "my-backup-id"))
+//		err = pc.DeleteBackup(ctx, "my-backup-id")
 //	    if err != nil {
-//			   log.Fatalf("Failed to delete backup: %w", err)
+//			   log.Fatalf("Failed to delete backup: %v", err)
 //		}
 func (c *Client) DeleteBackup(ctx context.Context, backupId string) error {
 	if backupId == "" {
@@ -2042,14 +2057,15 @@ func (c *Client) DeleteBackup(ctx context.Context, backupId string) error {
 	return nil
 }
 
-// [Client.DescribeRestoreJob] describes a specific [RestoreJob] by ID.
+// DescribeRestoreJob describes a specific [RestoreJob] by ID.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - in: A string representing the ID of the [Backup] to describe.
+//   - restoreJobId: The ID of the [RestoreJob] to describe, as returned in
+//     [CreateIndexFromBackupResponse].RestoreJobId.
 //
-// Returns a pointer to a [Backup] object or an error.
+// Returns a pointer to a [RestoreJob] object or an error.
 //
 // Example:
 //
@@ -2064,7 +2080,7 @@ func (c *Client) DeleteBackup(ctx context.Context, backupId string) error {
 //
 //	    restoreJob, err := pc.DescribeRestoreJob(ctx, "my-restore-job-id")
 //		if err != nil {
-//			   log.Fatalf("Failed to describe restore job ID %s: %w", "my-restore-job-id", err)
+//			   log.Fatalf("Failed to describe restore job ID %s: %v", "my-restore-job-id", err)
 //		}
 func (c *Client) DescribeRestoreJob(ctx context.Context, restoreJobId string) (*RestoreJob, error) {
 	if restoreJobId == "" {
@@ -2084,17 +2100,18 @@ func (c *Client) DescribeRestoreJob(ctx context.Context, restoreJobId string) (*
 	return decodeRestoreJob(res.Body)
 }
 
-// [ListRestoreJobsParams] contains the query parameters used when listing restore jobs.
-//
-// Fields:
-//   - Limit: Optional maximum number of restore jobs to return.
-//   - PaginationToken: Optional token to retrieve the next page of results. Will be nil if there are no more results.
+// ListRestoreJobsParams contains the query parameters used when listing restore jobs.
 type ListRestoreJobsParams struct {
-	Limit           *int    `json:"limit,omitempty"`
+	// Limit (Optional) is the maximum number of restore jobs to return.
+	Limit *int `json:"limit,omitempty"`
+	// PaginationToken (Optional) is the token from a previous response used to retrieve the next
+	// page of results.
 	PaginationToken *string `json:"pagination_token,omitempty"`
 }
 
-// [Client.ListRestoreJobs] lists all restore jobs in a Pinecone project.
+// ListRestoreJobs lists all restore jobs in a Pinecone project. Restore jobs are listed for the whole
+// project and can't be filtered by index. When Pagination is non-nil, pass Pagination.Next as
+// PaginationToken to fetch the next page.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -2114,14 +2131,10 @@ type ListRestoreJobsParams struct {
 //			panic(fmt.Errorf("Failed to create Client: %v", err))
 //		}
 //
-//	    indexName := "my-index"
 //	    limit := 5
-//		restoreJobs, err := pc.ListRestoreJobs(ctx, &pinecone.ListRestoreJobsParams{
-//	           IndexName: &indexName,
-//	           Limit: &limit,
-//	    })
+//		restoreJobs, err := pc.ListRestoreJobs(ctx, &pinecone.ListRestoreJobsParams{Limit: &limit})
 //	    if err != nil {
-//			   log.Fatalf("Failed to list restore jobs: %w", err)
+//			   log.Fatalf("Failed to list restore jobs: %v", err)
 //		}
 func (c *Client) ListRestoreJobs(ctx context.Context, in *ListRestoreJobsParams) (*RestoreJobList, error) {
 	var response *http.Response
@@ -2150,53 +2163,59 @@ func (c *Client) ListRestoreJobs(ctx context.Context, in *ListRestoreJobsParams)
 	return decodeRestoreJobList(response.Body)
 }
 
-// [InferenceService] is a struct which exposes methods for interacting with the Pinecone Inference API. [InferenceService]
-// can be accessed via the Client object through the Client.Inference namespace.
+// InferenceService exposes methods for interacting with the [Pinecone Inference API]: generating
+// embeddings, reranking documents, and describing hosted models. Access it through Client.Inference.
 //
 // [Pinecone Inference API]: https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models
 type InferenceService struct {
 	client *inference.Client
 }
 
-// [EmbedRequest] holds the parameters for generating embeddings for a list of input strings.
-//
-// Fields:
-//   - Model: (Required) The model to use for generating embeddings.
-//   - TextInputs: (Required) A list of strings to generate embeddings for.
-//   - Parameters: (Optional) EmbedParameters object that contains additional parameters to use when generating embeddings.
+// EmbedRequest holds the parameters for generating embeddings for a list of input strings.
 type EmbedRequest struct {
-	Model      string
+	// Model (Required) is the model to use for generating embeddings.
+	Model string
+	// TextInputs (Required) is the list of strings to generate embeddings for.
 	TextInputs []string
+	// Parameters (Optional) are additional model-specific parameters to use when generating
+	// embeddings.
 	Parameters EmbedParameters
 }
 
-// [EmbedParameters] contains model-specific parameters that can be used for generating embeddings.
+// EmbedParameters contains model-specific parameters for generating embeddings. Keys and values are
+// sent to the API as-is, so keys must use the API's snake_case names. The API rejects unknown keys
+// and keys the model doesn't support; call [InferenceService.DescribeModel] and read
+// SupportedParameters to see which keys a model accepts.
 //
-// Fields:
-//   - InputType: (Optional) A common property used to distinguish between different types of data. For example, "passage", or "query".
-//   - Truncate: (Optional) How to handle inputs longer than those supported by the model. if "NONE", when the input exceeds
-//     the maximum input token length, an error will be returned.
+// Keys:
+//   - "input_type": "query" or "passage". Required by asymmetric models such as
+//     multilingual-e5-large, llama-text-embed-v2, and pinecone-sparse-english-v0.
+//   - "truncate": "END" (default) or "NONE". With "NONE", an input longer than the model's maximum
+//     token length returns an error.
+//   - "dimension": (integer) the output dimension, for models that support more than one.
+//   - "return_tokens": (boolean) sparse models only; return SparseEmbedding.SparseTokens.
+//   - "max_tokens_per_sequence": (integer) for models that support it.
 type EmbedParameters map[string]interface{}
 
-// [EmbedResponse] represents holds the embeddings generated for a single input.
-//
-// Fields:
-//   - Data: A list of [Embedding] objects containing the embeddings generated for the input.
-//   - Model: The model used to generate the embeddings.
-//   - VectorType: Indicates whether the embeddings are dense or sparse.
-//   - Usage: Usage statistics ([Total Tokens]) for the request.
+// EmbedResponse holds the embeddings generated by [InferenceService.Embed], one [Embedding] per input,
+// in the same order as EmbedRequest.TextInputs.
 //
 // [Total Tokens]: https://docs.pinecone.io/guides/organizations/manage-cost/understanding-cost#embed
 type EmbedResponse struct {
-	Data       []Embedding `json:"data"`
-	Model      string      `json:"model"`
-	VectorType string      `json:"vector_type"`
-	Usage      struct {
+	// Data is the list of [Embedding] objects generated for the inputs.
+	Data []Embedding `json:"data"`
+	// Model is the model used to generate the embeddings.
+	Model string `json:"model"`
+	// VectorType indicates whether the embeddings are dense or sparse.
+	VectorType string `json:"vector_type"`
+	// Usage reports usage statistics ([Total Tokens]) for the request.
+	Usage struct {
+		// TotalTokens is the total number of tokens consumed across all inputs.
 		TotalTokens *int32 `json:"total_tokens,omitempty"`
 	} `json:"usage"`
 }
 
-// [InferenceService.Embed] generates embeddings for a list of inputs using the specified model and (optional) parameters.
+// Embed generates embeddings for a list of inputs using the specified model and (optional) parameters.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -2204,37 +2223,31 @@ type EmbedResponse struct {
 //   - in: A pointer to an EmbedRequest object that contains the model to use for embedding generation, the
 //     list of input strings to generate embeddings for, and any additional parameters to use for generation.
 //
-// Returns a pointer to an [EmbeddingsList] object or an error.
+// Returns a pointer to an [EmbedResponse] containing one [Embedding] per input, or an error.
 //
 // Example:
 //
-//	    ctx := context.Background()
+//	ctx := context.Background()
 //
-//	    clientParams := pinecone.NewClientParams{
-//		       ApiKey: "YOUR_API_KEY",
-//		       SourceTag: "your_source_identifier", // optional
-//	    }
+//	pc, err := pinecone.NewClient(pinecone.NewClientParams{
+//		ApiKey: "YOUR_API_KEY",
+//	})
+//	if err != nil {
+//		log.Fatalf("Failed to create Client: %v", err)
+//	}
 //
-//	    pc, err := pinecone.NewClient(clientParams)
-//	    if err != nil {
-//			panic(fmt.Errorf("Failed to create Client: %v", err))
-//		}
-//
-//	    in := &pinecone.EmbedRequest{
-//		       Model: "multilingual-e5-large",
-//		       TextInputs: []string{"Who created the first computer?"},
-//		       Parameters: pinecone.EmbedParameters{
-//			       InputType: "passage",
-//			       Truncate: "END",
-//		       },
-//	    }
-//
-//	    res, err := pc.Inference.Embed(ctx, in)
-//	    if err != nil {
-//		       log.Fatalf("Failed to embed: %v", err)
-//	    } else {
-//		       fmt.Printf("Successfully generated embeddings: %+v", res)
-//	    }
+//	res, err := pc.Inference.Embed(ctx, &pinecone.EmbedRequest{
+//		Model:      "multilingual-e5-large",
+//		TextInputs: []string{"Who created the first computer?"},
+//		Parameters: pinecone.EmbedParameters{
+//			"input_type": "passage",
+//			"truncate":   "END",
+//		},
+//	})
+//	if err != nil {
+//		log.Fatalf("Failed to embed: %v", err)
+//	}
+//	fmt.Printf("Generated %d embeddings\n", len(res.Data))
 func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedResponse, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*EmbedRequest) cannot be nil")
@@ -2277,64 +2290,60 @@ func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedR
 	return decodeEmbedResponse(res.Body)
 }
 
-// [Document] is a map representing a document. It is used both for the document operations on an
+// Document is a map representing a document. It is used both for the document operations on an
 // [IndexConnection] (where it carries an "_id" field plus the document's field values) and as the
 // document input to [InferenceService.Rerank].
 type Document map[string]interface{}
 
-// [RerankRequest] holds the parameters for calling [InferenceService.Rerank] and reranking documents
+// RerankRequest holds the parameters for calling [InferenceService.Rerank] and reranking documents
 // by a specified query and model.
 //
-// Fields:
-//   - Model: (Required) The [model] to use for reranking.
-//   - Query: (Required) The query to rerank Documents against.
-//   - Documents: (Required) A list of Document objects to be reranked. The default is "text", but you can
-//     specify this behavior with [RerankRequest.RankFields].
-//   - RankFields: (Optional) The fields to rank the Documents by. If not provided, the default is "text".
-//   - ReturnDocuments: (Optional) Whether to include Documents in the response. Defaults to true.
-//   - TopN: (Optional) How many Documents to return. Defaults to the length of input Documents.
-//   - Parameters: (Optional) Additional model-specific parameters for the reranker
-//
-// [model]: https://docs.pinecone.io/guides/inference/understanding-inference#models
+// [model]: https://docs.pinecone.io/guides/search/rerank-results#reranking-models
 type RerankRequest struct {
-	Model           string
-	Query           string
-	Documents       []Document
-	RankFields      *[]string
+	// Model (Required) is the [model] to use for reranking.
+	Model string
+	// Query (Required) is the query to rerank Documents against.
+	Query string
+	// Documents (Required) is the list of [Document] objects to be reranked. Documents are ranked by
+	// their "text" field unless RankFields says otherwise.
+	Documents []Document
+	// RankFields (Optional) are the Document fields to rank by. Defaults to ["text"]. The number of
+	// fields supported is model-specific, and every Document must contain each field listed.
+	RankFields *[]string
+	// ReturnDocuments (Optional) determines whether to include Documents in the response. Defaults
+	// to true.
 	ReturnDocuments *bool
-	TopN            *int
-	Parameters      *map[string]interface{}
+	// TopN (Optional) is how many Documents to return. Defaults to the number of input Documents.
+	TopN *int
+	// Parameters (Optional) are additional model-specific parameters for the reranker.
+	Parameters *map[string]interface{}
 }
 
-// [RankedDocument] represents a ranked document with a relevance score and an index position.
-//
-// Fields:
-//   - Document: The [Document].
-//   - Index: The index position of the Document from the original request. This can be used
-//     to locate the position of the document relative to others described in the request.
-//   - Score: The relevance score of the Document indicating how closely it matches the query.
+// RankedDocument represents a ranked document with a relevance score and an index position.
 type RankedDocument struct {
+	// Document is the ranked [Document]. It is nil if the request set ReturnDocuments to false.
 	Document *Document `json:"document,omitempty"`
-	Index    int       `json:"index"`
-	Score    float32   `json:"score"`
+	// Index is the position of the Document in the original request.
+	Index int `json:"index"`
+	// Score is the relevance of the Document to the query, between 0 and 1, with scores closer to 1
+	// indicating higher relevance.
+	Score float32 `json:"score"`
 }
 
-// [RerankResponse] is the result of a reranking operation.
+// RerankResponse is the result of a reranking operation.
 //
-// Fields:
-//   - Data: A list of [RankedDocument] objects which have been reranked. The RankedDocuments are sorted in order of relevance,
-//     with the first being the most relevant.
-//   - Model: The model used to rerank documents.
-//   - Usage: Usage statistics ([Rerank Units]) for the reranking operation.
-//
-// [Read Units]: https://docs.pinecone.io/guides/organizations/manage-cost/understanding-cost#rerank
+// [Rerank Units]: https://docs.pinecone.io/guides/organizations/manage-cost/understanding-cost#rerank
 type RerankResponse struct {
-	Data  []RankedDocument `json:"data,omitempty"`
-	Model string           `json:"model"`
-	Usage RerankUsage      `json:"usage"`
+	// Data is the list of reranked [RankedDocument] objects, sorted by relevance with the most
+	// relevant first.
+	Data []RankedDocument `json:"data,omitempty"`
+	// Model is the model used to rerank the documents.
+	Model string `json:"model"`
+	// Usage reports usage statistics ([Rerank Units]) for the reranking operation.
+	Usage RerankUsage `json:"usage"`
 }
 
-// [InferenceService.Rerank] reranks documents with associated relevance scores that represent the relevance of each [Document]
+// Rerank reranks documents with associated relevance scores that represent the relevance of each [Document]
 // to the provided query using the specified model.
 //
 // Parameters:
@@ -2346,40 +2355,36 @@ type RerankResponse struct {
 //
 // Example:
 //
-//	     ctx := context.Background()
+//	ctx := context.Background()
 //
-//	     clientParams := pinecone.NewClientParams{
-//		        ApiKey:    "YOUR_API_KEY",
-//		        SourceTag: "your_source_identifier", // optional
-//	     }
+//	pc, err := pinecone.NewClient(pinecone.NewClientParams{
+//		ApiKey: "YOUR_API_KEY",
+//	})
+//	if err != nil {
+//		log.Fatalf("Failed to create Client: %v", err)
+//	}
 //
-//	     pc, err := pinecone.NewClient(clientParams)
-//	    if err != nil {
-//			panic(fmt.Errorf("Failed to create Client: %v", err))
-//		}
+//	topN := 2
+//	returnDocuments := true
+//	documents := []pinecone.Document{
+//		{"id": "doc1", "text": "Apple is a popular fruit known for its sweetness and crisp texture."},
+//		{"id": "doc2", "text": "Many people enjoy eating apples as a healthy snack."},
+//		{"id": "doc3", "text": "Apple Inc. has revolutionized the tech industry with its sleek designs and user-friendly interfaces."},
+//		{"id": "doc4", "text": "An apple a day keeps the doctor away, as the saying goes."},
+//	}
 //
-//	     rerankModel := "bge-reranker-v2-m3"
-//	     topN := 2
-//	     retunDocuments := true
-//	     documents := []pinecone.Document{
-//		        {"id": "doc1", "text": "Apple is a popular fruit known for its sweetness and crisp texture."},
-//		        {"id": "doc2", "text": "Many people enjoy eating apples as a healthy snack."},
-//		        {"id": "doc3", "text": "Apple Inc. has revolutionized the tech industry with its sleek designs and user-friendly interfaces."},
-//		        {"id": "doc4", "text": "An apple a day keeps the doctor away, as the saying goes."},
-//	     }
-//
-//	     ranking, err := pc.Inference.Rerank(ctx, &pinecone.RerankRequest{
-//		        Model:           rerankModel,
-//		        Query:           "i love to eat apples",
-//		        ReturnDocuments: &retunDocuments,
-//		        TopN:            &topN,
-//		        RankFields:      &[]string{"text"},
-//		        Documents:       documents,
-//	     })
-//	     if err != nil {
-//		        log.Fatalf("Failed to rerank: %v", err)
-//	     }
-//	     fmt.Printf("Rerank result: %+v\n", ranking)
+//	ranking, err := pc.Inference.Rerank(ctx, &pinecone.RerankRequest{
+//		Model:           "bge-reranker-v2-m3",
+//		Query:           "i love to eat apples",
+//		ReturnDocuments: &returnDocuments,
+//		TopN:            &topN,
+//		RankFields:      &[]string{"text"},
+//		Documents:       documents,
+//	})
+//	if err != nil {
+//		log.Fatalf("Failed to rerank: %v", err)
+//	}
+//	fmt.Printf("Rerank result: %+v\n", ranking)
 func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*RerankResponse, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*RerankRequest) cannot be nil")
@@ -2408,35 +2413,33 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 	return decodeRerankResponse(res.Body)
 }
 
-// [InferenceService.DescribeModel] gets a description of a model hosted by Pinecone.
+// DescribeModel gets a description of a model hosted by Pinecone.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - modelName: The name of the model to retrieve information about.
+//   - modelName: (Required) The exact name of the model to describe, e.g. "multilingual-e5-large".
+//     Call [InferenceService.ListModels] to see the available names. An unknown name returns a 404
+//     [PineconeError].
 //
 // Returns a pointer to a [ModelInfo] object or an error.
 //
 // Example:
 //
-//	     ctx := context.Background()
+//	ctx := context.Background()
 //
-//		 clientParams := pinecone.NewClientParams{
-//			    ApiKey:    "YOUR_API_KEY",
-//			    SourceTag: "your_source_identifier", // optional
-//		 }
+//	pc, err := pinecone.NewClient(pinecone.NewClientParams{
+//		ApiKey: "YOUR_API_KEY",
+//	})
+//	if err != nil {
+//		log.Fatalf("Failed to create Client: %v", err)
+//	}
 //
-//	     pc, err := pinecone.NewClient(clientParams)
-//	    if err != nil {
-//			panic(fmt.Errorf("Failed to create Client: %v", err))
-//		}
-//
-//	     model, err := pc.Inference.DescribeModel(ctx, "multilingual-e5-large")
-//		 if err != nil {
-//			    log.Fatalf("Failed to get model: %v", err)
-//		 }
-//
-//	     fmt.Printf("Model (multilingual-e5-large): %+v\n", model)
+//	model, err := pc.Inference.DescribeModel(ctx, "multilingual-e5-large")
+//	if err != nil {
+//		log.Fatalf("Failed to describe model: %v", err)
+//	}
+//	fmt.Printf("Model (multilingual-e5-large): %+v\n", model)
 func (i *InferenceService) DescribeModel(ctx context.Context, modelName string) (*ModelInfo, error) {
 	if modelName == "" {
 		return nil, fmt.Errorf("modelName must not be empty")
@@ -2457,47 +2460,42 @@ func (i *InferenceService) DescribeModel(ctx context.Context, modelName string) 
 	return &modelInfo, nil
 }
 
-// [ListModelsParams] holds the parameters for filtering model results when calling [InferenceService.ListModels].
-//
-// Fields:
-//   - Type: (Optional) The type of model to filter by. Can be either "embed" or "rerank".
-//   - VectorType: (Optional) The vector type of the model to filter by. Can be either "dense" or "sparse".
-//     Only relevant if Type is "embed".
+// ListModelsParams holds the parameters for filtering model results when calling [InferenceService.ListModels].
 type ListModelsParams struct {
-	Type       *string
+	// Type (Optional) is the type of model to filter by: "embed" or "rerank".
+	Type *string
+	// VectorType (Optional) is the vector type to filter by: "dense" or "sparse". Setting it implies
+	// Type "embed"; combining it with Type "rerank" returns an error from the API.
 	VectorType *string
 }
 
-// [InferenceService.ListModels] lists all available models hosted by Pinecone. You can filter results using [ListModelsParams].
+// ListModels lists all available models hosted by Pinecone. You can filter results using [ListModelsParams].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - in: The name of the model to retrieve information about.
+//   - in: An optional [ListModelsParams] for filtering by model type and vector type. Pass nil to
+//     list all models.
 //
 // Returns a pointer to a [ModelInfoList] object or an error.
 //
 // Example:
 //
-//		ctx := context.Background()
+//	ctx := context.Background()
 //
-//		clientParams := pinecone.NewClientParams{
-//			ApiKey:    "YOUR_API_KEY",
-//			SourceTag: "your_source_identifier", // optional
-//	    }
+//	pc, err := pinecone.NewClient(pinecone.NewClientParams{
+//		ApiKey: "YOUR_API_KEY",
+//	})
+//	if err != nil {
+//		log.Fatalf("Failed to create Client: %v", err)
+//	}
 //
-//		pc, err := pinecone.NewClient(clientParams)
-//	    if err != nil {
-//			panic(fmt.Errorf("Failed to create Client: %v", err))
-//		}
-//
-//	    embed := "embed"
-//		embedModels, err := pc.Inference.ListModels(ctx, &pinecone.ListModelsParams{ Type: &embed })
-//	    if err != nil {
-//			log.Fatalf("Failed to list models: %v", err)
-//		}
-//
-//		fmt.Printf("Embed Models: %+v\n", embedModels)
+//	embed := "embed"
+//	embedModels, err := pc.Inference.ListModels(ctx, &pinecone.ListModelsParams{Type: &embed})
+//	if err != nil {
+//		log.Fatalf("Failed to list models: %v", err)
+//	}
+//	fmt.Printf("Embed models: %+v\n", embedModels)
 func (i *InferenceService) ListModels(ctx context.Context, in *ListModelsParams) (*ModelInfoList, error) {
 	var params *inference.ListModelsParams
 	if in != nil {
