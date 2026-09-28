@@ -9,8 +9,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/pinecone-io/go-pinecone/v6/internal/gen"
-	db_data_rest "github.com/pinecone-io/go-pinecone/v6/internal/gen/db_data/rest"
+	"github.com/pinecone-io/go-pinecone/v7/internal/gen"
+	db_data_rest "github.com/pinecone-io/go-pinecone/v7/internal/gen/db_data/rest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

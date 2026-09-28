@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	db_control "github.com/pinecone-io/go-pinecone/v6/internal/gen/db_control"
+	db_control "github.com/pinecone-io/go-pinecone/v7/internal/gen/db_control"
 )
 
 // Reserved schema field names the vector operations address vector data by. A schema whose fields

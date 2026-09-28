@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/pinecone-io/go-pinecone/v6/internal/gen/db_control"
+	"github.com/pinecone-io/go-pinecone/v7/internal/gen/db_control"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

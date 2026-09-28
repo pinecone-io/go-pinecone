@@ -1,4 +1,4 @@
-module github.com/pinecone-io/go-pinecone/v6
+module github.com/pinecone-io/go-pinecone/v7
 
 go 1.25.0
 

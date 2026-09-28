@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pinecone-io/go-pinecone/v6/internal/gen/admin"
+	"github.com/pinecone-io/go-pinecone/v7/internal/gen/admin"
 )
 
 // tokenRefreshMargin keeps an in-flight request from outliving the token it was sent with.

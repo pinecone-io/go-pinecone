@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/pinecone-io/go-pinecone/v6/pinecone"
+	"github.com/pinecone-io/go-pinecone/v7/pinecone"
 )
 
 // ExampleNewClient_withRetries enables automatic retries with exponential backoff.
