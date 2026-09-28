@@ -1,191 +1,57 @@
-# Pinecone Go SDK &middot; ![License](https://img.shields.io/github/license/pinecone-io/go-pinecone?color=orange) [![Go Reference](https://pkg.go.dev/badge/github.com/pinecone-io/go-pinecone.svg)](https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone) 
+# Pinecone Go SDK &middot; ![License](https://img.shields.io/github/license/pinecone-io/go-pinecone?color=orange) [![Go Reference](https://pkg.go.dev/badge/github.com/pinecone-io/go-pinecone/v7.svg)](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v7/pinecone)
 
-This is the official Go SDK for [Pinecone](https://www.pinecone.io).
-
-## Documentation
-
-To see the latest documentation for `main`, visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone@main/pinecone.
-
-To see the latest versioned-release's documentation,
-visit https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v7/pinecone.
+The Pinecone Go SDK is the official Go client for [Pinecone Database](https://www.pinecone.io).
 
 ## Features
 
-go-pinecone contains
+- **Documents API**: Full-text search, query strings, and vector search over indexes with a document schema.
+- **Vectors API**: Upsert, query, fetch, update, delete, and list records in vector indexes over gRPC.
+- **Records API**: Upsert and search text in indexes with integrated embedding.
+- **Index management**: Create, configure, and delete indexes, and manage backups, collections, and namespaces.
+- **Inference API**: Generate embeddings and rerank results with models hosted by Pinecone.
+- **Admin API**: Manage projects, organizations, API keys, service accounts, role bindings, invites, and users.
+- **Retries**: Optional automatic retries with exponential backoff.
 
-- gRPC (vector operations) and REST (documents, records, imports) bindings for
-  [Data Plane](https://docs.pinecone.io/reference/api/2026-07/data-plane) operations
-- REST bindings for [Control Plane](https://docs.pinecone.io/reference/api/2026-07/control-plane)
-  operations
-- REST bindings for [Admin API](https://docs.pinecone.io/reference/api/2026-07/admin/)
-- Optional automatic retries with exponential backoff (see [Configuring retries](#configuring-retries))
+The SDK targets Pinecone API version `2026-07`, covering the control plane, data plane, Inference, and Admin APIs. For
+the API reference, see [Pinecone API](https://docs.pinecone.io/reference/api/introduction).
 
-See the [Pinecone API Docs](https://docs.pinecone.io/reference/) for more information.
+## Documentation
 
-## Upgrading the SDK
+- [Guides](./guides/README.md): detailed usage guides for each area of the SDK
+- [API reference](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v7/pinecone) for the latest release, or
+  [for `main`](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v7@main/pinecone)
+- [Pinecone documentation](https://docs.pinecone.io/)
 
-To upgrade the SDK to the latest version, run:
-
-```shell
-go get -u github.com/pinecone-io/go-pinecone/v7/pinecone@latest
-```
+If you're upgrading from v6 or earlier, see the [v7 migration guide](./guides/migration/v7.md). v7 moves to API
+version `2026-07`, which adds document indexes and removes the ability to create pod-based indexes.
 
 ## Prerequisites
 
-`go-pinecone` requires a Go version with [modules](https://go.dev/wiki/Modules) support.
+- Go 1.25 or later
+- A Pinecone API key. Sign up at [app.pinecone.io](https://app.pinecone.io), then set the key as the
+  `PINECONE_API_KEY` environment variable.
 
 ## Installation
-
-To install the Pinecone Go SDK, run the following in your terminal:
 
 ```shell
 go get github.com/pinecone-io/go-pinecone/v7/pinecone
 ```
 
-For more information on setting up a Go project, see the [Go documentation](https://golang.org/doc/).
+To upgrade to the latest version:
 
-## Usage
-
-### Initializing a Client
-
-**Authenticating via an API key**
-
-When initializing a `Client` with a Pinecone API key, you must construct a `NewClientParams` object and pass it to the
-`NewClient` function which returns `Client`.
-
-It's recommended that you set your Pinecone API key as an environment variable (`"PINECONE_API_KEY"`) and access it that
-way. Alternatively, you can pass it in your code directly.
-
-```go
-package main
-
-import (
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	clientParams := pinecone.NewClientParams{
-		ApiKey:      os.Getenv("PINECONE_API_KEY"),
-		RetryPolicy: pinecone.DefaultRetryPolicy(), // optional: retry rate-limited/transient errors
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-}
+```shell
+go get -u github.com/pinecone-io/go-pinecone/v7/pinecone@latest
 ```
 
-See [Configuring retries](#configuring-retries) for details on the retry behavior.
+## Quickstart
 
-**Authenticating via custom headers**
+These quickstarts are also on [pkg.go.dev](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v7/pinecone#pkg-examples)
+as package examples, which are compiled with the SDK's tests.
 
-If you choose to authenticate via custom headers (e.g. for OAuth), you must construct a `NewClientBaseParams` object
-and pass it to `NewClientBase`.
+### Full-text search
 
-Note: you must include the `"X-Project-Id"` header with your Pinecone project ID
-when authenticating via custom headers.
-
-```go
-package main
-
-import (
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-)
-
-func main() {
-	clientParams := pinecone.NewClientBaseParams{
-		Headers: map[string]string{
-			"Authorization": "Bearer " + "<your OAuth token>",
-			"X-Project-Id":  "<Your Pinecone project ID>",
-		},
-	}
-
-	pc, err := pinecone.NewClientBase(clientParams)
-
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-}
-```
-
-### Configuring retries
-
-By default the SDK does not retry failed requests. To enable automatic retries with
-exponential backoff, set a `RetryPolicy`. When set, it applies to both the REST
-(control/data/inference) and gRPC (data plane) clients.
-
-Retries cover rate-limit (HTTP 429 / gRPC `RESOURCE_EXHAUSTED`) and transient
-(5xx / gRPC `UNAVAILABLE`) responses; other 4xx errors are never retried. For REST,
-429 is always retried, while 5xx and transport errors are retried only for idempotent
-methods (GET, PUT, DELETE) to avoid duplicating non-idempotent operations, so POST calls such as
-document and record operations, imports, `Embed`, and `Rerank` are retried only on 429. gRPC
-data-plane calls are retried on `RESOURCE_EXHAUSTED` and `UNAVAILABLE` for every method, including
-writes, so a retried write may be applied twice. A `Retry-After` header on a REST response sets the
-wait before the next attempt, capped at `MaxDelay`; gRPC retries don't use it.
-
-```go
-package main
-
-import (
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	clientParams := pinecone.NewClientParams{
-		ApiKey:      os.Getenv("PINECONE_API_KEY"),
-		RetryPolicy: pinecone.DefaultRetryPolicy(), // 3 retries, 500ms base, 30s cap, 2x backoff
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	}
-	_ = pc
-}
-```
-
-To customize the policy, construct a `RetryPolicy` directly:
-
-```go
-clientParams := pinecone.NewClientParams{
-	ApiKey: os.Getenv("PINECONE_API_KEY"),
-	RetryPolicy: &pinecone.RetryPolicy{
-		MaxRetries:        5,
-		BaseDelay:         time.Second,
-		MaxDelay:          time.Minute,
-		BackoffMultiplier: 2,
-	},
-}
-```
-
-### Initializing an AdminClient (Admin API)
-
-When initializing an `AdminClient` you must construct a `NewAdminClientParams` object and pass it to the
-`NewAdminClient` or `NewAdminClientWithContext` functions which return `AdminClient`.
-
-`AdminClient` is a struct used for accessing the Pinecone Admin API. A prerequisite for using this class is to have a [service account](https://docs.pinecone.io/guides/organizations/manage-service-accounts). To create a service
-account, visit the [Pinecone web console](https://app.pinecone.io) and navigate to the `Access > Service Accounts` section.
-
-`AdminClient` exposes sub-clients for managing projects, organizations, API keys, role bindings, service accounts, invites, and users (e.g. `adminClient.Project`, `adminClient.ServiceAccount`, `adminClient.Invite`, `adminClient.User`).
-
-**Authenticating via client ID and secret**
-
-After creating a service account, you will be provided with a client ID and secret. These values can be passed via the `NewAdminClientParams` struct, or by setting the `PINECONE_CLIENT_ID` and `PINECONE_CLIENT_SECRET` environment variables. The `NewAdminClient` function handles the authentication handshake, and returns an authenticated `AdminClient`. The client refreshes its access token before it expires, so a long-lived `AdminClient` keeps working.
-
-You can instead pass an existing access token as `AccessToken` (or set `PINECONE_ACCESS_TOKEN`). It takes precedence over a client ID and secret, and is used as-is: it isn't refreshed, so requests fail once it expires.
+The following program creates a document index with two full-text-search fields, upserts documents, and searches
+them:
 
 ```go
 package main
@@ -194,6 +60,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/pinecone-io/go-pinecone/v7/pinecone"
 )
@@ -201,1895 +68,207 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// Create an AdminClient using your credentials
-	adminClient, err := pinecone.NewAdminClient(pinecone.NewAdminClientParams{
-		ClientId:     "YOUR_CLIENT_ID",
-		ClientSecret: "YOUR_CLIENT_SECRET",
-	})
-	if err != nil {
-		log.Fatalf("failed to create AdminClient: %v", err)
-	}
-
-	// Create a new project
-	project, err := adminClient.Project.Create(ctx, &pinecone.CreateProjectParams{
-		Name: "example-project",
-	})
-	if err != nil {
-		log.Fatalf("failed to create project: %v", err)
-	}
-	fmt.Printf("Created project: %s\n", project.Name)
-
-	// Create a new API within that project
-	apiKey, err := adminClient.APIKey.Create(ctx, project.Id, &pinecone.CreateAPIKeyParams{
-		Name: "example-api-key",
-	})
-	if err != nil {
-		log.Fatalf("failed to create API key: %v", err)
-	}
-	fmt.Printf("Created API key: %s\n", apiKey.Key.Id)
-
-	// List all projects
-	projects, err := adminClient.Project.List(ctx)
-	if err != nil {
-		log.Fatalf("failed to list projects: %v", err)
-	}
-	fmt.Printf("You have %d project(s)\n", len(projects))
-
-	// List API keys for the created project
-	apiKeys, err := adminClient.APIKey.List(ctx, project.Id)
-	if err != nil {
-		log.Fatalf("failed to list API keys: %v", err)
-	}
-	fmt.Printf("Project '%s' has %d API key(s)\n", project.Name, len(apiKeys))
-}
-```
-
-## Indexes
-
-### Create indexes
-
-**Create a serverless index**
-
-The following example creates a `dense` serverless index in the `us-east-1`
-region of AWS. For more information on serverless and regional availability,
-see [Understanding indexes](https://docs.pinecone.io/guides/indexes/understanding-indexes#serverless-indexes).
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
+	// Reads the API key from the PINECONE_API_KEY environment variable.
+	pc, err := pinecone.NewClient(pinecone.NewClientParams{})
 	if err != nil {
 		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
 	}
 
-	indexName := "my-serverless-index"
-	metric := pinecone.IndexMetricCosine
-	dimension := int32(3)
-
-	idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
-		Name:      indexName,
-		Cloud:     pinecone.CloudAWS,
-		Region:    "us-east-1",
-		Metric:    &metric,
-		Dimension: &dimension,
-		Tags:      &pinecone.IndexTags{"environment": "development"},
-	})
-
-	if err != nil {
-		log.Fatalf("Failed to create serverless index: %v", err)
-	} else {
-		fmt.Printf("Successfully created serverless index: %s", idx.Name)
-	}
-}
-```
-
-You can also create `sparse` only serverless indexes. These indexes enable direct indexing and retrieval of sparse vectors, supporting traditional methods like BM25 and learned sparse models such as [pinecone-sparse-english-v0](https://docs.pinecone.io/models/pinecone-sparse-english-v0). A `sparse` index must have a distance metric of `dotproduct` and does not require a specified dimension. `dotproduct` will be defaulted for sparse indexes when
-a Metric is not provided:
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	indexName := "my-serverless-index"
-	vectorType := "sparse"
-	metric := pinecone.IndexMetricDotproduct
-
-	idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
-		Name:       indexName,
-		Cloud:      pinecone.CloudAWS,
-		Region:     "us-east-1",
-		Metric:     &metric,
-		VectorType: &vectorType,
-		Tags:       &pinecone.IndexTags{"environment": "development"},
-	})
-
-	if err != nil {
-		log.Fatalf("Failed to create serverless index: %v", err)
-	} else {
-		fmt.Printf("Successfully created serverless index: %s", idx.Name)
-	}
-}
-```
-
-**Create a serverless integrated index**
-
-Integrated inference requires a serverless index configured for a specific embedding model. The model is chosen when the index is created and can't be changed afterwards, but its read and write parameters can be updated with `ConfigureIndex` (see [Configure an index](#configure-an-index)). To create an index that accepts source text and converts it to vectors automatically using an embedding model hosted by Pinecone, use the `Client.CreateIndexForModel` method:
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	index, err := pc.CreateIndexForModel(ctx, &pinecone.CreateIndexForModelRequest{
-		Name:   "my-integrated-index",
-		Cloud:  pinecone.CloudAWS,
-		Region: "us-east-1",
-		Embed: pinecone.CreateIndexForModelEmbed{
-			Model:    "multilingual-e5-large",
-			FieldMap: map[string]interface{}{"text": "chunk_text"},
-		},
-	})
-
-	if err != nil {
-		log.Fatalf("Failed to create serverless integrated index: %v", err)
-	} else {
-		fmt.Printf("Successfully created serverless integrated index: %s", index.Name)
-	}
-}
-```
-
-**Pod-based indexes**
-
-Pinecone API version `2026-07` does not support creating pod-based indexes. Existing pod-based indexes can still be
-described, listed, deleted, and scaled with `ConfigureIndex` (see [Configure an index](#configure-an-index)). To create
-a new index, use `CreateServerlessIndex` or `CreateIndex`. See [MIGRATION.md](./MIGRATION.md) for details.
-
-### List indexes
-
-The following example lists all indexes in your Pinecone project.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	idxs, err := pc.ListIndexes(ctx)
-	if err != nil {
-		log.Fatalf("Failed to list indexes: %v", err)
-	} else {
-		fmt.Println("Your project has the following indexes:")
-		for _, idx := range idxs {
-			fmt.Printf("- \"%s\"\n", idx.Name)
-		}
-	}
-}
-```
-
-### Describe an index
-
-The following example describes an index by name.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	indexName := "the-name-of-my-index"
-
-	idx, err := pc.DescribeIndex(ctx, indexName)
-	if err != nil {
-		log.Fatalf("Failed to describe index: %s", err)
-	} else {
-		fmt.Printf("%+v", *idx)
-	}
-}
-```
-
-### Delete an index
-
-The following example deletes an index by name. Note: only indexes not protected by deletion protection
-may be deleted.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	indexName := "the-name-of-my-index"
-
-	err = pc.DeleteIndex(ctx, indexName)
-	if err != nil {
-		log.Fatalf("Error: %v", err)
-	} else {
-		fmt.Printf("Index \"%s\" deleted successfully", indexName)
-	}
-}
-```
-
-### Configure an index
-
-There are multiple ways to configure Pinecone indexes. You are able to configure Deletion Protection and Tags for both pod-based and Serverless indexes. Additionally, you can configure the size of your pods and the number of replicas for pod-based indexes, and the read and write parameters of the embedding model for integrated indexes. Examples for each of these configurations are provided below.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	// To scale the size of your pods-based index from "x2" to "x4":
-	_, err = pc.ConfigureIndex(ctx,
-		"my-pod-index",
-		pinecone.ConfigureIndexParams{
-			PodType: "p1.x4",
-		},
-	)
-	if err != nil {
-		fmt.Printf("Failed to configure index: %v\n", err)
-	}
-
-	// To scale the number of replicas to 4:
-	_, err = pc.ConfigureIndex(ctx,
-		"my-pod-index",
-		pinecone.ConfigureIndexParams{
-			Replicas: 4,
-		},
-	)
-	if err != nil {
-		fmt.Printf("Failed to configure index: %v\n", err)
-	}
-
-	// To scale both the size of your pods and the number of replicas:
-	_, err = pc.ConfigureIndex(ctx,
-		"my-pod-index",
-		pinecone.ConfigureIndexParams{
-			PodType: "p1.x4",
-			Replicas: 4,
-		},
-	)
-	if err != nil {
-		fmt.Printf("Failed to configure index: %v\n", err)
-	}
-
-	// To add or remove IndexTags
-	_, err = pc.ConfigureIndex(ctx,
-		"my-pod-index",
-		pinecone.ConfigureIndexParams{
-			Tags: pinecone.IndexTags{
-				"environment": "development",
-				"source":  "",
-			},
-		},
-	)
-
-	// To enable deletion protection:
-	_, err = pc.ConfigureIndex(ctx, "my-index", pinecone.ConfigureIndexParams{DeletionProtection: "enabled"})
-	if err != nil {
-		fmt.Printf("Failed to configure index: %v\n", err)
-	}
-
-	// To update the read parameters of an integrated index's embedding model:
-	_, err = pc.ConfigureIndex(ctx, "my-integrated-index", pinecone.ConfigureIndexParams{
-		Schema: &pinecone.ConfigureIndexSchema{
-			Fields: map[string]pinecone.ConfigureSemanticTextField{
-				"chunk_text": {
-					ReadParameters: &map[string]interface{}{"input_type": "query", "truncate": "NONE"},
-				},
+	_, err = pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
+		Name: "articles",
+		Schema: pinecone.IndexSchema{
+			Fields: map[string]pinecone.IndexSchemaField{
+				"title": {String: &pinecone.StringField{FullTextSearch: &pinecone.FullTextSearchConfig{}}},
+				"body":  {String: &pinecone.StringField{FullTextSearch: &pinecone.FullTextSearchConfig{}}},
 			},
 		},
 	})
 	if err != nil {
-		fmt.Printf("Failed to configure index: %v\n", err)
-	}
-}
-```
-
-### Describe index statistics
-
-The following example describes the statistics of an index by name.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
+		log.Fatalf("Failed to create index: %v", err)
 	}
 
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	indexName := "the-name-of-my-index"
-
-	idx, err := pc.DescribeIndex(ctx, indexName)
-	if err != nil {
-		log.Fatalf("Failed to describe index: %v", err)
-	} else {
-		desc := fmt.Sprintf("Description: \n  Name: %s\n  Dimension: %d\n  Host: %s\n  Metric: %s\n"+
-			"  DeletionProtection"+
-			": %s\n"+
-			"  Spec: %+v"+
-			"\n  Status: %+v\n",
-			idx.Name, idx.Dimension, idx.Host, idx.Metric, idx.DeletionProtection, idx.Spec, idx.Status)
-		fmt.Println(desc)
-	}
-}
-```
-
-## Index Operations
-
-Pinecone indexes support working with vector data using operations such as upsert, query, fetch, and delete.
-
-### Targeting an index
-
-To perform data operations on an index, you target it using the `Index` method on a `Client` object which returns a pointer to an `IndexConnection`. Calling `Index` will create and dial the index via a new gRPC connection. You can target a specific `Namespace` when calling `Index`, but if you want to reuse the connection with different namespaces, you can call `IndexConnection.WithNamespace`. If no `Namespace` is provided when establishing a new
-`IndexConnection`, the default namespace is used. The API reports it as `"__default__"`, and either
-`""` or `"__default__"` can be passed wherever a namespace is expected.
-
-You will need your index's `Host` value, which you can retrieve via `DescribeIndex` or `ListIndexes`.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	idx, err := pc.DescribeIndex(ctx, "pinecone-index")
-	if err != nil {
-		log.Fatalf("Failed to describe index: %v", err)
-	}
-
-	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-	if err != nil {
-		log.Fatalf("Failed to create IndexConnection for Host: %v: %v", idx.Host, err)
-	}
-}
-```
-
-### Working with namespaces
-
-Within an index, records are partitioned into namespaces, and all upserts, queries, and other data operations always target one namespace. You can read more about [namespaces here](https://docs.pinecone.io/guides/index-data/indexing-overview#namespaces).
-
-You can list all namespaces in an index in a paginated format, describe a specific namespace, or delete a namespace. NOTE: Deleting a namespace will delete all record information partitioned in that namespace.
-
-```go
-	ctx := context.Background()
-
-	pc, err := pinecone.NewClient(pinecone.NewClientParams{
-		ApiKey:    "YOUR_API_KEY",
-	})
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	}
-
-	idx, err := pc.DescribeIndex(ctx, "example-index")
-	if err != nil {
-		log.Fatalf("Failed to describe index: %v", err)
-	}
-
-	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-	if err != nil {
-		log.Fatalf("Failed to create IndexConnection for Host: %v: %v", idx.Host, err)
-	}
-
-	// list namespaces
-	limit := uint32(10)
-	namespaces, err := idxConnection.ListNamespaces(ctx, &pinecone.ListNamespacesParams{
-		Limit: &limit,
-	})
-	if err != nil {
-		log.Fatalf("Failed to list namespaces for Host: %v: %v", idx.Host, err)
-	}
-
-	// describe a namespace
-	namespace1, err := idxConnection.DescribeNamespace(ctx, "my-namespace-1")
-	if err != nil {
-		log.Fatalf("Failed to describe namespace: %v: %v", "my-namespace-1", err)
-	}
-
-	// delete a namespace
-	err = idxConnection.DeleteNamespace(ctx, "my-namespace-1")
-	if err != nil {
-		log.Fatalf("Failed to delete namespace: %v: %v", "my-namespace-1", err)
-	}
-```
-
-### Upsert vectors
-
-The following example upserts dense vectors and metadata to `example-index` in the namespace `my-namespace`. Upserting to a specific `Namespace` will implicitly create the namespace if it does not exist already.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"google.golang.org/protobuf/types/known/structpb"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	idx, err := pc.DescribeIndex(ctx, "example-index")
-	if err != nil {
-		log.Fatalf("Failed to describe index: %v", err)
-	}
-
-	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "my-namespace"})
-	if err != nil {
-		log.Fatalf("Failed to create IndexConnection for Host: %v: %v", idx.Host, err)
-	}
-
-	metadataMap := map[string]interface{}{
-		"genre": "classical",
-	}
-	metadata, err := structpb.NewStruct(metadataMap)
-
-	vectors := []*pinecone.Vector{
-		{
-			Id:           "A",
-			Values:       &[]float32{0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1},
-			Metadata:     metadata,
-		},
-		{
-			Id:           "B",
-			Values:       &[]float32{0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2},
-			Metadata:     metadata,
-		},
-		{
-			Id:           "C",
-			Values:       &[]float32{0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3},
-			Metadata:     metadata,
-		},
-		{
-			Id:           "D",
-			Values:       &[]float32{0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4},
-			Metadata:     metadata,
-		},
-	}
-
-	count, err := idxConnection.UpsertVectors(ctx, vectors)
-	if err != nil {
-		log.Fatalf("Failed to upsert vectors: %v", err)
-	} else {
-		fmt.Printf("Successfully upserted %d vector(s)", count)
-	}
-}
-```
-
-The following example upserts sparse vectors and metadata to `example-sparse-index`.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"google.golang.org/protobuf/types/known/structpb"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	idx, err := pc.DescribeIndex(ctx, "example-sparse-index")
-	if err != nil {
-		log.Fatalf("Failed to describe index: %v", err)
-	}
-
-	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-	if err != nil {
-		log.Fatalf("Failed to create IndexConnection for Host: %v: %v", idx.Host, err)
-	}
-
-	metadataMap := map[string]interface{}{
-		"genre": "classical",
-	}
-	metadata, err := structpb.NewStruct(metadataMap)
-
-	vectors := []*pinecone.Vector{
-		{
-			Id:           "A",
-			Metadata:     metadata,
-			SparseValues: &pinecone.SparseValues{
-				Indices: []uint32{0, 1, 2, 3, 4, 5, 6, 7},
-				Values:  []float32{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0},
-			},
-		},
-		{
-			Id:           "B",
-			Metadata:     metadata,
-			SparseValues: &pinecone.SparseValues{
-				Indices: []uint32{0, 1, 2, 3, 4, 5, 6, 7},
-				Values:  []float32{3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 8.0},
-			},
-		},
-		{
-			Id:           "C",
-			Metadata:     metadata,
-			SparseValues: &pinecone.SparseValues{
-				Indices: []uint32{0, 1, 2, 3, 4, 5, 6, 7},
-				Values:  []float32{4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 8.0, 7.0},
-			},
-		},
-		{
-			Id:           "D",
-			Metadata:     metadata,
-			SparseValues: &pinecone.SparseValues{
-				Indices: []uint32{0, 1, 2, 3, 4, 5, 6, 7},
-				Values:  []float32{5.0, 6.0, 7.0, 8.0, 9.0, 8.0, 7.0, 6.0},
-			},
-		},
-	}
-
-	count, err := idxConnection.UpsertVectors(ctx, vectors)
-	if err != nil {
-		log.Fatalf("Failed to upsert vectors: %v", err)
-	} else {
-		fmt.Printf("Successfully upserted %d vector(s)", count)
-	}
-}
-```
-
-### Import vectors from object storage
-
-You can now [import vectors en masse](https://docs.pinecone.io/guides/data/understanding-imports) from object
-storage. `Import` is a long-running, asynchronous operation that imports large numbers of records into a Pinecone
-serverless index.
-
-In order to import vectors from object storage, they must be stored in Parquet files and adhere to the necessary
-[file format](https://docs.pinecone.io/guides/data/understanding-imports#parquet-file-format). Your object storage
-must also adhere to the necessary [directory structure](https://docs.pinecone.io/guides/data/understanding-imports#directory-structure).
-
-The following example imports vectors from an Amazon S3 bucket into a Pinecone serverless index:
-
-```go
-    ctx := context.Background()
-
-    clientParams := pinecone.NewClientParams{
-        ApiKey: os.Getenv("PINECONE_API_KEY"),
-    }
-
-    pc, err := pinecone.NewClient(clientParams)
-
-    if err != nil {
-        log.Fatalf("Failed to create Client: %v", err)
-    }
-
-    indexName := "sample-index"
-    dimension := int32(3)
-    metric := pinecone.IndexMetricCosine
-
-    idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
-        Name:      indexName,
-        Dimension: &dimension,
-        Metric:    &metric,
-        Cloud:     pinecone.CloudAWS,
-        Region:    "us-east-1",
-    })
-
-    if err != nil {
-        log.Fatalf("Failed to create serverless index: %v", err)
-    }
-
-    idx, err = pc.DescribeIndex(ctx, "pinecone-index")
-
-	if err != nil {
-        log.Fatalf("Failed to describe index: %v", err)
-    }
-
-    idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-    if err != nil {
-        log.Fatalf("Failed to create IndexConnection for Host: %v: %v", idx.Host, err)
-    }
-
-    storageURI := "s3://my-bucket/my-directory/"
-
-    errorMode := "abort" // Will abort if error encountered; other option: "continue"
-
-    importRes, err := idxConnection.StartImport(ctx, storageURI, nil, &errorMode)
-
-	if err != nil {
-        log.Fatalf("Failed to start import: %v", err)
-    }
-
-    fmt.Printf("import started with ID: %s", importRes.Id)
-```
-
-You can [start, cancel, and check the status](https://docs.pinecone.io/guides/data/import-data) of all or one import operation(s).
-
-### Query an index
-
-#### Query by vector values
-
-The following example queries the index `example-index` with dense vector values and metadata filtering.
-
-```go
-package main
-
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"google.golang.org/protobuf/types/known/structpb"
-	"log"
-	"os"
-)
-
-func prettifyStruct(obj interface{}) string {
-	bytes, _ := json.MarshalIndent(obj, "", "  ")
-	return string(bytes)
-}
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	idx, err := pc.DescribeIndex(ctx, "example-index")
-	if err != nil {
-		log.Fatalf("Failed to describe index: %v", err)
-	}
+	idx := waitUntilReady(ctx, pc, "articles")
 
 	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
-	if err != nil {
-		log.Fatalf("Failed to create IndexConnection for Host %v: %v", idx.Host, err)
-	}
-
-	queryVector := []float32{0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3}
-
-	metadataMap := map[string]interface{}{
-		"genre": map[string]interface{}{
-			"$eq": "documentary",
-		},
-		"year": 2019,
-	}
-
-	metadataFilter, err := structpb.NewStruct(metadataMap)
-	if err != nil {
-		log.Fatalf("Failed to create metadataFilter: %v", err)
-	}
-
-	res, err := idxConnection.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
-		Vector:         queryVector,
-		TopK:           3,
-		MetadataFilter: metadataFilter,
-		IncludeValues:  true,
-	})
-	if err != nil {
-		log.Fatalf("Error encountered when querying by vector: %v", err)
-	} else {
-		fmt.Println(prettifyStruct(res))
-	}
-}
-
-// Returns:
-// {
-//   "matches": [
-//     {
-//       "vector": {
-//         "id": "B",
-//         "values": [
-//           0.2,
-//           0.2,
-//           0.2,
-//           0.2,
-//           0.2,
-//           0.2,
-//           0.2,
-//           0.2
-//         ]
-//       },
-//       "score": 1
-//     },
-//     {
-//       "vector": {
-//         "id": "C",
-//         "values": [
-//           0.3,
-//           0.3,
-//           0.3,
-//           0.3,
-//           0.3,
-//           0.3,
-//           0.3,
-//           0.3
-//         ]
-//       },
-//       "score": 1
-//     },
-//     {
-//       "vector": {
-//         "id": "A",
-//         "values": [
-//           0.1,
-//           0.1,
-//           0.1,
-//           0.1,
-//           0.1,
-//           0.1,
-//           0.1,
-//           0.1
-//         ]
-//       },
-//       "score": 1
-//     }
-//   ],
-//   "usage": {
-//     "read_units": 6
-//   }
-// }
-```
-
-#### Query by vector id
-
-The following example queries the index `example-index` with a vector id value.
-
-```go
-package main
-
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func prettifyStruct(obj interface{}) string {
-	bytes, _ := json.MarshalIndent(obj, "", "  ")
-	return string(bytes)
-}
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	idx, err := pc.DescribeIndex(ctx, "example-index")
-	if err != nil {
-		log.Fatalf("Failed to describe index: %v", err)
-	}
-
-	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
-	if err != nil {
-		log.Fatalf("Failed to create IndexConnection for Host %v: %v", idx.Host, err)
-	}
-
-	vectorId := "vector-id"
-	res, err := idxConnection.QueryByVectorId(ctx, &pinecone.QueryByVectorIdRequest{
-		VectorId:      vectorId,
-		TopK:          3,
-		IncludeValues: true,
-	})
-	if err != nil {
-		log.Fatalf("Error encountered when querying by vector ID `%v`: %v", vectorId, err)
-	} else {
-		fmt.Println(prettifyStruct(res.Matches))
-	}
-}
-```
-
-### Delete vectors
-
-#### Delete vectors by ID
-
-The following example deletes a vector by its ID value from `example-index` and `example-namespace`. You can pass a
-slice of vector IDs to `DeleteVectorsById`.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	idx, err := pc.DescribeIndex(ctx, "example-index")
-	if err != nil {
-		log.Fatalf("Failed to describe index: %v", err)
-	}
-
-	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
-	if err != nil {
-		log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-	}
-
-	vectorId := "your-vector-id"
-	err = idxConnection.DeleteVectorsById(ctx, []string{vectorId})
-
-	if err != nil {
-		log.Fatalf("Failed to delete vector with ID: %s. Error: %s\n", vectorId, err)
-	}
-}
-```
-
-#### Delete vectors by filter
-
-The following example deletes vectors from `example-index` using a metadata filter.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"google.golang.org/protobuf/types/known/structpb"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	idx, err := pc.DescribeIndex(ctx, "example-index")
-	if err != nil {
-		log.Fatalf("Failed to describe index: %v", err)
-	}
-
-	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host})
-	if err != nil {
-		log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-	}
-
-	filter, err := structpb.NewStruct(map[string]interface{}{
-		"genre": "classical",
-	})
-	if err != nil {
-		log.Fatalf("Failed to create metadata filter. Error: %v", err)
-	}
-
-	err = idxConnection.DeleteVectorsByFilter(ctx, filter)
-
-	if err != nil {
-		log.Fatalf("Failed to delete vector(s) with filter: %+v. Error: %s\n", filter, err)
-	}
-}
-```
-
-#### Delete all vectors in a namespace
-
-The following example deletes all vectors from `example-index` and `example-namespace`.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	idx, err := pc.DescribeIndex(ctx, "example-index")
-	if err != nil {
-		log.Fatalf("Failed to describe index: %v", err)
-	}
-
-	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
-	if err != nil {
-		log.Fatalf("Failed to create IndexConnection for Host: %v. Error: %v", idx.Host, err)
-	}
-
-	// deletes all vectors in "example-namespace"
-	err = idxConnection.DeleteAllVectorsInNamespace(ctx)
-	if err != nil {
-		log.Fatalf("Failed to delete vectors in namespace: \"%s\". Error: %s", idxConnection.Namespace(), err)
-	}
-}
-```
-
-### Fetch vectors
-
-The following example fetches vectors by ID from `example-index` and `example-namespace`.
-
-```go
-package main
-
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func prettifyStruct(obj interface{}) string {
-	bytes, _ := json.MarshalIndent(obj, "", "  ")
-	return string(bytes)
-}
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	idx, err := pc.DescribeIndex(ctx, "example-index")
-	if err != nil {
-		log.Fatalf("Failed to describe index: %v", err)
-	}
-
-	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
-	if err != nil {
-		log.Fatalf("Failed to create IndexConnection for Host %v: %v", idx.Host, err)
-	}
-
-	res, err := idxConnection.FetchVectors(ctx, []string{"id-1", "id-2"})
-	if err != nil {
-		log.Fatalf("Failed to fetch vectors: %v", err)
-	} else {
-		fmt.Println(prettifyStruct(res))
-	}
-}
-
-// Response:
-// {
-//   "vectors": {
-//     "id-1": {
-//       "id": "id-1",
-//       "values": [
-//         -0.0089730695,
-//         -0.020010853,
-//         -0.0042787646,
-//         ...
-//       ]
-//     },
-//     "id-2": {
-//       "id": "id-2",
-//       "values": [
-//         -0.005380766,
-//         0.00215196,
-//         -0.014833462,
-//         ...
-//       ]
-//     }
-//   },
-//   "usage": {
-//     "read_units": 1
-//   }
-// }
-```
-
-### Update vectors
-
-The following example updates vectors by ID in `example-index` and `example-namespace`.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	idx, err := pc.DescribeIndex(ctx, "pinecone-index")
-	if err != nil {
-		log.Fatalf("Failed to describe index: %v", err)
-	}
-
-	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "ns1"})
-	if err != nil {
-		log.Fatalf("Failed to create IndexConnection for Host %v: %v", idx.Host, err)
-	}
-
-	id := "id-3"
-
-	err = idxConnection.UpdateVector(ctx, &pinecone.UpdateVectorRequest{
-		Id:     id,
-		Values: []float32{4.0, 2.0},
-	})
-	if err != nil {
-		log.Fatalf("Failed to update vector with ID %v: %v", id, err)
-	}
-}
-```
-
-### List vectors
-
-The `ListVectors` method can be used to list vector ids matching a particular id prefix.
-With clever assignment of vector ids, you can model hierarchical relationships across embeddings within the same
-document.
-
-The following example lists all vector ids in `example-index` and `example-namespace`, with the prefix `doc1`.
-
-```go
-package main
-
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func prettifyStruct(obj interface{}) string {
-	bytes, _ := json.MarshalIndent(obj, "", "  ")
-	return string(bytes)
-}
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	idx, err := pc.DescribeIndex(ctx, "example-index")
-	if err != nil {
-		log.Fatalf("Failed to describe index: %v", err)
-	}
-
-	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
-	if err != nil {
-		log.Fatalf("Failed to create IndexConnection for Host %v: %v", idx.Host, err)
-	}
-
-	limit := uint32(3)
-	prefix := "doc1"
-
-	res, err := idxConnection.ListVectors(ctx, &pinecone.ListVectorsRequest{
-		Limit:  &limit,
-		Prefix: &prefix,
-	})
-	if len(res.VectorIds) == 0 {
-		fmt.Println("No vectors found")
-	} else {
-		fmt.Println(prettifyStruct(res))
-	}
-}
-
-// Response:
-// {
-//   "vector_ids": [
-//     "doc1#chunk1",
-//     "doc1#chunk2",
-//     "doc1#chunk3"
-//   ],
-//   "usage": {
-//     "read_units": 1
-//   },
-//   "next_pagination_token": "eyJza2lwX3Bhc3QiOiIwMDBkMTc4OC0zMDAxLTQwZmMtYjZjNC0wOWI2N2I5N2JjNDUiLCJwcmVmaXgiOm51bGx9"
-// }
-```
-
-## Collections
-
-[A collection is a static copy of an index](https://docs.pinecone.io/guides/indexes/understanding-collections).
-Collections are only available for pod-based indexes.
-
-### Create a collection
-
-The following example creates a collection from a source index.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	collection, err := pc.CreateCollection(ctx, &pinecone.CreateCollectionRequest{
-		Name:   "my-collection",
-		Source: "my-source-index",
-	})
-	if err != nil {
-		log.Fatalf("Failed to create collection: %v", err)
-	} else {
-		fmt.Printf("Successfully created collection \"%s\".", collection.Name)
-	}
-}
-```
-
-### List collections
-
-The following example lists all collections in your Pinecone project.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	collections, err := pc.ListCollections(ctx)
-	if err != nil {
-		log.Fatalf("Failed to list collections: %v", err)
-	} else {
-		if len(collections) == 0 {
-			fmt.Printf("No collections found in project")
-		} else {
-			fmt.Println("Collections in project:")
-			for _, collection := range collections {
-				fmt.Printf("- %s\n", collection.Name)
-			}
-		}
-	}
-}
-```
-
-### Describe a collection
-
-The following example describes a collection by name.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	collection, err := pc.DescribeCollection(ctx, "my-collection")
-	if err != nil {
-		log.Fatalf("Error describing collection: %v", err)
-	} else {
-		fmt.Printf("Collection: %+v\n", *collection)
-	}
-}
-```
-
-### Delete a collection
-
-The following example deletes a collection by name.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
-	"log"
-	"os"
-)
-
-func main() {
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	} else {
-		fmt.Println("Successfully created a new Client object!")
-	}
-
-	collectionName := "my-collection"
-
-	err = pc.DeleteCollection(ctx, collectionName)
-	if err != nil {
-		log.Fatalf("Failed to create collection: %s\n", err)
-	} else {
-		log.Printf("Successfully deleted collection \"%s\"\n", collectionName)
-	}
-}
-```
-
-## Backups
-
-A backup is a static copy of a serverless index that only consumes storage. It is a non-queryable representation of a set of records. You can create a backup of a serverless index, and you can create a new serverless index from a backup. You can optionally apply new `Tags` and `DeletionProtection` configurations for the index when calling `CreateIndexFromBackup`. You can read more about [backups here](https://docs.pinecone.io/guides/manage-data/backups-overview).
-
-```go
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey: os.Getenv("PINECONE_API_KEY"),
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	}
-
-	indexName := "my-index"
-	backupName := fmt.Sprintf("backup-%s", indexName)
-	backupDesc := fmt.Sprintf("Backup created for index %s", indexName)
-	fmt.Printf("Creating backup: %s for index: %s\n", backupName, indexName)
-
-	backup, err := pc.CreateBackup(ctx, &pinecone.CreateBackupParams{
-		IndexName:   indexName,
-		Name:        &backupName,
-		Description: &backupDesc,
-	})
-	if err != nil {
-		log.Fatalf("Failed to create backup: %v", err)
-	}
-
-	backup, err = pc.DescribeBackup(ctx, backup.BackupId)
-	if err != nil {
-		log.Fatalf("Failed to describe backup: %v", err)
-	}
-
-	// wait for backup to be "Complete" before triggering a restore job
-	log.Printf("Backup status: %v", backup.Status)
-
-	limit := 10
-	backups, err := pc.ListBackups(ctx, &pinecone.ListBackupsParams{
-		Limit: &limit,
-		IndexName: &indexName,
-	})
-	if err != nil {
-		log.Fatalf("Failed to list backups: %v", err)
-	}
-
-	// create a new serverless index from the backup
-	restoredIndexName := indexName + "-from-backup"
-	restoredIndexTags := pinecone.IndexTags{"restored_on": time.Now().Format("2006-01-02 15:04")}
-	createIndexFromBackupResp, err := pc.CreateIndexFromBackup(ctx, &pinecone.CreateIndexFromBackupParams{
-		BackupId: backup.BackupId,
-		Name:     restoredIndexName,
-		Tags:     &restoredIndexTags,
-	})
-	if err != nil {
-		log.Fatalf("Failed to create index from backup: %v", err)
-	}
-
-	// check the status of the index restoration
-	restoreJob, err := pc.DescribeRestoreJob(ctx, createIndexFromBackupResp.RestoreJobId)
-	if err != nil {
-		log.Fatalf("Failed to describe restore job: %v", err)
-	}
-```
-
-## Inference
-
-The `Client` object has an `Inference` namespace which exposes an `InferenceService` pointer which allows interacting with Pinecone's [Inference API](https://docs.pinecone.io/guides/inference/generate-embeddings).
-The Inference API is a service that gives you access to embedding models hosted on Pinecone's infrastructure. Read more at [Understanding Pinecone Inference](https://docs.pinecone.io/guides/inference/understanding-inference).
-
-### Create Embeddings
-
-Send text to Pinecone's inference API to generate embeddings for documents and queries.
-
-```go
-	ctx := context.Background()
-
-	pc, err := pinecone.NewClient(pinecone.NewClientParams{
-		ApiKey: "YOUR_API_KEY",
-	})
-	if err !=  nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	}
-
-	embeddingModel := "multilingual-e5-large"
-	documents := []string{
-		"Turkey is a classic meat to eat at American Thanksgiving.",
-		"Many people enjoy the beautiful mosques in Turkey.",
-	}
-	docParameters := pinecone.EmbedParameters{
-		"input_type": "passage",
-		"truncate":   "END",
-	}
-
-	docEmbeddingsResponse, err := pc.Inference.Embed(ctx, &pinecone.EmbedRequest{
-		Model: embeddingModel,
-		TextInputs: documents,
-		Parameters: docParameters,
-	})
-	if err != nil {
-		log.Fatalf("Failed to embed documents: %v", err)
-	}
-	fmt.Printf("docs embedding response: %+v", docEmbeddingsResponse)
-
-	// << Upsert documents into Pinecone >>
-
-	userQuery := []string{
-		"How should I prepare my turkey?",
-	}
-	queryParameters := pinecone.EmbedParameters{
-		"input_type": "query",
-		"truncate":   "END",
-	}
-	queryEmbeddingsResponse, err := pc.Inference.Embed(ctx, &pinecone.EmbedRequest{
-		Model: embeddingModel,
-		TextInputs: userQuery,
-		Parameters: queryParameters,
-	})
-	if err != nil {
-		log.Fatalf("Failed to embed query: %v", err)
-	}
-	fmt.Printf("query embedding response: %+v", queryEmbeddingsResponse)
-
-    // << Send query to Pinecone to retrieve similar documents >>
-```
-
-### Rerank documents
-
-Rerank documents in descending relevance-order against a query.
-
-**Note:** The `score` represents the absolute measure of relevance of a given query and passage pair. Normalized
-between [0, 1], the `score` represents how closely relevant a specific item and query are, with scores closer to 1
-indicating higher relevance.
-
-```go
-    ctx := context.Background()
-
-    pc, err := pinecone.NewClient(pinecone.NewClientParams{
-        ApiKey: "YOUR-API-KEY",
-	})
-
-    if err != nil {
-        log.Fatalf("Failed to create Client: %v", err)
-    }
-
-    rerankModel := "bge-reranker-v2-m3"
-    query := "What are some good Turkey dishes for Thanksgiving?"
-
-    documents := []pinecone.Document{
-      {"title": "Turkey Sandwiches", "body": "Turkey is a classic meat to eat at American Thanksgiving."},
-      {"title": "Lemon Turkey", "body": "A lemon brined Turkey with apple sausage stuffing is a classic Thanksgiving main course."},
-      {"title": "Thanksgiving", "body": "My favorite Thanksgiving dish is pumpkin pie"},
-      {"title": "Protein Sources", "body": "Turkey is a great source of protein."},
-    }
-
-    // Optional arguments
-    topN := 3
-    returnDocuments := false
-    rankFields := []string{"body"}
-    modelParams := map[string]interface{}{
-      "truncate": "END",
-    }
-
-    rerankRequest := pinecone.RerankRequest{
-      Model:           rerankModel,
-      Query:           query,
-      Documents:       documents,
-      TopN:            &topN,
-      ReturnDocuments: &returnDocuments,
-      RankFields:      &rankFields,
-      Parameters:      &modelParams,
-    }
-
-    rerankResponse, err := pc.Inference.Rerank(ctx, &rerankRequest)
-
-    if err != nil {
-      log.Fatalf("Failed to rerank documents: %v", err)
-    }
-
-    fmt.Printf("rerank response: %+v", rerankResponse)
-```
-
-### Hosted Models
-
-To see available models hosted by Pinecone, you can use the `DescribeModel` and `ListModels` methods on the `InferenceService` struct. This allows you to retrieve detailed information about specific models.
-
-You can list all available models, with the options of filtering by model `Type` (`"embed"`, `"rerank"`), and `VectorType` (`"sparse"`, `"dense"`) for models with `Type` `"embed"`.
-
-```go
-	ctx := context.Background()
-
-	pc, err := pinecone.NewClient(pinecone.NewClientParams{
-		ApiKey:    "YOUR_API_KEY",
-	})
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	}
-
-	embed := "embed"
-	rerank := "rerank"
-
-	embedModels, err := pc.Inference.ListModels(ctx, &pinecone.ListModelsParams{
-		Type: &embed,
-	})
-	if err != nil {
-		log.Fatalf("Failed to list embedding models: %v", err)
-	}
-
-	rerankModels, err := pc.Inference.ListModels(ctx, &pinecone.ListModelsParams{
-		Type: &rerank,
-	})
-	if err != nil {
-		log.Fatalf("Failed to list reranking models: %v", err)
-	}
-```
-
-You can also describe a single model by name:
-
-```go
-	ctx := context.Background()
-
-	pc, err := pinecone.NewClient(pinecone.NewClientParams{
-		ApiKey:    "YOUR_API_KEY",
-	})
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	}
-
-	model, err := pc.Inference.DescribeModel(ctx, "multilingual-e5-large")
-	if err != nil {
-		log.Fatalf("Failed to get model: %v", err)
-	}
-
-	fmt.Printf("Model (multilingual-e5-large): %+v\n", model)
-```
-
-### Integrated Inference
-
-When using an index with integrated inference, embedding and reranking operations are tied to index operations and do not require extra steps. This allows working with an index that accepts source text and converts it to vectors automatically using an embedding model hosted by Pinecone.
-
-Integrated inference requires a serverless index configured for a specific embedding model, chosen when the index is created with `CreateIndexForModel`. See **Create a serverless integrated index** above for specifics on creating these indexes.
-
-Once you have an index configured for a specific embedding model, use the `IndexConnection.UpsertRecords` method to convert your source data to embeddings and upsert them into a namespace.
-
-**Upsert integrated records**
-
-Note the following requirements for each record:
-
-- Each record must contain a unique `_id`, which will serve as the record identifier in the index namespace.
-- Each record must contain a field with the data for embedding. This field must match the `FieldMap` specified when creating the index.
-- Any additional fields in the record will be stored in the index and can be returned in search results or used to filter search results.
-
-```go
-	ctx := context.Background()
-
-	clientParams := pinecone.NewClientParams{
-		ApiKey:    "YOUR_API_KEY",
-	}
-
-	pc, err := pinecone.NewClient(clientParams)
-
-	if err != nil {
-		log.Fatalf("Failed to create Client: %v", err)
-	}
-
-	idx, err := pc.DescribeIndex(ctx, "your-index-name")
-
-	if err != nil {
-		log.Fatalf("Failed to describe index: %v", err)
-	}
-
-	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "my-namespace"})
 	if err != nil {
 		log.Fatalf("Failed to create IndexConnection: %v", err)
 	}
+	defer idxConnection.Close()
 
-	records := []*pinecone.IntegratedRecord{
-			{
-				"_id":        "rec1",
-				"chunk_text": "Apple's first product, the Apple I, was released in 1976 and was hand-built by co-founder Steve Wozniak.",
-				"category":   "product",
-			},
-			{
-				"_id":        "rec2",
-				"chunk_text": "Apples are a great source of dietary fiber, which supports digestion and helps maintain a healthy gut.",
-				"category":   "nutrition",
-			},
-			{
-				"_id":        "rec3",
-				"chunk_text": "Apples originated in Central Asia and have been cultivated for thousands of years, with over 7,500 varieties available today.",
-				"category":   "cultivation",
-			},
-			{
-				"_id":        "rec4",
-				"chunk_text": "In 2001, Apple released the iPod, which transformed the music industry by making portable music widely accessible.",
-				"category":   "product",
-			},
-			{
-				"_id":        "rec5",
-				"chunk_text": "Apple went public in 1980, making history with one of the largest IPOs at that time.",
-				"category":   "milestone",
-			},
-			{
-				"_id":        "rec6",
-				"chunk_text": "Rich in vitamin C and other antioxidants, apples contribute to immune health and may reduce the risk of chronic diseases.",
-				"category":   "nutrition",
-			},
-			{
-				"_id":        "rec7",
-				"chunk_text": "Known for its design-forward products, Apple's branding and market strategy have greatly influenced the technology sector and popularized minimalist design worldwide.",
-				"category":   "influence",
-			},
-			{
-				"_id":        "rec8",
-				"chunk_text": "The high fiber content in apples can also help regulate blood sugar levels, making them a favorable snack for people with diabetes.",
-				"category":   "nutrition",
-			},
-		}
-
-	err = idxConnection.UpsertRecords(ctx, records)
-	if err != nil {
-			log.Fatalf("Failed to upsert vectors. Error: %v", err)
-	}
-```
-
-**Search integrated records**
-
-Use the `IndexConnection.SearchRecords` method to convert a query to a vector embedding and then search your namespace for the most semantically similar records, along with their similarity scores.
-
-```go
-	res, err := idxConnection.SearchRecords(ctx, &pinecone.SearchRecordsRequest{
-			Query: pinecone.SearchRecordsQuery{
-				TopK: 5,
-				Inputs: &map[string]interface{}{
-					"text": "Disease prevention",
-				},
-			},
+	_, err = idxConnection.UpsertDocuments(ctx, &pinecone.UpsertDocumentsRequest{
+		Documents: []pinecone.Document{
+			{"_id": "doc-1", "title": "Apple orchards", "body": "Apple trees are grown in orchards across the world.", "year": 2021},
+			{"_id": "doc-2", "title": "Citrus groves", "body": "Oranges and lemons grow in warm climates.", "year": 2023},
+			{"_id": "doc-3", "title": "Orchard pests", "body": "Codling moths are a common pest in apple orchards.", "year": 2024},
+		},
 	})
 	if err != nil {
-			log.Fatalf("Failed to search records: %v", err)
+		log.Fatalf("Failed to upsert documents: %v", err)
 	}
-	fmt.Printf("Search results: %+v\n", res)
+
+	// Documents are indexed asynchronously and can take up to a minute to become searchable.
+	time.Sleep(30 * time.Second)
+
+	query := "apple orchards"
+	res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
+		TopK: 3,
+		ScoreBy: []pinecone.DocumentScoringMethod{
+			{Type: "text", Fields: []string{"title", "body"}, Query: &query},
+		},
+		IncludeFields: []string{"title"},
+	})
+	if err != nil {
+		log.Fatalf("Failed to search documents: %v", err)
+	}
+	for _, match := range res.Matches {
+		fmt.Printf("%s: %v\n", match.Id, match.Fields["title"])
+	}
+}
+
+// waitUntilReady polls DescribeIndex until the index is ready to serve requests.
+func waitUntilReady(ctx context.Context, pc *pinecone.Client, name string) *pinecone.Index {
+	for {
+		idx, err := pc.DescribeIndex(ctx, name)
+		if err != nil {
+			log.Fatalf("Failed to describe index: %v", err)
+		}
+		if idx.Status != nil && idx.Status.Ready {
+			return idx
+		}
+		time.Sleep(5 * time.Second)
+	}
+}
 ```
 
-To rerank initial search results based on relevance to the query, add the rerank parameter, including the [reranking model](https://docs.pinecone.io/guides/inference/understanding-inference#reranking-models) you want to use, the number of reranked results to return, and the fields to use for reranking, if different than the main query.
+For query strings, vector fields, filtering, and the other document operations, see
+[Working with documents](./guides/data-operations/documents.md).
 
-For example, repeat the search for the 4 documents most semantically related to the query, “Disease prevention”, but this time rerank the results and return only the 2 most relevant documents:
+### Bring your own vectors
+
+The following example creates a vector index, upserts records with vectors you've generated, and queries by
+similarity. It reuses the client setup and `waitUntilReady` from the example above.
 
 ```go
-	topN := int32(2)
-	res, err := idxConnection.SearchRecords(ctx, &pinecone.SearchRecordsRequest{
-			Query: pinecone.SearchRecordsQuery{
-				TopK: 5,
-				Inputs: &map[string]interface{}{
-					"text": "Disease prevention",
-				},
-			},
-			Rerank: &pinecone.SearchRecordsRerank{
-				Model:      "bge-reranker-v2-m3",
-				TopN:       &topN,
-				RankFields: []string{"chunk_text"},
-			},
-			Fields: &[]string{"chunk_text", "category"},
-		})
-	if err != nil {
-			log.Fatalf("Failed to search records: %v", err)
-	}
-	fmt.Printf("Search results: %+v\n", res)
+metric := pinecone.IndexMetricCosine
+dimension := int32(3)
+
+_, err = pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+	Name:      "docs-example",
+	Cloud:     pinecone.CloudAWS,
+	Region:    "us-east-1",
+	Metric:    &metric,
+	Dimension: &dimension,
+})
+if err != nil {
+	log.Fatalf("Failed to create index: %v", err)
+}
+
+idx := waitUntilReady(ctx, pc, "docs-example")
+
+idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
+if err != nil {
+	log.Fatalf("Failed to create IndexConnection: %v", err)
+}
+defer idxConnection.Close()
+
+_, err = idxConnection.UpsertVectors(ctx, []*pinecone.Vector{
+	{Id: "A", Values: &[]float32{0.1, 0.2, 0.3}},
+	{Id: "B", Values: &[]float32{0.3, 0.2, 0.1}},
+})
+if err != nil {
+	log.Fatalf("Failed to upsert vectors: %v", err)
+}
+
+res, err := idxConnection.QueryByVectorValues(ctx, &pinecone.QueryByVectorValuesRequest{
+	Vector: []float32{0.1, 0.2, 0.3},
+	TopK:   2,
+})
+if err != nil {
+	log.Fatalf("Failed to query: %v", err)
+}
+for _, match := range res.Matches {
+	fmt.Printf("%s: %f\n", match.Vector.Id, match.Score)
+}
 ```
+
+For metadata, filtering, and the other vector operations, see
+[Working with vectors](./guides/data-operations/vectors.md).
+
+### Integrated embedding
+
+The following example creates an index with integrated embedding, which embeds text for you with a model hosted by
+Pinecone. You upsert and search with plain text.
+
+```go
+_, err = pc.CreateIndexForModel(ctx, &pinecone.CreateIndexForModelRequest{
+	Name:   "example-integrated-index",
+	Cloud:  pinecone.CloudAWS,
+	Region: "us-east-1",
+	Embed: pinecone.CreateIndexForModelEmbed{
+		Model:    "multilingual-e5-large",
+		FieldMap: map[string]interface{}{"text": "chunk_text"},
+	},
+})
+if err != nil {
+	log.Fatalf("Failed to create index: %v", err)
+}
+
+idx := waitUntilReady(ctx, pc, "example-integrated-index")
+
+idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
+if err != nil {
+	log.Fatalf("Failed to create IndexConnection: %v", err)
+}
+defer idxConnection.Close()
+
+err = idxConnection.UpsertRecords(ctx, []*pinecone.IntegratedRecord{
+	{"_id": "rec1", "chunk_text": "Apples are a great source of dietary fiber.", "category": "nutrition"},
+	{"_id": "rec2", "chunk_text": "The Apple I was released in 1976.", "category": "product"},
+})
+if err != nil {
+	log.Fatalf("Failed to upsert records: %v", err)
+}
+
+res, err := idxConnection.SearchRecords(ctx, &pinecone.SearchRecordsRequest{
+	Query: pinecone.SearchRecordsQuery{
+		TopK:   2,
+		Inputs: &map[string]interface{}{"text": "healthy snacks"},
+	},
+})
+if err != nil {
+	log.Fatalf("Failed to search records: %v", err)
+}
+for _, hit := range res.Result.Hits {
+	fmt.Printf("%s: %f\n", hit.Id, hit.Score)
+}
+```
+
+For reranking and more, see [Integrated embedding](./guides/inference/integrated-embedding.md).
+
+## Guides
+
+- [Client configuration](./guides/client-configuration.md): API keys, custom headers, retries, and targeting an index
+- Index management
+  - [Indexes](./guides/index-management/indexes.md): schemas, deployments, read capacity, and configuring indexes
+  - [Backups](./guides/index-management/backups.md)
+  - [Collections](./guides/index-management/collections.md)
+- Data operations
+  - [Working with documents](./guides/data-operations/documents.md)
+  - [Working with vectors](./guides/data-operations/vectors.md)
+  - [Namespaces](./guides/data-operations/namespaces.md)
+  - [Bulk import](./guides/data-operations/bulk-import.md)
+- Inference
+  - [Inference API](./guides/inference/inference-api.md): embeddings, reranking, and hosted models
+  - [Integrated embedding](./guides/inference/integrated-embedding.md)
+- [Admin API](./guides/admin.md)
+- [v7 migration guide](./guides/migration/v7.md)
 
 ## Support
 
-To get help using go-pinecone you can file an issue on [GitHub](https://github.com/pinecone-io/go-pinecone/issues),
-visit the [community forum](https://community.pinecone.io/),
-or reach out to support@pinecone.io.
+To get help with the Pinecone Go SDK, file an issue on [GitHub](https://github.com/pinecone-io/go-pinecone/issues),
+visit the [community forum](https://community.pinecone.io/), or
+[open a support ticket](https://app.pinecone.io/organizations/-/settings/support/ticket).
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup and guidelines.

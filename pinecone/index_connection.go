@@ -830,9 +830,10 @@ func (idx *IndexConnection) ListVectors(ctx context.Context, in *ListVectorsRequ
 
 // QueryByVectorValuesRequest holds the parameters for the [IndexConnection.QueryByVectorValues] method.
 type QueryByVectorValuesRequest struct {
-	// Vector is the dense query vector, with a size matching the index's dimension. Required on
-	// dense indexes; set it together with SparseValues for a hybrid query (dotproduct indexes).
-	// Leave it nil on sparse indexes, which accept only SparseValues.
+	// Vector is the dense query vector, with a size matching the index's dimension. Required on an
+	// index that stores dense vectors. Set it together with SparseValues for a hybrid query, which
+	// requires the dotproduct metric. Leave it nil on an index that stores only sparse vectors, which
+	// accepts only SparseValues.
 	Vector []float32
 	// TopK (Required) is the number of matches to return, 1–10000.
 	TopK uint32
@@ -844,17 +845,17 @@ type QueryByVectorValuesRequest struct {
 	// IncludeMetadata (Optional) controls whether the metadata associated with the vectors
 	// is included in the response.
 	IncludeMetadata bool
-	// SparseValues are the sparse query values. Required on sparse indexes; on dense indexes they
-	// can only accompany Vector.
+	// SparseValues are the sparse query values. Required on an index that stores only sparse
+	// vectors. On an index that stores dense vectors, they can only accompany Vector.
 	SparseValues *SparseValues
-	// ScanFactor (Optional) is an optimization parameter for IVF dense indexes in dedicated read
-	// node indexes. It adjusts how much of the index is scanned to find vector candidates.
-	// Range: 0.5 – 4 (default). Only supported for dedicated (DRN) dense indexes.
+	// ScanFactor (Optional) is an optimization parameter for dense vectors in indexes with dedicated
+	// read nodes (DRN), which use an IVF index. It adjusts how much of the index is scanned to find
+	// vector candidates. Range: 0.5 – 4 (default). Only supported for dense vectors on DRN indexes.
 	ScanFactor *float32
 	// MaxCandidates (Optional) is an optimization parameter that controls the maximum number
 	// of candidate dense vectors to rerank. Reranking computes exact distances to improve
-	// recall but increases query latency. Range: TopK – 100000. Only supported for
-	// dedicated (DRN) dense indexes.
+	// recall but increases query latency. Range: TopK – 100000. Only supported for dense vectors on
+	// DRN indexes.
 	MaxCandidates *uint32
 }
 
@@ -972,14 +973,14 @@ type QueryByVectorIdRequest struct {
 	// IncludeMetadata (Optional) controls whether the metadata associated with the vectors
 	// is included in the response.
 	IncludeMetadata bool
-	// ScanFactor (Optional) is an optimization parameter for IVF dense indexes in dedicated read
-	// node indexes. It adjusts how much of the index is scanned to find vector candidates.
-	// Range: 0.5 – 4 (default). Only supported for dedicated (DRN) dense indexes.
+	// ScanFactor (Optional) is an optimization parameter for dense vectors in indexes with dedicated
+	// read nodes (DRN), which use an IVF index. It adjusts how much of the index is scanned to find
+	// vector candidates. Range: 0.5 – 4 (default). Only supported for dense vectors on DRN indexes.
 	ScanFactor *float32
 	// MaxCandidates (Optional) is an optimization parameter that controls the maximum number
 	// of candidate dense vectors to rerank. Reranking computes exact distances to improve
-	// recall but increases query latency. Range: TopK – 100000. Only supported for
-	// dedicated (DRN) dense indexes.
+	// recall but increases query latency. Range: TopK – 100000. Only supported for dense vectors on
+	// DRN indexes.
 	MaxCandidates *uint32
 }
 

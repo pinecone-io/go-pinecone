@@ -1,7 +1,7 @@
 # Pinecone Go SDK - AI Assistant Guide
 
 **Project:** Pinecone Go SDK — Vector database client for AI applications
-**Go:** 1.21+
+**Go:** 1.25+
 **Module:** `github.com/pinecone-io/go-pinecone/v7`
 
 ## Project Overview
@@ -11,11 +11,11 @@ The Pinecone Go SDK provides a client for interacting with Pinecone vector datab
 **Entry points:**
 - `Client` — Control plane client for managing indexes, collections, backups, and inference
 - `AdminClient` — Admin operations (projects, orgs, API keys, role bindings, service accounts, invites, users)
-- `IndexConnection` — Data plane client for vector operations on a specific index
+- `IndexConnection` — Data plane client for a specific index: document, vector, record, import, and namespace operations
 
 **Key technologies:**
-- Standard `net/http` for REST API calls (Control Plane, Inference, Admin)
-- `google.golang.org/grpc` for Data Plane operations
+- Standard `net/http` for REST API calls (Control Plane, Inference, Admin, and the Data Plane's document, record, and import operations)
+- `google.golang.org/grpc` for Data Plane vector and namespace operations
 - Auto-generated clients from OpenAPI/Protobuf specs via `oapi-codegen` and `protoc-gen-go`
 - `testify` for testing (assert, require, suite)
 
@@ -26,9 +26,13 @@ Three-plane design, each with its own client struct:
 **Public API (`pinecone/`):**
 - `client.go` — `Client`: Control Plane (create/list/describe/delete indexes, collections, backups) + Inference
 - `admin_client.go` — `AdminClient`: Admin operations (projects, orgs, API keys, role bindings, service accounts, invites, users)
-- `index_connection.go` — `IndexConnection`: Data Plane over gRPC (upsert, query, fetch, delete, update vectors; namespace management)
+- `index_connection.go` — `IndexConnection`: Data Plane. Vector and namespace operations over gRPC; document, record (integrated embedding), and bulk import operations over REST
 - `models.go` — All shared types, constants, and enums (`IndexMetric`, `Cloud`, `IndexStatus`, etc.)
-- `errors.go` — `PineconeError` error type
+- `schema_conversion.go` — Converts between public `IndexSchema` types and the generated `2026-07` schema types; derives the deprecated `Index` fields (`Metric`, `Dimension`, `Spec`, ...)
+- `validation.go` — Client-side request validation (limits such as `TopK`, ID length, non-empty filters)
+- `retry.go` — `RetryPolicy` and retry handling for REST and gRPC
+- `admin_token.go` — OAuth token refresh for `AdminClient`
+- `errors.go` — `PineconeError`, returned for non-success API responses
 
 **Internal (`internal/`):**
 - `internal/gen/` — Auto-generated client code. **Never edit manually.** Regenerate with `just gen`.
@@ -73,6 +77,12 @@ just test         # go test -count=1 -v ./pinecone
 
 # Single test by name
 go test -v -run TestNameHere ./pinecone/...
+
+# Mocked smoke test (no API key; see smoke/README.md)
+go test -tags smoke -run '^TestMockedCriticalPath$' -v -count=1 ./smoke/...
+
+# Local server tests (needs pinecone-index containers; see .github/workflows/ci.yaml)
+go test -count=1 -v ./pinecone -run TestRunLocalIntegrationSuite -tags=localServer
 ```
 
 **Integration tests require `.env`:**
@@ -102,20 +112,27 @@ just gen    # regenerate internal/gen/ from API specs
 - **Comments:** All exported types, functions, constants, and variables require GoDoc comments. The comment must start with the name of the symbol (e.g., `// Client holds the parameters...`).
 - **Errors:** Return errors rather than panicking. Use `fmt.Errorf("context: %w", err)` to wrap with context. Use `errors.Is()` and `errors.As()` for inspection.
 - **Context:** Always accept `context.Context` as the first parameter in functions that perform I/O or long-running operations.
-- **Testing:** Unit tests use `*testing.T` with `testify/assert` and `testify/require`. Unit test names must end with `Unit` (e.g., `TestNewClientParamsSetUnit`). Integration tests are methods on the `integrationTests` suite.
+- **Testing:** Unit tests use `*testing.T` with `testify/assert` and `testify/require`. Unit test names must end with `Unit` (e.g., `TestNewClientParamsSetUnit`). Integration tests are methods on the `integrationTests` (or `adminIntegrationTests`) suite. Examples in `pinecone/example_test.go` have no `// Output:`, so they're compiled but never run.
 - **Generated code:** Never modify `internal/gen/` directly. Regenerate with `just gen`.
 
 **Key patterns:**
 - `Client` instances named `pc` by convention in examples and tests
 - Option parameters use dedicated request structs (e.g., `CreateServerlessIndexRequest`)
 - Public API methods accept `context.Context` as first parameter
-- Input validation occurs before API calls; return descriptive `PineconeError` with context
+- Input validation occurs before API calls and returns a descriptive plain error (`fmt.Errorf`); `PineconeError` is reserved for non-success API responses
 
 **Module management:**
 ```bash
 go get <package>    # add dependency
 go mod tidy         # clean unused dependencies and update go.sum
 ```
+
+## Documentation
+
+- `README.md` — overview and quickstarts. The quickstarts are mirrored as package examples in `pinecone/example_test.go`; keep the two in sync.
+- `guides/` — detailed usage guides (index management, data operations, inference, admin) and `guides/migration/v7.md`.
+- Guides and GoDoc follow the Pinecone docs terminology: the Documents API, Vectors API, and Records API; "integrated embedding"; "an index that stores dense/sparse vectors" rather than "dense/sparse/hybrid index"; metadata is part of a record, not "attached to a vector".
+- Keep every Go example in the guides compiling against the current SDK.
 
 ## Security Considerations
 
@@ -207,4 +224,4 @@ Agents are invoked with `@agent-name` syntax. Agent definitions live in `.cursor
 
 ---
 
-*Last audited: February 17, 2026*
+*Last audited: September 28, 2026*

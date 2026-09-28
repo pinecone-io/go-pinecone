@@ -293,7 +293,7 @@ func hasSparseField(schema *IndexSchema) bool {
 // applyIndexCompatFields populates the deprecated computed fields (Metric, VectorType, Dimension,
 // Spec, Embed) on an Index from its 2026-07 Schema and Deployment.
 //
-// Vector-type resolution: dense vector indexes always report both "_values" and
+// Vector-type resolution: indexes that store dense vectors always report both "_values" and
 // "_sparse_values" regardless of how they were created, so a dense field wins over a sparse one.
 // A sparse-only schema resolves to "sparse" with the implied "dotproduct" metric. A full-text-search
 // index with no vector field leaves all three unset.

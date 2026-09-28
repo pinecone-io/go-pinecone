@@ -62,9 +62,9 @@ import (
 //		       log.Println("IndexConnection created successfully!")
 //	    }
 //
-// [here]: https://docs.pinecone.io/reference/api/control-plane/list_indexes
+// [here]: https://docs.pinecone.io/reference/api/latest/control-plane/list_indexes
 //
-// [Inference API]: https://docs.pinecone.io/reference/api/2024-07/inference/generate-embeddings
+// [Inference API]: https://docs.pinecone.io/reference/api/latest/inference/generate-vectors
 type Client struct {
 	// Inference exposes methods for interacting with the Pinecone [Inference API].
 	Inference  *InferenceService
@@ -462,7 +462,7 @@ type CreateIndexRequest struct {
 //
 // Example:
 //
-//	    // A hybrid document index with named dense and sparse fields.
+//	    // A document index with named dense and sparse fields, used with the document operations.
 //	    idx, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
 //		    Name: "hybrid",
 //		    Schema: pinecone.IndexSchema{
@@ -562,13 +562,13 @@ func (c *Client) CreateIndex(ctx context.Context, in *CreateIndexRequest) (*Inde
 //		    fmt.Printf("Successfully created serverless index: %s", idx.Name)
 //		}
 //
-// [Serverless]: https://docs.pinecone.io/guides/indexes/understanding-indexes#serverless-indexes
+// [Serverless]: https://docs.pinecone.io/guides/index-data/create-an-index
 //
-// [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
-// [similarity]: https://docs.pinecone.io/guides/indexes/understanding-indexes#distance-metrics
-// [region]: https://docs.pinecone.io/troubleshooting/available-cloud-regions
-// [cloud provider]: https://docs.pinecone.io/troubleshooting/available-cloud-regions#regions-available-for-serverless-indexes
-// [deletion protection]: https://docs.pinecone.io/guides/indexes/prevent-index-deletion#enable-deletion-protection
+// [dimensionality]: https://docs.pinecone.io/guides/core-concepts/key-terms#dense-vector
+// [similarity]: https://docs.pinecone.io/guides/index-data/create-an-index#similarity-metrics
+// [region]: https://docs.pinecone.io/guides/index-data/create-an-index#cloud-regions
+// [cloud provider]: https://docs.pinecone.io/guides/index-data/create-an-index#cloud-regions
+// [deletion protection]: https://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection
 type CreateServerlessIndexRequest struct {
 	// Name (Required) is the name of the [Index]. Must be 1-45 characters long, start and end with an
 	// alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
@@ -579,8 +579,8 @@ type CreateServerlessIndexRequest struct {
 	Region string
 	// Metric (Optional) is the metric used to measure the [similarity] between vectors ('euclidean',
 	// 'cosine', or 'dotproduct'). Defaults to `cosine` or `dotproduct` depending on the VectorType.
-	// Setting `dotproduct` on a dense index does not enable sparse vectors; to store dense and sparse
-	// vectors in one index, use [Client.CreateIndex] with a [SparseVectorField].
+	// Use `dotproduct` for an index that stores both dense and sparse vectors, since hybrid queries
+	// require it.
 	Metric *IndexMetric
 	// DeletionProtection (Optional) determines whether [deletion protection] is "enabled" or
 	// "disabled" for the index. When "enabled", the index cannot be deleted. Defaults to "disabled".
@@ -773,11 +773,11 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 //	        log.Fatalf("Failed to create index: %v", err)
 //	    }
 //
-// [Index]: https://docs.pinecone.io/guides/indexes/understanding-indexes
-// [region]: https://docs.pinecone.io/troubleshooting/available-cloud-regions
-// [cloud provider]: https://docs.pinecone.io/troubleshooting/available-cloud-regions#regions-available-for-serverless-indexes
-// [deletion protection]: https://docs.pinecone.io/guides/indexes/manage-indexes#enable-deletion-protection
-// [similarity metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#similarity-metrics
+// [Index]: https://docs.pinecone.io/guides/index-data/indexing-overview#indexes
+// [region]: https://docs.pinecone.io/guides/index-data/create-an-index#cloud-regions
+// [cloud provider]: https://docs.pinecone.io/guides/index-data/create-an-index#cloud-regions
+// [deletion protection]: https://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection
+// [similarity metric]: https://docs.pinecone.io/guides/index-data/create-an-index#similarity-metrics
 type CreateIndexForModelRequest struct {
 	// Name (Required) is the name of the [Index]. Must be 1-45 characters long, start and end with an
 	// alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
@@ -809,7 +809,7 @@ type CreateIndexForModelRequest struct {
 // with an associated embedding model. The model can't be changed after the index is created; the read and
 // write parameters can be updated with [Client.ConfigureIndex] using [ConfigureIndexParams].Schema.
 //
-// [similarity metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#similarity-metrics
+// [similarity metric]: https://docs.pinecone.io/guides/index-data/create-an-index#similarity-metrics
 type CreateIndexForModelEmbed struct {
 	// Model (Required) is the name of the embedding model to use for the index.
 	Model string
@@ -828,8 +828,8 @@ type CreateIndexForModelEmbed struct {
 	WriteParameters *map[string]interface{}
 }
 
-// CreateIndexForModel creates and initializes a new serverless Index via the specified [Client] that is configured
-// for use with one of Pinecone's integrated inference models. After the index is created, you can upsert and search for records
+// CreateIndexForModel creates and initializes a new serverless Index via the specified [Client] with integrated
+// embedding, using one of Pinecone's hosted embedding models. After the index is created, you can upsert and search for records
 // using the [IndexConnection.UpsertRecords] and [IndexConnection.SearchRecords] methods.
 //
 // Parameters:
@@ -964,9 +964,9 @@ func (c *Client) CreateIndexForModel(ctx context.Context, in *CreateIndexForMode
 //
 // [Bring Your Own Cloud]: https://docs.pinecone.io/guides/production/bring-your-own-cloud
 //
-// [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
-// [similarity]: https://docs.pinecone.io/guides/indexes/understanding-indexes#distance-metrics
-// [deletion protection]: https://docs.pinecone.io/guides/indexes/prevent-index-deletion#enable-deletion-protection
+// [dimensionality]: https://docs.pinecone.io/guides/core-concepts/key-terms#dense-vector
+// [similarity]: https://docs.pinecone.io/guides/index-data/create-an-index#similarity-metrics
+// [deletion protection]: https://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection
 type CreateBYOCIndexRequest struct {
 	// Name (Required) is the name of the [Index]. Must be 1-45 characters long, start and end with an
 	// alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
@@ -981,9 +981,9 @@ type CreateBYOCIndexRequest struct {
 	// Defaults to `dense`.
 	VectorType *string
 	// Metric (Optional) is the metric used to measure the [similarity] between vectors ('euclidean',
-	// 'cosine', or 'dotproduct'). Defaults to `cosine` for dense indexes and `dotproduct` for sparse
-	// indexes. Setting `dotproduct` on a dense index does not enable sparse vectors; to store dense
-	// and sparse vectors in one index, use [Client.CreateIndex] with a [SparseVectorField].
+	// 'cosine', or 'dotproduct'). Defaults to `cosine` for an index that stores dense vectors and
+	// `dotproduct` for one that stores only sparse vectors. Use `dotproduct` for an index that stores
+	// both dense and sparse vectors, since hybrid queries require it.
 	Metric *IndexMetric
 	// DeletionProtection (Optional) determines whether [deletion protection] is "enabled" or
 	// "disabled" for the index. When "enabled", the index cannot be deleted. Defaults to "disabled".
@@ -1230,10 +1230,10 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 //	    }
 //	    fmt.Printf("Configured index %s\n", idx.Name)
 //
-// [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
+// [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/pods/scale-pod-based-indexes
 //
 // [app.pinecone.io]: https://app.pinecone.io
-// [deletion protection]: https://docs.pinecone.io/guides/indexes/prevent-index-deletion#enable-deletion-protection
+// [deletion protection]: https://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection
 type ConfigureIndexParams struct {
 	// PodType (Optional) is the pod size to scale the index to. For a "p1" pod type, pass "p1.x2"
 	// to scale to the "x2" size, "p1.x4" for the "x4" size, and so forth. The pod size can only be
@@ -1296,7 +1296,7 @@ type ConfigureSemanticTextField struct {
 	WriteParameters *map[string]interface{}
 }
 
-// ConfigureIndexEmbed contains parameters for configuring the integrated inference embedding settings for an [Index].
+// ConfigureIndexEmbed contains parameters for configuring the integrated embedding settings for an [Index].
 //
 // Deprecated: Pinecone API version 2026-07 no longer supports configuring an index's embedding through Embed, so
 // setting [ConfigureIndexParams].Embed returns an error. To update the read or write parameters of the embedding
@@ -1355,7 +1355,7 @@ type ConfigureIndexEmbed struct {
 //		     fmt.Printf("Failed to configure index: %v\n", err)
 //		 }
 //
-// [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes
+// [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/pods/scale-pod-based-indexes
 func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIndexParams) (*Index, error) {
 	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" && in.Tags == nil && in.ReadCapacity == nil && in.Schema == nil && in.Embed == nil {
 		return nil, fmt.Errorf("must specify PodType, Replicas, DeletionProtection, ReadCapacity, Schema, or Tags when configuring an index")
@@ -1477,7 +1477,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 //	    }
 //
 // [project]: https://docs.pinecone.io/guides/projects/understanding-projects
-// [understanding collections]: https://docs.pinecone.io/guides/indexes/understanding-collections
+// [understanding collections]: https://docs.pinecone.io/guides/indexes/pods/understanding-collections
 func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	res, err := c.restClient.ListCollections(ctx, &db_control.ListCollectionsParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
@@ -1547,8 +1547,8 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 //		       fmt.Printf("Collection: %+v\n", *collection)
 //	    }
 //
-// [dimensionality]: https://docs.pinecone.io/guides/indexes/choose-a-pod-type-and-size#dimensionality-of-vectors
-// [understanding collections]: https://docs.pinecone.io/guides/indexes/understanding-collections
+// [dimensionality]: https://docs.pinecone.io/guides/indexes/pods/choose-a-pod-type-and-size#dimensionality-of-vectors
+// [understanding collections]: https://docs.pinecone.io/guides/indexes/pods/understanding-collections
 func (c *Client) DescribeCollection(ctx context.Context, collectionName string) (*Collection, error) {
 	res, err := c.restClient.DescribeCollection(ctx, collectionName, &db_control.DescribeCollectionParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
@@ -2166,7 +2166,7 @@ func (c *Client) ListRestoreJobs(ctx context.Context, in *ListRestoreJobsParams)
 // InferenceService exposes methods for interacting with the [Pinecone Inference API]: generating
 // embeddings, reranking documents, and describing hosted models. Access it through Client.Inference.
 //
-// [Pinecone Inference API]: https://docs.pinecone.io/guides/inference/understanding-inference#embedding-models
+// [Pinecone Inference API]: https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models
 type InferenceService struct {
 	client *inference.Client
 }
@@ -2200,7 +2200,7 @@ type EmbedParameters map[string]interface{}
 // EmbedResponse holds the embeddings generated by [InferenceService.Embed], one [Embedding] per input,
 // in the same order as EmbedRequest.TextInputs.
 //
-// [Total Tokens]: https://docs.pinecone.io/guides/organizations/manage-cost/understanding-cost#embed
+// [Total Tokens]: https://docs.pinecone.io/guides/manage-cost/understanding-cost#embedding
 type EmbedResponse struct {
 	// Data is the list of [Embedding] objects generated for the inputs.
 	Data []Embedding `json:"data"`
@@ -2332,7 +2332,7 @@ type RankedDocument struct {
 
 // RerankResponse is the result of a reranking operation.
 //
-// [Rerank Units]: https://docs.pinecone.io/guides/organizations/manage-cost/understanding-cost#rerank
+// [Rerank Units]: https://docs.pinecone.io/guides/manage-cost/understanding-cost#reranking
 type RerankResponse struct {
 	// Data is the list of reranked [RankedDocument] objects, sorted by relevance with the most
 	// relevant first.

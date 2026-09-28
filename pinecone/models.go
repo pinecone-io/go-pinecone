@@ -10,16 +10,15 @@ import (
 
 // IndexMetric is the [similarity metric] to be used by similarity search against a Pinecone [Index].
 //
-// [similarity metric]: https://docs.pinecone.io/guides/indexes/understanding-indexes#similarity-metrics
+// [similarity metric]: https://docs.pinecone.io/guides/index-data/create-an-index#similarity-metrics
 type IndexMetric string
 
 const (
 	// IndexMetricCosine is cosine similarity. [Client.CreateServerlessIndex] and
-	// [Client.CreateBYOCIndex] use it for dense indexes when Metric is unset.
+	// [Client.CreateBYOCIndex] use it for an index that stores dense vectors when Metric is unset.
 	IndexMetricCosine IndexMetric = "cosine"
-	// IndexMetricDotproduct is the dot product. It is required for sparse vectors. Setting it on a
-	// dense index does not enable sparse vectors; to store both, declare both fields with
-	// [Client.CreateIndex].
+	// IndexMetricDotproduct is the dot product. It is required for sparse vectors, and for hybrid
+	// queries on a vector index that stores both dense and sparse vectors.
 	IndexMetricDotproduct IndexMetric = "dotproduct"
 	// IndexMetricEuclidean is Euclidean (L2) distance.
 	IndexMetricEuclidean IndexMetric = "euclidean"
@@ -53,7 +52,7 @@ const (
 // DeletionProtection determines whether [deletion protection] is "enabled" or "disabled" for the [Index].
 // When "enabled", the [Index] cannot be deleted. Defaults to "disabled".
 //
-// [deletion protection]: https://docs.pinecone.io/guides/indexes/prevent-index-deletion
+// [deletion protection]: https://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection
 type DeletionProtection string
 
 const (
@@ -65,7 +64,7 @@ const (
 
 // Cloud is the [cloud provider] hosting a Pinecone [Index].
 //
-// [cloud provider]: https://docs.pinecone.io/troubleshooting/available-cloud-regions
+// [cloud provider]: https://docs.pinecone.io/guides/index-data/create-an-index#cloud-regions
 type Cloud string
 
 const (
@@ -376,7 +375,7 @@ type Index struct {
 
 // Collection is a Pinecone [collection entity]. Only available for pod-based Indexes.
 //
-// [collection entity]: https://docs.pinecone.io/guides/indexes/understanding-collections
+// [collection entity]: https://docs.pinecone.io/guides/indexes/pods/understanding-collections
 type Collection struct {
 	// Name is the name of the collection.
 	Name string `json:"name"`
@@ -516,16 +515,16 @@ type ReadCapacityStatus struct {
 
 // Vector is a [dense or sparse vector object] with optional metadata.
 //
-// [dense or sparse vector object]: https://docs.pinecone.io/guides/get-started/key-concepts#dense-vector
+// [dense or sparse vector object]: https://docs.pinecone.io/guides/core-concepts/key-terms#dense-vector
 type Vector struct {
 	// Id is the unique ID of the vector.
 	Id string `json:"id"`
 	// Values are the dense vector values. On a request, set Values, SparseValues, or both. On a
-	// response, Values is nil when the index is sparse or values were not requested.
+	// response, Values is nil when the index stores only sparse vectors or values were not requested.
 	Values *[]float32 `json:"values,omitempty"`
 	// SparseValues are the [SparseValues] of the vector.
 	SparseValues *SparseValues `json:"sparse_values,omitempty"`
-	// Metadata is the [Metadata] attached to the vector.
+	// Metadata is the record's [Metadata].
 	Metadata *Metadata `json:"metadata,omitempty"`
 }
 
@@ -539,10 +538,10 @@ type ScoredVector struct {
 	Score float32 `json:"score"`
 }
 
-// SparseValues is a sparse vector object, used on its own in sparse indexes or together with dense
-// values for [hybrid search].
+// SparseValues is a sparse vector object, used on its own in an index that stores only sparse
+// vectors, or together with dense values for [hybrid search].
 //
-// [hybrid search]: https://docs.pinecone.io/guides/data/understanding-hybrid-search#hybrid-search-in-pinecone
+// [hybrid search]: https://docs.pinecone.io/guides/search/hybrid-search
 type SparseValues struct {
 	// Indices are the positions of the non-zero values. Must be the same length as Values.
 	Indices []uint32 `json:"indices,omitempty"`
@@ -552,7 +551,7 @@ type SparseValues struct {
 
 // NamespaceSummary is a summary of stats for a Pinecone [namespace].
 //
-// [namespace]: https://docs.pinecone.io/guides/indexes/use-namespaces
+// [namespace]: https://docs.pinecone.io/guides/index-data/indexing-overview#namespaces
 type NamespaceSummary struct {
 	// VectorCount is the number of vectors in the namespace.
 	VectorCount uint32 `json:"vector_count"`
@@ -560,7 +559,7 @@ type NamespaceSummary struct {
 
 // NamespaceDescription is a description of a Pinecone [namespace].
 //
-// [namespace]: https://docs.pinecone.io/guides/indexes/use-namespaces
+// [namespace]: https://docs.pinecone.io/guides/index-data/indexing-overview#namespaces
 type NamespaceDescription struct {
 	// Name is the name of the namespace.
 	Name string `json:"name"`
@@ -583,7 +582,7 @@ type IndexedFields struct {
 
 // Usage is the read-unit usage ([Read Units]) of a single data-plane operation.
 //
-// [Read Units]: https://docs.pinecone.io/guides/organizations/manage-cost/understanding-cost#serverless-indexes
+// [Read Units]: https://docs.pinecone.io/guides/manage-cost/understanding-cost#read-units
 type Usage struct {
 	// ReadUnits is the number of read units consumed by the operation.
 	ReadUnits uint32 `json:"read_units"`
@@ -591,7 +590,7 @@ type Usage struct {
 
 // RerankUsage is the usage stats ([Rerank Units]) for a reranking request.
 //
-// [Rerank Units]: https://docs.pinecone.io/guides/organizations/manage-cost/understanding-cost#rerank
+// [Rerank Units]: https://docs.pinecone.io/guides/manage-cost/understanding-cost#reranking
 type RerankUsage struct {
 	// RerankUnits is the number of rerank units consumed by the request.
 	RerankUnits *int `json:"rerank_units,omitempty"`
@@ -600,13 +599,13 @@ type RerankUsage struct {
 // MetadataFilter represents the [metadata filters] attached to a Pinecone request. It is used by
 // query, delete, fetch-by-metadata, update-by-metadata, and filtered stats requests.
 //
-// [metadata filters]: https://docs.pinecone.io/guides/data/filter-with-metadata#querying-an-index-with-metadata-filters
+// [metadata filters]: https://docs.pinecone.io/guides/search/filter-by-metadata
 type MetadataFilter = structpb.Struct
 
-// Metadata represents optional,
-// additional information that can be [attached to, or updated for, a vector] in a Pinecone Index.
+// Metadata represents optional, additional information stored as part of a record, which you can
+// [filter by]. It can be set on upsert and changed on update.
 //
-// [attached to, or updated for, a vector]: https://docs.pinecone.io/guides/data/filter-with-metadata#inserting-metadata-into-an-index
+// [filter by]: https://docs.pinecone.io/guides/index-data/indexing-overview#metadata
 type Metadata = structpb.Struct
 
 // NewMetadataFilter creates a [MetadataFilter] from a map of key-value pairs representing metadata filter expressions.
@@ -627,7 +626,7 @@ type Metadata = structpb.Struct
 //	}
 //	filter, err := pinecone.NewMetadataFilter(filterMap)
 //
-// [MetadataFilter]: https://docs.pinecone.io/guides/data/filter-with-metadata#querying-an-index-with-metadata-filters
+// [MetadataFilter]: https://docs.pinecone.io/guides/search/filter-by-metadata
 func NewMetadataFilter(m map[string]interface{}) (*MetadataFilter, error) {
 	s, err := structpb.NewStruct(m)
 	if err != nil {
@@ -656,7 +655,7 @@ func NewMetadataFilter(m map[string]interface{}) (*MetadataFilter, error) {
 //	}
 //	metadata, err := pinecone.NewMetadata(metadataMap)
 //
-// [Metadata]: https://docs.pinecone.io/guides/data/filter-with-metadata#inserting-metadata-into-an-index
+// [Metadata]: https://docs.pinecone.io/guides/index-data/indexing-overview#metadata
 func NewMetadata(m map[string]interface{}) (*Metadata, error) {
 	s, err := structpb.NewStruct(m)
 	if err != nil {
@@ -668,7 +667,7 @@ func NewMetadata(m map[string]interface{}) (*Metadata, error) {
 // Embedding represents the embedding of a single input which is returned after [generating embeddings].
 // [Embedding] is a tagged union which can have either a [SparseEmbedding] or a [DenseEmbedding].
 //
-// [generating embeddings]: https://docs.pinecone.io/guides/inference/generate-embeddings#3-generate-embeddings
+// [generating embeddings]: https://docs.pinecone.io/reference/api/latest/inference/generate-vectors
 type Embedding struct {
 	// SparseEmbedding is the [SparseEmbedding] representation of the input.
 	SparseEmbedding *SparseEmbedding `json:"sparse_embedding,omitempty"`
