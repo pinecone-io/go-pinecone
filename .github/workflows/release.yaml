@@ -23,7 +23,7 @@ on:
         type: boolean
         default: true
       prereleaseSuffix:
-        description: "Suffix to add to version number for marking as a pre-release alpha or beta client. Value ignored when isPrerelease is false"
+        description: "Prerelease identifier appended after a hyphen, e.g. rc.1 gives v7.1.0-rc.1. Value ignored when isPrerelease is false"
         required: false
         type: string
         default: ""
@@ -56,7 +56,9 @@ jobs:
       - name: Extract current release version through tag and set SEMVER_VERSION
         id: get_tag_version
         run: |
-          tag=$(git describe --tags --abbrev=0)
+          # Bump from the latest release tag (vMAJOR.MINOR.PATCH). Skip prerelease tags (v7.1.0-rc.1),
+          # which would otherwise be read as the base and break the bump, and older malformed tags.
+          tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' --exclude '*-*')
           semver=${tag#v}  # Remove the 'v' prefix from version number
           echo "Current Released Version: $semver"
           echo "SEMVER_VERSION=$semver" >> $GITHUB_ENV # Set as environment variable

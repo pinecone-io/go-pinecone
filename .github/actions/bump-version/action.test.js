@@ -108,7 +108,32 @@ describe("bump-version", () => {
       "previous_version_tag",
       "v1.2.3"
     );
-    expect(core.setOutput).toHaveBeenCalledWith("version", "1.2.4.rc1");
-    expect(core.setOutput).toHaveBeenCalledWith("version_tag", "v1.2.4.rc1");
+    expect(core.setOutput).toHaveBeenCalledWith("version", "1.2.4-rc1");
+    expect(core.setOutput).toHaveBeenCalledWith("version_tag", "v1.2.4-rc1");
   });
+
+  test("dotted prerelease suffix", () => {
+    action.bumpVersion("7.0.0", "minor", "rc.1");
+
+    expect(core.setOutput).toHaveBeenCalledWith("version", "7.1.0-rc.1");
+    expect(core.setOutput).toHaveBeenCalledWith("version_tag", "v7.1.0-rc.1");
+  });
+
+  test.each(["", "7.0", "7.0.0.1", "v7.0.0", "7.1.0-rc1", "alpha-v1", "07.0.0"])(
+    "rejects invalid currentVersion %p",
+    (currentVersion) => {
+      expect(() => action.bumpVersion(currentVersion, "patch", "")).toThrow(
+        "Invalid currentVersion"
+      );
+    }
+  );
+
+  test.each(["rc 1", "rc..1", ".rc1", "rc1.", "rc_1", "rc.01"])(
+    "rejects invalid prereleaseSuffix %p",
+    (prerelease) => {
+      expect(() => action.bumpVersion("7.0.0", "patch", prerelease)).toThrow(
+        "Invalid prereleaseSuffix"
+      );
+    }
+  );
 });
