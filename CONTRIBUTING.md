@@ -84,10 +84,10 @@ For integration tests we use the `stretchr/testify` module, specifically for the
 
 There are two files that define the integration test suite, and include code that manages setup and teardown of external Index resources before and after the integration suites execute.
 
-- `./pinecone/test_suite.go`
+- `./pinecone/test_suite_test.go`
 - `./pinecone/suite_runner_test.go`
 
-`test_suite.go` includes the definitions of the `integrationTests` and `adminIntegrationTests` structs, which embed `suite.Suite` from testify. This file also includes `SetupSuite` and `TearDownSuite` methods, along with utility functions for things like index creation and upserting vectors.
+`test_suite_test.go` includes the definitions of the `integrationTests` and `adminIntegrationTests` structs, which embed `suite.Suite` from testify. This file also includes `SetupSuite` and `TearDownSuite` methods, along with utility functions for things like index creation and upserting vectors.
 
 `suite_runner_test.go` is the primary entrypoint for the integration tests being run:
 

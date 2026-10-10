@@ -17,7 +17,7 @@ alwaysApply: false
 - Methods on `integrationTests` suite struct (which embeds `suite.Suite`)
 - Run with `just test` (requires `.env` with credentials)
 - Three suites run sequentially: admin, pod-based, and serverless indexes (each can be skipped via `PINECONE_SKIP_ADMIN`, `PINECONE_SKIP_POD`, `PINECONE_SKIP_SERVERLESS`)
-- Suite setup/teardown in `pinecone/test_suite.go`; entry point in `pinecone/suite_runner_test.go`
+- Suite setup/teardown in `pinecone/test_suite_test.go`; entry point in `pinecone/suite_runner_test.go`
 
 **Local integration tests:**
 - Build with `-tags=localServer`

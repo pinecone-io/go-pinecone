@@ -39,6 +39,13 @@ jobs:
       SEMVER_VERSION: "" # Set by the get_tag_version step
       PRERELEASE_SUFFIX: "" # Set by the set_prerelease_suffix step
     steps:
+      # Go resolves module versions from tags on the public repo, so releases must run there.
+      - name: Verify running in the public repo
+        if: ${{ github.repository != 'pinecone-io/go-pinecone' }}
+        run: |
+          echo "::error::Releases must run from pinecone-io/go-pinecone, not ${{ github.repository }}. Sync with scripts/sync-to-public.sh, then run this workflow on the public repo."
+          exit 1
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
