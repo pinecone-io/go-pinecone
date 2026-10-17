@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -630,6 +631,108 @@ func (ts *integrationTests) TestIntegratedInference() {
 		}
 		return nil
 	})
+}
+
+func (ts *integrationTests) TestIntegratedEmbeddingDocuments() {
+	if ts.indexType != "serverless" {
+		ts.T().Skip("Running TestIntegratedEmbeddingDocuments once")
+	}
+	ctx := context.Background()
+	indexName := "test-embed-" + generateTestIndexName()
+	defaultDenseModel := "llama-text-embed-v2"
+	defualtSparseModel := "pinecone-sparse-english-v0"
+
+	_, err := ts.client.CreateIndex(ctx, &CreateIndexRequest{
+		Name: indexName,
+		Schema: IndexSchema{Fields: map[string]IndexSchemaField{
+			"body":    {String: &StringField{Embed: &EmbedConfig{}}},
+			"summary": {String: &StringField{SparseEmbed: &SparseEmbedConfig{}, StoreText: ptr(false)}},
+		}},
+		Tags: ts.indexTags,
+	})
+	require.NoError(ts.T(), err)
+	defer func(ts *integrationTests, name string) {
+		require.NoError(ts.T(), ts.deleteIndex(name))
+	}(ts, indexName)
+
+	_, err = waitUntilIndexReady(ts, ctx, indexName)
+	require.NoError(ts.T(), err)
+
+	// Describe reports the configuration resolved from the model's defaults.
+	index, err := ts.client.DescribeIndex(ctx, indexName)
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), index.Schema)
+
+	// Check dense embedding
+	body := index.Schema.Fields["body"].String
+	require.NotNil(ts.T(), body)
+	require.NotNil(ts.T(), body.Embed)
+	assert.Equal(ts.T(), defaultDenseModel, derefOrDefault(body.Embed.Model, ""))
+	assert.Equal(ts.T(), int32(1024), derefOrDefault(body.Embed.Dimension, 0))
+	assert.NotNil(ts.T(), body.Embed.Metric)
+	assert.NotNil(ts.T(), body.FullTextSearch, "a stored string field is indexed for full-text search")
+
+	// Check sparse embedding
+	summary := index.Schema.Fields["summary"].String
+	require.NotNil(ts.T(), summary)
+	require.NotNil(ts.T(), summary.SparseEmbed)
+	assert.Equal(ts.T(), defualtSparseModel, derefOrDefault(summary.SparseEmbed.Model, ""))
+	assert.Equal(ts.T(), ptr(false), summary.StoreText)
+
+	// Connect to the index
+	idxConn, err := ts.client.Index(NewIndexConnParams{Host: index.Host, Namespace: ts.namespaces[0]})
+	require.NoError(ts.T(), err)
+	defer idxConn.Close()
+
+	upsertRes, err := idxConn.UpsertDocuments(ctx, &UpsertDocumentsRequest{Documents: []Document{
+		{"_id": "shoes", "body": "Lightweight trail running shoes with a grippy outsole.", "summary": "trail running shoes", "category": "footwear"},
+		{"_id": "tent", "body": "A two-person backpacking tent that pitches in minutes.", "summary": "backpacking tent", "category": "shelter"},
+		{"_id": "stove", "body": "A compact camping stove that boils water fast.", "summary": "camping stove", "category": "cooking"},
+	}})
+	require.NoError(ts.T(), err)
+	assert.Equal(ts.T(), int32(3), upsertRes.UpsertedCount)
+	require.NotNil(ts.T(), upsertRes.Usage)
+	assert.Greater(ts.T(), upsertRes.Usage.EmbedTotalTokens, int32(0))
+
+	query := "running shoes"
+	tests := []struct {
+		name    string
+		scoreBy DocumentScoringMethod
+	}{
+		{name: "embed", scoreBy: DocumentScoringMethod{Type: DocumentScoringTypeEmbed, Fields: []string{"body"}, Query: &query}},
+		{name: "sparse_embed", scoreBy: DocumentScoringMethod{Type: DocumentScoringTypeSparseEmbed, Fields: []string{"summary"}, Query: &query}},
+		{name: "text", scoreBy: DocumentScoringMethod{Type: DocumentScoringTypeText, Fields: []string{"body"}, Query: &query}},
+	}
+	for _, tt := range tests {
+		// Retry the search until data is properly indexed
+		retryAssertionsWithDefaults(ts.T(), func() error {
+			res, err := idxConn.SearchDocuments(ctx, &SearchDocumentsRequest{
+				TopK:          3,
+				ScoreBy:       []DocumentScoringMethod{tt.scoreBy},
+				IncludeFields: []string{"body"},
+			})
+			if err != nil {
+				return fmt.Errorf("%s search failed: %w", tt.name, err)
+			}
+			if len(res.Matches) == 0 {
+				return fmt.Errorf("%s search returned no matches yet", tt.name)
+			}
+			if res.Matches[0].Id != "shoes" {
+				return fmt.Errorf("%s search ranked %q first, want %q", tt.name, res.Matches[0].Id, "shoes")
+			}
+			return nil
+		})
+	}
+
+	// Error case - A field whose text isn't stored can't be returned.
+	_, err = idxConn.SearchDocuments(ctx, &SearchDocumentsRequest{
+		TopK:          3,
+		ScoreBy:       []DocumentScoringMethod{tests[1].scoreBy},
+		IncludeFields: []string{"summary"},
+	})
+	var pcErr *PineconeError
+	require.ErrorAs(ts.T(), err, &pcErr)
+	assert.Equal(ts.T(), http.StatusBadRequest, pcErr.Code)
 }
 
 func (ts *integrationTests) TestDescribeNamespace() {

@@ -124,7 +124,8 @@ type IndexEmbed struct {
 type IndexTags map[string]string
 
 // IndexSchema is the schema of a Pinecone [Index]. The schema defines the typed fields that records
-// in the index can contain, including vector fields, semantic text fields, and metadata fields.
+// in the index can contain, including vector fields, string fields searched by full-text search or
+// by integrated embedding, and metadata fields.
 //
 // Vector indexes, including indexes created from a dimension and metric, report their vectors under
 // the reserved field names "_values" (dense) and "_sparse_values" (sparse). Metadata fields
@@ -175,9 +176,10 @@ type SparseVectorField struct {
 	Description *string `json:"description,omitempty"`
 }
 
-// SemanticTextField is a semantic text field backed by an integrated embedding model, as returned
-// when describing an index created with [Client.CreateIndexForModel]. It cannot be declared when
-// creating an index directly.
+// SemanticTextField is the embedded text field of a legacy integrated index, as returned when
+// describing an index created with [Client.CreateIndexForModel]. It cannot be declared when
+// creating an index directly; to use integrated embedding on a new index, declare a [StringField]
+// with Embed or SparseEmbed.
 type SemanticTextField struct {
 	// Model is the name of the integrated embedding model used for this field.
 	Model string `json:"model"`
@@ -194,13 +196,36 @@ type SemanticTextField struct {
 	Description *string `json:"description,omitempty"`
 }
 
-// StringField is a string field configuration. When FullTextSearch is present the field is indexed
-// for full-text search; Filterable is reported on responses when the field is indexed for metadata
-// filtering.
+// StringField is a string field configuration. When declared at index creation, the field must set
+// at least one of FullTextSearch, Embed, or SparseEmbed; they can be combined, so the same text can
+// be searched by full-text search, dense similarity, and sparse similarity. Filterable is reported
+// on responses when the field is indexed for metadata filtering only. Metadata fields are applied
+// when upserting documents.
+//
+// By default the field's text is stored, and a stored field is always indexed for full-text search.
+// A nil FullTextSearch on a stored field is equivalent to &FullTextSearchConfig{}: full-text search
+// with default settings. Set StoreText to false to embed the text without storing it.
+//
+// An index has one dense vector slot and one sparse vector slot: at most one field may be a
+// [DenseVectorField] or set Embed, and at most one may be a [SparseVectorField] or set SparseEmbed.
 type StringField struct {
-	// FullTextSearch is the [FullTextSearchConfig] for the field. Required when declaring a
-	// StringField at index creation.
+	// FullTextSearch is the [FullTextSearchConfig] for the field. On responses, it is reported for
+	// with its resolved settings, for every field whose text is stored.
 	FullTextSearch *FullTextSearchConfig `json:"full_text_search,omitempty"`
+	// Embed (Optional) is the [EmbedConfig] for integrated embedding with a hosted dense model.
+	// Pinecone embeds the field's text on upsert and update, and embeds the query of an "embed"
+	// [DocumentScoringMethod] with the same model. Fixed at index creation.
+	Embed *EmbedConfig `json:"embed,omitempty"`
+	// SparseEmbed (Optional) is the [SparseEmbedConfig] for integrated embedding with a hosted
+	// sparse model. Pinecone embeds the field's text on upsert and update, and embeds the query of a
+	// "sparse_embed" [DocumentScoringMethod] with the same model. Fixed at index creation.
+	SparseEmbed *SparseEmbedConfig `json:"sparse_embed,omitempty"`
+	// StoreText (Optional) determines whether the field's text is stored. Defaults to true, in which
+	// case the field is also indexed for full-text search. When false, the text is embedded and then
+	// discarded: the field must set Embed or SparseEmbed and can't set FullTextSearch, it can only be
+	// searched with an "embed" or "sparse_embed" [DocumentScoringMethod], and a fetch or search whose
+	// IncludeFields names it is rejected.
+	StoreText *bool `json:"store_text,omitempty"`
 	// Filterable reports whether the field is indexed for metadata filtering. Reported on
 	// responses only; ignored when creating an index.
 	Filterable *bool `json:"filterable,omitempty"`
@@ -220,6 +245,53 @@ type FullTextSearchConfig struct {
 	StopWords *bool `json:"stop_words,omitempty"`
 	// Ngram (Optional) tokenizes the field into character n-grams instead of words. See [NgramConfig].
 	Ngram *NgramConfig `json:"ngram,omitempty"`
+}
+
+// EmbedConfig configures integrated embedding with a hosted dense embedding model on a
+// [StringField]. Every field is optional when creating an index; an empty EmbedConfig selects the
+// default model at its default dimension and metric. When describing an index, Model, Dimension,
+// and Metric are always reported, and the parameters are reported as resolved at creation: those
+// set in the create request merged with the model's defaults.
+//
+// Refer to the [model guide] for available models and their supported dimensions.
+//
+// [model guide]: https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models
+type EmbedConfig struct {
+	// Model (Optional) is the name of a hosted dense embedding model. Defaults to
+	// "llama-text-embed-v2".
+	Model *string `json:"model,omitempty"`
+	// Dimension (Optional) is the dimension of the embedding vectors. Defaults to the model's default
+	// dimension; a dimension the model doesn't support is rejected.
+	Dimension *int32 `json:"dimension,omitempty"`
+	// Metric (Optional) is the distance metric used for similarity search. Defaults to the model's
+	// default metric; a metric the model doesn't support is rejected.
+	Metric *IndexMetric `json:"metric,omitempty"`
+	// ReadParameters (Optional) are model-specific parameters applied when embedding search query
+	// text, such as "truncate".
+	ReadParameters *map[string]interface{} `json:"read_parameters,omitempty"`
+	// WriteParameters (Optional) are model-specific parameters applied when embedding document text,
+	// such as "truncate".
+	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+}
+
+// SparseEmbedConfig configures integrated embedding with a hosted sparse embedding model on a
+// [StringField]. Every field is optional when creating an index; an empty SparseEmbedConfig
+// selects the default model. Sparse embeddings have no dimension or metric. When describing an
+// index, Model is always reported, and the parameters are reported as resolved at creation.
+//
+// Refer to the [model guide] for available models.
+//
+// [model guide]: https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models
+type SparseEmbedConfig struct {
+	// Model (Optional) is the name of a hosted sparse embedding model. Defaults to
+	// "pinecone-sparse-english-v0".
+	Model *string `json:"model,omitempty"`
+	// ReadParameters (Optional) are model-specific parameters applied when embedding search query
+	// text, such as "truncate".
+	ReadParameters *map[string]interface{} `json:"read_parameters,omitempty"`
+	// WriteParameters (Optional) are model-specific parameters applied when embedding document text,
+	// such as "truncate".
+	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
 }
 
 // NgramConfig configures character n-gram tokenization for substring matching on a full-text-search
@@ -757,13 +829,28 @@ type IntegratedRecord map[string]interface{}
 type DocumentUsage struct {
 	// ReadUnits is the number of read units consumed by the operation.
 	ReadUnits int32 `json:"read_units"`
+	// EmbedTotalTokens is the number of tokens Pinecone embedded for the query of an "embed" or
+	// "sparse_embed" [DocumentScoringMethod]. Reported by [IndexConnection.SearchDocuments] only
+	// when the search embedded query text; nil otherwise.
+	EmbedTotalTokens *int32 `json:"embed_total_tokens,omitempty"`
+}
+
+// DocumentWriteUsage reports the embedding tokens consumed by [IndexConnection.UpsertDocuments] or
+// [IndexConnection.UpdateDocuments] when the request wrote text to a [StringField] that sets Embed
+// or SparseEmbed.
+type DocumentWriteUsage struct {
+	// EmbedTotalTokens is the total number of tokens Pinecone embedded for the request, summed over
+	// every dense and sparse embedding call across all fields. Documents aren't deduplicated by
+	// "_id" within an upsert, so repeated entries are each embedded and counted.
+	EmbedTotalTokens int32 `json:"embed_total_tokens"`
 }
 
 // UpsertDocumentsRequest holds the parameters for [IndexConnection.UpsertDocuments].
 type UpsertDocumentsRequest struct {
 	// Documents (Required) are the documents to upsert. Each [Document] must carry an "_id" field
 	// and at least one field declared in the index schema; other fields are stored as filterable
-	// metadata.
+	// metadata. A [StringField] that sets Embed or SparseEmbed takes its text as a string, and a
+	// field that sets Embed is required on every document.
 	Documents []Document `json:"documents"`
 }
 
@@ -771,7 +858,27 @@ type UpsertDocumentsRequest struct {
 type UpsertDocumentsResponse struct {
 	// UpsertedCount is the number of documents successfully upserted.
 	UpsertedCount int32 `json:"upserted_count"`
+	// Usage is the [DocumentWriteUsage] of the upsert. Nil unless the request embedded text.
+	Usage *DocumentWriteUsage `json:"usage,omitempty"`
 }
+
+// Scoring method types for [DocumentScoringMethod].Type.
+const (
+	// DocumentScoringTypeDenseVector scores by similarity to a dense vector.
+	DocumentScoringTypeDenseVector = "dense_vector"
+	// DocumentScoringTypeSparseVector scores by similarity to a sparse vector.
+	DocumentScoringTypeSparseVector = "sparse_vector"
+	// DocumentScoringTypeText scores by BM25 text similarity.
+	DocumentScoringTypeText = "text"
+	// DocumentScoringTypeQueryString scores using a Lucene query string.
+	DocumentScoringTypeQueryString = "query_string"
+	// DocumentScoringTypeEmbed scores by dense similarity to query text that Pinecone embeds with
+	// the field's [EmbedConfig].
+	DocumentScoringTypeEmbed = "embed"
+	// DocumentScoringTypeSparseEmbed scores by sparse similarity to query text that Pinecone embeds
+	// with the field's [SparseEmbedConfig].
+	DocumentScoringTypeSparseEmbed = "sparse_embed"
+)
 
 // DocumentScoringMethod defines how documents are scored against a query in
 // [IndexConnection.SearchDocuments]. The Type field determines which other fields are used:
@@ -780,13 +887,22 @@ type UpsertDocumentsResponse struct {
 //   - "text": score by BM25 text similarity. Requires Fields naming one or more fields, and Query.
 //   - "query_string": score using a Lucene query string. Requires Query; Fields must be empty
 //     (use field qualifiers inside the query string to target fields).
+//   - "embed": score by dense similarity to Query, which Pinecone embeds with the field's
+//     [EmbedConfig]. Requires Fields naming exactly one [StringField] that sets Embed, and Query.
+//   - "sparse_embed": score by sparse similarity to Query, which Pinecone embeds with the field's
+//     [SparseEmbedConfig]. Requires Fields naming exactly one [StringField] that sets SparseEmbed,
+//     and Query. Only documents that share a term with the query are returned, so a search can
+//     return fewer than TopK matches.
+//
+// The DocumentScoringType constants name each type.
 type DocumentScoringMethod struct {
-	// Type is the scoring method type: "dense_vector", "sparse_vector", "text", or "query_string".
+	// Type is the scoring method type: "dense_vector", "sparse_vector", "text", "query_string",
+	// "embed", or "sparse_embed".
 	Type string `json:"type"`
 	// Fields are the names of the fields to score against.
 	Fields []string `json:"fields,omitempty"`
-	// Query is the text query for the "text" and "query_string" types. At most 10 KB, and must
-	// not be empty after trimming whitespace.
+	// Query is the query text for the "text", "query_string", "embed", and "sparse_embed" types.
+	// At most 10 KB, and must not be empty after trimming whitespace.
 	Query *string `json:"query,omitempty"`
 	// Values are the dense vector values for the "dense_vector" type.
 	Values *[]float32 `json:"values,omitempty"`
@@ -804,7 +920,8 @@ type SearchDocumentsRequest struct {
 	// Filter (Optional) is a metadata filter expression restricting the documents searched.
 	Filter map[string]interface{} `json:"filter,omitempty"`
 	// IncludeFields (Optional) are the document fields to return on each match alongside "_id" and
-	// "_score". When empty, no fields are returned; pass []string{"*"} to return every field.
+	// "_score". When empty, no fields are returned; pass []string{"*"} to return every field. Naming
+	// a [StringField] whose StoreText is false is rejected.
 	IncludeFields []string `json:"include_fields,omitempty"`
 }
 
@@ -858,7 +975,8 @@ type SearchDocumentsResponse struct {
 	Matches []DocumentMatch `json:"matches"`
 	// Namespace is the namespace that was searched.
 	Namespace string `json:"namespace"`
-	// Usage is the [DocumentUsage] consumed by the search.
+	// Usage is the [DocumentUsage] consumed by the search, including EmbedTotalTokens when the
+	// search embedded query text.
 	Usage DocumentUsage `json:"usage"`
 }
 
@@ -870,7 +988,8 @@ type FetchDocumentsRequest struct {
 	// Filter is a metadata filter expression selecting the documents to fetch. Must not be empty.
 	// Mutually exclusive with Ids.
 	Filter map[string]interface{} `json:"filter,omitempty"`
-	// IncludeFields (Optional) are the document fields to return. When empty, all fields are returned.
+	// IncludeFields (Optional) are the document fields to return. When empty, all fields are
+	// returned. Naming a [StringField] whose StoreText is false is rejected.
 	IncludeFields []string `json:"include_fields,omitempty"`
 	// Limit (Optional) is the maximum number of documents per page for a fetch by Filter. Defaults to 100.
 	Limit *int32 `json:"limit,omitempty"`
@@ -938,6 +1057,9 @@ type UpdateDocumentsResponse struct {
 	// not be read in time; 0 means the filter matched no documents. Because the update is applied
 	// asynchronously, it doesn't guarantee how many documents are ultimately updated.
 	MatchedRecords *int32 `json:"matched_records,omitempty"`
+	// Usage is the [DocumentWriteUsage] of a per-document update. Nil unless the request embedded
+	// text.
+	Usage *DocumentWriteUsage `json:"usage,omitempty"`
 }
 
 // ListDocumentsRequest holds the parameters for [IndexConnection.ListDocuments].

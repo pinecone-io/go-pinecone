@@ -32,8 +32,14 @@ func TestToIndexSchemaUnit(t *testing.T) {
 		},
 		{
 			name: "semantic text",
-			field: `{"type": "semantic_text", "model": "multilingual-e5-large", "dimension": 1024, "metric": "cosine",
-				"read_parameters": {"input_type": "query"}, "write_parameters": {"input_type": "passage"}}`,
+			field: `{
+				"type": "semantic_text",
+				"model": "multilingual-e5-large",
+				"dimension": 1024,
+				"metric": "cosine",
+				"read_parameters": {"input_type": "query"},
+				"write_parameters": {"input_type": "passage"}
+			}`,
 			expected: IndexSchemaField{SemanticText: &SemanticTextField{
 				Model:           "multilingual-e5-large",
 				Dimension:       ptr(int32(1024)),
@@ -44,8 +50,12 @@ func TestToIndexSchemaUnit(t *testing.T) {
 		},
 		{
 			name: "string with full-text search",
-			field: `{"type": "string", "description": "Title", "filterable": true,
-				"full_text_search": {"language": "en", "stemming": true, "stop_words": true}}`,
+			field: `{
+				"type": "string",
+				"description": "Title",
+				"filterable": true,
+				"full_text_search": {"language": "en", "stemming": true, "stop_words": true}
+			}`,
 			expected: IndexSchemaField{String: &StringField{
 				Description: ptr("Title"),
 				Filterable:  ptr(true),
@@ -57,10 +67,98 @@ func TestToIndexSchemaUnit(t *testing.T) {
 			}},
 		},
 		{
+			name: "string with stored embed",
+			field: `{
+				"type": "string",
+				"description": null,
+				"store_text": true,
+				"full_text_search": {"language": "en", "stemming": false, "stop_words": false},
+				"embed": {
+					"model": "llama-text-embed-v2",
+					"dimension": 1024,
+					"metric": "cosine",
+					"read_parameters": {"input_type": "query", "truncate": "END"},
+					"write_parameters": {"input_type": "passage", "truncate": "END"}
+				}
+			}`,
+			expected: IndexSchemaField{String: &StringField{
+				StoreText: ptr(true),
+				FullTextSearch: &FullTextSearchConfig{
+					Language:  ptr("en"),
+					Stemming:  ptr(false),
+					StopWords: ptr(false),
+				},
+				Embed: &EmbedConfig{
+					Model:           ptr("llama-text-embed-v2"),
+					Dimension:       ptr(int32(1024)),
+					Metric:          ptr(IndexMetricCosine),
+					ReadParameters:  &map[string]interface{}{"input_type": "query", "truncate": "END"},
+					WriteParameters: &map[string]interface{}{"input_type": "passage", "truncate": "END"},
+				},
+			}},
+		},
+		{
+			name: "string with unstored sparse embed",
+			field: `{
+				"type": "string",
+				"description": null,
+				"store_text": false,
+				"sparse_embed": {
+					"model": "pinecone-sparse-english-v0",
+					"read_parameters": {"input_type": "query", "truncate": "END"},
+					"write_parameters": {"input_type": "passage", "truncate": "END"}
+				}
+			}`,
+			expected: IndexSchemaField{String: &StringField{
+				StoreText: ptr(false),
+				SparseEmbed: &SparseEmbedConfig{
+					Model:           ptr("pinecone-sparse-english-v0"),
+					ReadParameters:  &map[string]interface{}{"input_type": "query", "truncate": "END"},
+					WriteParameters: &map[string]interface{}{"input_type": "passage", "truncate": "END"},
+				},
+			}},
+		},
+		{
+			name: "string with full-text search, embed, and sparse embed",
+			field: `{
+				"type": "string",
+				"description": "Body",
+				"store_text": true,
+				"full_text_search": {"language": "en", "stemming": true, "stop_words": true},
+				"embed": {
+					"model": "multilingual-e5-large",
+					"dimension": 1024,
+					"metric": "cosine"
+				},
+				"sparse_embed": {"model": "pinecone-sparse-english-v0"}
+			}`,
+			expected: IndexSchemaField{String: &StringField{
+				Description: ptr("Body"),
+				StoreText:   ptr(true),
+				FullTextSearch: &FullTextSearchConfig{
+					Language:  ptr("en"),
+					Stemming:  ptr(true),
+					StopWords: ptr(true),
+				},
+				Embed: &EmbedConfig{
+					Model:     ptr("multilingual-e5-large"),
+					Dimension: ptr(int32(1024)),
+					Metric:    ptr(IndexMetricCosine),
+				},
+				SparseEmbed: &SparseEmbedConfig{Model: ptr("pinecone-sparse-english-v0")},
+			}},
+		},
+		{
 			name: "string with n-gram full-text search",
-			field: `{"type": "string",
-				"full_text_search": {"language": "en", "stemming": false, "stop_words": false,
-					"ngram": {"min_gram": 2, "max_gram": 4, "prefix_only": true}}}`,
+			field: `{
+				"type": "string",
+				"full_text_search": {
+					"language": "en",
+					"stemming": false,
+					"stop_words": false,
+					"ngram": {"min_gram": 2, "max_gram": 4, "prefix_only": true}
+				}
+			}`,
 			expected: IndexSchemaField{String: &StringField{
 				FullTextSearch: &FullTextSearchConfig{
 					Language:  ptr("en"),
@@ -130,10 +228,12 @@ func TestToIndexSchemaUnit(t *testing.T) {
 
 	t.Run("unknown field types do not drop known fields", func(t *testing.T) {
 		var schema db_control.IndexSchema
-		require.NoError(t, json.Unmarshal([]byte(`{"fields": {
-			"_values": {"type": "dense_vector", "dimension": 3, "metric": "cosine"},
-			"location": {"type": "geo_point"}
-		}}`), &schema))
+		require.NoError(t, json.Unmarshal([]byte(`{
+			"fields": {
+				"_values": {"type": "dense_vector", "dimension": 3, "metric": "cosine"},
+				"location": {"type": "geo_point"}
+			}
+		}`), &schema))
 
 		result := toIndexSchema(&schema)
 		require.NotNil(t, result)
@@ -178,8 +278,11 @@ func TestToDbCreateIndexSchemaUnit(t *testing.T) {
 					StopWords: ptr(true),
 				},
 			}},
-			expected: `{"type": "string", "description": "Title",
-				"full_text_search": {"language": "en", "stemming": true, "stop_words": true}}`,
+			expected: `{
+				"type": "string",
+				"description": "Title",
+				"full_text_search": {"language": "en", "stemming": true, "stop_words": true}
+			}`,
 		},
 		{
 			name: "string with n-gram full-text search",
@@ -188,7 +291,12 @@ func TestToDbCreateIndexSchemaUnit(t *testing.T) {
 					Ngram: &NgramConfig{MinGram: 2, MaxGram: 4, PrefixOnly: ptr(true)},
 				},
 			}},
-			expected: `{"type": "string", "full_text_search": {"ngram": {"min_gram": 2, "max_gram": 4, "prefix_only": true}}}`,
+			expected: `{
+				"type": "string",
+				"full_text_search": {
+					"ngram": {"min_gram": 2, "max_gram": 4, "prefix_only": true}
+				}
+			}`,
 		},
 		{
 			name: "n-gram without prefix_only",
@@ -201,6 +309,60 @@ func TestToDbCreateIndexSchemaUnit(t *testing.T) {
 			name:     "string with empty full-text search config",
 			field:    IndexSchemaField{String: &StringField{FullTextSearch: &FullTextSearchConfig{}}},
 			expected: `{"type": "string", "full_text_search": {}}`,
+		},
+		{
+			name:     "string with empty embed config",
+			field:    IndexSchemaField{String: &StringField{Embed: &EmbedConfig{}}},
+			expected: `{"type": "string", "embed": {}}`,
+		},
+		{
+			name: "string with embed config",
+			field: IndexSchemaField{String: &StringField{Embed: &EmbedConfig{
+				Model:           ptr("llama-text-embed-v2"),
+				Dimension:       ptr(int32(512)),
+				Metric:          ptr(IndexMetricDotproduct),
+				ReadParameters:  &map[string]interface{}{"truncate": "END"},
+				WriteParameters: &map[string]interface{}{"truncate": "NONE"},
+			}}},
+			expected: `{
+				"type": "string",
+				"embed": {
+					"model": "llama-text-embed-v2",
+					"dimension": 512,
+					"metric": "dotproduct",
+					"read_parameters": {"truncate": "END"},
+					"write_parameters": {"truncate": "NONE"}
+				}
+			}`,
+		},
+		{
+			name:     "string with unstored sparse embed",
+			field:    IndexSchemaField{String: &StringField{SparseEmbed: &SparseEmbedConfig{}, StoreText: ptr(false)}},
+			expected: `{"type": "string", "sparse_embed": {}, "store_text": false}`,
+		},
+		{
+			name: "string with full-text search, embed, and sparse embed",
+			field: IndexSchemaField{String: &StringField{
+				FullTextSearch: &FullTextSearchConfig{Stemming: ptr(true)},
+				Embed:          &EmbedConfig{Model: ptr("multilingual-e5-large")},
+				SparseEmbed:    &SparseEmbedConfig{Model: ptr("pinecone-sparse-english-v0")},
+				StoreText:      ptr(true),
+			}},
+			expected: `{
+				"type": "string",
+				"full_text_search": {"stemming": true},
+				"embed": {"model": "multilingual-e5-large"},
+				"sparse_embed": {"model": "pinecone-sparse-english-v0"},
+				"store_text": true
+			}`,
+		},
+		{
+			name: "string Filterable is not sent with embed",
+			field: IndexSchemaField{String: &StringField{
+				Filterable: ptr(true),
+				Embed:      &EmbedConfig{},
+			}},
+			expected: `{"type": "string", "embed": {}}`,
 		},
 		{
 			name: "string Filterable is not sent",
@@ -226,9 +388,9 @@ func TestToDbCreateIndexSchemaUnit(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "string without full-text search",
-			field:    IndexSchemaField{String: &StringField{Filterable: ptr(true)}},
-			expected: `field "f": a StringField can only be declared with FullTextSearch set`,
+			name:     "string without full-text search or embedding",
+			field:    IndexSchemaField{String: &StringField{Filterable: ptr(true), StoreText: ptr(false)}},
+			expected: `field "f": a StringField can only be declared with at least one of FullTextSearch, Embed, or SparseEmbed set`,
 		},
 		{
 			name:     "semantic text",
@@ -283,6 +445,71 @@ func TestToDbCreateIndexSchemaUnit(t *testing.T) {
 	}
 }
 
+func TestIntegratedEmbeddingSchemaRoundTripUnit(t *testing.T) {
+	// A schema read from describe goes back into create unchanged, apart from response-only
+	// properties.
+	var described db_control.IndexSchema
+	require.NoError(t, json.Unmarshal([]byte(`{
+		"fields": {
+			"body": {
+				"type": "string",
+				"description": "Body",
+				"store_text": true,
+				"full_text_search": {"language": "en", "stemming": false, "stop_words": false},
+				"embed": {
+					"model": "llama-text-embed-v2",
+					"dimension": 1024,
+					"metric": "cosine",
+					"read_parameters": {"input_type": "query", "truncate": "END"},
+					"write_parameters": {"input_type": "passage", "truncate": "END"}
+				}
+			},
+			"summary": {
+				"type": "string",
+				"description": null,
+				"store_text": false,
+				"sparse_embed": {
+					"model": "pinecone-sparse-english-v0",
+					"read_parameters": {"input_type": "query"},
+					"write_parameters": {"input_type": "passage"}
+				}
+			}
+		}
+	}`), &described))
+
+	schema := toIndexSchema(&described)
+	require.NotNil(t, schema)
+
+	created, err := toDbCreateIndexSchema(*schema)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{
+		"fields": {
+			"body": {
+				"type": "string",
+				"description": "Body",
+				"store_text": true,
+				"full_text_search": {"language": "en", "stemming": false, "stop_words": false},
+				"embed": {
+					"model": "llama-text-embed-v2",
+					"dimension": 1024,
+					"metric": "cosine",
+					"read_parameters": {"input_type": "query", "truncate": "END"},
+					"write_parameters": {"input_type": "passage", "truncate": "END"}
+				}
+			},
+			"summary": {
+				"type": "string",
+				"store_text": false,
+				"sparse_embed": {
+					"model": "pinecone-sparse-english-v0",
+					"read_parameters": {"input_type": "query"},
+					"write_parameters": {"input_type": "passage"}
+				}
+			}
+		}
+	}`, marshalJSON(t, created))
+}
+
 func TestClassicVectorSchemaUnit(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -295,14 +522,22 @@ func TestClassicVectorSchemaUnit(t *testing.T) {
 			name:       "dense defaults to cosine",
 			vectorType: "dense",
 			dimension:  ptr(int32(1536)),
-			expected:   `{"fields": {"_values": {"type": "dense_vector", "dimension": 1536, "metric": "cosine"}}}`,
+			expected: `{
+				"fields": {
+					"_values": {"type": "dense_vector", "dimension": 1536, "metric": "cosine"}
+				}
+			}`,
 		},
 		{
 			name:       "dense with explicit metric",
 			vectorType: "dense",
 			dimension:  ptr(int32(3)),
 			metric:     ptr(IndexMetricDotproduct),
-			expected:   `{"fields": {"_values": {"type": "dense_vector", "dimension": 3, "metric": "dotproduct"}}}`,
+			expected: `{
+				"fields": {
+					"_values": {"type": "dense_vector", "dimension": 3, "metric": "dotproduct"}
+				}
+			}`,
 		},
 		{
 			name:       "sparse ignores dimension and metric",
@@ -493,6 +728,12 @@ func TestApplyIndexCompatFieldsUnit(t *testing.T) {
 		{
 			name:   "full-text-search index with no vector field",
 			fields: map[string]IndexSchemaField{"title": fullTextSearch},
+		}, {
+			name: "integrated embedding fields don't populate the deprecated fields",
+			fields: map[string]IndexSchemaField{"body": {String: &StringField{
+				Embed:       &EmbedConfig{Model: ptr("llama-text-embed-v2"), Dimension: ptr(int32(1024)), Metric: ptr(IndexMetricCosine)},
+				SparseEmbed: &SparseEmbedConfig{Model: ptr("pinecone-sparse-english-v0")},
+			}}},
 		},
 	}
 

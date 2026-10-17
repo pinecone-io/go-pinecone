@@ -3,6 +3,7 @@ package pinecone
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -232,6 +233,43 @@ func TestCreateIndexSchemaFirstConformanceUnit(t *testing.T) {
 	assert.Equal(t, "managed", deployment["deployment_type"])
 }
 
+func TestCreateIndexIntegratedEmbeddingConformanceUnit(t *testing.T) {
+	server, capture := newConformanceServer(t, func(r *http.Request) (int, string) {
+		return http.StatusCreated, conformanceIndexJSON
+	})
+	client := newConformanceClient(t, server.URL)
+
+	_, err := client.CreateIndex(context.Background(), &CreateIndexRequest{
+		Name: "articles",
+		Schema: IndexSchema{
+			Fields: map[string]IndexSchemaField{
+				"body": {String: &StringField{Embed: &EmbedConfig{
+					Model:          ptr("llama-text-embed-v2"),
+					Dimension:      ptr(int32(1024)),
+					ReadParameters: &map[string]interface{}{"truncate": "END"},
+				}}},
+				"summary": {String: &StringField{SparseEmbed: &SparseEmbedConfig{}, StoreText: ptr(false)}},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	fields := capture.last(t).body["schema"].(map[string]interface{})["fields"].(map[string]interface{})
+	assert.Equal(t, map[string]interface{}{
+		"type": "string",
+		"embed": map[string]interface{}{
+			"model":           "llama-text-embed-v2",
+			"dimension":       float64(1024),
+			"read_parameters": map[string]interface{}{"truncate": "END"},
+		},
+	}, fields["body"])
+	assert.Equal(t, map[string]interface{}{
+		"type":         "string",
+		"sparse_embed": map[string]interface{}{},
+		"store_text":   false,
+	}, fields["summary"])
+}
+
 func TestCreateIndexSchemaValidationUnit(t *testing.T) {
 	client := newConformanceClient(t, "http://localhost:1")
 	ctx := context.Background()
@@ -245,17 +283,17 @@ func TestCreateIndexSchemaValidationUnit(t *testing.T) {
 	}})
 	require.ErrorContains(t, err, "metadata fields don't need to be declared")
 
-	// A string field without full-text search has no create-time meaning.
+	// A string field without full-text search or integrated embedding has no create-time meaning.
 	_, err = client.CreateIndex(ctx, &CreateIndexRequest{Name: "x", Schema: IndexSchema{
 		Fields: map[string]IndexSchemaField{"title": {String: &StringField{}}},
 	}})
-	require.ErrorContains(t, err, "can only be declared with FullTextSearch set")
+	require.ErrorContains(t, err, "can only be declared with at least one of FullTextSearch, Embed, or SparseEmbed set")
 
-	// Semantic text fields come from CreateIndexForModel.
+	// Semantic text fields come from CreateIndexForModel; new indexes declare Embed instead.
 	_, err = client.CreateIndex(ctx, &CreateIndexRequest{Name: "x", Schema: IndexSchema{
 		Fields: map[string]IndexSchemaField{"text": {SemanticText: &SemanticTextField{Model: "multilingual-e5-large"}}},
 	}})
-	require.ErrorContains(t, err, "use CreateIndexForModel")
+	require.ErrorContains(t, err, "declare a StringField with Embed or SparseEmbed")
 
 	_, err = client.CreateIndex(ctx, &CreateIndexRequest{
 		Name: "x",
@@ -453,6 +491,70 @@ func TestSearchDocumentsConformanceUnit(t *testing.T) {
 	assert.Equal(t, "family movie", scoreBy["query"])
 }
 
+func TestSearchDocumentsEmbedConformanceUnit(t *testing.T) {
+	for _, scoringType := range []string{DocumentScoringTypeEmbed, DocumentScoringTypeSparseEmbed} {
+		t.Run(scoringType, func(t *testing.T) {
+			server, capture := newConformanceServer(t, func(r *http.Request) (int, string) {
+				return http.StatusOK, `{"matches": [{"_id": "doc-1", "_score": 0.8}], "namespace": "articles",
+					"usage": {"read_units": 3, "embed_total_tokens": 4}}`
+			})
+			idx := newConformanceIndexConnection(t, server.URL, "articles")
+
+			query := "trail running shoes"
+			res, err := idx.SearchDocuments(context.Background(), &SearchDocumentsRequest{
+				TopK:    5,
+				ScoreBy: []DocumentScoringMethod{{Type: scoringType, Fields: []string{"body"}, Query: &query}},
+			})
+			require.NoError(t, err)
+			assert.Equal(t, int32(3), res.Usage.ReadUnits)
+			require.NotNil(t, res.Usage.EmbedTotalTokens)
+			assert.Equal(t, int32(4), *res.Usage.EmbedTotalTokens)
+
+			scoreBy := capture.last(t).body["score_by"].([]interface{})
+			require.Len(t, scoreBy, 1)
+			assert.Equal(t, map[string]interface{}{
+				"type":   scoringType,
+				"fields": []interface{}{"body"},
+				"query":  "trail running shoes",
+			}, scoreBy[0])
+		})
+	}
+}
+
+func TestSearchDocumentsEmbedTotalTokensAbsentUnit(t *testing.T) {
+	server, _ := newConformanceServer(t, func(r *http.Request) (int, string) {
+		return http.StatusOK, `{"matches": [], "namespace": "articles", "usage": {"read_units": 1}}`
+	})
+	idx := newConformanceIndexConnection(t, server.URL, "articles")
+
+	query := "shoes"
+	res, err := idx.SearchDocuments(context.Background(), &SearchDocumentsRequest{
+		TopK:    5,
+		ScoreBy: []DocumentScoringMethod{{Type: DocumentScoringTypeText, Fields: []string{"body"}, Query: &query}},
+	})
+	require.NoError(t, err)
+	assert.Nil(t, res.Usage.EmbedTotalTokens)
+}
+
+func TestSearchDocumentsUnstoredIncludeFieldsErrorUnit(t *testing.T) {
+	body := `{"error": {"code": "INVALID_ARGUMENT", "message": "include_fields names field 'summary', which does not store its text"}, "status": 400}`
+	server, _ := newConformanceServer(t, func(r *http.Request) (int, string) {
+		return http.StatusBadRequest, body
+	})
+	idx := newConformanceIndexConnection(t, server.URL, "articles")
+
+	query := "shoes"
+	_, err := idx.SearchDocuments(context.Background(), &SearchDocumentsRequest{
+		TopK:          5,
+		ScoreBy:       []DocumentScoringMethod{{Type: DocumentScoringTypeSparseEmbed, Fields: []string{"summary"}, Query: &query}},
+		IncludeFields: []string{"summary"},
+	})
+	var pcErr *PineconeError
+	require.ErrorAs(t, err, &pcErr)
+	assert.Equal(t, http.StatusBadRequest, pcErr.Code)
+	assert.Contains(t, pcErr.Error(), "does not store its text")
+}
+
 func TestSearchDocumentsScoreByValidationUnit(t *testing.T) {
 	idx := newConformanceIndexConnection(t, "http://localhost:1", "movies")
 	ctx := context.Background()
@@ -471,6 +573,16 @@ func TestSearchDocumentsScoreByValidationUnit(t *testing.T) {
 		{Type: "dense_vector", Fields: []string{"embedding"}, Values: &values},
 	}})
 	require.ErrorContains(t, err, `a "dense_vector" method must appear on its own`)
+
+	// So must embed and sparse_embed clauses, in either order.
+	for _, scoringType := range []string{DocumentScoringTypeEmbed, DocumentScoringTypeSparseEmbed} {
+		embed := DocumentScoringMethod{Type: scoringType, Fields: []string{"body"}, Query: &query}
+		text := DocumentScoringMethod{Type: DocumentScoringTypeText, Fields: []string{"plot"}, Query: &query}
+		for _, scoreBy := range [][]DocumentScoringMethod{{embed, text}, {text, embed}} {
+			_, err = idx.SearchDocuments(ctx, &SearchDocumentsRequest{TopK: 10, ScoreBy: scoreBy})
+			require.ErrorContains(t, err, fmt.Sprintf("a %q method must appear on its own", scoringType))
+		}
+	}
 }
 
 func TestFetchDocumentsConformanceUnit(t *testing.T) {
@@ -560,6 +672,43 @@ func TestUpdateDocumentsConformanceUnit(t *testing.T) {
 	assert.Contains(t, request.body, "filter")
 	assert.Equal(t, map[string]interface{}{"reviewed": true}, request.body["set_fields"])
 	assert.Equal(t, []interface{}{"draft"}, request.body["remove_fields"])
+}
+
+func TestDocumentWriteUsageUnit(t *testing.T) {
+	tests := []struct {
+		name     string
+		response string
+		expected *DocumentWriteUsage
+	}{
+		{name: "embedded text", response: `{"upserted_count": 1, "usage": {"embed_total_tokens": 12}}`, expected: &DocumentWriteUsage{EmbedTotalTokens: 12}},
+		{name: "nothing embedded", response: `{"upserted_count": 1}`},
+	}
+	for _, tt := range tests {
+		t.Run("upsert "+tt.name, func(t *testing.T) {
+			server, _ := newConformanceServer(t, func(r *http.Request) (int, string) {
+				return http.StatusAccepted, tt.response
+			})
+			idx := newConformanceIndexConnection(t, server.URL, "articles")
+
+			res, err := idx.UpsertDocuments(context.Background(), &UpsertDocumentsRequest{
+				Documents: []Document{{"_id": "doc-1", "body": "Lightweight trail running shoes"}},
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, res.Usage)
+		})
+		t.Run("update "+tt.name, func(t *testing.T) {
+			server, _ := newConformanceServer(t, func(r *http.Request) (int, string) {
+				return http.StatusAccepted, tt.response
+			})
+			idx := newConformanceIndexConnection(t, server.URL, "articles")
+
+			res, err := idx.UpdateDocuments(context.Background(), &UpdateDocumentsRequest{
+				Documents: []Document{{"_id": "doc-1", "body": "Waterproof trail running shoes"}},
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, res.Usage)
+		})
+	}
 }
 
 func TestUpdateDocumentsSelectorValidationUnit(t *testing.T) {

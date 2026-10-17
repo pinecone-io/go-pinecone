@@ -1065,6 +1065,10 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 // the index's field_map; all other fields are stored as metadata. A request may contain at most 96
 // records (2 MiB total).
 //
+// UpsertRecords is part of the legacy Records API for indexes created with
+// [Client.CreateIndexForModel]. For a document index whose schema declares a [StringField] with
+// Embed or SparseEmbed, use [IndexConnection.UpsertDocuments].
+//
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
@@ -1181,6 +1185,11 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 // SearchRecords searches the connection's namespace with query text (Query.Inputs), a query vector
 // (Query.Vector), or a record ID (Query.Id) and returns the most similar records with their scores,
 // optionally reranked. Text queries require an [index with integrated embedding].
+//
+// SearchRecords is part of the legacy Records API for indexes created with
+// [Client.CreateIndexForModel]. For a document index whose schema declares a [StringField] with
+// Embed or SparseEmbed, use [IndexConnection.SearchDocuments] with an "embed" or "sparse_embed"
+// [DocumentScoringMethod].
 //
 // Returns a pointer to a [SearchRecordsResponse], or an error; a non-success response is a
 // [PineconeError].
@@ -2577,12 +2586,16 @@ func (idx *IndexConnection) documentsRequest(ctx context.Context, operation stri
 // index created with [Client.CreateIndex] using a document schema). Each [Document] must carry an
 // "_id" field and at least one field declared in the index schema; any other field is stored as
 // filterable metadata. A document with an existing "_id" is overwritten. A request may contain at
-// most 1000 documents, each at most 2,000,000 bytes, with a 2 MiB total request body. Null field
-// values are dropped. The upsert is applied asynchronously, so documents may not be immediately
-// visible to [IndexConnection.SearchDocuments] or [IndexConnection.FetchDocuments].
+// most 1000 documents, or 96 when the index schema declares a [StringField] with Embed or
+// SparseEmbed, each at most 2,000,000 bytes, with a 2 MiB total request body. Null field values
+// are dropped. The upsert is applied asynchronously, so documents may not be immediately visible to
+// [IndexConnection.SearchDocuments] or [IndexConnection.FetchDocuments].
+//
+// A [StringField] that sets Embed or SparseEmbed takes its text as a string, and Pinecone embeds it
+// with the field's model; a vector supplied for such a field is rejected.
 //
 // Returns an [UpsertDocumentsResponse] whose UpsertedCount is the number of documents accepted for
-// upsert, or an error.
+// upsert and whose Usage reports the tokens embedded, if any, or an error.
 //
 // Example:
 //
@@ -2618,7 +2631,9 @@ func (idx *IndexConnection) UpsertDocuments(ctx context.Context, in *UpsertDocum
 
 // SearchDocuments searches the namespace for the documents most similar to the
 // query described by ScoreBy, ranked by the given scoring methods. See [SearchDocumentsRequest] and
-// [DocumentScoringMethod] for the accepted combinations.
+// [DocumentScoringMethod] for the accepted combinations. An "embed" or "sparse_embed" method scores
+// a [StringField] with integrated embedding by query text, which Pinecone embeds with the field's
+// model.
 //
 // Example:
 //
@@ -2626,7 +2641,7 @@ func (idx *IndexConnection) UpsertDocuments(ctx context.Context, in *UpsertDocum
 //	    res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
 //		    TopK: 10,
 //		    ScoreBy: []pinecone.DocumentScoringMethod{
-//			    {Type: "text", Fields: []string{"title", "body"}, Query: &query},
+//			    {Type: pinecone.DocumentScoringTypeText, Fields: []string{"title", "body"}, Query: &query},
 //		    },
 //		    IncludeFields: []string{"*"},
 //	    })
@@ -2778,6 +2793,10 @@ func (idx *IndexConnection) DeleteDocuments(ctx context.Context, in *DeleteDocum
 // UpdateDocuments applies partial updates to documents in the namespace, either as
 // per-document updates (Documents) or as a filtered patch (Filter with SetFields and/or
 // RemoveFields); see [UpdateDocumentsRequest]. The patch is applied asynchronously.
+//
+// Per-document updates are limited to 1000 documents, or 96 when the index schema declares a
+// [StringField] with Embed or SparseEmbed; text written to such a field is embedded, and Usage on
+// the response reports the tokens embedded.
 //
 // Example:
 //

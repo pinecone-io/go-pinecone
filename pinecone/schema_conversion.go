@@ -49,8 +49,8 @@ func rawSchemaField(value any) (db_control.CreateIndexSchemaField, error) {
 }
 
 // toDbCreateIndexSchema converts a public IndexSchema into the generated create-request schema.
-// Only dense_vector, sparse_vector, and full-text-search string fields may be declared at creation
-// time; other field types are rejected before any request is sent.
+// Only dense_vector, sparse_vector, and string fields with full-text search or integrated embedding
+// may be declared at creation time; other field types are rejected before any request is sent.
 func toDbCreateIndexSchema(schema IndexSchema) (db_control.CreateIndexSchema, error) {
 	fields := make(map[string]db_control.CreateIndexSchemaField, len(schema.Fields))
 	for name, field := range schema.Fields {
@@ -74,8 +74,8 @@ func toDbCreateIndexSchema(schema IndexSchema) (db_control.CreateIndexSchema, er
 				*SparseVectorField
 			}{"sparse_vector", field.SparseVector}
 		case field.String != nil:
-			if field.String.FullTextSearch == nil {
-				return db_control.CreateIndexSchema{}, fmt.Errorf("field %q: a StringField can only be declared with FullTextSearch set; other metadata fields are indexed automatically when you upsert data", name)
+			if field.String.FullTextSearch == nil && field.String.Embed == nil && field.String.SparseEmbed == nil {
+				return db_control.CreateIndexSchema{}, fmt.Errorf("field %q: a StringField can only be declared with at least one of FullTextSearch, Embed, or SparseEmbed set; other metadata fields are indexed automatically when you upsert data", name)
 			}
 			str := *field.String
 			str.Filterable = nil // Filterable is only reported in responses.
@@ -84,7 +84,7 @@ func toDbCreateIndexSchema(schema IndexSchema) (db_control.CreateIndexSchema, er
 				*StringField
 			}{"string", &str}
 		case field.SemanticText != nil:
-			return db_control.CreateIndexSchema{}, fmt.Errorf("field %q: SemanticText fields can't be declared with CreateIndex; use CreateIndexForModel to create an index with integrated embedding", name)
+			return db_control.CreateIndexSchema{}, fmt.Errorf("field %q: SemanticText fields can't be declared with CreateIndex; declare a StringField with Embed or SparseEmbed to use integrated embedding", name)
 		default:
 			return db_control.CreateIndexSchema{}, fmt.Errorf("field %q: metadata fields don't need to be declared; they are indexed automatically when you upsert data", name)
 		}

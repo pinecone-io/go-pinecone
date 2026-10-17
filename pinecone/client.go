@@ -421,16 +421,18 @@ type CreateIndexRequest struct {
 	// creating a second index.
 	Name string
 	// Schema (Required) is the [IndexSchema] defining the index's fields. At creation you can
-	// declare [DenseVectorField], [SparseVectorField], and [StringField] with FullTextSearch set.
-	// Metadata fields don't need to be declared; they are indexed automatically when you upsert data.
-	// A schema containing only the reserved fields "_values" (dense) and/or "_sparse_values"
-	// (sparse) creates a vector index, used with the vector operations such as
-	// [IndexConnection.UpsertVectors]. Any other schema creates a document index, used with the
-	// document operations such as [IndexConnection.UpsertDocuments]. At most one dense and one
-	// sparse vector field, and at most 100 full-text-search fields, are allowed. Field names must be
-	// at most 64 bytes and must not start with '$' or '_', except that "_values" and
-	// "_sparse_values" may make up the entire schema. The schema can't be changed after the index is
-	// created, apart from the embedding settings updated with [Client.ConfigureIndex].
+	// declare [DenseVectorField], [SparseVectorField], and [StringField] with FullTextSearch, Embed,
+	// and/or SparseEmbed set. Metadata fields don't need to be declared; they are indexed
+	// automatically when you upsert data. A schema containing only the reserved fields "_values"
+	// (dense) and/or "_sparse_values" (sparse) creates a vector index, used with the vector
+	// operations such as [IndexConnection.UpsertVectors]. Any other schema creates a document index,
+	// used with the document operations such as [IndexConnection.UpsertDocuments]. An index has one
+	// dense and one sparse vector slot: at most one field may be a [DenseVectorField] or set Embed,
+	// and at most one may be a [SparseVectorField] or set SparseEmbed. At most 100 full-text-search
+	// fields are allowed. Field names must be at most 64 bytes and must not start with '$' or '_',
+	// except that "_values" and "_sparse_values" may make up the entire schema. The schema can't be
+	// changed after the index is created, apart from the embedding settings of a legacy integrated
+	// index updated with [Client.ConfigureIndex].
 	Schema IndexSchema
 	// Deployment (Optional) describes where the index runs. Defaults to a serverless index on AWS in
 	// "us-east-1".
@@ -831,6 +833,10 @@ type CreateIndexForModelEmbed struct {
 // CreateIndexForModel creates and initializes a new serverless Index via the specified [Client] with integrated
 // embedding, using one of Pinecone's hosted embedding models. After the index is created, you can upsert and search for records
 // using the [IndexConnection.UpsertRecords] and [IndexConnection.SearchRecords] methods.
+//
+// CreateIndexForModel creates a legacy integrated index, used with the legacy Records API. To use
+// integrated embedding on a new index, call [Client.CreateIndex] with a [StringField] that sets
+// Embed or SparseEmbed, and use the document operations such as [IndexConnection.UpsertDocuments].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
