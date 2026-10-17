@@ -10,7 +10,7 @@ Then, execute `just bootstrap` to install the necessary Go packages. The package
 
 ## Environment Setup
 
-The `just test` and `just test-unit` commands load environment variables from a `.env` file in the root of the project. The integration tests need all three of these:
+The `just test` command loads environment variables from a `.env` file in the root of the project. The integration tests need all three of these:
 
 ```
 PINECONE_API_KEY=...
@@ -50,16 +50,17 @@ with the submodule.
 
 ## Testing
 
-The `go-pinecone` codebase includes both unit and integration tests. These tests are kept within the same files, but are
-constructed differently. See `/pinecone/index_connection_test.go` and `/pinecone/client_test.go` for examples. They are divided into sections with `// Integration tests:` near the top, and `// Unit tests:` near the bottom of the file.
+The `go-pinecone` codebase includes both unit and integration tests, kept in separate files. Unit tests live in plain `*_test.go` files, such as `pinecone/client_test.go`. Integration tests live in `*_integration_test.go` files, such as `pinecone/client_integration_test.go`, which start with a `//go:build integration` constraint.
 
-For running tests you can use `just test` to run all tests, and `just test-unit` to only run unit tests.
+A plain `go test ./pinecone` (or `just test-unit`) runs only the unit tests and needs no credentials. `go test -tags integration ./pinecone` (or `just test`) runs the unit and integration tests together.
+
+Tagged files are invisible to tools run without the tag. Run `just build`, which vets with `-tags integration,localServer`, to type-check every test file, and configure your editor's gopls with `"buildFlags": ["-tags=integration,localServer"]` so it analyzes them too.
 
 ### Unit tests
 
 Unit tests are generally written using Go's built-in support. You can find a [brief walkthrough](https://go.dev/doc/tutorial/add-a-test) detailing how to write a test. You can also refer to [go.dev/doc/code#Testing](https://go.dev/doc/code#Testing).
 
-When adding unit tests, make sure to postfix `"Unit"` to the test function name in order for the test to be picked up by the `just test-unit` command. For example:
+Unit tests go in untagged files and run with a plain `go test`. Existing unit test names end with `Unit` from when tests were selected by name; new tests don't need the suffix. For example:
 
 ```Go
 func TestNewClientParamsSetUnit(t *testing.T) {
@@ -76,20 +77,15 @@ func TestNewClientParamsSetUnit(t *testing.T) {
 }
 ```
 
-`pinecone/conformance_2026_07_test.go` holds unit tests that check the requests the SDK sends against the `2026-07` API shapes.
+`pinecone/wire_test.go` runs public SDK methods against an `httptest` server and pins each request's method, path, query, `X-Pinecone-Api-Version` header, and full JSON body, along with how responses decode. To cover a new REST operation, add a row to `TestControlPlaneWireUnit` or `TestDataPlaneWireUnit`.
 
 ### Integration Tests
 
 For integration tests we use the `stretchr/testify` module, specifically for the `suite`, `assert`, and `require` packages. You can find the source code and documentation on GitHub: [https://github.com/stretchr/testify](https://github.com/stretchr/testify).
 
-There are two files that define the integration test suite, and include code that manages setup and teardown of external Index resources before and after the integration suites execute.
+`pinecone/suite_integration_test.go` defines the integration suites and manages setup and teardown of external index resources before and after they run. It includes the `integrationTests` and `adminIntegrationTests` structs, which embed `suite.Suite` from testify, their `SetupSuite` and `TearDownSuite` methods, and utility functions for things like index creation. Vector generation helpers shared with the local server suite live in `pinecone/helpers_integration_test.go`, behind `//go:build integration || localServer`.
 
-- `./pinecone/test_suite_test.go`
-- `./pinecone/suite_runner_test.go`
-
-`test_suite_test.go` includes the definitions of the `integrationTests` and `adminIntegrationTests` structs, which embed `suite.Suite` from testify. This file also includes `SetupSuite` and `TearDownSuite` methods, along with utility functions for things like index creation and upserting vectors.
-
-`suite_runner_test.go` is the primary entrypoint for the integration tests being run:
+`TestRunSuites` is the entrypoint for the integration tests:
 
 ```Go
 // This is the entry point for all integration tests
@@ -101,7 +97,7 @@ func TestRunSuites(t *testing.T) {
 
 In `RunSuites` we create a serverless index and run two suites: an `integrationTests` suite against that index, and an `adminIntegrationTests` suite for the Admin API. There's no pod-based suite, because API version `2026-07` can't create pod-based indexes.
 
-As mentioned above, integration tests are written in the same files as unit tests. However, integration tests must be defined as methods on the `integrationTests` (or `adminIntegrationTests`) struct:
+Integration tests are defined as methods on the `integrationTests` (or `adminIntegrationTests`) struct, in a `*_integration_test.go` file:
 
 ```Go
 type integrationTests struct {
@@ -115,7 +111,6 @@ type integrationTests struct {
 	// ...
 }
 
-// Integration tests:
 func (ts *integrationTests) TestListIndexes() {
 	indexes, err := ts.client.ListIndexes(context.Background())
 	require.NoError(ts.T(), err)
@@ -125,7 +120,7 @@ func (ts *integrationTests) TestListIndexes() {
 
 ### Other tests
 
-Two more suites are behind build tags, so `go test ./pinecone` doesn't run them. CI runs both on every pull request (see `.github/workflows/ci.yaml`).
+Two more suites are behind their own build tags. CI runs both on every pull request (see `.github/workflows/ci.yaml`).
 
 - **Local server tests** (`pinecone/local_test.go`, `localServer` tag) run the data plane against [Pinecone Local](https://docs.pinecone.io/guides/operations/local-development) index containers. Start `ghcr.io/pinecone-io/pinecone-index` containers as in `ci.yaml`, then run:
 

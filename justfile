@@ -5,29 +5,25 @@ default:
 
 build:
   go build -v ./...
-  go vet ./...
+  go vet -tags integration,localServer ./...
 
 build-clean:
   go build -a -v ./...
-  go vet ./...
+  go vet -tags integration,localServer ./...
 
 build-pinecone:
   go build -v ./pinecone
-  go vet ./pinecone
+  go vet -tags integration,localServer ./pinecone
 
 test:
   #!/usr/bin/env bash
   set -o allexport
   source .env
   set +o allexport
-  go test -count=1 -v ./pinecone
+  go test -count=1 -v -tags integration ./pinecone
 
 test-unit:
-    #!/usr/bin/env bash
-    set -o allexport
-    source .env
-    set +o allexport
-    go test -v -run Unit ./pinecone
+    go test -v ./pinecone
 
 bootstrap:
     go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.32

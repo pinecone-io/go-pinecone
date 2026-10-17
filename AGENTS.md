@@ -63,17 +63,17 @@ git submodule update --init --recursive
 
 **Build:**
 ```bash
-just build        # go build -v ./... && go vet ./...
+just build        # go build -v ./... && go vet -tags integration,localServer ./...
 just build-clean  # clean build with -a flag
 ```
 
 **Test:**
 ```bash
 # Unit tests only (fast, no external dependencies)
-just test-unit    # go test -v -run Unit ./pinecone
+just test-unit    # go test -v ./pinecone
 
-# All tests (requires .env with credentials)
-just test         # go test -count=1 -v ./pinecone
+# Unit and integration tests (requires .env with credentials)
+just test         # go test -count=1 -v -tags integration ./pinecone
 
 # Single test by name
 go test -v -run TestNameHere ./pinecone/...
@@ -107,12 +107,12 @@ just gen    # regenerate internal/gen/ from API specs
 **Quick summary:**
 
 - **Formatting:** Always run `gofmt` (or `go fmt ./...`). All Go code must be gofmt-compliant; non-negotiable.
-- **Vetting:** `go vet ./...` before committing. Zero warnings allowed.
+- **Vetting:** `go vet -tags integration,localServer ./...` (or `just build`) before committing. Zero warnings allowed.
 - **Naming:** `PascalCase` for exported identifiers; `camelCase` for unexported. Acronyms stay uppercase (`URL`, `HTTP`, `API`, `ID`). Short contextual names in function bodies (`ctx`, `err`, `idx`) are idiomatic.
 - **Comments:** All exported types, functions, constants, and variables require GoDoc comments. The comment must start with the name of the symbol (e.g., `// Client holds the parameters...`).
 - **Errors:** Return errors rather than panicking. Use `fmt.Errorf("context: %w", err)` to wrap with context. Use `errors.Is()` and `errors.As()` for inspection.
 - **Context:** Always accept `context.Context` as the first parameter in functions that perform I/O or long-running operations.
-- **Testing:** Unit tests use `*testing.T` with `testify/assert` and `testify/require`. Unit test names must end with `Unit` (e.g., `TestNewClientParamsSetUnit`). Integration tests are methods on the `integrationTests` (or `adminIntegrationTests`) suite. Examples in `pinecone/example_test.go` have no `// Output:`, so they're compiled but never run.
+- **Testing:** Unit tests use `*testing.T` with `testify/assert` and `testify/require`. Unit tests live in untagged `*_test.go` files and run with a plain `go test`; existing names end with `Unit`, but new ones don't need to. Integration tests are methods on the `integrationTests` (or `adminIntegrationTests`) suite and live in `*_integration_test.go` files behind the `integration` build tag; run `go vet -tags integration,localServer ./...` to type-check them. Examples in `pinecone/example_test.go` have no `// Output:`, so they're compiled but never run.
 - **Generated code:** Never modify `internal/gen/` directly. Regenerate with `just gen`.
 
 **Key patterns:**

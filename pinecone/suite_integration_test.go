@@ -1,17 +1,95 @@
+//go:build integration
+
 package pinecone
 
 import (
 	"context"
 	"fmt"
 	"log"
-	"math/rand"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
+
+// This is the entry point for all integration tests
+// This test function is picked up by go test and triggers the suite runs
+func TestRunSuites(t *testing.T) {
+	RunSuites(t)
+}
+
+func RunSuites(t *testing.T) {
+	apiKey, apiKeyPresent := os.LookupEnv("PINECONE_API_KEY")
+	clientId, clientIdPresent := os.LookupEnv("PINECONE_CLIENT_ID")
+	clientSecret, clientSecretPresent := os.LookupEnv("PINECONE_CLIENT_SECRET")
+	assert.True(t, apiKeyPresent, "PINECONE_API_KEY env variable not set")
+	assert.True(t, clientIdPresent, "PINECONE_CLIENT_ID env variable not set")
+	assert.True(t, clientSecretPresent, "PINECONE_CLIENT_SECRET env variable not set")
+
+	// Check if we're skipping suites via environment variables
+	skipAdminSuite, skipAdminSuitePresent := os.LookupEnv("PINECONE_SKIP_ADMIN")
+	skipServerlessSuite, skipServerlessSuitePresent := os.LookupEnv("PINECONE_SKIP_SERVERLESS")
+
+	skipAdmin := false
+	skipServerless := false
+	if skipAdminSuitePresent && skipAdminSuite == "true" {
+		skipAdmin = true
+	}
+	if skipServerlessSuitePresent && skipServerlessSuite == "true" {
+		skipServerless = true
+	}
+
+	sourceTag := "pinecone_test_go_sdk"
+	client, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: sourceTag})
+	require.NotNil(t, client, "Client should not be nil after creation")
+	require.NoError(t, err)
+	indexTags := IndexTags{"test1": "test-tag-1", "test2": "test-tag-2"}
+
+	adminClient, err := NewAdminClient(NewAdminClientParams{
+		ClientId:     clientId,
+		ClientSecret: clientSecret,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, adminClient, "AdminClient should not be nil after creation")
+
+	// Metadata schemas are no longer declared at index creation under 2026-07;
+	// metadata fields are indexed automatically at upsert.
+	// The pod suite is gone: the 2026-07 API rejects pod index creation, so there is no pod
+	// index to run it against. Existing pod indexes remain served, which unit tests cover.
+	serverlessIdx := buildServerlessTestIndex(client, "serverless-"+generateTestIndexName(), indexTags, nil)
+
+	serverlessTestSuite := &integrationTests{
+		apiKey:    apiKey,
+		indexType: "serverless",
+		host:      serverlessIdx.Host,
+		dimension: serverlessIdx.Dimension,
+		client:    client,
+		sourceTag: sourceTag,
+		idxName:   serverlessIdx.Name,
+		indexTags: &indexTags,
+	}
+
+	adminTestSuite := &adminIntegrationTests{
+		clientId:     clientId,
+		clientSecret: clientSecret,
+		adminClient:  adminClient,
+	}
+
+	if !skipAdmin {
+		suite.Run(t, adminTestSuite)
+	} else {
+		fmt.Printf("Skipping admin suite. PINECONE_SKIP_ADMIN is set to %v\n", skipAdmin)
+	}
+	if !skipServerless {
+		suite.Run(t, serverlessTestSuite)
+	} else {
+		fmt.Printf("Skipping serverless suite. PINECONE_SKIP_SERVERLESS is set to %v\n", skipServerless)
+	}
+}
 
 type integrationTests struct {
 	suite.Suite
@@ -277,47 +355,6 @@ func waitUntilIndexReady(ts *integrationTests, ctx context.Context, indexName st
 		fmt.Printf("Index \"%s\" not ready yet, retrying... (%f/%f)\n", indexName, totalSeconds.Seconds(), maxWaitTimeSeconds.Seconds())
 		time.Sleep(delay)
 	}
-}
-
-func generateVectors(numOfVectors int, dimension int32, isSparse bool, metadata *Metadata) []*Vector {
-	vectors := make([]*Vector, numOfVectors)
-
-	for i := 0; i < int(numOfVectors); i++ {
-		vectors[i] = &Vector{
-			Id: fmt.Sprintf("vector-%d", i),
-		}
-
-		if isSparse {
-			var sparseValues SparseValues
-			for j := 0; j < int(dimension); j++ {
-				sparseValues.Indices = append(sparseValues.Indices, uint32(j))
-			}
-			values := generateVectorValues(dimension)
-			sparseValues.Values = *values
-			vectors[i].SparseValues = &sparseValues
-		} else {
-			values := generateVectorValues(dimension)
-			vectors[i].Values = values
-		}
-
-		if metadata != nil {
-			vectors[i].Metadata = metadata
-		}
-	}
-
-	return vectors
-}
-
-func generateVectorValues(dimension int32) *[]float32 {
-	maxInt := 1000000 // A large integer to normalize the float values
-	values := make([]float32, dimension)
-
-	for i := int32(0); i < dimension; i++ {
-		// Generate a random integer and normalize it to the range [0, 1)
-		values[i] = float32(rand.Intn(maxInt)) / float32(maxInt)
-	}
-
-	return &values
 }
 
 func buildServerlessTestIndex(in *Client, idxName string, tags IndexTags, readCapacity *ReadCapacityParams) *Index {

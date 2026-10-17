@@ -1377,13 +1377,11 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	replicas := pointerOrNil(in.Replicas)
 	deletionProtection := pointerOrNil(in.DeletionProtection)
 
-	// Describe index in order to merge existing tags with incoming tags,
-	// and evaluate the deployment type to validate type-specific parameters.
+	// Describe index in order to evaluate the deployment type to validate type-specific parameters.
 	idxDesc, err := c.DescribeIndex(ctx, name)
 	if err != nil {
 		return nil, err
 	}
-	existingTags := idxDesc.Tags
 
 	isPod := idxDesc.Deployment != nil && idxDesc.Deployment.Pod != nil
 
@@ -1428,7 +1426,9 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	}
 
 	request.DeletionProtection = (*db_control.DeletionProtection)(deletionProtection)
-	request.Tags = (*db_control.IndexTags)(mergeIndexTags(existingTags, in.Tags))
+	// The API merges tags into the index's existing tags and treats null as unset, so send only the
+	// caller's changes.
+	request.Tags = (*db_control.IndexTags)(&in.Tags)
 
 	res, err := c.restClient.ConfigureIndex(ctx, name, &db_control.ConfigureIndexParams{XPineconeApiVersion: gen.PineconeApiVersion}, request)
 	if err != nil {
@@ -2934,25 +2934,6 @@ func buildSharedProviderHeaders(in NewClientBaseParams) []*provider.CustomHeader
 	}
 
 	return providers
-}
-
-func mergeIndexTags(existingTags *IndexTags, newTags IndexTags) *IndexTags {
-	if existingTags == nil || *existingTags == nil {
-		existingTags = &IndexTags{}
-	}
-	merged := make(IndexTags)
-
-	// Copy existing tags
-	for key, value := range *existingTags {
-		merged[key] = value
-	}
-
-	// Merge new tags
-	for key, value := range newTags {
-		merged[key] = value
-	}
-
-	return &merged
 }
 
 func validateVectorType(vectorType *string, dimension *int32, metric *IndexMetric) (string, error) {
