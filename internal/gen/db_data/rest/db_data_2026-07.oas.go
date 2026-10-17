@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,13 +27,52 @@ const (
 	CreateNamespaceRequestSchemaFieldsFilterableTrue CreateNamespaceRequestSchemaFieldsFilterable = true
 )
 
+// Defines values for DenseVectorScoringType.
+const (
+	DenseVector DenseVectorScoringType = "dense_vector"
+)
+
+// Defines values for EmbedScoringType.
+const (
+	Embed EmbedScoringType = "embed"
+)
+
 // Defines values for NamespaceDescriptionSchemaFieldsFilterable.
 const (
 	NamespaceDescriptionSchemaFieldsFilterableTrue NamespaceDescriptionSchemaFieldsFilterable = true
 )
 
+// Defines values for QueryStringScoringType.
+const (
+	QueryString QueryStringScoringType = "query_string"
+)
+
+// Defines values for SparseEmbedScoringType.
+const (
+	SparseEmbed SparseEmbedScoringType = "sparse_embed"
+)
+
+// Defines values for SparseVectorScoringType.
+const (
+	SparseVector SparseVectorScoringType = "sparse_vector"
+)
+
+// Defines values for TextScoringType.
+const (
+	Text TextScoringType = "text"
+)
+
 // CancelImportResponse The response for the `cancel_import` operation.
 type CancelImportResponse = map[string]interface{}
+
+// CreateNamespaceAliasRequest A request for creating a namespace alias.
+type CreateNamespaceAliasRequest struct {
+	// Name The name of the alias to create. Must be 1-512 characters of printable ASCII, excluding space and `/ ? # % & = \ ; +`, and cannot be `__default__`, `.` or `..`. It shares one uniqueness space with namespace names: it cannot be the name of an existing namespace or alias, and no namespace can later be created under it.
+	Name string `json:"name"`
+
+	// TargetNamespace The namespace the alias resolves to. Must be an existing, active namespace in the index; an alias cannot point to another alias. To point the alias at the default namespace, use `__default__`.
+	TargetNamespace string `json:"target_namespace"`
+}
 
 // CreateNamespaceRequest A request for creating a namespace with the specified namespace name.
 type CreateNamespaceRequest struct {
@@ -44,6 +84,7 @@ type CreateNamespaceRequest struct {
 	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
 	Schema *struct {
 		// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique. At most 50 fields may be declared.
+		//
 		// Field names may not begin with `$`, which introduces a filter operator. When declared at index creation, names beginning with `_` are also rejected (reserved for internal use).
 		Fields *map[string]struct {
 			// Filterable Whether the field is indexed and can be used in filters. Must be present and must be `true`: omitting it, or sending `false` or `null`, is rejected with `Field '<name>' is set to filterable: false. Only filterable: true is supported.` To leave a field unindexed, omit it from `fields` entirely.
@@ -117,6 +158,24 @@ type DeleteRequest2 = interface{}
 // DeleteResponse The response for the `delete` operation.
 type DeleteResponse = map[string]interface{}
 
+// DenseVectorScoring Score by dense vector similarity between `values` and a `dense_vector` field. Name the field with `fields` or `field`.
+type DenseVectorScoring struct {
+	// Field The one-field form of `fields`. Provide `field` or `fields` (one is required, not both).
+	Field *string `json:"field,omitempty"`
+
+	// Fields The `dense_vector` field to score against, as a one-element array. Provide `fields` or `field` (one is required, not both).
+	Fields *[]string `json:"fields,omitempty"`
+
+	// Type The scoring method. Always `dense_vector`.
+	Type DenseVectorScoringType `json:"type"`
+
+	// Values The dense query vector. Its length must match the field's dimension.
+	Values []float32 `json:"values"`
+}
+
+// DenseVectorScoringType The scoring method. Always `dense_vector`.
+type DenseVectorScoringType string
+
 // DescribeIndexStatsRequest The request for the `describe_index_stats` operation.
 type DescribeIndexStatsRequest struct {
 	// Filter If this parameter is present, the operation only returns statistics for vectors that satisfy the filter. See [Understanding metadata](https://docs.pinecone.io/guides/index-data/indexing-overview#metadata).
@@ -127,6 +186,9 @@ type DescribeIndexStatsRequest struct {
 
 // DocumentFetchUsage Usage information for the `fetch_documents` operation.
 type DocumentFetchUsage struct {
+	// EgressBytes The billed egress for this response, in bytes. Measured on the encoded response payload.
+	EgressBytes *int64 `json:"egress_bytes,omitempty"`
+
 	// ReadUnits The number of read units consumed by this operation.
 	ReadUnits int32 `json:"read_units"`
 }
@@ -153,90 +215,25 @@ type DocumentFieldValue4 = []float32
 
 // DocumentListUsage Usage information for the `list_documents` operation.
 type DocumentListUsage struct {
+	// EgressBytes The billed egress for this response, in bytes. Measured on the encoded response payload.
+	EgressBytes *int64 `json:"egress_bytes,omitempty"`
+
 	// ReadUnits The number of read units consumed by this operation.
 	ReadUnits int32 `json:"read_units"`
 }
 
-// DocumentRecord A document with a unique identifier and field values. Fields named in the index schema are validated against it; any other field is stored as filterable metadata. Every document must carry at least one schema field and every schema field the index marks required; a document with only `_id` and metadata is rejected. Limits: 2 MB per document and per request, 100 KB and 10,000 tokens per full-text-search field value.
+// DocumentRecord A document with a unique identifier and field values. Fields named in the index schema are validated against it; any other field is stored as filterable metadata. Every document must carry at least one schema field and every schema field the index marks required; a document with only `_id` and metadata is rejected. Limits: 2 MB per document and per request, 100 KB per `string` schema field value (whether or not its text is stored), and 10,000 tokens per full-text-search field value.
+//
+// A `string` field that declares `embed` or `sparse_embed` takes its text as a string, and Pinecone derives its vectors; a caller-supplied vector on such a field is rejected. A field with `embed` is required on every upsert.
 type DocumentRecord struct {
 	// Id The unique identifier for the document.
 	Id                   string                        `json:"_id"`
 	AdditionalProperties map[string]DocumentFieldValue `json:"-"`
 }
 
-// DocumentScoringMethod A scoring method that defines how documents are scored against a query.
-//
-// The `type` field determines which other fields are used:
-// - `dense_vector`: Score by dense vector similarity. Requires either `field` or `fields` naming exactly one field, and a `values` array.
-// - `sparse_vector`: Score by sparse vector similarity. Requires either `field` or `fields` naming exactly one field, and `sparse_values`.
-// - `text`: Score by BM25 text similarity. Requires either `field` or `fields` naming one or more fields, and `query`. Naming several fields scores the query against all of them.
-// - `query_string`: Score using a Lucene query string. Use field qualifiers (`field:(clause)`) to target a field, or omit field qualifiers to search against all text-searchable fields. Errors if `field` or `fields` is provided.
+// DocumentScoringMethod A scoring clause that defines how documents are scored against a query. `type` selects the scoring method and which other fields the clause takes.
 type DocumentScoringMethod struct {
-	// Field A single field to score against. Equivalent to a one-element `fields`; prefer `fields`, which can also name more than one field. Either `field` or `fields` must be provided for `dense_vector`, `sparse_vector`, and `text` scoring types, but not both.
-	// Deprecated:
-	Field *string `json:"field,omitempty"`
-
-	// Fields The fields to score against.
-	//
-	// Either `fields` or `field` must be provided for `dense_vector`, `sparse_vector`, and `text` scoring types, and neither may be provided for `query_string`. `dense_vector` and `sparse_vector` accept exactly one field; `text` accepts one or more.
-	Fields *[]string `json:"fields,omitempty"`
-
-	// Query The text query to use for `text` and `query_string` scoring types. Leading and trailing whitespace is trimmed; a query that is empty after trimming is rejected. At most 10 KB.
-	Query *string `json:"query,omitempty"`
-
-	// SparseValues Vector sparse data. Represented as a list of indices and a list of  corresponded values, which must be with the same length.
-	SparseValues *SparseValues `json:"sparse_values,omitempty"`
-
-	// Type The scoring method type.
-	// Possible values: `dense_vector`, `sparse_vector`, `text`, or `query_string`.
-	Type string `json:"type"`
-
-	// Values The dense vector values to use for `dense_vector` scoring type.
-	Values *[]float32 `json:"values,omitempty"`
-	union  json.RawMessage
-}
-
-// DocumentScoringMethod0 defines model for .
-type DocumentScoringMethod0 struct {
-	Fields *interface{} `json:"fields,omitempty"`
-	Type   interface{}  `json:"type"`
-	union  json.RawMessage
-}
-
-// DocumentScoringMethod00 defines model for .
-type DocumentScoringMethod00 = interface{}
-
-// DocumentScoringMethod01 defines model for .
-type DocumentScoringMethod01 = interface{}
-
-// DocumentScoringMethod1 defines model for .
-type DocumentScoringMethod1 struct {
-	Fields *interface{} `json:"fields,omitempty"`
-	Type   interface{}  `json:"type"`
-	union  json.RawMessage
-}
-
-// DocumentScoringMethod10 defines model for .
-type DocumentScoringMethod10 = interface{}
-
-// DocumentScoringMethod11 defines model for .
-type DocumentScoringMethod11 = interface{}
-
-// DocumentScoringMethod2 defines model for .
-type DocumentScoringMethod2 struct {
-	Type  interface{} `json:"type"`
 	union json.RawMessage
-}
-
-// DocumentScoringMethod20 defines model for .
-type DocumentScoringMethod20 = interface{}
-
-// DocumentScoringMethod21 defines model for .
-type DocumentScoringMethod21 = interface{}
-
-// DocumentScoringMethod3 defines model for .
-type DocumentScoringMethod3 struct {
-	Type interface{} `json:"type"`
 }
 
 // DocumentSearchMatch A document match returned from a search operation, including the document ID, similarity score, and selected fields.
@@ -251,18 +248,51 @@ type DocumentSearchMatch struct {
 
 // DocumentSearchUsage Usage information for the `search_documents` operation.
 type DocumentSearchUsage struct {
+	// EgressBytes The billed egress for this response, in bytes. Measured on the encoded response payload.
+	EgressBytes *int64 `json:"egress_bytes,omitempty"`
+
+	// EmbedTotalTokens The number of tokens Pinecone embedded for the query text of an `embed` or `sparse_embed` scoring method. Present only when the search embedded query text.
+	EmbedTotalTokens *int32 `json:"embed_total_tokens,omitempty"`
+
 	// ReadUnits The number of read units consumed by this operation.
 	ReadUnits int32 `json:"read_units"`
 }
 
+// DocumentWriteUsage Usage information for the `upsert_documents` and `update_documents` operations.
+//
+// Present only when the request embedded text, that is, when it wrote text to a field whose schema declares `embed` or `sparse_embed`. A request that embedded nothing returns no `usage`.
+type DocumentWriteUsage struct {
+	// EmbedTotalTokens The total number of tokens Pinecone embedded for the request, summed over every embedding call it made, dense and sparse, across all fields and models. Documents aren't deduplicated by `_id` within an upsert, so every entry's text is embedded and counted, including entries that repeat an `_id`.
+	EmbedTotalTokens int32 `json:"embed_total_tokens"`
+}
+
 // EmbedInputs defines model for EmbedInputs.
 type EmbedInputs = map[string]interface{}
+
+// EmbedScoring Score by dense vector similarity to `query`, which Pinecone embeds with the model and read parameters of the named field's `embed` configuration. Name exactly one `string` field that declares `embed`, with `fields` or `field`. `values` and `sparse_values` are rejected.
+type EmbedScoring struct {
+	// Field The one-field form of `fields`. Provide `field` or `fields` (one is required, not both).
+	Field *string `json:"field,omitempty"`
+
+	// Fields The `string` field that declares `embed`, as a one-element array. Provide `fields` or `field` (one is required, not both).
+	Fields *[]string `json:"fields,omitempty"`
+
+	// Query The text to embed and score against. Leading and trailing whitespace is trimmed; a query that is empty after trimming is rejected. At most 10,000 bytes.
+	Query string `json:"query"`
+
+	// Type The scoring method. Always `embed`.
+	Type EmbedScoringType `json:"type"`
+}
+
+// EmbedScoringType The scoring method. Always `embed`.
+type EmbedScoringType string
 
 // ErrorResponse The error response shape returned by the records and documents operations. The vector operations return `rpcStatus` instead. Requests rejected by the authentication and rate-limiting layer before they reach the service (`401`, and the `400`, `403`, and `429` it produces) return a plain-text body on every operation.
 type ErrorResponse struct {
 	// Error Detailed information about the error that occurred.
 	Error struct {
 		// Code The error code.
+		//
 		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `INTERNAL`, `FORBIDDEN`, `PAYMENT_REQUIRED`, `SERVICE_UNAVAILABLE`, or `PAYLOAD_TOO_LARGE`.
 		Code string `json:"code"`
 
@@ -291,7 +321,7 @@ type FetchByMetadataRequest struct {
 
 // FetchByMetadataResponse The response for the `fetch_by_metadata` operation.
 type FetchByMetadataResponse struct {
-	// Namespace The namespace of the vectors.
+	// Namespace The namespace that served the fetch: the request's namespace, or the alias's target namespace when the request named a namespace alias.
 	Namespace  *string     `json:"namespace,omitempty"`
 	Pagination *Pagination `json:"pagination,omitempty"`
 	Usage      *Usage      `json:"usage,omitempty"`
@@ -308,7 +338,9 @@ type FetchDocumentsRequest struct {
 	// Ids A list of document IDs to fetch. Mutually exclusive with `filter`.
 	Ids *[]string `json:"ids,omitempty"`
 
-	// IncludeFields The document fields to return on each document. When omitted or empty, all fields are returned; `["*"]` also returns every field.
+	// IncludeFields The document fields to return on each document. When omitted or empty, all fields are returned; `["*"]` also returns every field. A name the schema doesn't declare is read as a metadata key, and returns nothing for documents without that key.
+	//
+	// Naming a field whose schema sets `store_text: false` is rejected with `400`, since its text is not stored; omitting `include_fields` or passing `["*"]` leaves such fields out.
 	IncludeFields *[]string `json:"include_fields,omitempty"`
 
 	// Limit The maximum number of documents to return per page. Only applies to a fetch by `filter`; a fetch by `ids` is already bounded by `ids` and ignores an in-range value, but a value outside 1-10000 is rejected on either form. Defaults to 100.
@@ -330,7 +362,7 @@ type FetchDocumentsResponse struct {
 	// Documents A map of document IDs to their fetched documents.
 	Documents map[string]FetchedDocumentRecord `json:"documents"`
 
-	// Namespace The namespace the documents were fetched from.
+	// Namespace The namespace the documents were fetched from: the request's namespace, or the alias's target namespace when the request named a namespace alias.
 	Namespace  string      `json:"namespace"`
 	Pagination *Pagination `json:"pagination,omitempty"`
 
@@ -340,7 +372,7 @@ type FetchDocumentsResponse struct {
 
 // FetchResponse The response for the `fetch` operation.
 type FetchResponse struct {
-	// Namespace The namespace of the vectors.
+	// Namespace The namespace that served the fetch: the request's namespace, or the alias's target namespace when the request named a namespace alias.
 	Namespace *string            `json:"namespace,omitempty"`
 	Usage     *Usage             `json:"usage,omitempty"`
 	Vectors   *map[string]Vector `json:"vectors,omitempty"`
@@ -368,6 +400,7 @@ type Hit struct {
 // ImportErrorMode Indicates how to respond to errors during the import process.
 type ImportErrorMode struct {
 	// OnError Indicates how to respond to errors during the import process.
+	//
 	// Possible values: `abort` or `continue`.
 	OnError *string `json:"onError,omitempty"`
 }
@@ -393,6 +426,7 @@ type ImportModel struct {
 	RecordsImported int64 `json:"recordsImported"`
 
 	// Status The status of the operation.
+	//
 	// Possible values: `Pending`, `InProgress`, `Failed`, `Completed`, or `Cancelled`.
 	Status string `json:"status"`
 
@@ -460,7 +494,7 @@ type ListDocumentsResponse struct {
 	// Documents The listed documents, in sorted order by ID.
 	Documents []ListedDocumentRecord `json:"documents"`
 
-	// Namespace The namespace the documents were listed from.
+	// Namespace The namespace the documents were listed from: the request's namespace, or the alias's target namespace when the request named a namespace alias.
 	Namespace  string      `json:"namespace"`
 	Pagination *Pagination `json:"pagination,omitempty"`
 
@@ -479,6 +513,16 @@ type ListItem struct {
 	Id *string `json:"id,omitempty"`
 }
 
+// ListNamespaceAliasesResponse defines model for ListNamespaceAliasesResponse.
+type ListNamespaceAliasesResponse struct {
+	// NamespaceAliases The aliases in this index that match the request, ordered by name.
+	NamespaceAliases *[]NamespaceAliasDescription `json:"namespace_aliases,omitempty"`
+	Pagination       *Pagination                  `json:"pagination,omitempty"`
+
+	// TotalCount The total number of aliases in the index matching the request filters. May change between pages under concurrent modifications.
+	TotalCount int32 `json:"total_count"`
+}
+
 // ListNamespacesResponse defines model for ListNamespacesResponse.
 type ListNamespacesResponse struct {
 	// Namespaces The list of namespaces belonging to this index.
@@ -491,7 +535,7 @@ type ListNamespacesResponse struct {
 
 // ListResponse The response for the `list` operation.
 type ListResponse struct {
-	// Namespace The namespace of the vectors.
+	// Namespace The namespace that served the list: the request's namespace, or the alias's target namespace when the request named a namespace alias.
 	Namespace  *string     `json:"namespace,omitempty"`
 	Pagination *Pagination `json:"pagination,omitempty"`
 	Usage      *Usage      `json:"usage,omitempty"`
@@ -521,6 +565,21 @@ type MetadataValue2 = bool
 // MetadataValue3 defines model for .
 type MetadataValue3 = []string
 
+// NamespaceAliasDescription A description of a namespace alias and the namespace it resolves to.
+type NamespaceAliasDescription struct {
+	// CreatedAt The time the alias was created.
+	CreatedAt time.Time `json:"created_at"`
+
+	// Name The name of the alias. Immutable after creation.
+	Name string `json:"name"`
+
+	// TargetNamespace The namespace the alias resolves to. Changed only by repointing the alias. The default namespace is represented as `__default__`.
+	TargetNamespace string `json:"target_namespace"`
+
+	// UpdatedAt The time the alias was last repointed. Advances on every repoint, including a repoint to the alias's current target; equals `created_at` until the first repoint.
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 // NamespaceDescription A description of a namespace, including the name and record count.
 type NamespaceDescription struct {
 	// IndexedFields A list of all indexed metatadata fields in the namespace
@@ -537,6 +596,7 @@ type NamespaceDescription struct {
 	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
 	Schema *struct {
 		// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique. At most 50 fields may be declared.
+		//
 		// Field names may not begin with `$`, which introduces a filter operator. When declared at index creation, names beginning with `_` are also rejected (reserved for internal use).
 		Fields *map[string]struct {
 			// Filterable Whether the field is indexed and can be used in filters. Must be present and must be `true`: omitting it, or sending `false` or `null`, is rejected with `Field '<name>' is set to filterable: false. Only filterable: true is supported.` To leave a field unindexed, omit it from `fields` entirely.
@@ -577,6 +637,7 @@ type QueryRequest struct {
 	IncludeValues *bool `json:"includeValues,omitempty"`
 
 	// MaxCandidates An optimization parameter that controls the maximum number of candidate dense vectors to rerank. Reranking computes exact distances to improve recall but increases query latency. Range: top_k – 100000.
+	//
 	// Keep the default for a balance of recall and latency. Increase this value if recall is too low, or decrease it to reduce latency at the cost of accuracy. This parameter is only supported for dedicated (DRN) dense indexes.
 	MaxCandidates *int64 `json:"maxCandidates,omitempty"`
 
@@ -584,6 +645,7 @@ type QueryRequest struct {
 	Namespace *string `json:"namespace,omitempty"`
 
 	// ScanFactor An optimization parameter for IVF dense indexes in dedicated read node indexes. It adjusts how much of the index is scanned to find vector candidates. Range: 0.5 – 4 (default).
+	//
 	// Keep the default (4.0) for the best search results. If query latency is too high, try lowering this value incrementally (minimum 0.5) to speed up the search at the cost of slightly lower accuracy. This parameter is only supported for dedicated (DRN) dense indexes.
 	ScanFactor *float32 `json:"scanFactor,omitempty"`
 
@@ -614,13 +676,31 @@ type QueryResponse struct {
 	// Matches The matches for the vectors.
 	Matches *[]ScoredVector `json:"matches,omitempty"`
 
-	// Namespace The namespace for the vectors.
+	// Namespace The namespace that served the query: the request's namespace, or the alias's target namespace when the request named a namespace alias.
 	Namespace *string `json:"namespace,omitempty"`
 
 	// Results DEPRECATED. The results of each query. The order is the same as `QueryRequest.queries`.
 	// Deprecated:
 	Results *[]SingleQueryResults `json:"results,omitempty"`
 	Usage   *Usage                `json:"usage,omitempty"`
+}
+
+// QueryStringScoring Score using a Lucene query string. Target a field with a field qualifier in the query (`field:(clause)`), or omit qualifiers to search all full-text-search fields. `field` and `fields` are rejected.
+type QueryStringScoring struct {
+	// Query The Lucene query string. Leading and trailing whitespace is trimmed; a query that is empty after trimming is rejected. At most 10,000 bytes.
+	Query string `json:"query"`
+
+	// Type The scoring method. Always `query_string`.
+	Type QueryStringScoringType `json:"type"`
+}
+
+// QueryStringScoringType The scoring method. Always `query_string`.
+type QueryStringScoringType string
+
+// RepointNamespaceAliasRequest A request for repointing a namespace alias at a different namespace.
+type RepointNamespaceAliasRequest struct {
+	// TargetNamespace The namespace the alias resolves to after the repoint. Must be an existing, active namespace in the index; an alias cannot point to another alias. To point the alias at the default namespace, use `__default__`.
+	TargetNamespace string `json:"target_namespace"`
 }
 
 // ScoredVector defines model for ScoredVector.
@@ -646,12 +726,14 @@ type SearchDocumentsRequest struct {
 	// Filter A metadata filter expression to restrict the documents searched.
 	Filter *map[string]interface{} `json:"filter,omitempty"`
 
-	// IncludeFields The document fields to return on each match alongside `_id` and `_score`. When omitted or empty, no fields are returned. Pass `["*"]` to return every field.
+	// IncludeFields The document fields to return on each match alongside `_id` and `_score`. When omitted or empty, no fields are returned. Pass `["*"]` to return every field. A name the schema doesn't declare is read as a metadata key, and returns nothing for documents without that key.
+	//
+	// Naming a field whose schema sets `store_text: false` is rejected with `400`, since its text is not stored; `["*"]` leaves such fields out.
 	IncludeFields *[]string `json:"include_fields,omitempty"`
 
-	// ScoreBy The list of scoring methods to use for ranking documents.
+	// ScoreBy The scoring clauses used to rank documents.
 	//
-	// A single clause of any type is always valid. Several clauses may be combined only when every one of them is `text` or `query_string`; a `dense_vector` or `sparse_vector` clause must appear on its own.
+	// One clause of any type is always valid. Several clauses can be combined only when every clause is `text` or `query_string`, and the server combines them into one ranking. A `dense_vector`, `sparse_vector`, `embed`, or `sparse_embed` clause must be the only clause.
 	ScoreBy []DocumentScoringMethod `json:"score_by"`
 
 	// TopK The number of top-ranked documents to return.
@@ -663,26 +745,22 @@ type SearchDocumentsResponse struct {
 	// Matches The matching documents, ordered from most to least similar.
 	Matches []DocumentSearchMatch `json:"matches"`
 
-	// Namespace The namespace that was searched.
+	// Namespace The namespace that served the search: the request's namespace, or the alias's target namespace when the request named a namespace alias.
 	Namespace string `json:"namespace"`
 
 	// Usage Usage information for the `search_documents` operation.
 	Usage DocumentSearchUsage `json:"usage"`
 }
 
-// SearchMatchTerms Specifies which terms must be present in the text of each search hit based on the specified strategy. The match is performed
-// against the text field specified in the integrated index `field_map` configuration.
+// SearchMatchTerms Specifies which terms must be present in the text of each search hit based on the specified strategy. The match is performed against the text field specified in the legacy integrated index's `field_map` configuration.
 //
 // Terms are normalized and tokenized into single tokens before matching, and order does not matter.
 //
 // Example:
 //
-//	`"match_terms": {"terms": ["animal", "CHARACTER", "donald Duck"], "strategy": "all"}` will tokenize
-//	to `["animal", "character", "donald", "duck"]`, and would match
-//	`"Donald F. Duck is a funny animal character"` but would not match `"A duck is a funny animal"`.
+//	`"match_terms": {"terms": ["animal", "CHARACTER", "donald Duck"], "strategy": "all"}` will tokenize to `["animal", "character", "donald", "duck"]`, and would match `"Donald F. Duck is a funny animal character"` but would not match `"A duck is a funny animal"`.
 //
-// Match terms filtering is supported only for sparse indexes with [integrated embedding](https://docs.pinecone.io/guides/index-data/indexing-overview#vector-embedding)
-// configured to use the [pinecone-sparse-english-v0](https://docs.pinecone.io/models/pinecone-sparse-english-v0) model.
+// Match terms filtering is supported only for sparse [legacy integrated indexes](https://docs.pinecone.io/guides/index-data/indexing-overview#vector-embedding) configured to use the [pinecone-sparse-english-v0](https://docs.pinecone.io/models/pinecone-sparse-english-v0) model.
 type SearchMatchTerms struct {
 	// Strategy The strategy for matching terms in the text. Currently, only `all` is supported, which means all specified terms must be present.
 	Strategy string `json:"strategy"`
@@ -691,7 +769,7 @@ type SearchMatchTerms struct {
 	Terms []string `json:"terms"`
 }
 
-// SearchRecordsRequest A search request for records in a specific namespace.
+// SearchRecordsRequest A search request for records in a specific namespace, for the legacy Records API's `search_records` operation.
 type SearchRecordsRequest struct {
 	// Fields The fields to return in the search results. If not specified, the response will include all fields.
 	Fields *[]string `json:"fields,omitempty"`
@@ -705,19 +783,15 @@ type SearchRecordsRequest struct {
 		Id     *string      `json:"id,omitempty"`
 		Inputs *EmbedInputs `json:"inputs,omitempty"`
 
-		// MatchTerms Specifies which terms must be present in the text of each search hit based on the specified strategy. The match is performed
-		// against the text field specified in the integrated index `field_map` configuration.
+		// MatchTerms Specifies which terms must be present in the text of each search hit based on the specified strategy. The match is performed against the text field specified in the legacy integrated index's `field_map` configuration.
 		//
 		// Terms are normalized and tokenized into single tokens before matching, and order does not matter.
 		//
 		// Example:
 		//
-		//   `"match_terms": {"terms": ["animal", "CHARACTER", "donald Duck"], "strategy": "all"}` will tokenize
-		//   to `["animal", "character", "donald", "duck"]`, and would match
-		//   `"Donald F. Duck is a funny animal character"` but would not match `"A duck is a funny animal"`.
+		//   `"match_terms": {"terms": ["animal", "CHARACTER", "donald Duck"], "strategy": "all"}` will tokenize to `["animal", "character", "donald", "duck"]`, and would match `"Donald F. Duck is a funny animal character"` but would not match `"A duck is a funny animal"`.
 		//
-		// Match terms filtering is supported only for sparse indexes with [integrated embedding](https://docs.pinecone.io/guides/index-data/indexing-overview#vector-embedding)
-		// configured to use the [pinecone-sparse-english-v0](https://docs.pinecone.io/models/pinecone-sparse-english-v0) model.
+		// Match terms filtering is supported only for sparse [legacy integrated indexes](https://docs.pinecone.io/guides/index-data/indexing-overview#vector-embedding) configured to use the [pinecone-sparse-english-v0](https://docs.pinecone.io/models/pinecone-sparse-english-v0) model.
 		MatchTerms *SearchMatchTerms `json:"match_terms,omitempty"`
 
 		// TopK The number of similar records to return, from 1 to 10000.
@@ -736,8 +810,7 @@ type SearchRecordsRequest struct {
 		// Query The query to rerank documents against. If a specific rerank query is specified, it overwrites the query input that was provided at the top level. Required when the search uses `vector` or `id`, since there is no query text to rerank against; omitting it in that case is rejected with `400`.
 		Query *string `json:"query,omitempty"`
 
-		// RankFields The field(s) to consider for reranking. Every returned record must contain each
-		// listed field; otherwise the request is rejected with `400`.
+		// RankFields The field(s) to consider for reranking. Every returned record must contain each listed field; otherwise the request is rejected with `400`.
 		//
 		// The number of fields supported is [model-specific](https://docs.pinecone.io/guides/search/rerank-results#reranking-models).
 		RankFields []string `json:"rank_fields"`
@@ -749,7 +822,9 @@ type SearchRecordsRequest struct {
 
 // SearchRecordsResponse The records search response.
 type SearchRecordsResponse struct {
-	Result struct {
+	// Namespace The namespace that served the search: the request's namespace, or the alias's target namespace when the request named a namespace alias.
+	Namespace string `json:"namespace"`
+	Result    struct {
 		// Hits The hits for the search document request.
 		Hits []Hit `json:"hits"`
 	} `json:"result"`
@@ -770,6 +845,9 @@ type SearchRecordsVector struct {
 
 // SearchUsage defines model for SearchUsage.
 type SearchUsage struct {
+	// EgressBytes The billed egress for this response, in bytes. Measured on the encoded response payload.
+	EgressBytes *int64 `json:"egress_bytes,omitempty"`
+
 	// EmbedTotalTokens The number of embedding tokens consumed by this operation.
 	EmbedTotalTokens *int32 `json:"embed_total_tokens,omitempty"`
 
@@ -789,6 +867,24 @@ type SingleQueryResults struct {
 	Namespace *string `json:"namespace,omitempty"`
 }
 
+// SparseEmbedScoring Score by sparse vector similarity to `query`, which Pinecone embeds with the model and read parameters of the named field's `sparse_embed` configuration. Name exactly one `string` field that declares `sparse_embed`, with `fields` or `field`. `values` and `sparse_values` are rejected. Only documents that share a term with the query are returned, so a search can return fewer than `top_k` results.
+type SparseEmbedScoring struct {
+	// Field The one-field form of `fields`. Provide `field` or `fields` (one is required, not both).
+	Field *string `json:"field,omitempty"`
+
+	// Fields The `string` field that declares `sparse_embed`, as a one-element array. Provide `fields` or `field` (one is required, not both).
+	Fields *[]string `json:"fields,omitempty"`
+
+	// Query The text to embed and score against. Leading and trailing whitespace is trimmed; a query that is empty after trimming is rejected. At most 10,000 bytes.
+	Query string `json:"query"`
+
+	// Type The scoring method. Always `sparse_embed`.
+	Type SparseEmbedScoringType `json:"type"`
+}
+
+// SparseEmbedScoringType The scoring method. Always `sparse_embed`.
+type SparseEmbedScoringType string
+
 // SparseValues Vector sparse data. Represented as a list of indices and a list of  corresponded values, which must be with the same length.
 type SparseValues struct {
 	// Indices The indices of the sparse data.
@@ -797,6 +893,24 @@ type SparseValues struct {
 	// Values The corresponding values of the sparse data, which must be with the same length as the indices.
 	Values []float32 `json:"values"`
 }
+
+// SparseVectorScoring Score by sparse vector similarity between `sparse_values` and a `sparse_vector` field. Name the field with `fields` or `field`.
+type SparseVectorScoring struct {
+	// Field The one-field form of `fields`. Provide `field` or `fields` (one is required, not both).
+	Field *string `json:"field,omitempty"`
+
+	// Fields The `sparse_vector` field to score against, as a one-element array. Provide `fields` or `field` (one is required, not both).
+	Fields *[]string `json:"fields,omitempty"`
+
+	// SparseValues Vector sparse data. Represented as a list of indices and a list of  corresponded values, which must be with the same length.
+	SparseValues SparseValues `json:"sparse_values"`
+
+	// Type The scoring method. Always `sparse_vector`.
+	Type SparseVectorScoringType `json:"type"`
+}
+
+// SparseVectorScoringType The scoring method. Always `sparse_vector`.
+type SparseVectorScoringType string
 
 // StartImportRequest The request for the `start_import` operation.
 type StartImportRequest struct {
@@ -815,6 +929,24 @@ type StartImportResponse struct {
 	// Id Unique identifier for the import operation.
 	Id string `json:"id"`
 }
+
+// TextScoring Score by BM25 text similarity between `query` and one or more full-text-search fields. Naming several fields scores the query against all of them. Name the fields with `fields` or `field`.
+type TextScoring struct {
+	// Field The one-field form of `fields`. Provide `field` or `fields` (one is required, not both).
+	Field *string `json:"field,omitempty"`
+
+	// Fields The full-text-search fields to score against. Provide `fields` or `field` (one is required, not both).
+	Fields *[]string `json:"fields,omitempty"`
+
+	// Query The text query. Leading and trailing whitespace is trimmed; a query that is empty after trimming is rejected. At most 10,000 bytes.
+	Query string `json:"query"`
+
+	// Type The scoring method. Always `text`.
+	Type TextScoringType `json:"type"`
+}
+
+// TextScoringType The scoring method. Always `text`.
+type TextScoringType string
 
 // UnauthorizedMessage The plain-text body of a `401` response. Authentication failures are rejected before the request reaches the index, so they carry the message `Unauthorized` rather than an error object.
 type UnauthorizedMessage = string
@@ -835,16 +967,18 @@ type UpdateDocumentRecord struct {
 //
 // A by-filter patch is checked against the index schema the same way a per-ID patch is: a value must match the type its field declares, a field cannot be both set and removed, and a required field cannot be removed.
 type UpdateDocumentsRequest struct {
-	// Documents The list of partial document updates to apply. Mutually exclusive with `filter`, and with a non-empty `set_fields` or `remove_fields`.
+	// Documents The list of partial document updates to apply. At most 1000 updates, or 96 on an index whose schema declares `embed` or `sparse_embed`. Mutually exclusive with `filter`, and with a non-empty `set_fields` or `remove_fields`.
+	//
+	// `maxItems` states the general limit. A client that batches updates must size batches at 96 when any field of the index schema declares `embed` or `sparse_embed`.
 	Documents *[]UpdateDocumentRecord `json:"documents,omitempty"`
 
 	// Filter A metadata filter expression selecting the documents to patch with `set_fields` and `remove_fields`. Must not be empty; an empty filter is rejected rather than matching every document. Text-match operators (`$match_phrase`, `$match_all`, `$match_any`) are not supported here, since documents are selected on metadata alone. Mutually exclusive with `documents`.
 	Filter *map[string]interface{} `json:"filter,omitempty"`
 
-	// RemoveFields The names of the fields to remove from every document matching `filter`. When non-empty, only valid together with `filter`; an empty list asks for no change and is ignored.
+	// RemoveFields The names of the fields to remove from every document matching `filter`. Only metadata fields can be removed here; data fields are refused, as in `set_fields`. When non-empty, only valid together with `filter`; an empty list asks for no change and is ignored.
 	RemoveFields *[]string `json:"remove_fields,omitempty"`
 
-	// SetFields The fields to set on every document matching `filter`, and the values to set them to. When non-empty, only valid together with `filter`; an empty object asks for no change and is ignored.
+	// SetFields The fields to set on every document matching `filter`, and the values to set them to. Only metadata fields can be set here; every data field is refused, that is, vector fields, full-text-searchable text and embedded text, not only fields that declare `embed` or `sparse_embed`. Update those per ID with `documents`. When non-empty, only valid together with `filter`; an empty object asks for no change and is ignored.
 	SetFields *map[string]DocumentFieldValue `json:"set_fields,omitempty"`
 	union     json.RawMessage
 }
@@ -871,6 +1005,11 @@ type UpdateDocumentsRequest11 struct {
 type UpdateDocumentsResponse struct {
 	// MatchedRecords The number of documents that matched `filter` when the update was accepted. Only returned for a filtered update; a per-ID update reports no count. The patch is applied asynchronously, so this is a point-in-time count rather than a guarantee of the number of documents ultimately patched.
 	MatchedRecords *int32 `json:"matched_records,omitempty"`
+
+	// Usage Usage information for the `upsert_documents` and `update_documents` operations.
+	//
+	// Present only when the request embedded text, that is, when it wrote text to a field whose schema declares `embed` or `sparse_embed`. A request that embedded nothing returns no `usage`.
+	Usage *DocumentWriteUsage `json:"usage,omitempty"`
 }
 
 // UpdateRequest The request for the `update` operation.
@@ -912,7 +1051,9 @@ type UpdateResponse struct {
 
 // UpsertDocumentsRequest The request for the `upsert_documents` operation.
 type UpsertDocumentsRequest struct {
-	// Documents The list of documents to upsert into the namespace.
+	// Documents The list of documents to upsert into the namespace. At most 1000 documents, or 96 on an index whose schema declares `embed` or `sparse_embed`.
+	//
+	// `maxItems` states the general limit. A client that batches documents must size batches at 96 when any field of the index schema declares `embed` or `sparse_embed`.
 	Documents []DocumentRecord `json:"documents"`
 }
 
@@ -920,9 +1061,14 @@ type UpsertDocumentsRequest struct {
 type UpsertDocumentsResponse struct {
 	// UpsertedCount The number of documents successfully upserted.
 	UpsertedCount int32 `json:"upserted_count"`
+
+	// Usage Usage information for the `upsert_documents` and `update_documents` operations.
+	//
+	// Present only when the request embedded text, that is, when it wrote text to a field whose schema declares `embed` or `sparse_embed`. A request that embedded nothing returns no `usage`.
+	Usage *DocumentWriteUsage `json:"usage,omitempty"`
 }
 
-// UpsertRecord The request for the `upsert` operation.
+// UpsertRecord A record for the legacy Records API's `upsert_records` operation.
 type UpsertRecord struct {
 	// Id The unique ID of the record to upsert. The service also accepts `id` as an alias, which this schema does not model.
 	Id string `json:"_id"`
@@ -945,6 +1091,9 @@ type UpsertResponse struct {
 
 // Usage defines model for Usage.
 type Usage struct {
+	// EgressBytes The billed egress for this response, in bytes. Measured on the encoded response payload.
+	EgressBytes *int64 `json:"egressBytes,omitempty"`
+
 	// ReadUnits The number of read units consumed by this operation.
 	ReadUnits *int64 `json:"readUnits,omitempty"`
 }
@@ -1021,6 +1170,48 @@ type DescribeBulkImportParams struct {
 
 // DescribeIndexStatsParams defines parameters for DescribeIndexStats.
 type DescribeIndexStatsParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// ListNamespaceAliasesParams defines parameters for ListNamespaceAliases.
+type ListNamespaceAliasesParams struct {
+	// Limit Max number of aliases to return per page. Defaults to 100.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// PaginationToken Pagination token to continue a previous listing operation. Filters are carried by the token; if they are repeated in the request, they must match.
+	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
+
+	// Prefix Prefix of the aliases to list. Acts as a filter to return only aliases whose name starts with this prefix.
+	Prefix *string `form:"prefix,omitempty" json:"prefix,omitempty"`
+
+	// TargetNamespace Return only aliases that resolve to this namespace. Use `__default__` for the default namespace. Aliases cannot be targets, so an alias name here matches nothing. Combines with `prefix`.
+	TargetNamespace *string `form:"target_namespace,omitempty" json:"target_namespace,omitempty"`
+
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// CreateNamespaceAliasParams defines parameters for CreateNamespaceAlias.
+type CreateNamespaceAliasParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DeleteNamespaceAliasParams defines parameters for DeleteNamespaceAlias.
+type DeleteNamespaceAliasParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DescribeNamespaceAliasParams defines parameters for DescribeNamespaceAlias.
+type DescribeNamespaceAliasParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// RepointNamespaceAliasParams defines parameters for RepointNamespaceAlias.
+type RepointNamespaceAliasParams struct {
 	// XPineconeApiVersion Required date-based version header
 	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
 }
@@ -1173,6 +1364,12 @@ type StartBulkImportJSONRequestBody = StartImportRequest
 
 // DescribeIndexStatsJSONRequestBody defines body for DescribeIndexStats for application/json ContentType.
 type DescribeIndexStatsJSONRequestBody = DescribeIndexStatsRequest
+
+// CreateNamespaceAliasJSONRequestBody defines body for CreateNamespaceAlias for application/json ContentType.
+type CreateNamespaceAliasJSONRequestBody = CreateNamespaceAliasRequest
+
+// RepointNamespaceAliasJSONRequestBody defines body for RepointNamespaceAlias for application/json ContentType.
+type RepointNamespaceAliasJSONRequestBody = RepointNamespaceAliasRequest
 
 // CreateNamespaceJSONRequestBody defines body for CreateNamespace for application/json ContentType.
 type CreateNamespaceJSONRequestBody = CreateNamespaceRequest
@@ -1985,22 +2182,24 @@ func (t *DocumentFieldValue) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsDocumentScoringMethod0 returns the union data inside the DocumentScoringMethod as a DocumentScoringMethod0
-func (t DocumentScoringMethod) AsDocumentScoringMethod0() (DocumentScoringMethod0, error) {
-	var body DocumentScoringMethod0
+// AsDenseVectorScoring returns the union data inside the DocumentScoringMethod as a DenseVectorScoring
+func (t DocumentScoringMethod) AsDenseVectorScoring() (DenseVectorScoring, error) {
+	var body DenseVectorScoring
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromDocumentScoringMethod0 overwrites any union data inside the DocumentScoringMethod as the provided DocumentScoringMethod0
-func (t *DocumentScoringMethod) FromDocumentScoringMethod0(v DocumentScoringMethod0) error {
+// FromDenseVectorScoring overwrites any union data inside the DocumentScoringMethod as the provided DenseVectorScoring
+func (t *DocumentScoringMethod) FromDenseVectorScoring(v DenseVectorScoring) error {
+	v.Type = "dense_vector"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeDocumentScoringMethod0 performs a merge with any union data inside the DocumentScoringMethod, using the provided DocumentScoringMethod0
-func (t *DocumentScoringMethod) MergeDocumentScoringMethod0(v DocumentScoringMethod0) error {
+// MergeDenseVectorScoring performs a merge with any union data inside the DocumentScoringMethod, using the provided DenseVectorScoring
+func (t *DocumentScoringMethod) MergeDenseVectorScoring(v DenseVectorScoring) error {
+	v.Type = "dense_vector"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2011,22 +2210,24 @@ func (t *DocumentScoringMethod) MergeDocumentScoringMethod0(v DocumentScoringMet
 	return err
 }
 
-// AsDocumentScoringMethod1 returns the union data inside the DocumentScoringMethod as a DocumentScoringMethod1
-func (t DocumentScoringMethod) AsDocumentScoringMethod1() (DocumentScoringMethod1, error) {
-	var body DocumentScoringMethod1
+// AsSparseVectorScoring returns the union data inside the DocumentScoringMethod as a SparseVectorScoring
+func (t DocumentScoringMethod) AsSparseVectorScoring() (SparseVectorScoring, error) {
+	var body SparseVectorScoring
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromDocumentScoringMethod1 overwrites any union data inside the DocumentScoringMethod as the provided DocumentScoringMethod1
-func (t *DocumentScoringMethod) FromDocumentScoringMethod1(v DocumentScoringMethod1) error {
+// FromSparseVectorScoring overwrites any union data inside the DocumentScoringMethod as the provided SparseVectorScoring
+func (t *DocumentScoringMethod) FromSparseVectorScoring(v SparseVectorScoring) error {
+	v.Type = "sparse_vector"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeDocumentScoringMethod1 performs a merge with any union data inside the DocumentScoringMethod, using the provided DocumentScoringMethod1
-func (t *DocumentScoringMethod) MergeDocumentScoringMethod1(v DocumentScoringMethod1) error {
+// MergeSparseVectorScoring performs a merge with any union data inside the DocumentScoringMethod, using the provided SparseVectorScoring
+func (t *DocumentScoringMethod) MergeSparseVectorScoring(v SparseVectorScoring) error {
+	v.Type = "sparse_vector"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2037,22 +2238,24 @@ func (t *DocumentScoringMethod) MergeDocumentScoringMethod1(v DocumentScoringMet
 	return err
 }
 
-// AsDocumentScoringMethod2 returns the union data inside the DocumentScoringMethod as a DocumentScoringMethod2
-func (t DocumentScoringMethod) AsDocumentScoringMethod2() (DocumentScoringMethod2, error) {
-	var body DocumentScoringMethod2
+// AsTextScoring returns the union data inside the DocumentScoringMethod as a TextScoring
+func (t DocumentScoringMethod) AsTextScoring() (TextScoring, error) {
+	var body TextScoring
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromDocumentScoringMethod2 overwrites any union data inside the DocumentScoringMethod as the provided DocumentScoringMethod2
-func (t *DocumentScoringMethod) FromDocumentScoringMethod2(v DocumentScoringMethod2) error {
+// FromTextScoring overwrites any union data inside the DocumentScoringMethod as the provided TextScoring
+func (t *DocumentScoringMethod) FromTextScoring(v TextScoring) error {
+	v.Type = "text"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeDocumentScoringMethod2 performs a merge with any union data inside the DocumentScoringMethod, using the provided DocumentScoringMethod2
-func (t *DocumentScoringMethod) MergeDocumentScoringMethod2(v DocumentScoringMethod2) error {
+// MergeTextScoring performs a merge with any union data inside the DocumentScoringMethod, using the provided TextScoring
+func (t *DocumentScoringMethod) MergeTextScoring(v TextScoring) error {
+	v.Type = "text"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2063,22 +2266,24 @@ func (t *DocumentScoringMethod) MergeDocumentScoringMethod2(v DocumentScoringMet
 	return err
 }
 
-// AsDocumentScoringMethod3 returns the union data inside the DocumentScoringMethod as a DocumentScoringMethod3
-func (t DocumentScoringMethod) AsDocumentScoringMethod3() (DocumentScoringMethod3, error) {
-	var body DocumentScoringMethod3
+// AsQueryStringScoring returns the union data inside the DocumentScoringMethod as a QueryStringScoring
+func (t DocumentScoringMethod) AsQueryStringScoring() (QueryStringScoring, error) {
+	var body QueryStringScoring
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromDocumentScoringMethod3 overwrites any union data inside the DocumentScoringMethod as the provided DocumentScoringMethod3
-func (t *DocumentScoringMethod) FromDocumentScoringMethod3(v DocumentScoringMethod3) error {
+// FromQueryStringScoring overwrites any union data inside the DocumentScoringMethod as the provided QueryStringScoring
+func (t *DocumentScoringMethod) FromQueryStringScoring(v QueryStringScoring) error {
+	v.Type = "query_string"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeDocumentScoringMethod3 performs a merge with any union data inside the DocumentScoringMethod, using the provided DocumentScoringMethod3
-func (t *DocumentScoringMethod) MergeDocumentScoringMethod3(v DocumentScoringMethod3) error {
+// MergeQueryStringScoring performs a merge with any union data inside the DocumentScoringMethod, using the provided QueryStringScoring
+func (t *DocumentScoringMethod) MergeQueryStringScoring(v QueryStringScoring) error {
+	v.Type = "query_string"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2087,430 +2292,102 @@ func (t *DocumentScoringMethod) MergeDocumentScoringMethod3(v DocumentScoringMet
 	merged, err := runtime.JSONMerge(t.union, b)
 	t.union = merged
 	return err
+}
+
+// AsEmbedScoring returns the union data inside the DocumentScoringMethod as a EmbedScoring
+func (t DocumentScoringMethod) AsEmbedScoring() (EmbedScoring, error) {
+	var body EmbedScoring
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromEmbedScoring overwrites any union data inside the DocumentScoringMethod as the provided EmbedScoring
+func (t *DocumentScoringMethod) FromEmbedScoring(v EmbedScoring) error {
+	v.Type = "embed"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeEmbedScoring performs a merge with any union data inside the DocumentScoringMethod, using the provided EmbedScoring
+func (t *DocumentScoringMethod) MergeEmbedScoring(v EmbedScoring) error {
+	v.Type = "embed"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSparseEmbedScoring returns the union data inside the DocumentScoringMethod as a SparseEmbedScoring
+func (t DocumentScoringMethod) AsSparseEmbedScoring() (SparseEmbedScoring, error) {
+	var body SparseEmbedScoring
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSparseEmbedScoring overwrites any union data inside the DocumentScoringMethod as the provided SparseEmbedScoring
+func (t *DocumentScoringMethod) FromSparseEmbedScoring(v SparseEmbedScoring) error {
+	v.Type = "sparse_embed"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSparseEmbedScoring performs a merge with any union data inside the DocumentScoringMethod, using the provided SparseEmbedScoring
+func (t *DocumentScoringMethod) MergeSparseEmbedScoring(v SparseEmbedScoring) error {
+	v.Type = "sparse_embed"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t DocumentScoringMethod) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t DocumentScoringMethod) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "dense_vector":
+		return t.AsDenseVectorScoring()
+	case "embed":
+		return t.AsEmbedScoring()
+	case "query_string":
+		return t.AsQueryStringScoring()
+	case "sparse_embed":
+		return t.AsSparseEmbedScoring()
+	case "sparse_vector":
+		return t.AsSparseVectorScoring()
+	case "text":
+		return t.AsTextScoring()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
 }
 
 func (t DocumentScoringMethod) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	object := make(map[string]json.RawMessage)
-	if t.union != nil {
-		err = json.Unmarshal(b, &object)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if t.Field != nil {
-		object["field"], err = json.Marshal(t.Field)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'field': %w", err)
-		}
-	}
-
-	if t.Fields != nil {
-		object["fields"], err = json.Marshal(t.Fields)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'fields': %w", err)
-		}
-	}
-
-	if t.Query != nil {
-		object["query"], err = json.Marshal(t.Query)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'query': %w", err)
-		}
-	}
-
-	if t.SparseValues != nil {
-		object["sparse_values"], err = json.Marshal(t.SparseValues)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'sparse_values': %w", err)
-		}
-	}
-
-	object["type"], err = json.Marshal(t.Type)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling 'type': %w", err)
-	}
-
-	if t.Values != nil {
-		object["values"], err = json.Marshal(t.Values)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'values': %w", err)
-		}
-	}
-	b, err = json.Marshal(object)
 	return b, err
 }
 
 func (t *DocumentScoringMethod) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
-	if err != nil {
-		return err
-	}
-	object := make(map[string]json.RawMessage)
-	err = json.Unmarshal(b, &object)
-	if err != nil {
-		return err
-	}
-
-	if raw, found := object["field"]; found {
-		err = json.Unmarshal(raw, &t.Field)
-		if err != nil {
-			return fmt.Errorf("error reading 'field': %w", err)
-		}
-	}
-
-	if raw, found := object["fields"]; found {
-		err = json.Unmarshal(raw, &t.Fields)
-		if err != nil {
-			return fmt.Errorf("error reading 'fields': %w", err)
-		}
-	}
-
-	if raw, found := object["query"]; found {
-		err = json.Unmarshal(raw, &t.Query)
-		if err != nil {
-			return fmt.Errorf("error reading 'query': %w", err)
-		}
-	}
-
-	if raw, found := object["sparse_values"]; found {
-		err = json.Unmarshal(raw, &t.SparseValues)
-		if err != nil {
-			return fmt.Errorf("error reading 'sparse_values': %w", err)
-		}
-	}
-
-	if raw, found := object["type"]; found {
-		err = json.Unmarshal(raw, &t.Type)
-		if err != nil {
-			return fmt.Errorf("error reading 'type': %w", err)
-		}
-	}
-
-	if raw, found := object["values"]; found {
-		err = json.Unmarshal(raw, &t.Values)
-		if err != nil {
-			return fmt.Errorf("error reading 'values': %w", err)
-		}
-	}
-
-	return err
-}
-
-// AsDocumentScoringMethod00 returns the union data inside the DocumentScoringMethod0 as a DocumentScoringMethod00
-func (t DocumentScoringMethod0) AsDocumentScoringMethod00() (DocumentScoringMethod00, error) {
-	var body DocumentScoringMethod00
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromDocumentScoringMethod00 overwrites any union data inside the DocumentScoringMethod0 as the provided DocumentScoringMethod00
-func (t *DocumentScoringMethod0) FromDocumentScoringMethod00(v DocumentScoringMethod00) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeDocumentScoringMethod00 performs a merge with any union data inside the DocumentScoringMethod0, using the provided DocumentScoringMethod00
-func (t *DocumentScoringMethod0) MergeDocumentScoringMethod00(v DocumentScoringMethod00) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsDocumentScoringMethod01 returns the union data inside the DocumentScoringMethod0 as a DocumentScoringMethod01
-func (t DocumentScoringMethod0) AsDocumentScoringMethod01() (DocumentScoringMethod01, error) {
-	var body DocumentScoringMethod01
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromDocumentScoringMethod01 overwrites any union data inside the DocumentScoringMethod0 as the provided DocumentScoringMethod01
-func (t *DocumentScoringMethod0) FromDocumentScoringMethod01(v DocumentScoringMethod01) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeDocumentScoringMethod01 performs a merge with any union data inside the DocumentScoringMethod0, using the provided DocumentScoringMethod01
-func (t *DocumentScoringMethod0) MergeDocumentScoringMethod01(v DocumentScoringMethod01) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t DocumentScoringMethod0) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	object := make(map[string]json.RawMessage)
-	if t.union != nil {
-		err = json.Unmarshal(b, &object)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if t.Fields != nil {
-		object["fields"], err = json.Marshal(t.Fields)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'fields': %w", err)
-		}
-	}
-
-	object["type"], err = json.Marshal(t.Type)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling 'type': %w", err)
-	}
-
-	b, err = json.Marshal(object)
-	return b, err
-}
-
-func (t *DocumentScoringMethod0) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	if err != nil {
-		return err
-	}
-	object := make(map[string]json.RawMessage)
-	err = json.Unmarshal(b, &object)
-	if err != nil {
-		return err
-	}
-
-	if raw, found := object["fields"]; found {
-		err = json.Unmarshal(raw, &t.Fields)
-		if err != nil {
-			return fmt.Errorf("error reading 'fields': %w", err)
-		}
-	}
-
-	if raw, found := object["type"]; found {
-		err = json.Unmarshal(raw, &t.Type)
-		if err != nil {
-			return fmt.Errorf("error reading 'type': %w", err)
-		}
-	}
-
-	return err
-}
-
-// AsDocumentScoringMethod10 returns the union data inside the DocumentScoringMethod1 as a DocumentScoringMethod10
-func (t DocumentScoringMethod1) AsDocumentScoringMethod10() (DocumentScoringMethod10, error) {
-	var body DocumentScoringMethod10
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromDocumentScoringMethod10 overwrites any union data inside the DocumentScoringMethod1 as the provided DocumentScoringMethod10
-func (t *DocumentScoringMethod1) FromDocumentScoringMethod10(v DocumentScoringMethod10) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeDocumentScoringMethod10 performs a merge with any union data inside the DocumentScoringMethod1, using the provided DocumentScoringMethod10
-func (t *DocumentScoringMethod1) MergeDocumentScoringMethod10(v DocumentScoringMethod10) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsDocumentScoringMethod11 returns the union data inside the DocumentScoringMethod1 as a DocumentScoringMethod11
-func (t DocumentScoringMethod1) AsDocumentScoringMethod11() (DocumentScoringMethod11, error) {
-	var body DocumentScoringMethod11
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromDocumentScoringMethod11 overwrites any union data inside the DocumentScoringMethod1 as the provided DocumentScoringMethod11
-func (t *DocumentScoringMethod1) FromDocumentScoringMethod11(v DocumentScoringMethod11) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeDocumentScoringMethod11 performs a merge with any union data inside the DocumentScoringMethod1, using the provided DocumentScoringMethod11
-func (t *DocumentScoringMethod1) MergeDocumentScoringMethod11(v DocumentScoringMethod11) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t DocumentScoringMethod1) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	object := make(map[string]json.RawMessage)
-	if t.union != nil {
-		err = json.Unmarshal(b, &object)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if t.Fields != nil {
-		object["fields"], err = json.Marshal(t.Fields)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'fields': %w", err)
-		}
-	}
-
-	object["type"], err = json.Marshal(t.Type)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling 'type': %w", err)
-	}
-
-	b, err = json.Marshal(object)
-	return b, err
-}
-
-func (t *DocumentScoringMethod1) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	if err != nil {
-		return err
-	}
-	object := make(map[string]json.RawMessage)
-	err = json.Unmarshal(b, &object)
-	if err != nil {
-		return err
-	}
-
-	if raw, found := object["fields"]; found {
-		err = json.Unmarshal(raw, &t.Fields)
-		if err != nil {
-			return fmt.Errorf("error reading 'fields': %w", err)
-		}
-	}
-
-	if raw, found := object["type"]; found {
-		err = json.Unmarshal(raw, &t.Type)
-		if err != nil {
-			return fmt.Errorf("error reading 'type': %w", err)
-		}
-	}
-
-	return err
-}
-
-// AsDocumentScoringMethod20 returns the union data inside the DocumentScoringMethod2 as a DocumentScoringMethod20
-func (t DocumentScoringMethod2) AsDocumentScoringMethod20() (DocumentScoringMethod20, error) {
-	var body DocumentScoringMethod20
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromDocumentScoringMethod20 overwrites any union data inside the DocumentScoringMethod2 as the provided DocumentScoringMethod20
-func (t *DocumentScoringMethod2) FromDocumentScoringMethod20(v DocumentScoringMethod20) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeDocumentScoringMethod20 performs a merge with any union data inside the DocumentScoringMethod2, using the provided DocumentScoringMethod20
-func (t *DocumentScoringMethod2) MergeDocumentScoringMethod20(v DocumentScoringMethod20) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsDocumentScoringMethod21 returns the union data inside the DocumentScoringMethod2 as a DocumentScoringMethod21
-func (t DocumentScoringMethod2) AsDocumentScoringMethod21() (DocumentScoringMethod21, error) {
-	var body DocumentScoringMethod21
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromDocumentScoringMethod21 overwrites any union data inside the DocumentScoringMethod2 as the provided DocumentScoringMethod21
-func (t *DocumentScoringMethod2) FromDocumentScoringMethod21(v DocumentScoringMethod21) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeDocumentScoringMethod21 performs a merge with any union data inside the DocumentScoringMethod2, using the provided DocumentScoringMethod21
-func (t *DocumentScoringMethod2) MergeDocumentScoringMethod21(v DocumentScoringMethod21) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t DocumentScoringMethod2) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	object := make(map[string]json.RawMessage)
-	if t.union != nil {
-		err = json.Unmarshal(b, &object)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	object["type"], err = json.Marshal(t.Type)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling 'type': %w", err)
-	}
-
-	b, err = json.Marshal(object)
-	return b, err
-}
-
-func (t *DocumentScoringMethod2) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	if err != nil {
-		return err
-	}
-	object := make(map[string]json.RawMessage)
-	err = json.Unmarshal(b, &object)
-	if err != nil {
-		return err
-	}
-
-	if raw, found := object["type"]; found {
-		err = json.Unmarshal(raw, &t.Type)
-		if err != nil {
-			return fmt.Errorf("error reading 'type': %w", err)
-		}
-	}
-
 	return err
 }
 
@@ -3634,6 +3511,25 @@ type ClientInterface interface {
 
 	DescribeIndexStats(ctx context.Context, params *DescribeIndexStatsParams, body DescribeIndexStatsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListNamespaceAliases request
+	ListNamespaceAliases(ctx context.Context, params *ListNamespaceAliasesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateNamespaceAliasWithBody request with any body
+	CreateNamespaceAliasWithBody(ctx context.Context, params *CreateNamespaceAliasParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateNamespaceAlias(ctx context.Context, params *CreateNamespaceAliasParams, body CreateNamespaceAliasJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteNamespaceAlias request
+	DeleteNamespaceAlias(ctx context.Context, aliasName string, params *DeleteNamespaceAliasParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DescribeNamespaceAlias request
+	DescribeNamespaceAlias(ctx context.Context, aliasName string, params *DescribeNamespaceAliasParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RepointNamespaceAliasWithBody request with any body
+	RepointNamespaceAliasWithBody(ctx context.Context, aliasName string, params *RepointNamespaceAliasParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RepointNamespaceAlias(ctx context.Context, aliasName string, params *RepointNamespaceAliasParams, body RepointNamespaceAliasJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListNamespacesOperation request
 	ListNamespacesOperation(ctx context.Context, params *ListNamespacesOperationParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -3792,6 +3688,90 @@ func (c *Client) DescribeIndexStatsWithBody(ctx context.Context, params *Describ
 
 func (c *Client) DescribeIndexStats(ctx context.Context, params *DescribeIndexStatsParams, body DescribeIndexStatsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDescribeIndexStatsRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListNamespaceAliases(ctx context.Context, params *ListNamespaceAliasesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListNamespaceAliasesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateNamespaceAliasWithBody(ctx context.Context, params *CreateNamespaceAliasParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateNamespaceAliasRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateNamespaceAlias(ctx context.Context, params *CreateNamespaceAliasParams, body CreateNamespaceAliasJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateNamespaceAliasRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteNamespaceAlias(ctx context.Context, aliasName string, params *DeleteNamespaceAliasParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteNamespaceAliasRequest(c.Server, aliasName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DescribeNamespaceAlias(ctx context.Context, aliasName string, params *DescribeNamespaceAliasParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDescribeNamespaceAliasRequest(c.Server, aliasName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RepointNamespaceAliasWithBody(ctx context.Context, aliasName string, params *RepointNamespaceAliasParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRepointNamespaceAliasRequestWithBody(c.Server, aliasName, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RepointNamespaceAlias(ctx context.Context, aliasName string, params *RepointNamespaceAliasParams, body RepointNamespaceAliasJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRepointNamespaceAliasRequest(c.Server, aliasName, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4442,6 +4422,323 @@ func NewDescribeIndexStatsRequestWithBody(server string, params *DescribeIndexSt
 	}
 
 	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewListNamespaceAliasesRequest generates requests for ListNamespaceAliases
+func NewListNamespaceAliasesRequest(server string, params *ListNamespaceAliasesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/namespace-aliases")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PaginationToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "paginationToken", runtime.ParamLocationQuery, *params.PaginationToken); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Prefix != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "prefix", runtime.ParamLocationQuery, *params.Prefix); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.TargetNamespace != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "target_namespace", runtime.ParamLocationQuery, *params.TargetNamespace); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewCreateNamespaceAliasRequest calls the generic CreateNamespaceAlias builder with application/json body
+func NewCreateNamespaceAliasRequest(server string, params *CreateNamespaceAliasParams, body CreateNamespaceAliasJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateNamespaceAliasRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateNamespaceAliasRequestWithBody generates requests for CreateNamespaceAlias with any type of body
+func NewCreateNamespaceAliasRequestWithBody(server string, params *CreateNamespaceAliasParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/namespace-aliases")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewDeleteNamespaceAliasRequest generates requests for DeleteNamespaceAlias
+func NewDeleteNamespaceAliasRequest(server string, aliasName string, params *DeleteNamespaceAliasParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "alias_name", runtime.ParamLocationPath, aliasName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/namespace-aliases/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewDescribeNamespaceAliasRequest generates requests for DescribeNamespaceAlias
+func NewDescribeNamespaceAliasRequest(server string, aliasName string, params *DescribeNamespaceAliasParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "alias_name", runtime.ParamLocationPath, aliasName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/namespace-aliases/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewRepointNamespaceAliasRequest calls the generic RepointNamespaceAlias builder with application/json body
+func NewRepointNamespaceAliasRequest(server string, aliasName string, params *RepointNamespaceAliasParams, body RepointNamespaceAliasJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRepointNamespaceAliasRequestWithBody(server, aliasName, params, "application/json", bodyReader)
+}
+
+// NewRepointNamespaceAliasRequestWithBody generates requests for RepointNamespaceAlias with any type of body
+func NewRepointNamespaceAliasRequestWithBody(server string, aliasName string, params *RepointNamespaceAliasParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "alias_name", runtime.ParamLocationPath, aliasName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/namespace-aliases/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -5685,6 +5982,25 @@ type ClientWithResponsesInterface interface {
 
 	DescribeIndexStatsWithResponse(ctx context.Context, params *DescribeIndexStatsParams, body DescribeIndexStatsJSONRequestBody, reqEditors ...RequestEditorFn) (*DescribeIndexStatsApiResponse, error)
 
+	// ListNamespaceAliasesWithResponse request
+	ListNamespaceAliasesWithResponse(ctx context.Context, params *ListNamespaceAliasesParams, reqEditors ...RequestEditorFn) (*ListNamespaceAliasesApiResponse, error)
+
+	// CreateNamespaceAliasWithBodyWithResponse request with any body
+	CreateNamespaceAliasWithBodyWithResponse(ctx context.Context, params *CreateNamespaceAliasParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateNamespaceAliasApiResponse, error)
+
+	CreateNamespaceAliasWithResponse(ctx context.Context, params *CreateNamespaceAliasParams, body CreateNamespaceAliasJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateNamespaceAliasApiResponse, error)
+
+	// DeleteNamespaceAliasWithResponse request
+	DeleteNamespaceAliasWithResponse(ctx context.Context, aliasName string, params *DeleteNamespaceAliasParams, reqEditors ...RequestEditorFn) (*DeleteNamespaceAliasApiResponse, error)
+
+	// DescribeNamespaceAliasWithResponse request
+	DescribeNamespaceAliasWithResponse(ctx context.Context, aliasName string, params *DescribeNamespaceAliasParams, reqEditors ...RequestEditorFn) (*DescribeNamespaceAliasApiResponse, error)
+
+	// RepointNamespaceAliasWithBodyWithResponse request with any body
+	RepointNamespaceAliasWithBodyWithResponse(ctx context.Context, aliasName string, params *RepointNamespaceAliasParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RepointNamespaceAliasApiResponse, error)
+
+	RepointNamespaceAliasWithResponse(ctx context.Context, aliasName string, params *RepointNamespaceAliasParams, body RepointNamespaceAliasJSONRequestBody, reqEditors ...RequestEditorFn) (*RepointNamespaceAliasApiResponse, error)
+
 	// ListNamespacesOperationWithResponse request
 	ListNamespacesOperationWithResponse(ctx context.Context, params *ListNamespacesOperationParams, reqEditors ...RequestEditorFn) (*ListNamespacesOperationApiResponse, error)
 
@@ -5894,6 +6210,135 @@ func (r DescribeIndexStatsApiResponse) StatusCode() int {
 	return 0
 }
 
+type ListNamespaceAliasesApiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ListNamespaceAliasesResponse
+	JSON400      *RpcStatus
+	JSON4XX      *RpcStatus
+	JSON5XX      *RpcStatus
+}
+
+// Status returns HTTPResponse.Status
+func (r ListNamespaceAliasesApiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListNamespaceAliasesApiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateNamespaceAliasApiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *NamespaceAliasDescription
+	JSON400      *RpcStatus
+	JSON409      *RpcStatus
+	JSON4XX      *RpcStatus
+	JSON5XX      *RpcStatus
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateNamespaceAliasApiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateNamespaceAliasApiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteNamespaceAliasApiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeleteResponse
+	JSON400      *RpcStatus
+	JSON404      *RpcStatus
+	JSON4XX      *RpcStatus
+	JSON5XX      *RpcStatus
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteNamespaceAliasApiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteNamespaceAliasApiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DescribeNamespaceAliasApiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *NamespaceAliasDescription
+	JSON400      *RpcStatus
+	JSON404      *RpcStatus
+	JSON4XX      *RpcStatus
+	JSON5XX      *RpcStatus
+}
+
+// Status returns HTTPResponse.Status
+func (r DescribeNamespaceAliasApiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DescribeNamespaceAliasApiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RepointNamespaceAliasApiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *NamespaceAliasDescription
+	JSON400      *RpcStatus
+	JSON404      *RpcStatus
+	JSON4XX      *RpcStatus
+	JSON5XX      *RpcStatus
+}
+
+// Status returns HTTPResponse.Status
+func (r RepointNamespaceAliasApiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RepointNamespaceAliasApiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListNamespacesOperationApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6003,6 +6448,7 @@ type DeleteDocumentsApiResponse struct {
 	HTTPResponse *http.Response
 	JSON202      *DeleteDocumentsResponse
 	JSON400      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON5XX      *ErrorResponse
 }
@@ -6103,6 +6549,7 @@ type UpdateDocumentsApiResponse struct {
 	HTTPResponse *http.Response
 	JSON202      *UpdateDocumentsResponse
 	JSON400      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON5XX      *ErrorResponse
 }
@@ -6128,6 +6575,7 @@ type UpsertDocumentsApiResponse struct {
 	HTTPResponse *http.Response
 	JSON202      *UpsertDocumentsResponse
 	JSON400      *ErrorResponse
+	JSON409      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON5XX      *ErrorResponse
 }
@@ -6202,6 +6650,7 @@ type UpsertRecordsNamespaceApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON400      *ErrorResponse
+	JSON409      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON5XX      *ErrorResponse
 }
@@ -6352,6 +6801,7 @@ type UpsertVectorsApiResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *UpsertResponse
 	JSON400      *RpcStatus
+	JSON409      *RpcStatus
 	JSON4XX      *RpcStatus
 	JSON5XX      *RpcStatus
 }
@@ -6431,6 +6881,67 @@ func (c *ClientWithResponses) DescribeIndexStatsWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseDescribeIndexStatsApiResponse(rsp)
+}
+
+// ListNamespaceAliasesWithResponse request returning *ListNamespaceAliasesApiResponse
+func (c *ClientWithResponses) ListNamespaceAliasesWithResponse(ctx context.Context, params *ListNamespaceAliasesParams, reqEditors ...RequestEditorFn) (*ListNamespaceAliasesApiResponse, error) {
+	rsp, err := c.ListNamespaceAliases(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListNamespaceAliasesApiResponse(rsp)
+}
+
+// CreateNamespaceAliasWithBodyWithResponse request with arbitrary body returning *CreateNamespaceAliasApiResponse
+func (c *ClientWithResponses) CreateNamespaceAliasWithBodyWithResponse(ctx context.Context, params *CreateNamespaceAliasParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateNamespaceAliasApiResponse, error) {
+	rsp, err := c.CreateNamespaceAliasWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateNamespaceAliasApiResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateNamespaceAliasWithResponse(ctx context.Context, params *CreateNamespaceAliasParams, body CreateNamespaceAliasJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateNamespaceAliasApiResponse, error) {
+	rsp, err := c.CreateNamespaceAlias(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateNamespaceAliasApiResponse(rsp)
+}
+
+// DeleteNamespaceAliasWithResponse request returning *DeleteNamespaceAliasApiResponse
+func (c *ClientWithResponses) DeleteNamespaceAliasWithResponse(ctx context.Context, aliasName string, params *DeleteNamespaceAliasParams, reqEditors ...RequestEditorFn) (*DeleteNamespaceAliasApiResponse, error) {
+	rsp, err := c.DeleteNamespaceAlias(ctx, aliasName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteNamespaceAliasApiResponse(rsp)
+}
+
+// DescribeNamespaceAliasWithResponse request returning *DescribeNamespaceAliasApiResponse
+func (c *ClientWithResponses) DescribeNamespaceAliasWithResponse(ctx context.Context, aliasName string, params *DescribeNamespaceAliasParams, reqEditors ...RequestEditorFn) (*DescribeNamespaceAliasApiResponse, error) {
+	rsp, err := c.DescribeNamespaceAlias(ctx, aliasName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDescribeNamespaceAliasApiResponse(rsp)
+}
+
+// RepointNamespaceAliasWithBodyWithResponse request with arbitrary body returning *RepointNamespaceAliasApiResponse
+func (c *ClientWithResponses) RepointNamespaceAliasWithBodyWithResponse(ctx context.Context, aliasName string, params *RepointNamespaceAliasParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RepointNamespaceAliasApiResponse, error) {
+	rsp, err := c.RepointNamespaceAliasWithBody(ctx, aliasName, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRepointNamespaceAliasApiResponse(rsp)
+}
+
+func (c *ClientWithResponses) RepointNamespaceAliasWithResponse(ctx context.Context, aliasName string, params *RepointNamespaceAliasParams, body RepointNamespaceAliasJSONRequestBody, reqEditors ...RequestEditorFn) (*RepointNamespaceAliasApiResponse, error) {
+	rsp, err := c.RepointNamespaceAlias(ctx, aliasName, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRepointNamespaceAliasApiResponse(rsp)
 }
 
 // ListNamespacesOperationWithResponse request returning *ListNamespacesOperationApiResponse
@@ -6943,6 +7454,269 @@ func ParseDescribeIndexStatsApiResponse(rsp *http.Response) (*DescribeIndexStats
 	return response, nil
 }
 
+// ParseListNamespaceAliasesApiResponse parses an HTTP response from a ListNamespaceAliasesWithResponse call
+func ParseListNamespaceAliasesApiResponse(rsp *http.Response) (*ListNamespaceAliasesApiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListNamespaceAliasesApiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListNamespaceAliasesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateNamespaceAliasApiResponse parses an HTTP response from a CreateNamespaceAliasWithResponse call
+func ParseCreateNamespaceAliasApiResponse(rsp *http.Response) (*CreateNamespaceAliasApiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateNamespaceAliasApiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest NamespaceAliasDescription
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteNamespaceAliasApiResponse parses an HTTP response from a DeleteNamespaceAliasWithResponse call
+func ParseDeleteNamespaceAliasApiResponse(rsp *http.Response) (*DeleteNamespaceAliasApiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteNamespaceAliasApiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeleteResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDescribeNamespaceAliasApiResponse parses an HTTP response from a DescribeNamespaceAliasWithResponse call
+func ParseDescribeNamespaceAliasApiResponse(rsp *http.Response) (*DescribeNamespaceAliasApiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DescribeNamespaceAliasApiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest NamespaceAliasDescription
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRepointNamespaceAliasApiResponse parses an HTTP response from a RepointNamespaceAliasWithResponse call
+func ParseRepointNamespaceAliasApiResponse(rsp *http.Response) (*RepointNamespaceAliasApiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RepointNamespaceAliasApiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest NamespaceAliasDescription
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListNamespacesOperationApiResponse parses an HTTP response from a ListNamespacesOperationWithResponse call
 func ParseListNamespacesOperationApiResponse(rsp *http.Response) (*ListNamespacesOperationApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -7187,6 +7961,13 @@ func ParseDeleteDocumentsApiResponse(rsp *http.Response) (*DeleteDocumentsApiRes
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -7375,6 +8156,13 @@ func ParseUpdateDocumentsApiResponse(rsp *http.Response) (*UpdateDocumentsApiRes
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -7421,6 +8209,13 @@ func ParseUpsertDocumentsApiResponse(rsp *http.Response) (*UpsertDocumentsApiRes
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
@@ -7555,6 +8350,13 @@ func ParseUpsertRecordsNamespaceApiResponse(rsp *http.Response) (*UpsertRecordsN
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
@@ -7837,6 +8639,13 @@ func ParseUpsertVectorsApiResponse(rsp *http.Response) (*UpsertVectorsApiRespons
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest RpcStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest RpcStatus

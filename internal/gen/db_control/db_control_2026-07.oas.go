@@ -130,7 +130,7 @@ type BackupModel struct {
 	// Region Cloud region where the backup is stored.
 	Region string `json:"region"`
 
-	// Schema The schema of a Pinecone index. The schema defines the typed fields that documents in the index can contain, including vector fields, semantic text fields, and metadata fields.
+	// Schema The schema of a Pinecone index. The schema defines the typed fields that documents in the index can contain, including vector fields, string fields searched by full-text search or by embeddings, and metadata fields.
 	Schema *IndexSchema `json:"schema,omitempty"`
 
 	// SizeBytes Size of the backup in bytes.
@@ -320,6 +320,7 @@ type CollectionModel struct {
 	Size *int64 `json:"size,omitempty"`
 
 	// Status The status of the collection.
+	//
 	// Possible values: `Initializing`, `Ready`, `Terminating`, or `Terminated`.
 	Status string `json:"status"`
 
@@ -328,26 +329,15 @@ type CollectionModel struct {
 }
 
 // ConfigureIndexRequest Configuration updates to apply to an existing index. All fields are optional; only the fields you include are modified.
-// - `deployment`: Update pod-based scaling parameters (`replicas`, `pod_type`).
 //
-//	Deployment type and cloud/region cannot be changed.
-//
-// - `schema`: Update `semantic_text` field embedding parameters. Only
-//
-//	`write_parameters` and `read_parameters` may be changed; the model cannot
-//	be changed after creation.
-//
-// - `read_capacity`: Update read capacity mode or dedicated node configuration
-//
-//	for managed and BYOC indexes. Not applicable to pod-based indexes.
-//
-// - `tags`: Update or delete index tags. Setting a tag value to `""` removes
-//
-//	the tag.
-//
+// - `deployment`: Update pod-based scaling parameters (`replicas`, `pod_type`). Deployment type and cloud/region cannot be changed.
+// - `schema`: Update `semantic_text` field embedding parameters, on a legacy integrated index created via create-for-model. Only `write_parameters` and `read_parameters` may be changed; the model cannot be changed after creation.
+// - `read_capacity`: Update read capacity mode or dedicated node configuration for managed and BYOC indexes. Not applicable to pod-based indexes.
+// - `tags`: Update or delete index tags. Setting a tag value to `""` removes the tag.
 // - `deletion_protection`: Enable or disable deletion protection.
 type ConfigureIndexRequest struct {
 	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	//
 	// Possible values: `disabled` or `enabled`.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 
@@ -357,7 +347,7 @@ type ConfigureIndexRequest struct {
 	// ReadCapacity Read capacity changes for an existing managed or BYOC index. Switch to `OnDemand`, or set `Dedicated` and change any subset of `node_type`, `scaling`, and `manual` replicas/shards; fields you omit keep their current value. BYOC indexes do not support `OnDemand`.
 	ReadCapacity *ReadCapacityPatch `json:"read_capacity,omitempty"`
 
-	// Schema Schema updates to apply to an existing index. Only `semantic_text` field parameters can be updated after index creation. The model itself cannot be changed once set; only `write_parameters` and `read_parameters` may be updated if the model stays the same.
+	// Schema Schema updates to apply to an existing index. Only `semantic_text` field parameters, on a legacy integrated index created via create-for-model, can be updated after index creation. The model itself cannot be changed once set; only `write_parameters` and `read_parameters` may be updated if the model stays the same. The `embed` and `sparse_embed` configurations of a `string` field are fixed at creation and cannot be updated.
 	Schema *PatchIndexSchema `json:"schema,omitempty"`
 
 	// Tags Custom user tags added to an index, at most 20 per index. Keys must be 80 characters or less and alphanumeric, '_', or '-'. Values must be 120 characters or less and consist of printable ASCII characters or spaces. To unset a key, set the value to be an empty string. `null` in responses when the index has no tags.
@@ -373,7 +363,7 @@ type CreateBackupRequest struct {
 	Name *string `json:"name,omitempty"`
 }
 
-// CreateBackupScheduleRequest Request body for creating a backup schedule on an index.
+// CreateBackupScheduleRequest Name, cadence, and retention for an index's automatic backups.
 type CreateBackupScheduleRequest struct {
 	// Name User-defined name for the backup schedule.
 	Name string `json:"name"`
@@ -394,19 +384,49 @@ type CreateCollectionRequest struct {
 	Source string `json:"source"`
 }
 
+// CreateEmbedConfig Dense embedding configuration for a `string` field. Pinecone embeds the field's text with a hosted embedding model when documents are upserted or updated, and embeds the query text with the same model when a search scores the field with an `embed` scoring method.
+//
+// Every key is optional; `{}` selects the default model at its default dimension and metric. The server resolves each omitted key from the model, validates each supplied one against it, and returns the resolved configuration when the index is described. The configuration is fixed at creation and cannot be changed afterwards.
+//
+// An `embed` field occupies the index's single dense vector slot, so it cannot be combined with a `dense_vector` field or with `embed` on another field.
+type CreateEmbedConfig struct {
+	// Dimension The dimension of the embedding vectors. Defaults to the model's default dimension. Models that support several dimensions accept any of them; for example, `llama-text-embed-v2` accepts `512` as well as its default of `1024`. A dimension the model does not support is rejected, and the error lists the supported ones.
+	//
+	// Refer to the [model guide](https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models) for each model's supported dimensions.
+	Dimension *int32 `json:"dimension,omitempty"`
+
+	// Metric The distance metric used for similarity search. Defaults to the model's default metric. A metric the model does not support is rejected.
+	//
+	// Possible values: `cosine`, `dotproduct`, or `euclidean`.
+	Metric *string `json:"metric,omitempty"`
+
+	// Model The name of a hosted dense embedding model. Defaults to `llama-text-embed-v2`. A sparse model is rejected; declare it under `sparse_embed` instead.
+	//
+	// Refer to the [model guide](https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models) for available models.
+	Model *string `json:"model,omitempty"`
+
+	// ReadParameters Model-specific parameters applied when embedding search query text, such as `truncate`. Validated against the model; omitted parameters take the model's defaults. The resolved parameters are returned when the index is described.
+	ReadParameters *map[string]interface{} `json:"read_parameters,omitempty"`
+
+	// WriteParameters Model-specific parameters applied when embedding document text, such as `truncate`. Validated against the model; omitted parameters take the model's defaults. The resolved parameters are returned when the index is described.
+	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+}
+
 // CreateIndexForModelRequest The desired configuration for the index and associated embedding model.
 type CreateIndexForModelRequest struct {
 	// Cloud The public cloud where you would like your index hosted.
+	//
 	// Possible values: `gcp`, `aws`, or `azure`.
 	Cloud string `json:"cloud"`
 
 	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	//
 	// Possible values: `disabled` or `enabled`.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 
-	// Embed Specify the integrated inference embedding configuration for the index.
+	// Embed Specify the integrated embedding configuration for the legacy integrated index.
 	//
-	// Once set the model cannot be changed, but you can later update the embedding configuration for an integrated inference index including field map, read parameters, or write parameters.
+	// Once set the model cannot be changed, but you can later update the embedding configuration of a legacy integrated index, including field map, read parameters, or write parameters.
 	//
 	// Refer to the [model guide](https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models) for available models and model details.
 	Embed struct {
@@ -417,6 +437,7 @@ type CreateIndexForModelRequest struct {
 		FieldMap map[string]interface{} `json:"field_map"`
 
 		// Metric The distance metric to be used for similarity search. You can use 'euclidean', 'cosine', or 'dotproduct'. If not specified, the metric will be defaulted according to the model. Cannot be updated once set.
+		//
 		// Possible values: `cosine`, `euclidean`, or `dotproduct`.
 		Metric *string `json:"metric,omitempty"`
 
@@ -433,7 +454,7 @@ type CreateIndexForModelRequest struct {
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
-	// ReadCapacity By default the index will be created with read capacity  mode `OnDemand`. If you prefer to allocate dedicated read  nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`. BYOC indexes do not support `OnDemand`: a `byoc` deployment must set `mode: Dedicated` explicitly, since omitting `read_capacity` defaults to `OnDemand` and is rejected.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`. BYOC indexes do not support `OnDemand`: a `byoc` deployment must set `mode: Dedicated` explicitly, since omitting `read_capacity` defaults to `OnDemand` and is rejected.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Region The region where you would like your index to be created.
@@ -449,13 +470,14 @@ type CreateIndexForModelRequest struct {
 // CreateIndexFromBackupRequest The configuration needed to create a Pinecone index from a backup.
 type CreateIndexFromBackupRequest struct {
 	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	//
 	// Possible values: `disabled` or `enabled`.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
-	// ReadCapacity By default the index will be created with read capacity  mode `OnDemand`. If you prefer to allocate dedicated read  nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`. BYOC indexes do not support `OnDemand`: a `byoc` deployment must set `mode: Dedicated` explicitly, since omitting `read_capacity` defaults to `OnDemand` and is rejected.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`. BYOC indexes do not support `OnDemand`: a `byoc` deployment must set `mode: Dedicated` explicitly, since omitting `read_capacity` defaults to `OnDemand` and is rejected.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Tags Custom user tags added to an index, at most 20 per index. Keys must be 80 characters or less and alphanumeric, '_', or '-'. Values must be 120 characters or less and consist of printable ASCII characters or spaces. To unset a key, set the value to be an empty string. `null` in responses when the index has no tags.
@@ -471,71 +493,87 @@ type CreateIndexFromBackupResponse struct {
 	RestoreJobId string `json:"restore_job_id"`
 }
 
-// CreateIndexRequest The configuration needed to create a Pinecone index.
+// CreateIndexRequest Configuration for a new index.
+//
 // The `schema` field is required and defines the typed fields for the index. The `deployment` field selects infrastructure and defaults to managed (serverless) on AWS `us-east-1` if omitted. The `name` is auto-generated if not provided.
 type CreateIndexRequest struct {
 	// CmekId The ID of a customer-managed encryption key (CMEK) to use for this index. Requires CMEK to be enabled for your organization. Encrypted indexes cannot have `full_text_search` fields: a request that sets `cmek_id` and declares one is rejected, and a project that enforces CMEK rejects any schema with a `full_text_search` field with `412`.
 	CmekId *string `json:"cmek_id,omitempty"`
 
 	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	//
 	// Possible values: `disabled` or `enabled`.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 
 	// Deployment The deployment configuration for index creation. The `deployment_type` field selects the infrastructure model. Defaults to `managed` (serverless) in `us-east-1` on `aws` if omitted.
-	// - `managed`: Serverless infrastructure managed by Pinecone, including
 	//
-	//   full-text search indexes.
+	// - `managed`: Serverless infrastructure managed by Pinecone, including full-text search indexes.
 	// - `byoc`: Bring-your-own-compute.
 	Deployment *IndexDeploymentRequest `json:"deployment,omitempty"`
 
-	// Name The name of the index. Must be unique within the project. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'. If not provided, a name is generated automatically. Callers that require retry-safe behavior should provide an explicit name — a duplicate request with the same name returns 409, making success detectable on retry.
+	// Name The name of the index. Must be unique within the project, start and end with an alphanumeric character, and contain only lower case alphanumeric characters or '-'. Generated automatically if not provided.
 	Name *string `json:"name,omitempty"`
 
-	// ReadCapacity By default the index will be created with read capacity  mode `OnDemand`. If you prefer to allocate dedicated read  nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`. BYOC indexes do not support `OnDemand`: a `byoc` deployment must set `mode: Dedicated` explicitly, since omitting `read_capacity` defaults to `OnDemand` and is rejected.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`. BYOC indexes do not support `OnDemand`: a `byoc` deployment must set `mode: Dedicated` explicitly, since omitting `read_capacity` defaults to `OnDemand` and is rejected.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
-	// Schema The schema to use when creating a Pinecone index. Defines the fields the index searches over: dense vector, sparse vector, and full-text search fields.
-	// At least one of `dense_vector`, `sparse_vector`, or a `string` field with `full_text_search` must be present; an empty `fields` map is rejected. At most one `dense_vector` and one `sparse_vector` field, and at most 100 `full_text_search` fields. Metadata used for filtering is not declared in the schema; it is indexed automatically from the documents you upsert.
+	// Schema The schema to use when creating a Pinecone index. Defines the fields the index searches over: dense vector, sparse vector, and string fields searched by full-text search or by embeddings Pinecone derives from their text.
+	//
+	// At least one of `dense_vector`, `sparse_vector`, or a `string` field with `full_text_search`, `embed`, or `sparse_embed` must be present; an empty `fields` map is rejected. An index has one dense vector slot and one sparse vector slot: at most one field may be a `dense_vector` field or carry `embed`, and at most one may be a `sparse_vector` field or carry `sparse_embed`. At most 100 `full_text_search` fields. Metadata used for filtering is not declared in the schema; it is indexed automatically from the documents you upsert.
 	Schema CreateIndexSchema `json:"schema"`
 
 	// Tags Custom user tags added to an index, at most 20 per index. Keys must be 80 characters or less and alphanumeric, '_', or '-'. Values must be 120 characters or less and consist of printable ASCII characters or spaces. To unset a key, set the value to be an empty string. `null` in responses when the index has no tags.
 	Tags *IndexTags `json:"tags"`
 }
 
-// CreateIndexSchema The schema to use when creating a Pinecone index. Defines the fields the index searches over: dense vector, sparse vector, and full-text search fields.
-// At least one of `dense_vector`, `sparse_vector`, or a `string` field with `full_text_search` must be present; an empty `fields` map is rejected. At most one `dense_vector` and one `sparse_vector` field, and at most 100 `full_text_search` fields. Metadata used for filtering is not declared in the schema; it is indexed automatically from the documents you upsert.
+// CreateIndexSchema The schema to use when creating a Pinecone index. Defines the fields the index searches over: dense vector, sparse vector, and string fields searched by full-text search or by embeddings Pinecone derives from their text.
+//
+// At least one of `dense_vector`, `sparse_vector`, or a `string` field with `full_text_search`, `embed`, or `sparse_embed` must be present; an empty `fields` map is rejected. An index has one dense vector slot and one sparse vector slot: at most one field may be a `dense_vector` field or carry `embed`, and at most one may be a `sparse_vector` field or carry `sparse_embed`. At most 100 `full_text_search` fields. Metadata used for filtering is not declared in the schema; it is indexed automatically from the documents you upsert.
 type CreateIndexSchema struct {
 	// Fields A map of field names to their configurations. Field names must be unique, non-empty strings of at most 64 bytes and must not start with `$`, which introduces a filter operator.
-	// Names starting with `_` are reserved: this covers `_id`, `_values`, `_sparse_values`, and every other underscore-prefixed name. Two reserved names are accepted, and only as the whole schema: `_values` (type `dense_vector`) and/or `_sparse_values` (type `sparse_vector`) with no other fields. Such a schema creates a classic vector index, which is read and written through the vectors API rather than the documents API — the same index that earlier API versions created from `dimension`, `metric`, and `vector_type`. Reserved fields do not accept a `description`. Any other field named with a leading `_`, or a reserved field combined with other fields, is rejected.
-	// The map may not be empty: a schema with no fields is rejected with `Schema must contain at least one of the following field types: dense_vector, sparse_vector, string with full_text_search`.
+	//
+	// Names starting with `_` are reserved: this covers `_id`, `_values`, `_sparse_values`, and every other underscore-prefixed name. Two reserved names are accepted, and only as the whole schema: `_values` (type `dense_vector`) and/or `_sparse_values` (type `sparse_vector`) with no other fields. Such a schema creates a classic vector index, which is read and written through the vectors API rather than the Documents API — the same index that earlier API versions created from `dimension`, `metric`, and `vector_type`. Reserved fields do not accept a `description`. Any other field named with a leading `_`, or a reserved field combined with other fields, is rejected.
 	Fields map[string]CreateIndexSchemaField `json:"fields"`
 }
 
 // CreateIndexSchemaField The configuration of a single field in the index schema at creation time. The `type` property determines how the field is stored and searched.
-// Field types accepted at creation time:
-// - `dense_vector`: Fixed-dimension floating-point vectors for ANN search. - `sparse_vector`: Sparse vectors for keyword or hybrid search. - `string` with a `full_text_search` object: String field for full-text search.
-// Schema constraints enforced at creation time:
-// - At most one `dense_vector` field. - At most one `sparse_vector` field. - At least one of `dense_vector`, `sparse_vector`, or a `string` field with
 //
-//	`full_text_search` must be present.
+// Field types accepted at creation time:
+//
+// - `dense_vector`: Fixed-dimension floating-point vectors for ANN search.
+// - `sparse_vector`: Sparse vectors for keyword or hybrid search.
+// - `string` with `full_text_search`, `embed`, and/or `sparse_embed`: String field searched by full-text search, or by dense or sparse similarity over embeddings Pinecone derives from its text.
 //
 // Other field types seen in `IndexSchemaField` responses cannot be declared here:
-// - `semantic_text` cannot be declared in a schema. Create an index with an
 //
-//	integrated embedding model through the create-for-model operation instead;
-//	it appears as a `semantic_text` field when the index is described.
-//
-// - `float` (also spelled `number`), `boolean`, `string_list`, and `string`
-//
-//	without `full_text_search` are metadata types and are rejected. Include the
-//	values as document metadata and they are indexed for filtering automatically.
+// - `semantic_text` is rejected. It is how a legacy integrated index created via create-for-model describes its embedded text field. To enable integrated embedding on a field of a new document index, declare a `string` field with `embed` or `sparse_embed`.
+// - `float` (also spelled `number`), `boolean`, `string_list`, and a `string` field with none of `full_text_search`, `embed`, or `sparse_embed` are metadata types and are rejected. Include the values as document metadata and they are indexed for filtering automatically.
 //
 // Every field accepts an optional `description` of at most 256 bytes.
 type CreateIndexSchemaField struct {
 	union json.RawMessage
 }
 
+// CreateSparseEmbedConfig Learned-sparse embedding configuration for a `string` field. Pinecone embeds the field's text with a hosted sparse embedding model when documents are upserted or updated, and embeds the query text with the same model when a search scores the field with a `sparse_embed` scoring method.
+//
+// Every key is optional; `{}` selects the default model. Sparse embeddings have no dimension or metric, and `dimension` or `metric` is rejected here. The resolved configuration is returned when the index is described. The configuration is fixed at creation and cannot be changed afterwards.
+//
+// A `sparse_embed` field occupies the index's single sparse vector slot, so it cannot be combined with a `sparse_vector` field or with `sparse_embed` on another field.
+type CreateSparseEmbedConfig struct {
+	// Model The name of a hosted sparse embedding model. Defaults to `pinecone-sparse-english-v0`. A dense model is rejected; declare it under `embed` instead.
+	//
+	// Refer to the [model guide](https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models) for available models.
+	Model *string `json:"model,omitempty"`
+
+	// ReadParameters Model-specific parameters applied when embedding search query text, such as `truncate`. Validated against the model; omitted parameters take the model's defaults. The resolved parameters are returned when the index is described.
+	ReadParameters *map[string]interface{} `json:"read_parameters,omitempty"`
+
+	// WriteParameters Model-specific parameters applied when embedding document text, such as `truncate`. Validated against the model; omitted parameters take the model's defaults. The resolved parameters are returned when the index is described.
+	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+}
+
 // DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+//
 // Possible values: `disabled` or `enabled`.
 type DeletionProtection = string
 
@@ -548,6 +586,7 @@ type DenseVectorField struct {
 	Dimension int32 `json:"dimension"`
 
 	// Metric The distance metric used for similarity search.
+	//
 	// Possible values: `cosine`, `dotproduct`, or `euclidean`.
 	Metric string `json:"metric"`
 
@@ -563,6 +602,7 @@ type ErrorResponse struct {
 	// Error Detailed information about the error that occurred.
 	Error struct {
 		// Code The error code.
+		//
 		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `INTERNAL`, `FORBIDDEN`, `PAYMENT_REQUIRED`, `SERVICE_UNAVAILABLE`, `PAYLOAD_TOO_LARGE`, or `UNPROCESSABLE_ENTITY`.
 		Code string `json:"code"`
 
@@ -593,24 +633,17 @@ type FloatField struct {
 type FloatFieldType string
 
 // IndexDeployment The deployment configuration of a Pinecone index. The `deployment_type` field indicates which infrastructure model the index uses.
-// - `pod`: Dedicated pod-based infrastructure. Suitable for workloads that
 //
-//	require predictable performance.
-//
-// - `managed`: Serverless infrastructure managed by Pinecone, including
-//
-//	full-text search indexes. Scales automatically; billed per usage.
-//
+// - `pod`: Dedicated pod-based infrastructure. Suitable for workloads that require predictable performance.
+// - `managed`: Serverless infrastructure managed by Pinecone, including full-text search indexes. Scales automatically; billed per usage.
 // - `byoc`: Bring-your-own-compute. Runs in customer-managed infrastructure.
 type IndexDeployment struct {
 	union json.RawMessage
 }
 
 // IndexDeploymentRequest The deployment configuration for index creation. The `deployment_type` field selects the infrastructure model. Defaults to `managed` (serverless) in `us-east-1` on `aws` if omitted.
-// - `managed`: Serverless infrastructure managed by Pinecone, including
 //
-//	full-text search indexes.
-//
+// - `managed`: Serverless infrastructure managed by Pinecone, including full-text search indexes.
 // - `byoc`: Bring-your-own-compute.
 type IndexDeploymentRequest struct {
 	union json.RawMessage
@@ -628,16 +661,14 @@ type IndexModel struct {
 	CmekId *string `json:"cmek_id,omitempty"`
 
 	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	//
 	// Possible values: `disabled` or `enabled`.
 	DeletionProtection DeletionProtection `json:"deletion_protection"`
 
 	// Deployment The deployment configuration of a Pinecone index. The `deployment_type` field indicates which infrastructure model the index uses.
-	// - `pod`: Dedicated pod-based infrastructure. Suitable for workloads that
 	//
-	//   require predictable performance.
-	// - `managed`: Serverless infrastructure managed by Pinecone, including
-	//
-	//   full-text search indexes. Scales automatically; billed per usage.
+	// - `pod`: Dedicated pod-based infrastructure. Suitable for workloads that require predictable performance.
+	// - `managed`: Serverless infrastructure managed by Pinecone, including full-text search indexes. Scales automatically; billed per usage.
 	// - `byoc`: Bring-your-own-compute. Runs in customer-managed infrastructure.
 	Deployment IndexDeployment `json:"deployment"`
 
@@ -653,7 +684,7 @@ type IndexModel struct {
 	// ReadCapacity Response containing read capacity configuration
 	ReadCapacity *ReadCapacityResponse `json:"read_capacity,omitempty"`
 
-	// Schema The schema of a Pinecone index. The schema defines the typed fields that documents in the index can contain, including vector fields, semantic text fields, and metadata fields.
+	// Schema The schema of a Pinecone index. The schema defines the typed fields that documents in the index can contain, including vector fields, string fields searched by full-text search or by embeddings, and metadata fields.
 	Schema IndexSchema `json:"schema"`
 
 	// SourceBackupId The ID of the backup this index was restored from, if any.
@@ -668,6 +699,7 @@ type IndexModel struct {
 		Ready bool `json:"ready"`
 
 		// State The current state of the index.
+		//
 		// Possible values: `Initializing`, `InitializationFailed`, `Failed`, `ScalingUp`, `ScalingDown`, `ScalingUpPodSize`, `Terminating`, `Ready`, or `Disabled`.
 		State string `json:"state"`
 	} `json:"status"`
@@ -676,20 +708,27 @@ type IndexModel struct {
 	Tags *IndexTags `json:"tags"`
 }
 
-// IndexSchema The schema of a Pinecone index. The schema defines the typed fields that documents in the index can contain, including vector fields, semantic text fields, and metadata fields.
+// IndexSchema The schema of a Pinecone index. The schema defines the typed fields that documents in the index can contain, including vector fields, string fields searched by full-text search or by embeddings, and metadata fields.
 type IndexSchema struct {
 	// Fields A map of field names to their configurations.
+	//
 	// Indexes that are served by the vectors API — created with the reserved `_values` / `_sparse_values` schema, or created by an earlier API version from `dimension`, `metric`, and `vector_type` — report their vector fields under the reserved names `_values` (dense) and `_sparse_values` (sparse), and any metadata fields configured for filtering as legacy fields carrying only `filterable`. Dense vectors-API indexes always report both `_values` and `_sparse_values`, regardless of how they were created.
 	Fields map[string]IndexSchemaField `json:"fields"`
 }
 
 // IndexSchemaField The configuration of a single field in the index schema.
+//
 // Most fields carry a `type` property that identifies the field type:
-// - `dense_vector`: Fixed-dimension floating-point vectors for ANN search. - `sparse_vector`: Sparse vectors for keyword or hybrid search. - `semantic_text`: Text field backed by an integrated embedding model. - `string`: String field for full-text search or metadata filtering. - `string_list`: String array field. - `float`: Numeric field. - `integer`: Legacy numeric field from older indexes (pre-dating float
 //
-//	normalization). Will not appear in new indexes.
-//
+// - `dense_vector`: Fixed-dimension floating-point vectors for ANN search.
+// - `sparse_vector`: Sparse vectors for keyword or hybrid search.
+// - `semantic_text`: The embedded text field of a legacy integrated index created via create-for-model.
+// - `string`: String field for full-text search, integrated embedding (`embed` / `sparse_embed`), or metadata filtering.
+// - `string_list`: String array field.
+// - `float`: Numeric field.
+// - `integer`: Legacy numeric field from older indexes (pre-dating float normalization). Will not appear in new indexes.
 // - `boolean`: Boolean field.
+//
 // Fields in older indexes may omit `type` entirely. These are legacy metadata fields from before typed schemas were introduced.
 type IndexSchemaField struct {
 	union json.RawMessage
@@ -722,6 +761,7 @@ type LegacyMetadataField struct {
 // ManagedDeployment Deployment configuration for a serverless (managed) index. Serverless indexes scale automatically and you are billed only for the resources you use. This deployment type also covers full-text search indexes, which are serverless under the hood.
 type ManagedDeployment struct {
 	// Cloud The public cloud where the index is hosted.
+	//
 	// Possible values: `gcp`, `aws`, or `azure`.
 	Cloud string `json:"cloud"`
 
@@ -741,6 +781,7 @@ type ManagedDeploymentDeploymentType string
 // MetadataSchema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
 type MetadataSchema struct {
 	// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique. At most 50 fields may be declared.
+	//
 	// Field names may not begin with `$`, which introduces a filter operator. When declared at index creation, names beginning with `_` are also rejected (reserved for internal use).
 	Fields *map[string]struct {
 		// Filterable Whether the field is indexed and can be used in filters. Must be present and must be `true`: omitting it, or sending `false` or `null`, is rejected with `Field '<name>' is set to filterable: false. Only filterable: true is supported.` To leave a field unindexed, omit it from `fields` entirely.
@@ -760,7 +801,7 @@ type PatchIndexDeploymentRequest struct {
 	Replicas *int32 `json:"replicas,omitempty"`
 }
 
-// PatchIndexSchema Schema updates to apply to an existing index. Only `semantic_text` field parameters can be updated after index creation. The model itself cannot be changed once set; only `write_parameters` and `read_parameters` may be updated if the model stays the same.
+// PatchIndexSchema Schema updates to apply to an existing index. Only `semantic_text` field parameters, on a legacy integrated index created via create-for-model, can be updated after index creation. The model itself cannot be changed once set; only `write_parameters` and `read_parameters` may be updated if the model stays the same. The `embed` and `sparse_embed` configurations of a `string` field are fixed at creation and cannot be updated.
 type PatchIndexSchema struct {
 	// Fields A map of semantic text field names to their updated parameters. Only fields of type `semantic_text` may be specified, and only one field per request.
 	Fields map[string]PatchSemanticTextField `json:"fields"`
@@ -805,12 +846,12 @@ type PodDeployment struct {
 // PodDeploymentDeploymentType Identifies this as a pod-based deployment. Must be `pod`.
 type PodDeploymentDeploymentType string
 
-// ReadCapacity By default the index will be created with read capacity  mode `OnDemand`. If you prefer to allocate dedicated read  nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`. BYOC indexes do not support `OnDemand`: a `byoc` deployment must set `mode: Dedicated` explicitly, since omitting `read_capacity` defaults to `OnDemand` and is rejected.
+// ReadCapacity By default the index will be created with read capacity mode `OnDemand`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`. BYOC indexes do not support `OnDemand`: a `byoc` deployment must set `mode: Dedicated` explicitly, since omitting `read_capacity` defaults to `OnDemand` and is rejected.
 type ReadCapacity struct {
 	union json.RawMessage
 }
 
-// ReadCapacityDedicatedConfig Configuration for dedicated read capacity. See  [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on  how to configure dedicated read capacity.
+// ReadCapacityDedicatedConfig Configuration for dedicated read capacity. See [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on how to configure dedicated read capacity.
 type ReadCapacityDedicatedConfig struct {
 	// Manual The config to use for manual read capacity scaling.
 	Manual ScalingConfigManual `json:"manual"`
@@ -852,7 +893,7 @@ type ReadCapacityDedicatedPatchSpec struct {
 
 // ReadCapacityDedicatedSpec defines model for ReadCapacityDedicatedSpec.
 type ReadCapacityDedicatedSpec struct {
-	// Dedicated Configuration for dedicated read capacity. See  [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on  how to configure dedicated read capacity.
+	// Dedicated Configuration for dedicated read capacity. See [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on how to configure dedicated read capacity.
 	Dedicated ReadCapacityDedicatedConfig `json:"dedicated"`
 
 	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, and `dedicated.scaling` must be specified.
@@ -861,7 +902,7 @@ type ReadCapacityDedicatedSpec struct {
 
 // ReadCapacityDedicatedSpecResponse defines model for ReadCapacityDedicatedSpecResponse.
 type ReadCapacityDedicatedSpecResponse struct {
-	// Dedicated Configuration for dedicated read capacity. See  [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on  how to configure dedicated read capacity.
+	// Dedicated Configuration for dedicated read capacity. See [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on how to configure dedicated read capacity.
 	Dedicated ReadCapacityDedicatedConfig `json:"dedicated"`
 
 	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, and `dedicated.scaling` must be specified.
@@ -917,12 +958,47 @@ type ReadCapacityStatus struct {
 	State string `json:"state"`
 }
 
-// ResponseStringField A string field as returned in index schema responses. String fields configured for full-text search include a `full_text_search` object; string fields used for metadata filtering only include a `filterable` flag.
+// ResponseEmbedConfig The dense embedding configuration of a `string` field, as resolved when the index was created: the values set in the create request, with every omitted one filled from the model's defaults. Present when the field was created with `embed`.
+type ResponseEmbedConfig struct {
+	// Dimension The dimension of the embedding vectors.
+	Dimension int32 `json:"dimension"`
+
+	// Metric The distance metric used for similarity search.
+	//
+	// Possible values: `cosine`, `dotproduct`, or `euclidean`.
+	Metric string `json:"metric"`
+
+	// Model The hosted dense embedding model that embeds the field's text and the query text of `embed` scoring methods.
+	Model string `json:"model"`
+
+	// ReadParameters The model-specific parameters applied when embedding the query text of `embed` scoring methods, as resolved at creation: the parameters set in the create request merged with the model's defaults.
+	ReadParameters *map[string]interface{} `json:"read_parameters,omitempty"`
+
+	// WriteParameters The model-specific parameters applied when embedding document text, as resolved at creation: the parameters set in the create request merged with the model's defaults.
+	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+}
+
+// ResponseSparseEmbedConfig The learned-sparse embedding configuration of a `string` field, as resolved when the index was created: the values set in the create request, with every omitted one filled from the model's defaults. Present when the field was created with `sparse_embed`. Sparse embeddings have no dimension or metric.
+type ResponseSparseEmbedConfig struct {
+	// Model The hosted sparse embedding model that embeds the field's text and the query text of `sparse_embed` scoring methods.
+	Model string `json:"model"`
+
+	// ReadParameters The model-specific parameters applied when embedding the query text of `sparse_embed` scoring methods, as resolved at creation: the parameters set in the create request merged with the model's defaults.
+	ReadParameters *map[string]interface{} `json:"read_parameters,omitempty"`
+
+	// WriteParameters The model-specific parameters applied when embedding document text, as resolved at creation: the parameters set in the create request merged with the model's defaults.
+	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+}
+
+// ResponseStringField A string field as returned in index schema responses. A search field includes one or more of `full_text_search`, `embed`, and `sparse_embed`. A field whose text is stored always reports `full_text_search`, with its resolved settings, including when it was enabled by default. A string field used for metadata only includes a `filterable` flag instead.
 type ResponseStringField struct {
 	// Description Optional description for this field. `null` when none was set.
 	Description *string `json:"description"`
 
-	// Filterable Whether this field is indexed for metadata filtering.
+	// Embed The dense embedding configuration of a `string` field, as resolved when the index was created: the values set in the create request, with every omitted one filled from the model's defaults. Present when the field was created with `embed`.
+	Embed *ResponseEmbedConfig `json:"embed,omitempty"`
+
+	// Filterable Whether this field is indexed for metadata filtering. Present only on a string field with no search configuration.
 	Filterable *bool `json:"filterable,omitempty"`
 
 	// FullTextSearch Full-text search configuration. Present when the field is indexed for full-text search.
@@ -948,6 +1024,12 @@ type ResponseStringField struct {
 		// StopWords Whether stop words are filtered during text analysis. Only `true` if `stemming: true`.
 		StopWords bool `json:"stop_words"`
 	} `json:"full_text_search,omitempty"`
+
+	// SparseEmbed The learned-sparse embedding configuration of a `string` field, as resolved when the index was created: the values set in the create request, with every omitted one filled from the model's defaults. Present when the field was created with `sparse_embed`. Sparse embeddings have no dimension or metric.
+	SparseEmbed *ResponseSparseEmbedConfig `json:"sparse_embed,omitempty"`
+
+	// StoreText Whether the field's text is stored. `true` means the text is stored and indexed for full-text search; `false` means it is embedded without being stored.
+	StoreText *bool `json:"store_text,omitempty"`
 
 	// Type Identifies this as a string field. Must be `string`.
 	Type ResponseStringFieldType `json:"type"`
@@ -986,6 +1068,7 @@ type RestoreJobModel struct {
 	RestoreJobId string `json:"restore_job_id"`
 
 	// Status Status of the restore job.
+	//
 	// Possible values: `Pending`, `Completed`, `Failed`, or `Cancelled`.
 	Status string `json:"status"`
 
@@ -1014,19 +1097,22 @@ type ScalingConfigManualPatch struct {
 	Shards *int32 `json:"shards,omitempty"`
 }
 
-// SemanticTextField A semantic text field, as returned when describing an index created with an integrated embedding model. Backed by an integrated embedding model that embeds text at write and query time, enabling semantic similarity search without separate embedding calls. Cannot be declared when creating an index; use the create-for-model operation.
+// SemanticTextField The embedded text field of a legacy integrated index created via create-for-model, as returned when the index is described. The index's embedding configuration is reported on the field named by its `field_map`. Legacy integrated indexes require the legacy Records API.
+//
+// This is a read-only view: `semantic_text` is rejected when creating an index. A document index reports an integrated-embedding field as a `string` field carrying `embed` or `sparse_embed` instead.
 type SemanticTextField struct {
-	// Description Optional description for this field, at most 256 bytes. `null` in responses when none was set.
+	// Description The field's description, or `null` when none was set.
 	Description *string `json:"description"`
 
 	// Dimension The dimension of the vectors the model produces. `null` for models that produce sparse vectors.
 	Dimension *int32 `json:"dimension"`
 
-	// Metric The distance metric used for similarity search. Defaults to the model's preferred metric if not specified.
+	// Metric The distance metric the index uses.
+	//
 	// Possible values: `cosine`, `dotproduct`, or `euclidean`.
 	Metric *string `json:"metric,omitempty"`
 
-	// Model The name of the integrated embedding model to use for this field.
+	// Model The hosted embedding model that embeds the field's text.
 	Model string `json:"model"`
 
 	// ReadParameters Model-specific parameters applied at query time, such as `input_type`.
@@ -1054,14 +1140,32 @@ type SparseVectorField struct {
 // SparseVectorFieldType Identifies this as a sparse vector field. Must be `sparse_vector`.
 type SparseVectorFieldType string
 
-// StringField A string field configuration for full-text search. The `full_text_search` object is required; a string field without it will be rejected.
+// StringField A string field configuration. The field must declare at least one search configuration:
+//
+// - `full_text_search`: Index the text for full-text search.
+// - `embed`: Integrated embedding with a dense model. Pinecone embeds the text with a hosted dense embedding model.
+// - `sparse_embed`: Integrated embedding with a sparse model. Pinecone embeds the text with a hosted sparse embedding model.
+//
+// They can be combined on one field, so the same text can be searched by full-text search, dense similarity, and sparse similarity. A string field with none of them is a metadata field and is rejected; include metadata in the documents you upsert instead.
+//
+// By default the field's text is stored, and a stored field is always indexed for full-text search: when `full_text_search` is omitted, it is enabled with default settings. Set `store_text` to `false` to embed the text without storing it.
+//
+// Each value is at most 100 KB, whether or not the text is stored.
 type StringField struct {
 	// Description Optional description for this field, at most 256 bytes.
 	Description *string `json:"description,omitempty"`
 
+	// Embed Dense embedding configuration for a `string` field. Pinecone embeds the field's text with a hosted embedding model when documents are upserted or updated, and embeds the query text with the same model when a search scores the field with an `embed` scoring method.
+	//
+	// Every key is optional; `{}` selects the default model at its default dimension and metric. The server resolves each omitted key from the model, validates each supplied one against it, and returns the resolved configuration when the index is described. The configuration is fixed at creation and cannot be changed afterwards.
+	//
+	// An `embed` field occupies the index's single dense vector slot, so it cannot be combined with a `dense_vector` field or with `embed` on another field.
+	Embed *CreateEmbedConfig `json:"embed,omitempty"`
+
 	// FullTextSearch Full-text search configuration. When present, the field is indexed for full-text search.
+	//
 	// `stop_words` requires `stemming: true`. `ngram` cannot be combined with `stemming` or `stop_words`.
-	FullTextSearch struct {
+	FullTextSearch *struct {
 		// Language The language for text analysis. Defaults to `en` if not specified.
 		Language *string `json:"language,omitempty"`
 
@@ -1082,14 +1186,38 @@ type StringField struct {
 
 		// StopWords Whether to filter stop words during text analysis. Requires `stemming: true`. Defaults to `false`.
 		StopWords *bool `json:"stop_words,omitempty"`
-	} `json:"full_text_search"`
+	} `json:"full_text_search,omitempty"`
+
+	// SparseEmbed Learned-sparse embedding configuration for a `string` field. Pinecone embeds the field's text with a hosted sparse embedding model when documents are upserted or updated, and embeds the query text with the same model when a search scores the field with a `sparse_embed` scoring method.
+	//
+	// Every key is optional; `{}` selects the default model. Sparse embeddings have no dimension or metric, and `dimension` or `metric` is rejected here. The resolved configuration is returned when the index is described. The configuration is fixed at creation and cannot be changed afterwards.
+	//
+	// A `sparse_embed` field occupies the index's single sparse vector slot, so it cannot be combined with a `sparse_vector` field or with `sparse_embed` on another field.
+	SparseEmbed *CreateSparseEmbedConfig `json:"sparse_embed,omitempty"`
+
+	// StoreText When `true` (the default), the field's text is stored and the field is indexed for full-text search. Each value is then subject to the full-text limit of 10,000 tokens after tokenization, in addition to the 100 KB limit.
+	//
+	// When `false`, the field's text is embedded and then discarded rather than stored. Such a field must declare `embed` or `sparse_embed`, and cannot declare `full_text_search`. A fetch or search whose `include_fields` names it is rejected with `400`, and it cannot be scored with `text` or `query_string` or matched with `$match_phrase`, `$match_all`, or `$match_any`; searching it with an `embed` or `sparse_embed` scoring method still works.
+	//
+	// Fixed at creation.
+	StoreText *bool `json:"store_text,omitempty"`
 
 	// Type Identifies this as a string field. Must be `string`.
-	Type StringFieldType `json:"type"`
+	Type  StringFieldType `json:"type"`
+	union json.RawMessage
 }
 
 // StringFieldType Identifies this as a string field. Must be `string`.
 type StringFieldType string
+
+// StringField0 defines model for .
+type StringField0 = interface{}
+
+// StringField1 defines model for .
+type StringField1 = interface{}
+
+// StringField2 defines model for .
+type StringField2 = interface{}
 
 // StringListField A string array field configuration. String array values are not declared in the index schema; include them as document metadata instead — they are indexed automatically at upsert time.
 type StringListField struct {
@@ -1113,6 +1241,9 @@ type TypedIndexSchemaField struct {
 
 // UnauthorizedMessage The plain-text body of a `401` response. Authentication failures are rejected before the request reaches the API, so they carry a short message rather than an `ErrorResponse`.
 type UnauthorizedMessage = string
+
+// UnprocessableEntityMessage The plain-text body of a `422` response. A request body that cannot be deserialized is rejected before the request reaches the API, so it carries the deserializer's message rather than an `ErrorResponse`.
+type UnprocessableEntityMessage = string
 
 // UpdateBackupScheduleRequest Fields that can be updated on an existing backup schedule. Omitted fields are left unchanged. Re-enabling a disabled schedule (`enabled: true`) enqueues a new backup operation.
 type UpdateBackupScheduleRequest struct {
@@ -2104,6 +2235,197 @@ func (t ReadCapacityResponse) MarshalJSON() ([]byte, error) {
 
 func (t *ReadCapacityResponse) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsStringField0 returns the union data inside the StringField as a StringField0
+func (t StringField) AsStringField0() (StringField0, error) {
+	var body StringField0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStringField0 overwrites any union data inside the StringField as the provided StringField0
+func (t *StringField) FromStringField0(v StringField0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStringField0 performs a merge with any union data inside the StringField, using the provided StringField0
+func (t *StringField) MergeStringField0(v StringField0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsStringField1 returns the union data inside the StringField as a StringField1
+func (t StringField) AsStringField1() (StringField1, error) {
+	var body StringField1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStringField1 overwrites any union data inside the StringField as the provided StringField1
+func (t *StringField) FromStringField1(v StringField1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStringField1 performs a merge with any union data inside the StringField, using the provided StringField1
+func (t *StringField) MergeStringField1(v StringField1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsStringField2 returns the union data inside the StringField as a StringField2
+func (t StringField) AsStringField2() (StringField2, error) {
+	var body StringField2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStringField2 overwrites any union data inside the StringField as the provided StringField2
+func (t *StringField) FromStringField2(v StringField2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStringField2 performs a merge with any union data inside the StringField, using the provided StringField2
+func (t *StringField) MergeStringField2(v StringField2) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t StringField) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	object := make(map[string]json.RawMessage)
+	if t.union != nil {
+		err = json.Unmarshal(b, &object)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if t.Description != nil {
+		object["description"], err = json.Marshal(t.Description)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'description': %w", err)
+		}
+	}
+
+	if t.Embed != nil {
+		object["embed"], err = json.Marshal(t.Embed)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'embed': %w", err)
+		}
+	}
+
+	if t.FullTextSearch != nil {
+		object["full_text_search"], err = json.Marshal(t.FullTextSearch)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'full_text_search': %w", err)
+		}
+	}
+
+	if t.SparseEmbed != nil {
+		object["sparse_embed"], err = json.Marshal(t.SparseEmbed)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'sparse_embed': %w", err)
+		}
+	}
+
+	if t.StoreText != nil {
+		object["store_text"], err = json.Marshal(t.StoreText)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'store_text': %w", err)
+		}
+	}
+
+	object["type"], err = json.Marshal(t.Type)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'type': %w", err)
+	}
+
+	b, err = json.Marshal(object)
+	return b, err
+}
+
+func (t *StringField) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	if err != nil {
+		return err
+	}
+	object := make(map[string]json.RawMessage)
+	err = json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["description"]; found {
+		err = json.Unmarshal(raw, &t.Description)
+		if err != nil {
+			return fmt.Errorf("error reading 'description': %w", err)
+		}
+	}
+
+	if raw, found := object["embed"]; found {
+		err = json.Unmarshal(raw, &t.Embed)
+		if err != nil {
+			return fmt.Errorf("error reading 'embed': %w", err)
+		}
+	}
+
+	if raw, found := object["full_text_search"]; found {
+		err = json.Unmarshal(raw, &t.FullTextSearch)
+		if err != nil {
+			return fmt.Errorf("error reading 'full_text_search': %w", err)
+		}
+	}
+
+	if raw, found := object["sparse_embed"]; found {
+		err = json.Unmarshal(raw, &t.SparseEmbed)
+		if err != nil {
+			return fmt.Errorf("error reading 'sparse_embed': %w", err)
+		}
+	}
+
+	if raw, found := object["store_text"]; found {
+		err = json.Unmarshal(raw, &t.StoreText)
+		if err != nil {
+			return fmt.Errorf("error reading 'store_text': %w", err)
+		}
+	}
+
+	if raw, found := object["type"]; found {
+		err = json.Unmarshal(raw, &t.Type)
+		if err != nil {
+			return fmt.Errorf("error reading 'type': %w", err)
+		}
+	}
+
 	return err
 }
 
@@ -4500,7 +4822,6 @@ type UpdateBackupScheduleApiResponse struct {
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
-	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -4630,7 +4951,6 @@ type CreateIndexFromBackupOperationApiResponse struct {
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
 	JSON412      *ErrorResponse
-	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -4682,7 +5002,6 @@ type CreateCollectionApiResponse struct {
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
-	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -4783,7 +5102,6 @@ type CreateIndexApiResponse struct {
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
 	JSON412      *ErrorResponse
-	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -4812,7 +5130,6 @@ type CreateIndexForModelApiResponse struct {
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
-	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -4888,7 +5205,6 @@ type ConfigureIndexApiResponse struct {
 	JSON400      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
-	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -4943,7 +5259,6 @@ type CreateBackupScheduleApiResponse struct {
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
-	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -4995,7 +5310,6 @@ type CreateBackupApiResponse struct {
 	JSON200      *BackupModel
 	JSON400      *ErrorResponse
 	JSON403      *ErrorResponse
-	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5481,13 +5795,6 @@ func ParseUpdateBackupScheduleApiResponse(rsp *http.Response) (*UpdateBackupSche
 		}
 		response.JSON409 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON422 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -5751,13 +6058,6 @@ func ParseCreateIndexFromBackupOperationApiResponse(rsp *http.Response) (*Create
 		}
 		response.JSON412 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON422 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -5858,13 +6158,6 @@ func ParseCreateCollectionApiResponse(rsp *http.Response) (*CreateCollectionApiR
 			return nil, err
 		}
 		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
@@ -6054,13 +6347,6 @@ func ParseCreateIndexApiResponse(rsp *http.Response) (*CreateIndexApiResponse, e
 		}
 		response.JSON412 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON422 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6128,13 +6414,6 @@ func ParseCreateIndexForModelApiResponse(rsp *http.Response) (*CreateIndexForMod
 			return nil, err
 		}
 		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
@@ -6277,13 +6556,6 @@ func ParseConfigureIndexApiResponse(rsp *http.Response) (*ConfigureIndexApiRespo
 		}
 		response.JSON404 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON422 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6406,13 +6678,6 @@ func ParseCreateBackupScheduleApiResponse(rsp *http.Response) (*CreateBackupSche
 		}
 		response.JSON409 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON422 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6513,13 +6778,6 @@ func ParseCreateBackupApiResponse(rsp *http.Response) (*CreateBackupApiResponse,
 			return nil, err
 		}
 		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse

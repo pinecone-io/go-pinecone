@@ -82,6 +82,7 @@ type CreateRoleBindingRequest struct {
 	PrincipalId string `json:"principal_id"`
 
 	// PrincipalType The kind of principal that receives permissions from a role binding.
+	//
 	// Possible values: `user`, `service_account`, `api_key`, `invite`.
 	PrincipalType string `json:"principal_type"`
 
@@ -89,6 +90,7 @@ type CreateRoleBindingRequest struct {
 	ResourceId *string `json:"resource_id,omitempty"`
 
 	// ResourceType The kind of resource scope a role binding applies to.
+	//
 	// Possible values: `organization`, `project`.
 	ResourceType string `json:"resource_type"`
 
@@ -110,6 +112,7 @@ type ErrorResponse struct {
 	// Error Detailed information about the error that occurred.
 	Error struct {
 		// Code The error code.
+		//
 		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `QUOTA_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `UNIMPLEMENTED`, `INTERNAL`, `UNAVAILABLE`, `DATA_LOSS`, `FORBIDDEN`, or `UNPROCESSABLE_ENTITY`.
 		Code string `json:"code"`
 
@@ -140,6 +143,7 @@ type Invite struct {
 	ProcessedAt *time.Time `json:"processed_at"`
 
 	// Status The lifecycle status of an invite.
+	//
 	// Possible values: `pending`, `expired`, `processed`. List endpoints return only `pending` and `expired` invites; `processed` is returned only when fetching a single invite by ID.
 	Status string `json:"status"`
 }
@@ -225,6 +229,7 @@ type RoleBinding struct {
 	PrincipalId string `json:"principal_id"`
 
 	// PrincipalType The kind of principal that receives permissions from a role binding.
+	//
 	// Possible values: `user`, `service_account`, `api_key`, `invite`.
 	PrincipalType string `json:"principal_type"`
 
@@ -232,6 +237,7 @@ type RoleBinding struct {
 	ResourceId string `json:"resource_id"`
 
 	// ResourceType The kind of resource scope a role binding applies to.
+	//
 	// Possible values: `organization`, `project`.
 	ResourceType string `json:"resource_type"`
 
@@ -240,12 +246,14 @@ type RoleBinding struct {
 }
 
 // RoleBindingInput A role to grant to the principal being created. `resource_type` selects the binding scope and acts as the tag for the entry.
+//
 // For `organization` scope, omit `resource_id`; the binding applies to the principal's organization (inferred from the request context). For `project` scope, `resource_id` is required and must be the project UUID.
 type RoleBindingInput struct {
 	// ResourceId Project UUID. Required when `resource_type` is `project`; omit for `organization` scope.
 	ResourceId *string `json:"resource_id,omitempty"`
 
 	// ResourceType The kind of resource scope a role binding applies to.
+	//
 	// Possible values: `organization`, `project`.
 	ResourceType string `json:"resource_type"`
 
@@ -310,6 +318,7 @@ type UpdateAPIKeyRequest struct {
 	Name *string `json:"name,omitempty"`
 
 	// Roles A new set of roles for the API key. Existing roles will be removed if not included.
+	//
 	// If this field is omitted, the roles will not be updated.
 	Roles *[]string `json:"roles,omitempty"`
 }

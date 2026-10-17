@@ -76,6 +76,7 @@ type ErrorResponse struct {
 	// Error Detailed information about the error that occurred.
 	Error struct {
 		// Code The error code.
+		//
 		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `QUOTA_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `UNIMPLEMENTED`, `INTERNAL`, `UNAVAILABLE`, `DATA_LOSS`, or `FORBIDDEN`.
 		Code string `json:"code"`
 
@@ -136,6 +137,7 @@ type ModelInfoList struct {
 }
 
 // ModelInfoMetric A distance metric that the embedding model supports for similarity searches.
+//
 // Possible values: `cosine`, `euclidean`, or `dotproduct`.
 type ModelInfoMetric = string
 

@@ -652,3 +652,307 @@ var VectorService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "db_data_2026-07.proto",
 }
+
+const (
+	NamespaceAliasService_CreateNamespaceAlias_FullMethodName   = "/NamespaceAliasService/CreateNamespaceAlias"
+	NamespaceAliasService_ListNamespaceAliases_FullMethodName   = "/NamespaceAliasService/ListNamespaceAliases"
+	NamespaceAliasService_DescribeNamespaceAlias_FullMethodName = "/NamespaceAliasService/DescribeNamespaceAlias"
+	NamespaceAliasService_RepointNamespaceAlias_FullMethodName  = "/NamespaceAliasService/RepointNamespaceAlias"
+	NamespaceAliasService_DeleteNamespaceAlias_FullMethodName   = "/NamespaceAliasService/DeleteNamespaceAlias"
+)
+
+// NamespaceAliasServiceClient is the client API for NamespaceAliasService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type NamespaceAliasServiceClient interface {
+	// Create a namespace alias
+	//
+	// Create an alias that resolves to an existing namespace in the index. A
+	// successful response means the alias resolves on every reader; the call is
+	// held open until that is true, so expect it to take about a second.
+	//
+	// For guidance and examples, see [Manage namespace aliases](https://docs.pinecone.io/guides/manage-data/namespace-aliases/manage-aliases).
+	CreateNamespaceAlias(ctx context.Context, in *CreateNamespaceAliasRequest, opts ...grpc.CallOption) (*NamespaceAliasDescription, error)
+	// List namespace aliases
+	//
+	// List the aliases in an index, ordered by name, optionally filtered by name
+	// prefix and by target namespace. A pagination token is returned while more
+	// aliases remain; its absence indicates that the listing is complete.
+	//
+	// For guidance and examples, see [Manage namespace aliases](https://docs.pinecone.io/guides/manage-data/namespace-aliases/manage-aliases).
+	ListNamespaceAliases(ctx context.Context, in *ListNamespaceAliasesRequest, opts ...grpc.CallOption) (*ListNamespaceAliasesResponse, error)
+	// Describe a namespace alias
+	//
+	// Get an alias and the namespace it resolves to.
+	//
+	// For guidance and examples, see [Manage namespace aliases](https://docs.pinecone.io/guides/manage-data/namespace-aliases/manage-aliases).
+	DescribeNamespaceAlias(ctx context.Context, in *DescribeNamespaceAliasRequest, opts ...grpc.CallOption) (*NamespaceAliasDescription, error)
+	// Repoint a namespace alias
+	//
+	// Update the namespace an alias resolves to. The change is atomic, and a
+	// successful response means the new target is live for every reader; the call
+	// is held open until that is true, so expect it to take about a second.
+	//
+	// For guidance and examples, see [Manage namespace aliases](https://docs.pinecone.io/guides/manage-data/namespace-aliases/manage-aliases).
+	RepointNamespaceAlias(ctx context.Context, in *RepointNamespaceAliasRequest, opts ...grpc.CallOption) (*NamespaceAliasDescription, error)
+	// Delete a namespace alias
+	//
+	// Remove an alias from the index. The target namespace and its data are
+	// unchanged. Reads that still use the alias name are served as reads of a
+	// nonexistent namespace (empty results, not an error).
+	//
+	// For guidance and examples, see [Manage namespace aliases](https://docs.pinecone.io/guides/manage-data/namespace-aliases/manage-aliases).
+	DeleteNamespaceAlias(ctx context.Context, in *DeleteNamespaceAliasRequest, opts ...grpc.CallOption) (*DeleteNamespaceAliasResponse, error)
+}
+
+type namespaceAliasServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewNamespaceAliasServiceClient(cc grpc.ClientConnInterface) NamespaceAliasServiceClient {
+	return &namespaceAliasServiceClient{cc}
+}
+
+func (c *namespaceAliasServiceClient) CreateNamespaceAlias(ctx context.Context, in *CreateNamespaceAliasRequest, opts ...grpc.CallOption) (*NamespaceAliasDescription, error) {
+	out := new(NamespaceAliasDescription)
+	err := c.cc.Invoke(ctx, NamespaceAliasService_CreateNamespaceAlias_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *namespaceAliasServiceClient) ListNamespaceAliases(ctx context.Context, in *ListNamespaceAliasesRequest, opts ...grpc.CallOption) (*ListNamespaceAliasesResponse, error) {
+	out := new(ListNamespaceAliasesResponse)
+	err := c.cc.Invoke(ctx, NamespaceAliasService_ListNamespaceAliases_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *namespaceAliasServiceClient) DescribeNamespaceAlias(ctx context.Context, in *DescribeNamespaceAliasRequest, opts ...grpc.CallOption) (*NamespaceAliasDescription, error) {
+	out := new(NamespaceAliasDescription)
+	err := c.cc.Invoke(ctx, NamespaceAliasService_DescribeNamespaceAlias_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *namespaceAliasServiceClient) RepointNamespaceAlias(ctx context.Context, in *RepointNamespaceAliasRequest, opts ...grpc.CallOption) (*NamespaceAliasDescription, error) {
+	out := new(NamespaceAliasDescription)
+	err := c.cc.Invoke(ctx, NamespaceAliasService_RepointNamespaceAlias_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *namespaceAliasServiceClient) DeleteNamespaceAlias(ctx context.Context, in *DeleteNamespaceAliasRequest, opts ...grpc.CallOption) (*DeleteNamespaceAliasResponse, error) {
+	out := new(DeleteNamespaceAliasResponse)
+	err := c.cc.Invoke(ctx, NamespaceAliasService_DeleteNamespaceAlias_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// NamespaceAliasServiceServer is the server API for NamespaceAliasService service.
+// All implementations must embed UnimplementedNamespaceAliasServiceServer
+// for forward compatibility
+type NamespaceAliasServiceServer interface {
+	// Create a namespace alias
+	//
+	// Create an alias that resolves to an existing namespace in the index. A
+	// successful response means the alias resolves on every reader; the call is
+	// held open until that is true, so expect it to take about a second.
+	//
+	// For guidance and examples, see [Manage namespace aliases](https://docs.pinecone.io/guides/manage-data/namespace-aliases/manage-aliases).
+	CreateNamespaceAlias(context.Context, *CreateNamespaceAliasRequest) (*NamespaceAliasDescription, error)
+	// List namespace aliases
+	//
+	// List the aliases in an index, ordered by name, optionally filtered by name
+	// prefix and by target namespace. A pagination token is returned while more
+	// aliases remain; its absence indicates that the listing is complete.
+	//
+	// For guidance and examples, see [Manage namespace aliases](https://docs.pinecone.io/guides/manage-data/namespace-aliases/manage-aliases).
+	ListNamespaceAliases(context.Context, *ListNamespaceAliasesRequest) (*ListNamespaceAliasesResponse, error)
+	// Describe a namespace alias
+	//
+	// Get an alias and the namespace it resolves to.
+	//
+	// For guidance and examples, see [Manage namespace aliases](https://docs.pinecone.io/guides/manage-data/namespace-aliases/manage-aliases).
+	DescribeNamespaceAlias(context.Context, *DescribeNamespaceAliasRequest) (*NamespaceAliasDescription, error)
+	// Repoint a namespace alias
+	//
+	// Update the namespace an alias resolves to. The change is atomic, and a
+	// successful response means the new target is live for every reader; the call
+	// is held open until that is true, so expect it to take about a second.
+	//
+	// For guidance and examples, see [Manage namespace aliases](https://docs.pinecone.io/guides/manage-data/namespace-aliases/manage-aliases).
+	RepointNamespaceAlias(context.Context, *RepointNamespaceAliasRequest) (*NamespaceAliasDescription, error)
+	// Delete a namespace alias
+	//
+	// Remove an alias from the index. The target namespace and its data are
+	// unchanged. Reads that still use the alias name are served as reads of a
+	// nonexistent namespace (empty results, not an error).
+	//
+	// For guidance and examples, see [Manage namespace aliases](https://docs.pinecone.io/guides/manage-data/namespace-aliases/manage-aliases).
+	DeleteNamespaceAlias(context.Context, *DeleteNamespaceAliasRequest) (*DeleteNamespaceAliasResponse, error)
+	mustEmbedUnimplementedNamespaceAliasServiceServer()
+}
+
+// UnimplementedNamespaceAliasServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedNamespaceAliasServiceServer struct {
+}
+
+func (UnimplementedNamespaceAliasServiceServer) CreateNamespaceAlias(context.Context, *CreateNamespaceAliasRequest) (*NamespaceAliasDescription, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateNamespaceAlias not implemented")
+}
+func (UnimplementedNamespaceAliasServiceServer) ListNamespaceAliases(context.Context, *ListNamespaceAliasesRequest) (*ListNamespaceAliasesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListNamespaceAliases not implemented")
+}
+func (UnimplementedNamespaceAliasServiceServer) DescribeNamespaceAlias(context.Context, *DescribeNamespaceAliasRequest) (*NamespaceAliasDescription, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DescribeNamespaceAlias not implemented")
+}
+func (UnimplementedNamespaceAliasServiceServer) RepointNamespaceAlias(context.Context, *RepointNamespaceAliasRequest) (*NamespaceAliasDescription, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RepointNamespaceAlias not implemented")
+}
+func (UnimplementedNamespaceAliasServiceServer) DeleteNamespaceAlias(context.Context, *DeleteNamespaceAliasRequest) (*DeleteNamespaceAliasResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteNamespaceAlias not implemented")
+}
+func (UnimplementedNamespaceAliasServiceServer) mustEmbedUnimplementedNamespaceAliasServiceServer() {}
+
+// UnsafeNamespaceAliasServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to NamespaceAliasServiceServer will
+// result in compilation errors.
+type UnsafeNamespaceAliasServiceServer interface {
+	mustEmbedUnimplementedNamespaceAliasServiceServer()
+}
+
+func RegisterNamespaceAliasServiceServer(s grpc.ServiceRegistrar, srv NamespaceAliasServiceServer) {
+	s.RegisterService(&NamespaceAliasService_ServiceDesc, srv)
+}
+
+func _NamespaceAliasService_CreateNamespaceAlias_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateNamespaceAliasRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NamespaceAliasServiceServer).CreateNamespaceAlias(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NamespaceAliasService_CreateNamespaceAlias_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NamespaceAliasServiceServer).CreateNamespaceAlias(ctx, req.(*CreateNamespaceAliasRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NamespaceAliasService_ListNamespaceAliases_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListNamespaceAliasesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NamespaceAliasServiceServer).ListNamespaceAliases(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NamespaceAliasService_ListNamespaceAliases_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NamespaceAliasServiceServer).ListNamespaceAliases(ctx, req.(*ListNamespaceAliasesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NamespaceAliasService_DescribeNamespaceAlias_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DescribeNamespaceAliasRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NamespaceAliasServiceServer).DescribeNamespaceAlias(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NamespaceAliasService_DescribeNamespaceAlias_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NamespaceAliasServiceServer).DescribeNamespaceAlias(ctx, req.(*DescribeNamespaceAliasRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NamespaceAliasService_RepointNamespaceAlias_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RepointNamespaceAliasRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NamespaceAliasServiceServer).RepointNamespaceAlias(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NamespaceAliasService_RepointNamespaceAlias_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NamespaceAliasServiceServer).RepointNamespaceAlias(ctx, req.(*RepointNamespaceAliasRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NamespaceAliasService_DeleteNamespaceAlias_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteNamespaceAliasRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NamespaceAliasServiceServer).DeleteNamespaceAlias(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NamespaceAliasService_DeleteNamespaceAlias_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NamespaceAliasServiceServer).DeleteNamespaceAlias(ctx, req.(*DeleteNamespaceAliasRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// NamespaceAliasService_ServiceDesc is the grpc.ServiceDesc for NamespaceAliasService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var NamespaceAliasService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "NamespaceAliasService",
+	HandlerType: (*NamespaceAliasServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateNamespaceAlias",
+			Handler:    _NamespaceAliasService_CreateNamespaceAlias_Handler,
+		},
+		{
+			MethodName: "ListNamespaceAliases",
+			Handler:    _NamespaceAliasService_ListNamespaceAliases_Handler,
+		},
+		{
+			MethodName: "DescribeNamespaceAlias",
+			Handler:    _NamespaceAliasService_DescribeNamespaceAlias_Handler,
+		},
+		{
+			MethodName: "RepointNamespaceAlias",
+			Handler:    _NamespaceAliasService_RepointNamespaceAlias_Handler,
+		},
+		{
+			MethodName: "DeleteNamespaceAlias",
+			Handler:    _NamespaceAliasService_DeleteNamespaceAlias_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "db_data_2026-07.proto",
+}

@@ -2427,7 +2427,7 @@ func toListNamespacesResponse(listNamespacesResponse *db_data_grpc.ListNamespace
 	return &ListNamespacesResponse{
 		Namespaces: namespaces,
 		Pagination: pagination,
-		TotalCount: listNamespacesResponse.TotalCount,
+		TotalCount: derefOrDefault(listNamespacesResponse.TotalCount, 0),
 	}
 }
 
