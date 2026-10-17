@@ -257,6 +257,32 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			}},
 		},
 		{
+			name:     "CreateBYOCIndex with OnDemand read capacity",
+			status:   http.StatusCreated,
+			response: indexModelFixture{name: "byoc-index", deployment: byocDeploymentJSON}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.CreateBYOCIndex(context.Background(), &CreateBYOCIndexRequest{
+					Name:         "byoc-index",
+					Environment:  "test-environ",
+					Dimension:    ptr(int32(3)),
+					ReadCapacity: &ReadCapacityParams{OnDemand: &ReadCapacityOnDemandConfig{}},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{{
+				method: http.MethodPost,
+				path:   "/indexes",
+				body: `{
+					"name": "byoc-index",
+					"schema": {"fields": {"_values": {"type": "dense_vector", "dimension": 3, "metric": "cosine"}}},
+					"deployment": ` + byocDeploymentJSON + `,
+					"read_capacity": {"mode": "OnDemand"},
+					"deletion_protection": "disabled",
+					"tags": null
+				}`,
+			}},
+		},
+		{
 			name:   "CreateIndex with dense, sparse, and full-text search fields",
 			status: http.StatusCreated,
 			response: indexModelFixture{

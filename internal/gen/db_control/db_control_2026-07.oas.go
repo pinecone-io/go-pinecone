@@ -98,10 +98,7 @@ type BackupList struct {
 	Data *[]BackupModel `json:"data,omitempty"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
-	Pagination *struct {
-		// Next The token to use to retrieve the next page of results.
-		Next string `json:"next"`
-	} `json:"pagination"`
+	Pagination *PaginationResponse `json:"pagination"`
 }
 
 // BackupModel The BackupModel describes the configuration and status of a Pinecone backup.
@@ -206,10 +203,7 @@ type BackupScheduleHistoryList struct {
 	Data []BackupScheduleHistoryItem `json:"data"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
-	Pagination *struct {
-		// Next The token to use to retrieve the next page of results.
-		Next string `json:"next"`
-	} `json:"pagination"`
+	Pagination *PaginationResponse `json:"pagination"`
 }
 
 // BackupScheduleList Paginated list of backup schedules for an index.
@@ -218,10 +212,7 @@ type BackupScheduleList struct {
 	Data []BackupScheduleResponse `json:"data"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
-	Pagination *struct {
-		// Next The token to use to retrieve the next page of results.
-		Next string `json:"next"`
-	} `json:"pagination"`
+	Pagination *PaginationResponse `json:"pagination"`
 }
 
 // BackupScheduleRequestSchedule Time-based schedule configuration for automatic index backups. Only time-based schedules are supported.
@@ -344,7 +335,7 @@ type ConfigureIndexRequest struct {
 	// Deployment Deployment update parameters for pod-based indexes. Specify `replicas`, `pod_type`, or both. Deployment type, cloud/region, and environment cannot be changed after creation. Do not include a `deployment_type` field; it is not accepted.
 	Deployment *PatchIndexDeploymentRequest `json:"deployment,omitempty"`
 
-	// ReadCapacity Read capacity changes for an existing managed or BYOC index. Switch to `OnDemand`, or set `Dedicated` and change any subset of `node_type`, `scaling`, and `manual` replicas/shards; fields you omit keep their current value. BYOC indexes do not support `OnDemand`.
+	// ReadCapacity Read capacity changes for an existing managed or BYOC index. Switch to `OnDemand`, or set `Dedicated` and change any subset of `node_type`, `scaling`, and `manual` replicas/shards; fields you omit keep their current value.
 	ReadCapacity *ReadCapacityPatch `json:"read_capacity,omitempty"`
 
 	// Schema Schema updates to apply to an existing index. Only `semantic_text` field parameters, on a legacy integrated index created via create-for-model, can be updated after index creation. The model itself cannot be changed once set; only `write_parameters` and `read_parameters` may be updated if the model stays the same. The `embed` and `sparse_embed` configurations of a `string` field are fixed at creation and cannot be updated.
@@ -454,7 +445,7 @@ type CreateIndexForModelRequest struct {
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
-	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`. BYOC indexes do not support `OnDemand`: a `byoc` deployment must set `mode: Dedicated` explicitly, since omitting `read_capacity` defaults to `OnDemand` and is rejected.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Region The region where you would like your index to be created.
@@ -477,7 +468,7 @@ type CreateIndexFromBackupRequest struct {
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
-	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`. BYOC indexes do not support `OnDemand`: a `byoc` deployment must set `mode: Dedicated` explicitly, since omitting `read_capacity` defaults to `OnDemand` and is rejected.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Tags Custom user tags added to an index, at most 20 per index. Keys must be 80 characters or less and alphanumeric, '_', or '-'. Values must be 120 characters or less and consist of printable ASCII characters or spaces. To unset a key, set the value to be an empty string. `null` in responses when the index has no tags.
@@ -514,7 +505,7 @@ type CreateIndexRequest struct {
 	// Name The name of the index. Must be unique within the project, start and end with an alphanumeric character, and contain only lower case alphanumeric characters or '-'. Generated automatically if not provided.
 	Name *string `json:"name,omitempty"`
 
-	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`. BYOC indexes do not support `OnDemand`: a `byoc` deployment must set `mode: Dedicated` explicitly, since omitting `read_capacity` defaults to `OnDemand` and is rejected.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Schema The schema to use when creating a Pinecone index. Defines the fields the index searches over: dense vector, sparse vector, and string fields searched by full-text search or by embeddings Pinecone derives from their text.
@@ -792,6 +783,12 @@ type MetadataSchema struct {
 // MetadataSchemaFieldsFilterable Whether the field is indexed and can be used in filters. Must be present and must be `true`: omitting it, or sending `false` or `null`, is rejected with `Field '<name>' is set to filterable: false. Only filterable: true is supported.` To leave a field unindexed, omit it from `fields` entirely.
 type MetadataSchemaFieldsFilterable bool
 
+// PaginationResponse The pagination object that is returned with paginated responses.
+type PaginationResponse struct {
+	// Next The token to use to retrieve the next page of results.
+	Next string `json:"next"`
+}
+
 // PatchIndexDeploymentRequest Deployment update parameters for pod-based indexes. Specify `replicas`, `pod_type`, or both. Deployment type, cloud/region, and environment cannot be changed after creation. Do not include a `deployment_type` field; it is not accepted.
 type PatchIndexDeploymentRequest struct {
 	// PodType The type of pod to use. One of `s1`, `p1`, or `p2` appended with `.` and one of `x1`, `x2`, `x4`, or `x8`.
@@ -846,7 +843,7 @@ type PodDeployment struct {
 // PodDeploymentDeploymentType Identifies this as a pod-based deployment. Must be `pod`.
 type PodDeploymentDeploymentType string
 
-// ReadCapacity By default the index will be created with read capacity mode `OnDemand`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`. BYOC indexes do not support `OnDemand`: a `byoc` deployment must set `mode: Dedicated` explicitly, since omitting `read_capacity` defaults to `OnDemand` and is rejected.
+// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
 type ReadCapacity struct {
 	union json.RawMessage
 }
@@ -927,7 +924,7 @@ type ReadCapacityOnDemandSpecResponse struct {
 	Status ReadCapacityStatus `json:"status"`
 }
 
-// ReadCapacityPatch Read capacity changes for an existing managed or BYOC index. Switch to `OnDemand`, or set `Dedicated` and change any subset of `node_type`, `scaling`, and `manual` replicas/shards; fields you omit keep their current value. BYOC indexes do not support `OnDemand`.
+// ReadCapacityPatch Read capacity changes for an existing managed or BYOC index. Switch to `OnDemand`, or set `Dedicated` and change any subset of `node_type`, `scaling`, and `manual` replicas/shards; fields you omit keep their current value.
 type ReadCapacityPatch struct {
 	union json.RawMessage
 }
@@ -1044,10 +1041,7 @@ type RestoreJobList struct {
 	Data []RestoreJobModel `json:"data"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
-	Pagination *struct {
-		// Next The token to use to retrieve the next page of results.
-		Next string `json:"next"`
-	} `json:"pagination"`
+	Pagination *PaginationResponse `json:"pagination"`
 }
 
 // RestoreJobModel The RestoreJobModel describes the status of a restore job.

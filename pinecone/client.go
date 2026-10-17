@@ -437,8 +437,7 @@ type CreateIndexRequest struct {
 	// Deployment (Optional) describes where the index runs. Defaults to a serverless index on AWS in
 	// "us-east-1".
 	Deployment *IndexDeployment
-	// ReadCapacity (Optional) is the read capacity configuration. Defaults to OnDemand. Some BYOC
-	// environments reject OnDemand and require Dedicated.
+	// ReadCapacity (Optional) is the read capacity configuration. Defaults to OnDemand.
 	ReadCapacity *ReadCapacityParams
 	// CmekId (Optional) is the ID of a customer-managed encryption key (CMEK) to use for this index.
 	// Not supported for pod-based or BYOC deployments.
@@ -609,7 +608,7 @@ type CreateServerlessIndexRequest struct {
 
 // ReadCapacityParams is the read capacity configuration for a new index, or for an index changed
 // with [Client.ConfigureIndex]. Set exactly one of Dedicated or OnDemand. When nil, a new index uses
-// OnDemand read capacity; some BYOC environments reject OnDemand and require Dedicated.
+// OnDemand read capacity. Both modes are supported for serverless and BYOC indexes.
 type ReadCapacityParams struct {
 	// Dedicated selects Dedicated read capacity mode. Requires NodeType and Scaling configuration.
 	Dedicated *ReadCapacityDedicatedConfig `json:"dedicated,omitempty"`
@@ -997,9 +996,8 @@ type CreateBYOCIndexRequest struct {
 	// "disabled" for the index. When "enabled", the index cannot be deleted. Defaults to "disabled".
 	DeletionProtection *DeletionProtection
 	// ReadCapacity (Optional) is the read capacity configuration for the index. Defaults to
-	// OnDemand when nil. Some BYOC environments support only Dedicated read capacity and reject
-	// OnDemand, including the default; in those, set Dedicated with NodeType,
-	// Scaling.Manual.Replicas, and Scaling.Manual.Shards.
+	// OnDemand when nil. To use Dedicated read capacity, set NodeType, Scaling.Manual.Replicas, and
+	// Scaling.Manual.Shards.
 	ReadCapacity *ReadCapacityParams
 	// Schema is not supported; setting it returns an error. Metadata fields are indexed
 	// automatically when you upsert data.
@@ -1269,8 +1267,7 @@ type ConfigureIndexParams struct {
 	// ReadCapacity (Optional) is the [ReadCapacityParams] to apply to a serverless or BYOC index;
 	// setting it on a pod-based index returns an error. Converting an OnDemand index to Dedicated
 	// requires NodeType, Scaling.Manual.Replicas, and Scaling.Manual.Shards. Fields omitted from a
-	// Dedicated configuration keep their current values. Some BYOC environments reject switching to
-	// OnDemand.
+	// Dedicated configuration keep their current values.
 	ReadCapacity *ReadCapacityParams
 	// Schema (Optional) is the [ConfigureIndexSchema] updating the read or write parameters of the
 	// embedding model of a legacy integrated index.

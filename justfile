@@ -31,8 +31,8 @@ bootstrap:
     go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.3.0
     go install golang.org/x/tools/cmd/godoc@latest
 
-gen:
-  ./codegen/build-clients.sh {{api_version}}
+gen *args:
+  ./codegen/build-clients.sh {{api_version}} {{args}}
 
 docs:
   @echo "Serving docs at http://localhost:6060/pkg/github.com/pinecone-io/go-pinecone/v7/pinecone/"

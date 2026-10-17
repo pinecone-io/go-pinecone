@@ -214,32 +214,22 @@ idx, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
 
 ### Create a BYOC index
 
-To create a vector index in a BYOC environment, use `CreateBYOCIndex`. Some BYOC environments support only dedicated
-read capacity and reject on-demand. In those environments, set `ReadCapacity` (see
-[Dedicated read capacity](#dedicated-read-capacity)), as in this example:
+To create a vector index in a BYOC environment, use `CreateBYOCIndex`:
 
 ```go
 metric := pinecone.IndexMetricCosine
 dimension := int32(1536)
-nodeType := "b1"
-replicas := int32(1)
-shards := int32(1)
 
 idx, err := pc.CreateBYOCIndex(ctx, &pinecone.CreateBYOCIndexRequest{
 	Name:        "example-byoc-index",
 	Environment: "YOUR_BYOC_ENVIRONMENT",
 	Metric:      &metric,
 	Dimension:   &dimension,
-	ReadCapacity: &pinecone.ReadCapacityParams{
-		Dedicated: &pinecone.ReadCapacityDedicatedConfig{
-			NodeType: &nodeType,
-			Scaling: &pinecone.ReadCapacityScaling{
-				Manual: &pinecone.ReadCapacityManualScaling{Replicas: &replicas, Shards: &shards},
-			},
-		},
-	},
 })
 ```
+
+Like a serverless index, a BYOC index uses on-demand read capacity by default. To provision dedicated read nodes
+instead, set `ReadCapacity` (see [Dedicated read capacity](#dedicated-read-capacity)).
 
 For more on BYOC, see [Bring your own cloud](https://docs.pinecone.io/guides/production/bring-your-own-cloud).
 
@@ -294,7 +284,7 @@ For an index with dedicated read capacity, also wait until `ReadCapacity.Dedicat
 
 ## Dedicated read capacity
 
-Serverless indexes use on-demand read capacity by default. To provision dedicated read nodes instead, set
+Serverless and BYOC indexes use on-demand read capacity by default. To provision dedicated read nodes instead, set
 `ReadCapacity` when you create the index. You need to set `NodeType` (`"b1"` or `"t1"`, which has more processing power
 and memory) and manual `Replicas` and `Shards`:
 

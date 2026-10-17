@@ -46,7 +46,7 @@ Three-plane design, each with its own client struct:
 - `internal/utils/` — Internal utility functions
 
 **Code Generation:**
-Generated code under `internal/gen/` is produced by `codegen/build-clients.sh` from API specs in `codegen/apis/` (a private git submodule). Run `just gen` to regenerate after spec changes. The current API version is `2026-07`.
+Generated code under `internal/gen/` is produced by `codegen/build-clients.sh` from API specs in `codegen/apis/` (a private git submodule). `just gen` regenerates from the `codegen/apis` commit pinned by this repository, so it's reproducible. To pick up newer specs, run `just gen --update-pin`, which checks out the `apis` repo's latest `main` first; commit the updated `codegen/apis` pointer along with the regenerated code. The current API version is `2026-07`.
 
 ## Build & Test Commands
 
@@ -99,7 +99,8 @@ just docs   # godoc server at http://localhost:6060/pkg/github.com/pinecone-io/g
 
 **Code generation:**
 ```bash
-just gen    # regenerate internal/gen/ from API specs
+just gen                # regenerate internal/gen/ from the pinned codegen/apis commit
+just gen --update-pin   # move codegen/apis to the apis repo's latest main, then regenerate
 ```
 
 ## Code Style & Conventions

@@ -46,6 +46,84 @@ type APIKeyWithSecret struct {
 	Value string `json:"value"`
 }
 
+// CostUsageExport The CostUsageExport describes an asynchronous job that produces a cost and usage file for an organization, together with the link used to download that file. The file holds cost records that follow the FOCUS v1.4 Cost and Usage dataset.
+type CostUsageExport struct {
+	// CreatedAt When the export was accepted.
+	CreatedAt time.Time `json:"created_at"`
+
+	// DataAvailableThrough Last day for which the billing warehouse holds complete data, recorded when the export runs to describe the contents of the generated file. `null` until then. Cost data lags by roughly two days.
+	DataAvailableThrough *openapi_types.Date `json:"data_available_through"`
+
+	// DownloadUrl Signed link to the generated file, generated fresh each time a single export is read and valid for one hour. Treat the link as a secret: anyone holding it can download the file. Do not store it or pass it between systems; read the export again for a new link. Always `null` in list responses.
+	DownloadUrl *string `json:"download_url"`
+
+	// DownloadUrlExpiresAt When `download_url` stops working: one hour after the link was generated, or `file_expires_at`, whichever comes first. Read the export again for a new link. Always `null` in list responses.
+	DownloadUrlExpiresAt *time.Time `json:"download_url_expires_at"`
+
+	// Error Why an export failed.
+	Error *CostUsageExportError `json:"error"`
+
+	// FileExpired Whether the generated file has been deleted. Check this rather than `status`: a `Completed` export whose file has expired can no longer be downloaded.
+	FileExpired bool `json:"file_expired"`
+
+	// FileExpiresAt When the generated file is deleted, two days after the export finished. The file cannot be re-delivered afterwards; create another export instead.
+	FileExpiresAt *time.Time `json:"file_expires_at"`
+
+	// FinishedAt When the export job finished running, either successfully or with an error.
+	FinishedAt *time.Time `json:"finished_at"`
+
+	// Format Encoding of the generated file. `zip` is a zip archive holding the cost records as one or more CSV files whose columns follow the FOCUS v1.4 Cost and Usage dataset, alongside a `manifest.json` describing the archive. Each CSV starts with a header line and holds at most 800,000 rows, so larger exports are split across several files, named `part-1-of-3.csv` through `part-3-of-3.csv` and ordered by those names.
+	// Every CSV carries these 45 columns, in this order: `x_OrganizationId`, `SubAccountId`, `ResourceName`, `ResourceType`, `ChargePeriodStart`, `ChargePeriodEnd`, `BillingPeriodStart`, `BillingPeriodEnd`, `SkuId`, `ServiceName`, `PricingQuantity`, `PricingUnit`, `ConsumedQuantity`, `ConsumedUnit`, `ListUnitPrice`, `ListCost`, `ContractedUnitPrice`, `ContractedCost`, `EffectiveCost`, `BilledCost`, `BillingCurrency`, `PricingCategory`, `ChargeCategory`, `ChargeClass`, `ChargeFrequency`, `ServiceCategory`, `ServiceSubcategory`, `RegionId`, `RegionName`, `HostProviderName`, `ServiceProviderName`, `InvoiceIssuerName`, `InvoiceId`, `BillingAccountId`, `BillingAccountName`, `BillingAccountType`, `SubAccountName`, `SubAccountType`, `ResourceId`, `SkuPriceId`, `SkuMeter`, `ChargeDescription`, `x_CloudId`, `Tags`, `x_ProjectMetadata`.
+	// Columns prefixed with `x_` are Pinecone extensions, which is how FOCUS requires a provider to name a column the specification does not define. `SubAccountId` and `SubAccountName` identify the Pinecone project, and `BillingAccountId` identifies the organization that is invoiced.
+	// Rows are ordered by `ChargePeriodStart`, `SubAccountName`, `ResourceName`, `ChargeDescription`, `SkuId`, `ResourceId`, across the archive as a whole rather than within each file. `InvoiceId` is provisional while its billing period is still open, so it may change for a period that has not yet closed.
+	// Possible values: `zip`.
+	Format string `json:"format"`
+
+	// Id Unique identifier for the export. Use it to poll for completion, and to identify the export when contacting Pinecone Support.
+	Id openapi_types.UUID `json:"id"`
+
+	// PeriodEnd Day after the last day of usage covered by the export, as a UTC calendar day. This bound is exclusive.
+	PeriodEnd openapi_types.Date `json:"period_end"`
+
+	// PeriodStart First day of usage covered by the export, as a UTC calendar day. This bound is inclusive.
+	PeriodStart openapi_types.Date `json:"period_start"`
+
+	// RowCount Number of line items across all CSV files in the archive, excluding header lines.
+	RowCount *int64 `json:"row_count"`
+
+	// SizeBytes Length of the zip archive, in bytes.
+	SizeBytes *int64 `json:"size_bytes"`
+
+	// StartedAt When the export job began running.
+	StartedAt *time.Time `json:"started_at"`
+
+	// Status Status of a cost usage export. `Pending` and `InProgress` mean the job is still running; `Completed` and `Failed` are terminal and never change afterwards.
+	// Possible values: `Pending`, `InProgress`, `Completed`, or `Failed`.
+	Status string `json:"status"`
+
+	// UpdatedAt When the export was last updated.
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// CostUsageExportError Why an export failed.
+type CostUsageExportError struct {
+	// Code Machine-readable classification of the failure. `DEADLINE_EXCEEDED` means the export ran out of time and a shorter window may succeed; `INTERNAL` covers every other failure and is worth retrying once.
+	// Possible values: `DEADLINE_EXCEEDED` or `INTERNAL`.
+	Code string `json:"code"`
+
+	// Message Human-readable explanation of what went wrong and what to try next.
+	Message string `json:"message"`
+}
+
+// CostUsageExportList A paginated list of cost usage exports.
+type CostUsageExportList struct {
+	// Data The page of cost usage exports, newest first. `download_url` and `download_url_expires_at` are always `null` here; request a single export to get a link.
+	Data []CostUsageExport `json:"data"`
+
+	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
+	Pagination *PaginationResponse `json:"pagination"`
+}
+
 // CreateAPIKeyRequest defines model for CreateAPIKeyRequest.
 type CreateAPIKeyRequest struct {
 	// Name The name of the API key. The name must be 1-80 characters long.
@@ -53,6 +131,15 @@ type CreateAPIKeyRequest struct {
 
 	// Roles The roles to create the API key with. Default is `["ProjectEditor"]`.
 	Roles *[]string `json:"roles,omitempty"`
+}
+
+// CreateCostUsageExportRequest The window of usage to cover, given as a half-open range of UTC calendar days.
+type CreateCostUsageExportRequest struct {
+	// PeriodEnd Day after the last day of usage to cover, as a UTC calendar day. This bound is exclusive.
+	PeriodEnd *openapi_types.Date `json:"period_end,omitempty"`
+
+	// PeriodStart First day of usage to cover, as a UTC calendar day. This bound is inclusive, and may be no earlier than 365 days before today.
+	PeriodStart *openapi_types.Date `json:"period_start,omitempty"`
 }
 
 // CreateInviteRequest defines model for CreateInviteRequest.
@@ -154,10 +241,7 @@ type InviteList struct {
 	Data []Invite `json:"data"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
-	Pagination *struct {
-		// Next Opaque cursor for the next page. Do not parse or construct. Invalid or expired tokens return `400`.
-		Next *string `json:"next,omitempty"`
-	} `json:"pagination"`
+	Pagination *PaginationResponse `json:"pagination"`
 }
 
 // ListApiKeysResponse defines model for ListApiKeysResponse.
@@ -189,6 +273,12 @@ type Organization struct {
 // OrganizationList defines model for OrganizationList.
 type OrganizationList struct {
 	Data []Organization `json:"data"`
+}
+
+// PaginationResponse Pagination metadata for list responses. When `next` is present, pass it as `paginationToken` on the following request.
+type PaginationResponse struct {
+	// Next Opaque cursor for the next page. Do not parse or construct. Invalid or expired tokens return `400`.
+	Next *string `json:"next,omitempty"`
 }
 
 // Project The details of a project.
@@ -267,10 +357,7 @@ type RoleBindingList struct {
 	Data []RoleBinding `json:"data"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
-	Pagination *struct {
-		// Next Opaque cursor for the next page. Do not parse or construct. Invalid or expired tokens return `400`.
-		Next *string `json:"next,omitempty"`
-	} `json:"pagination"`
+	Pagination *PaginationResponse `json:"pagination"`
 }
 
 // ServiceAccount A service account. The OAuth `client_secret` is not included.
@@ -297,10 +384,7 @@ type ServiceAccountList struct {
 	Data []ServiceAccount `json:"data"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
-	Pagination *struct {
-		// Next Opaque cursor for the next page. Do not parse or construct. Invalid or expired tokens return `400`.
-		Next *string `json:"next,omitempty"`
-	} `json:"pagination"`
+	Pagination *PaginationResponse `json:"pagination"`
 }
 
 // ServiceAccountWithSecret A service account with a newly issued OAuth `client_secret`. The secret is returned only once and cannot be retrieved later.
@@ -365,10 +449,7 @@ type UserList struct {
 	Data []User `json:"data"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
-	Pagination *struct {
-		// Next Opaque cursor for the next page. Do not parse or construct. Invalid or expired tokens return `400`.
-		Next *string `json:"next,omitempty"`
-	} `json:"pagination"`
+	Pagination *PaginationResponse `json:"pagination"`
 }
 
 // DeleteApiKeyParams defines parameters for DeleteApiKey.
@@ -385,6 +466,33 @@ type FetchApiKeyParams struct {
 
 // UpdateApiKeyParams defines parameters for UpdateApiKey.
 type UpdateApiKeyParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// ListCostUsageExportsParams defines parameters for ListCostUsageExports.
+type ListCostUsageExportsParams struct {
+	// Status Filter by status. Supply a comma-separated list to match any of several statuses: `status=Pending,InProgress` returns the export that is running now, if there is one.
+	Status *[]string `form:"status,omitempty" json:"status,omitempty"`
+
+	// Limit The number of results to return per page. When omitted, the server defaults to 100. Out-of-range values return `400 OUT_OF_RANGE`.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// PaginationToken Cursor from `pagination.next` of a prior response. Must be reused with the same query context (path parameters, filters, and `limit`).
+	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
+
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// CreateCostUsageExportParams defines parameters for CreateCostUsageExport.
+type CreateCostUsageExportParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// FetchCostUsageExportParams defines parameters for FetchCostUsageExport.
+type FetchCostUsageExportParams struct {
 	// XPineconeApiVersion Required date-based version header
 	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
 }
@@ -608,6 +716,9 @@ type FetchUserParams struct {
 // UpdateApiKeyJSONRequestBody defines body for UpdateApiKey for application/json ContentType.
 type UpdateApiKeyJSONRequestBody = UpdateAPIKeyRequest
 
+// CreateCostUsageExportJSONRequestBody defines body for CreateCostUsageExport for application/json ContentType.
+type CreateCostUsageExportJSONRequestBody = CreateCostUsageExportRequest
+
 // CreateInviteJSONRequestBody defines body for CreateInvite for application/json ContentType.
 type CreateInviteJSONRequestBody = CreateInviteRequest
 
@@ -715,6 +826,17 @@ type ClientInterface interface {
 	UpdateApiKeyWithBody(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateApiKey(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListCostUsageExports request
+	ListCostUsageExports(ctx context.Context, params *ListCostUsageExportsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateCostUsageExportWithBody request with any body
+	CreateCostUsageExportWithBody(ctx context.Context, params *CreateCostUsageExportParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateCostUsageExport(ctx context.Context, params *CreateCostUsageExportParams, body CreateCostUsageExportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// FetchCostUsageExport request
+	FetchCostUsageExport(ctx context.Context, costUsageExportId openapi_types.UUID, params *FetchCostUsageExportParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListInvites request
 	ListInvites(ctx context.Context, params *ListInvitesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -858,6 +980,54 @@ func (c *Client) UpdateApiKeyWithBody(ctx context.Context, apiKeyId openapi_type
 
 func (c *Client) UpdateApiKey(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateApiKeyRequest(c.Server, apiKeyId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListCostUsageExports(ctx context.Context, params *ListCostUsageExportsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListCostUsageExportsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateCostUsageExportWithBody(ctx context.Context, params *CreateCostUsageExportParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCostUsageExportRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateCostUsageExport(ctx context.Context, params *CreateCostUsageExportParams, body CreateCostUsageExportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCostUsageExportRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FetchCostUsageExport(ctx context.Context, costUsageExportId openapi_types.UUID, params *FetchCostUsageExportParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFetchCostUsageExportRequest(c.Server, costUsageExportId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1449,6 +1619,200 @@ func NewUpdateApiKeyRequestWithBody(server string, apiKeyId openapi_types.UUID, 
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewListCostUsageExportsRequest generates requests for ListCostUsageExports
+func NewListCostUsageExportsRequest(server string, params *ListCostUsageExportsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/cost-usage-exports")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", false, "status", runtime.ParamLocationQuery, *params.Status); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PaginationToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "paginationToken", runtime.ParamLocationQuery, *params.PaginationToken); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewCreateCostUsageExportRequest calls the generic CreateCostUsageExport builder with application/json body
+func NewCreateCostUsageExportRequest(server string, params *CreateCostUsageExportParams, body CreateCostUsageExportJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateCostUsageExportRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateCostUsageExportRequestWithBody generates requests for CreateCostUsageExport with any type of body
+func NewCreateCostUsageExportRequestWithBody(server string, params *CreateCostUsageExportParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/cost-usage-exports")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewFetchCostUsageExportRequest generates requests for FetchCostUsageExport
+func NewFetchCostUsageExportRequest(server string, costUsageExportId openapi_types.UUID, params *FetchCostUsageExportParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "cost_usage_export_id", runtime.ParamLocationPath, costUsageExportId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/admin/cost-usage-exports/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	if params != nil {
 
@@ -3165,6 +3529,17 @@ type ClientWithResponsesInterface interface {
 
 	UpdateApiKeyWithResponse(ctx context.Context, apiKeyId openapi_types.UUID, params *UpdateApiKeyParams, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApiKeyApiResponse, error)
 
+	// ListCostUsageExportsWithResponse request
+	ListCostUsageExportsWithResponse(ctx context.Context, params *ListCostUsageExportsParams, reqEditors ...RequestEditorFn) (*ListCostUsageExportsApiResponse, error)
+
+	// CreateCostUsageExportWithBodyWithResponse request with any body
+	CreateCostUsageExportWithBodyWithResponse(ctx context.Context, params *CreateCostUsageExportParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCostUsageExportApiResponse, error)
+
+	CreateCostUsageExportWithResponse(ctx context.Context, params *CreateCostUsageExportParams, body CreateCostUsageExportJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCostUsageExportApiResponse, error)
+
+	// FetchCostUsageExportWithResponse request
+	FetchCostUsageExportWithResponse(ctx context.Context, costUsageExportId openapi_types.UUID, params *FetchCostUsageExportParams, reqEditors ...RequestEditorFn) (*FetchCostUsageExportApiResponse, error)
+
 	// ListInvitesWithResponse request
 	ListInvitesWithResponse(ctx context.Context, params *ListInvitesParams, reqEditors ...RequestEditorFn) (*ListInvitesApiResponse, error)
 
@@ -3342,6 +3717,90 @@ func (r UpdateApiKeyApiResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateApiKeyApiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListCostUsageExportsApiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CostUsageExportList
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListCostUsageExportsApiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListCostUsageExportsApiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateCostUsageExportApiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *CostUsageExport
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON409      *ErrorResponse
+	JSON429      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateCostUsageExportApiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateCostUsageExportApiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type FetchCostUsageExportApiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CostUsageExport
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON4XX      *ErrorResponse
+	JSON500      *ErrorResponse
+	JSON503      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r FetchCostUsageExportApiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r FetchCostUsageExportApiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -4164,6 +4623,41 @@ func (c *ClientWithResponses) UpdateApiKeyWithResponse(ctx context.Context, apiK
 	return ParseUpdateApiKeyApiResponse(rsp)
 }
 
+// ListCostUsageExportsWithResponse request returning *ListCostUsageExportsApiResponse
+func (c *ClientWithResponses) ListCostUsageExportsWithResponse(ctx context.Context, params *ListCostUsageExportsParams, reqEditors ...RequestEditorFn) (*ListCostUsageExportsApiResponse, error) {
+	rsp, err := c.ListCostUsageExports(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListCostUsageExportsApiResponse(rsp)
+}
+
+// CreateCostUsageExportWithBodyWithResponse request with arbitrary body returning *CreateCostUsageExportApiResponse
+func (c *ClientWithResponses) CreateCostUsageExportWithBodyWithResponse(ctx context.Context, params *CreateCostUsageExportParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCostUsageExportApiResponse, error) {
+	rsp, err := c.CreateCostUsageExportWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateCostUsageExportApiResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateCostUsageExportWithResponse(ctx context.Context, params *CreateCostUsageExportParams, body CreateCostUsageExportJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCostUsageExportApiResponse, error) {
+	rsp, err := c.CreateCostUsageExport(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateCostUsageExportApiResponse(rsp)
+}
+
+// FetchCostUsageExportWithResponse request returning *FetchCostUsageExportApiResponse
+func (c *ClientWithResponses) FetchCostUsageExportWithResponse(ctx context.Context, costUsageExportId openapi_types.UUID, params *FetchCostUsageExportParams, reqEditors ...RequestEditorFn) (*FetchCostUsageExportApiResponse, error) {
+	rsp, err := c.FetchCostUsageExport(ctx, costUsageExportId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFetchCostUsageExportApiResponse(rsp)
+}
+
 // ListInvitesWithResponse request returning *ListInvitesApiResponse
 func (c *ClientWithResponses) ListInvitesWithResponse(ctx context.Context, params *ListInvitesParams, reqEditors ...RequestEditorFn) (*ListInvitesApiResponse, error) {
 	rsp, err := c.ListInvites(ctx, params, reqEditors...)
@@ -4652,6 +5146,210 @@ func ParseUpdateApiKeyApiResponse(rsp *http.Response) (*UpdateApiKeyApiResponse,
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListCostUsageExportsApiResponse parses an HTTP response from a ListCostUsageExportsWithResponse call
+func ParseListCostUsageExportsApiResponse(rsp *http.Response) (*ListCostUsageExportsApiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListCostUsageExportsApiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CostUsageExportList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateCostUsageExportApiResponse parses an HTTP response from a CreateCostUsageExportWithResponse call
+func ParseCreateCostUsageExportApiResponse(rsp *http.Response) (*CreateCostUsageExportApiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateCostUsageExportApiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest CostUsageExport
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseFetchCostUsageExportApiResponse parses an HTTP response from a FetchCostUsageExportWithResponse call
+func ParseFetchCostUsageExportApiResponse(rsp *http.Response) (*FetchCostUsageExportApiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &FetchCostUsageExportApiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CostUsageExport
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 

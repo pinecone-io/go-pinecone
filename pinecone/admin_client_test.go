@@ -125,9 +125,7 @@ func TestToRoleBindingListUnit(t *testing.T) {
 				{Id: uuid.New(), PrincipalType: "user", ResourceType: "project", Role: "ProjectEditor"},
 				{Id: uuid.New(), PrincipalType: "api_key", ResourceType: "organization", Role: "OrgOwner"},
 			},
-			Pagination: &struct {
-				Next *string `json:"next,omitempty"`
-			}{Next: &next},
+			Pagination: &admin.PaginationResponse{Next: &next},
 		}
 
 		list := toRoleBindingList(adminList)
@@ -155,10 +153,8 @@ func TestToRoleBindingListUnit(t *testing.T) {
 
 	t.Run("pagination envelope with nil Next yields nil pagination", func(t *testing.T) {
 		adminList := admin.RoleBindingList{
-			Data: []admin.RoleBinding{},
-			Pagination: &struct {
-				Next *string `json:"next,omitempty"`
-			}{Next: nil},
+			Data:       []admin.RoleBinding{},
+			Pagination: &admin.PaginationResponse{Next: nil},
 		}
 
 		list := toRoleBindingList(adminList)
@@ -268,9 +264,7 @@ func TestToServiceAccountListUnit(t *testing.T) {
 				{Id: uuid.New(), Name: "sa-1"},
 				{Id: uuid.New(), Name: "sa-2"},
 			},
-			Pagination: &struct {
-				Next *string `json:"next,omitempty"`
-			}{Next: &next},
+			Pagination: &admin.PaginationResponse{Next: &next},
 		}
 
 		list := toServiceAccountList(adminList)
@@ -402,9 +396,7 @@ func TestToInviteListUnit(t *testing.T) {
 				{Id: uuid.New(), Email: "a@example.com", Status: "pending"},
 				{Id: uuid.New(), Email: "b@example.com", Status: "expired"},
 			},
-			Pagination: &struct {
-				Next *string `json:"next,omitempty"`
-			}{Next: &next},
+			Pagination: &admin.PaginationResponse{Next: &next},
 		}
 
 		list := toInviteList(adminList)
@@ -506,9 +498,7 @@ func TestToUserListUnit(t *testing.T) {
 				{Id: uuid.New(), Email: "ada@example.com", Name: &name},
 				{Id: uuid.New(), Email: "noname@example.com"},
 			},
-			Pagination: &struct {
-				Next *string `json:"next,omitempty"`
-			}{Next: &next},
+			Pagination: &admin.PaginationResponse{Next: &next},
 		}
 
 		list := toUserList(adminList)

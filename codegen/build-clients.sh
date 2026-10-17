@@ -1,6 +1,15 @@
 #!/bin/bash
 
 version=$1 # e.g. 2024-07
+update_pin=${2:-} # pass --update-pin to check out the apis repo's latest main
+
+case "$update_pin" in
+"" | "--update-pin") ;;
+*)
+    echo "Unrecognized argument: $update_pin (expected --update-pin or nothing)" >&2
+    exit 1
+    ;;
+esac
 
 # modules
 db_control_module="db_control"
@@ -29,6 +38,23 @@ admin_oas_file="${admin_destination}/${admin_module}_${version}.oas.go"
 set -eux -o pipefail
 
 update_apis_repo() {
+    # In an uninitialized submodule, git commands run from codegen/apis walk up to this
+    # repository's .git and would check out this repository instead.
+    if [ ! -e codegen/apis/.git ]; then
+        echo "codegen/apis is not initialized. Run 'git submodule update --init' and re-run." >&2
+        exit 1
+    fi
+
+    if [ "$update_pin" = "--update-pin" ]; then
+        echo "Checking out codegen/apis at the apis repo's latest main"
+        echo "This only changes the working tree; commit the new codegen/apis pointer to keep it"
+        git -C codegen/apis fetch origin main
+        git -C codegen/apis checkout --detach origin/main
+    else
+        echo "Checking out codegen/apis at the commit pinned by this repository"
+        git submodule update --init -- codegen/apis
+    fi
+
     # Released spec versions are checked into codegen/apis/static/<version>;
     # use them directly and skip the apis build toolchain (rust/spectral/npm).
     if [ -d "codegen/apis/static/${version}" ]; then
@@ -39,11 +65,8 @@ update_apis_repo() {
         return
     fi
 
-    echo "Updating apis repo"
+    echo "Building specs for ${version}"
     pushd codegen/apis
-            git fetch
-            git checkout main
-            git pull
             just clean
             just build
     popd

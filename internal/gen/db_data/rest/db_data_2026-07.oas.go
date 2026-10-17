@@ -22,11 +22,6 @@ const (
 	ApiKeyAuthScopes = "ApiKeyAuth.Scopes"
 )
 
-// Defines values for CreateNamespaceRequestSchemaFieldsFilterable.
-const (
-	CreateNamespaceRequestSchemaFieldsFilterableTrue CreateNamespaceRequestSchemaFieldsFilterable = true
-)
-
 // Defines values for DenseVectorScoringType.
 const (
 	DenseVector DenseVectorScoringType = "dense_vector"
@@ -37,9 +32,9 @@ const (
 	Embed EmbedScoringType = "embed"
 )
 
-// Defines values for NamespaceDescriptionSchemaFieldsFilterable.
+// Defines values for MetadataSchemaFieldsFilterable.
 const (
-	NamespaceDescriptionSchemaFieldsFilterableTrue NamespaceDescriptionSchemaFieldsFilterable = true
+	True MetadataSchemaFieldsFilterable = true
 )
 
 // Defines values for QueryStringScoringType.
@@ -82,19 +77,8 @@ type CreateNamespaceRequest struct {
 	Name string `json:"name"`
 
 	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
-	Schema *struct {
-		// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique. At most 50 fields may be declared.
-		//
-		// Field names may not begin with `$`, which introduces a filter operator. When declared at index creation, names beginning with `_` are also rejected (reserved for internal use).
-		Fields *map[string]struct {
-			// Filterable Whether the field is indexed and can be used in filters. Must be present and must be `true`: omitting it, or sending `false` or `null`, is rejected with `Field '<name>' is set to filterable: false. Only filterable: true is supported.` To leave a field unindexed, omit it from `fields` entirely.
-			Filterable CreateNamespaceRequestSchemaFieldsFilterable `json:"filterable"`
-		} `json:"fields,omitempty"`
-	} `json:"schema,omitempty"`
+	Schema *MetadataSchema `json:"schema,omitempty"`
 }
-
-// CreateNamespaceRequestSchemaFieldsFilterable Whether the field is indexed and can be used in filters. Must be present and must be `true`: omitting it, or sending `false` or `null`, is rejected with `Field '<name>' is set to filterable: false. Only filterable: true is supported.` To leave a field unindexed, omit it from `fields` entirely.
-type CreateNamespaceRequestSchemaFieldsFilterable bool
 
 // DeleteDocumentsRequest The request for the `delete_documents` operation. Exactly one of `ids`, `filter`, or `delete_all` must be specified.
 type DeleteDocumentsRequest struct {
@@ -548,6 +532,20 @@ type ListedDocumentRecord struct {
 	Id string `json:"_id"`
 }
 
+// MetadataSchema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
+type MetadataSchema struct {
+	// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique. At most 50 fields may be declared.
+	//
+	// Field names may not begin with `$`, which introduces a filter operator. When declared at index creation, names beginning with `_` are also rejected (reserved for internal use).
+	Fields *map[string]struct {
+		// Filterable Whether the field is indexed and can be used in filters. Must be present and must be `true`: omitting it, or sending `false` or `null`, is rejected with `Field '<name>' is set to filterable: false. Only filterable: true is supported.` To leave a field unindexed, omit it from `fields` entirely.
+		Filterable MetadataSchemaFieldsFilterable `json:"filterable"`
+	} `json:"fields,omitempty"`
+}
+
+// MetadataSchemaFieldsFilterable Whether the field is indexed and can be used in filters. Must be present and must be `true`: omitting it, or sending `false` or `null`, is rejected with `Field '<name>' is set to filterable: false. Only filterable: true is supported.` To leave a field unindexed, omit it from `fields` entirely.
+type MetadataSchemaFieldsFilterable bool
+
 // MetadataValue The value of a single metadata field. Nested objects and mixed-type lists are rejected: "Metadata value must be a string, number, boolean or list of strings".
 type MetadataValue struct {
 	union json.RawMessage
@@ -594,22 +592,11 @@ type NamespaceDescription struct {
 	RecordCount *string `json:"record_count,omitempty"`
 
 	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
-	Schema *struct {
-		// Fields A map of metadata field names to their configuration. The field name must be a valid metadata field name. The field name must be unique. At most 50 fields may be declared.
-		//
-		// Field names may not begin with `$`, which introduces a filter operator. When declared at index creation, names beginning with `_` are also rejected (reserved for internal use).
-		Fields *map[string]struct {
-			// Filterable Whether the field is indexed and can be used in filters. Must be present and must be `true`: omitting it, or sending `false` or `null`, is rejected with `Field '<name>' is set to filterable: false. Only filterable: true is supported.` To leave a field unindexed, omit it from `fields` entirely.
-			Filterable NamespaceDescriptionSchemaFieldsFilterable `json:"filterable"`
-		} `json:"fields,omitempty"`
-	} `json:"schema,omitempty"`
+	Schema *MetadataSchema `json:"schema,omitempty"`
 
 	// SizeBytes The total size of the namespace's data, in bytes, as a 64-bit integer serialized as a decimal string. Approximate: data written before size tracking reads as 0, and recently deleted data may still be counted; compaction converges the value.
 	SizeBytes *string `json:"size_bytes,omitempty"`
 }
-
-// NamespaceDescriptionSchemaFieldsFilterable Whether the field is indexed and can be used in filters. Must be present and must be `true`: omitting it, or sending `false` or `null`, is rejected with `Field '<name>' is set to filterable: false. Only filterable: true is supported.` To leave a field unindexed, omit it from `fields` entirely.
-type NamespaceDescriptionSchemaFieldsFilterable bool
 
 // NamespaceSummary A summary of the contents of a namespace.
 type NamespaceSummary struct {
