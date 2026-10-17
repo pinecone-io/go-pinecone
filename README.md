@@ -5,8 +5,10 @@ The Pinecone Go SDK is the official Go client for [Pinecone Database](https://ww
 ## Features
 
 - **Documents API**: Full-text search, query strings, and vector search over indexes with a document schema.
+- **Integrated embedding**: Have Pinecone embed document text with hosted models, so you can search by meaning
+  without managing vectors.
 - **Vectors API**: Upsert, query, fetch, update, delete, and list records in vector indexes over gRPC.
-- **Records API**: Upsert and search text in indexes with integrated embedding.
+- **Legacy Records API**: Upsert and search text in legacy integrated indexes created with `CreateIndexForModel`.
 - **Index management**: Create, configure, and delete indexes, and manage backups, collections, and namespaces.
 - **Inference API**: Generate embeddings and rerank results with models hosted by Pinecone.
 - **Admin API**: Manage projects, organizations, API keys, service accounts, role bindings, invites, and users.
@@ -196,24 +198,25 @@ For metadata, filtering, and the other vector operations, see
 
 ### Integrated embedding
 
-The following example creates an index with integrated embedding, which embeds text for you with a model hosted by
-Pinecone. You upsert and search with plain text.
+Document indexes support fields with integrated embedding: Pinecone embeds a `string` field's text with a hosted
+model when you upsert, and embeds your query text when you search, so you never handle the vectors yourself. The
+following example declares `Embed` on the `body` field. It reuses the client setup and `waitUntilReady` from the
+full-text search example.
 
 ```go
-_, err = pc.CreateIndexForModel(ctx, &pinecone.CreateIndexForModelRequest{
-	Name:   "example-integrated-index",
-	Cloud:  pinecone.CloudAWS,
-	Region: "us-east-1",
-	Embed: pinecone.CreateIndexForModelEmbed{
-		Model:    "multilingual-e5-large",
-		FieldMap: map[string]interface{}{"text": "chunk_text"},
+_, err = pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
+	Name: "embedded-articles",
+	Schema: pinecone.IndexSchema{
+		Fields: map[string]pinecone.IndexSchemaField{
+			"body": {String: &pinecone.StringField{Embed: &pinecone.EmbedConfig{}}},
+		},
 	},
 })
 if err != nil {
 	log.Fatalf("Failed to create index: %v", err)
 }
 
-idx := waitUntilReady(ctx, pc, "example-integrated-index")
+idx := waitUntilReady(ctx, pc, "embedded-articles")
 
 idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
 if err != nil {
@@ -221,29 +224,42 @@ if err != nil {
 }
 defer idxConnection.Close()
 
-err = idxConnection.UpsertRecords(ctx, []*pinecone.IntegratedRecord{
-	{"_id": "rec1", "chunk_text": "Apples are a great source of dietary fiber.", "category": "nutrition"},
-	{"_id": "rec2", "chunk_text": "The Apple I was released in 1976.", "category": "product"},
-})
-if err != nil {
-	log.Fatalf("Failed to upsert records: %v", err)
-}
-
-res, err := idxConnection.SearchRecords(ctx, &pinecone.SearchRecordsRequest{
-	Query: pinecone.SearchRecordsQuery{
-		TopK:   2,
-		Inputs: &map[string]interface{}{"text": "healthy snacks"},
+_, err = idxConnection.UpsertDocuments(ctx, &pinecone.UpsertDocumentsRequest{
+	Documents: []pinecone.Document{
+		{"_id": "doc-1", "body": "Apples are a great source of dietary fiber.", "category": "nutrition"},
+		{"_id": "doc-2", "body": "The Apple I was released in 1976.", "category": "product"},
 	},
 })
 if err != nil {
-	log.Fatalf("Failed to search records: %v", err)
+	log.Fatalf("Failed to upsert documents: %v", err)
 }
-for _, hit := range res.Result.Hits {
-	fmt.Printf("%s: %f\n", hit.Id, hit.Score)
+
+// Documents are indexed asynchronously and can take up to a minute to become searchable.
+time.Sleep(30 * time.Second)
+
+query := "healthy snacks"
+res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
+	TopK: 2,
+	ScoreBy: []pinecone.DocumentScoringMethod{
+		{Type: pinecone.DocumentScoringTypeEmbed, Fields: []string{"body"}, Query: &query},
+	},
+	IncludeFields: []string{"body"},
+})
+if err != nil {
+	log.Fatalf("Failed to search documents: %v", err)
+}
+for _, match := range res.Matches {
+	fmt.Printf("%s: %v\n", match.Id, match.Fields["body"])
 }
 ```
 
-For reranking and more, see [Integrated embedding](./guides/inference/integrated-embedding.md).
+The text is also stored and indexed for full-text search, so the same field supports `text` scoring. Set
+`SparseEmbed` on the field for sparse embeddings. For the full set of options, see
+[Integrated embedding](./guides/data-operations/documents.md#integrated-embedding).
+
+Indexes created with `CreateIndexForModel` are legacy integrated indexes, which require the legacy Records API
+(`UpsertRecords` and `SearchRecords`). See
+[Legacy integrated indexes](./guides/inference/integrated-embedding.md).
 
 ## Guides
 
@@ -259,7 +275,8 @@ For reranking and more, see [Integrated embedding](./guides/inference/integrated
   - [Bulk import](./guides/data-operations/bulk-import.md)
 - Inference
   - [Inference API](./guides/inference/inference-api.md): embeddings, reranking, and hosted models
-  - [Integrated embedding](./guides/inference/integrated-embedding.md)
+  - [Legacy integrated indexes](./guides/inference/integrated-embedding.md): indexes created with
+    `CreateIndexForModel`, and the legacy Records API
 - [Admin API](./guides/admin.md)
 - [v7 migration guide](./guides/migration/v7.md)
 

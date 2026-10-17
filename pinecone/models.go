@@ -97,8 +97,8 @@ type IndexSpec struct {
 	BYOC *BYOCSpec `json:"byoc,omitempty"`
 }
 
-// IndexEmbed represents the embedding model configured for an index,
-// including document fields mapped to embedding inputs.
+// IndexEmbed represents the embedding model of a legacy integrated index, derived from its
+// [SemanticTextField], including the record field mapped to the embedding input.
 type IndexEmbed struct {
 	// Model is the name of the embedding model used to create the index (e.g., "multilingual-e5-large").
 	Model string `json:"model"`
@@ -125,7 +125,7 @@ type IndexTags map[string]string
 
 // IndexSchema is the schema of a Pinecone [Index]. The schema defines the typed fields that records
 // in the index can contain, including vector fields, string fields searched by full-text search or
-// by integrated embedding, and metadata fields.
+// by integrated embedding, the semantic text field of a legacy integrated index, and metadata fields.
 //
 // Vector indexes, including indexes created from a dimension and metric, report their vectors under
 // the reserved field names "_values" (dense) and "_sparse_values" (sparse). Metadata fields
@@ -177,11 +177,12 @@ type SparseVectorField struct {
 }
 
 // SemanticTextField is the embedded text field of a legacy integrated index, as returned when
-// describing an index created with [Client.CreateIndexForModel]. It cannot be declared when
-// creating an index directly; to use integrated embedding on a new index, declare a [StringField]
-// with Embed or SparseEmbed.
+// describing an index created with [Client.CreateIndexForModel]. Legacy integrated indexes require
+// the legacy Records API ([IndexConnection.UpsertRecords] and [IndexConnection.SearchRecords]). A
+// SemanticTextField cannot be declared when creating an index directly; for new work, create a
+// document index with a [StringField] that uses integrated embedding (Embed or SparseEmbed).
 type SemanticTextField struct {
-	// Model is the name of the integrated embedding model used for this field.
+	// Model is the name of the embedding model of the legacy integrated index.
 	Model string `json:"model"`
 	// Dimension is the dimension of the vectors the model produces. Nil for models that produce
 	// sparse vectors.
@@ -198,7 +199,7 @@ type SemanticTextField struct {
 
 // StringField is a string field configuration. When declared at index creation, the field must set
 // at least one of FullTextSearch, Embed, or SparseEmbed; they can be combined, so the same text can
-// be searched by full-text search, dense similarity, and sparse similarity. Filterable is reported
+// be searched by full-text search, dense integrated embedding, and sparse integrated embedding. Filterable is reported
 // on responses when the field is indexed for metadata filtering only. Metadata fields are applied
 // when upserting documents.
 //
@@ -206,25 +207,49 @@ type SemanticTextField struct {
 // A nil FullTextSearch on a stored field is equivalent to &FullTextSearchConfig{}: full-text search
 // with default settings. Set StoreText to false to embed the text without storing it.
 //
+// For example, a schema whose "body" field is searched by full-text search and dense integrated
+// embedding, and whose "notes" field uses sparse integrated embedding without storing its text:
+//
+//	storeText := false
+//	schema := pinecone.IndexSchema{
+//		Fields: map[string]pinecone.IndexSchemaField{
+//			"body": {String: &pinecone.StringField{
+//				FullTextSearch: &pinecone.FullTextSearchConfig{},
+//				Embed:          &pinecone.EmbedConfig{},
+//			}},
+//			"notes": {String: &pinecone.StringField{
+//				SparseEmbed: &pinecone.SparseEmbedConfig{},
+//				StoreText:   &storeText,
+//			}},
+//		},
+//	}
+//
 // An index has one dense vector slot and one sparse vector slot: at most one field may be a
 // [DenseVectorField] or set Embed, and at most one may be a [SparseVectorField] or set SparseEmbed.
 type StringField struct {
-	// FullTextSearch is the [FullTextSearchConfig] for the field. On responses, it is reported for
-	// with its resolved settings, for every field whose text is stored.
+	// FullTextSearch is the [FullTextSearchConfig] for the field. On responses, it is reported with
+	// its resolved settings for every field whose text is stored.
 	FullTextSearch *FullTextSearchConfig `json:"full_text_search,omitempty"`
-	// Embed (Optional) is the [EmbedConfig] for integrated embedding with a hosted dense model.
+	// Embed (Optional) is the [EmbedConfig] for dense integrated embedding with a hosted model.
 	// Pinecone embeds the field's text on upsert and update, and embeds the query of an "embed"
 	// [DocumentScoringMethod] with the same model. Fixed at index creation.
 	Embed *EmbedConfig `json:"embed,omitempty"`
-	// SparseEmbed (Optional) is the [SparseEmbedConfig] for integrated embedding with a hosted
-	// sparse model. Pinecone embeds the field's text on upsert and update, and embeds the query of a
+	// SparseEmbed (Optional) is the [SparseEmbedConfig] for sparse integrated embedding with a hosted
+	// model. Pinecone embeds the field's text on upsert and update, and embeds the query of a
 	// "sparse_embed" [DocumentScoringMethod] with the same model. Fixed at index creation.
 	SparseEmbed *SparseEmbedConfig `json:"sparse_embed,omitempty"`
 	// StoreText (Optional) determines whether the field's text is stored. Defaults to true, in which
-	// case the field is also indexed for full-text search. When false, the text is embedded and then
-	// discarded: the field must set Embed or SparseEmbed and can't set FullTextSearch, it can only be
-	// searched with an "embed" or "sparse_embed" [DocumentScoringMethod], and a fetch or search whose
-	// IncludeFields names it is rejected.
+	// case the field is also indexed for full-text search. It is only meaningful as false, on a field
+	// that sets Embed or SparseEmbed: the API rejects StoreText false on a field without Embed or
+	// SparseEmbed, and together with FullTextSearch, each with a 400.
+	//
+	// When false, the text is embedded and then discarded. Turning off text storage can save space
+	// when the field is only used for similarity search, or keep sensitive text out of Pinecone. It
+	// also means the field has no full-text search: it can only be searched with an "embed" or
+	// "sparse_embed" [DocumentScoringMethod], it can't be matched by $match_* filters, and a fetch
+	// or search whose IncludeFields names it is rejected with a 400 ("*" leaves it out). If you're
+	// not sure whether you'll need full-text search, keep text storage on, for more search
+	// flexibility later. Fixed at index creation.
 	StoreText *bool `json:"store_text,omitempty"`
 	// Filterable reports whether the field is indexed for metadata filtering. Reported on
 	// responses only; ignored when creating an index.
@@ -247,13 +272,15 @@ type FullTextSearchConfig struct {
 	Ngram *NgramConfig `json:"ngram,omitempty"`
 }
 
-// EmbedConfig configures integrated embedding with a hosted dense embedding model on a
-// [StringField]. Every field is optional when creating an index; an empty EmbedConfig selects the
-// default model at its default dimension and metric. When describing an index, Model, Dimension,
-// and Metric are always reported, and the parameters are reported as resolved at creation: those
-// set in the create request merged with the model's defaults.
+// EmbedConfig configures dense integrated embedding for a [StringField] of a document index, with a
+// hosted dense embedding model. Every field is optional when creating an index; an empty EmbedConfig
+// selects the default model at its default dimension and metric. When describing an index, Model,
+// Dimension, and Metric are always reported, and the parameters are reported as resolved at
+// creation: those set in the create request merged with the model's defaults.
 //
-// Refer to the [model guide] for available models and their supported dimensions.
+// The parameter defaults are chosen per model and are rarely worth changing. Call
+// [InferenceService.DescribeModel] and read SupportedParameters to see which keys a model accepts,
+// and refer to the [model guide] for available models and their supported dimensions.
 //
 // [model guide]: https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models
 type EmbedConfig struct {
@@ -274,12 +301,15 @@ type EmbedConfig struct {
 	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
 }
 
-// SparseEmbedConfig configures integrated embedding with a hosted sparse embedding model on a
-// [StringField]. Every field is optional when creating an index; an empty SparseEmbedConfig
-// selects the default model. Sparse embeddings have no dimension or metric. When describing an
-// index, Model is always reported, and the parameters are reported as resolved at creation.
+// SparseEmbedConfig configures sparse integrated embedding for a [StringField] of a document index,
+// with a hosted sparse embedding model. Every field is optional when creating an index; an empty
+// SparseEmbedConfig selects the default model. Sparse embeddings have no dimension or metric. When
+// describing an index, Model is always reported, and the parameters are reported as resolved at
+// creation.
 //
-// Refer to the [model guide] for available models.
+// As with [EmbedConfig], the parameter defaults are chosen per model and are rarely worth changing.
+// Call [InferenceService.DescribeModel] and read SupportedParameters to see which keys a model
+// accepts, and refer to the [model guide] for available models.
 //
 // [model guide]: https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models
 type SparseEmbedConfig struct {
@@ -439,7 +469,9 @@ type Index struct {
 	//
 	// Deprecated: Derived from Deployment for backward compatibility. Use Deployment instead.
 	Spec *IndexSpec `json:"spec,omitempty"`
-	// Embed is the [IndexEmbed] model configured for the index, if applicable.
+	// Embed is the [IndexEmbed] model configured for a legacy integrated index, if applicable. It is
+	// nil for every other index, including a document index whose [StringField] fields use integrated
+	// embedding: read their Embed and SparseEmbed from Schema.
 	//
 	// Deprecated: Derived from Schema for backward compatibility. Use the [SemanticTextField] in Schema instead.
 	Embed *IndexEmbed `json:"embed,omitempty"`
@@ -820,9 +852,9 @@ type Import struct {
 	Error *string `json:"error,omitempty"`
 }
 
-// IntegratedRecord is a record to upsert into an index with integrated embedding via
-// [IndexConnection.UpsertRecords]. It must carry exactly one of an "_id" or "id" field plus the
-// index's field_map text field; other fields are stored as metadata.
+// IntegratedRecord is a record to upsert into a legacy integrated index via
+// [IndexConnection.UpsertRecords] (legacy Records API). It must carry exactly one of an "_id" or
+// "id" field plus the index's field_map text field; other fields are stored as metadata.
 type IntegratedRecord map[string]interface{}
 
 // DocumentUsage reports the read units consumed by a document read operation.
@@ -836,8 +868,8 @@ type DocumentUsage struct {
 }
 
 // DocumentWriteUsage reports the embedding tokens consumed by [IndexConnection.UpsertDocuments] or
-// [IndexConnection.UpdateDocuments] when the request wrote text to a [StringField] that sets Embed
-// or SparseEmbed.
+// [IndexConnection.UpdateDocuments] when the request wrote text to a [StringField] with integrated
+// embedding (Embed or SparseEmbed).
 type DocumentWriteUsage struct {
 	// EmbedTotalTokens is the total number of tokens Pinecone embedded for the request, summed over
 	// every dense and sparse embedding call across all fields. Documents aren't deduplicated by
@@ -850,7 +882,8 @@ type UpsertDocumentsRequest struct {
 	// Documents (Required) are the documents to upsert. Each [Document] must carry an "_id" field
 	// and at least one field declared in the index schema; other fields are stored as filterable
 	// metadata. A [StringField] that sets Embed or SparseEmbed takes its text as a string, and a
-	// field that sets Embed is required on every document.
+	// field that sets Embed is required on every document. The API accepts at most 1000 documents
+	// per request, or 96 when any field of the index schema sets Embed or SparseEmbed.
 	Documents []Document `json:"documents"`
 }
 
@@ -1039,7 +1072,8 @@ type DeleteDocumentsResponse struct {
 type UpdateDocumentsRequest struct {
 	// Documents are partial document updates. Each [Document] must carry "_id"; other entries set
 	// the named fields, and an optional "_remove_fields" entry ([]string) deletes fields. Null
-	// values are rejected; list the field in "_remove_fields" to delete it.
+	// values are rejected; list the field in "_remove_fields" to delete it. The API accepts at most
+	// 1000 updates per request, or 96 when any field of the index schema sets Embed or SparseEmbed.
 	Documents []Document `json:"documents,omitempty"`
 	// Filter is a metadata filter expression selecting the documents to patch. Must not be empty.
 	// Text-match operators ($match_phrase, $match_all, $match_any) are not supported here.
@@ -1090,7 +1124,8 @@ type ListDocumentsResponse struct {
 	Usage DocumentUsage `json:"usage"`
 }
 
-// SearchRecordsRequest represents a search request for records in a specific namespace.
+// SearchRecordsRequest represents a search request for records in a specific namespace of a legacy
+// integrated index, for [IndexConnection.SearchRecords] (legacy Records API).
 type SearchRecordsRequest struct {
 	// Query is the [SearchRecordsQuery] to search with.
 	Query SearchRecordsQuery `json:"query"`
@@ -1108,8 +1143,8 @@ type SearchRecordsQuery struct {
 	Filter *map[string]interface{} `json:"filter,omitempty"`
 	// Id is the unique ID of the vector to be used as a query vector.
 	Id *string `json:"id,omitempty"`
-	// Inputs is the query input to embed with the index's integrated embedding model, e.g.
-	// {"text": "query text"}. Only supported on indexes with integrated embedding.
+	// Inputs is the query input to embed with the embedding model of a legacy integrated index,
+	// e.g. {"text": "query text"}. Only supported on legacy integrated indexes.
 	Inputs *map[string]interface{} `json:"inputs,omitempty"`
 	// Vector is the [SearchRecordsVector] representation of the query.
 	Vector *SearchRecordsVector `json:"vector,omitempty"`
@@ -1156,7 +1191,7 @@ type Hit struct {
 	Fields map[string]interface{} `json:"fields"`
 }
 
-// SearchRecordsResponse represents the response of a records search.
+// SearchRecordsResponse represents the response of [IndexConnection.SearchRecords] (legacy Records API).
 type SearchRecordsResponse struct {
 	// Result contains the [Hit] responses for the search.
 	Result struct {

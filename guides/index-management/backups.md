@@ -9,7 +9,7 @@ Backups have these limitations:
 - They're available only on the Standard and Enterprise plans, with up to 500 and 1,000 backups per project.
 - They're stored in the same project, cloud, and region as the source index.
 - They include only records written at least 15 minutes before the backup was taken.
-- They're supported for vector indexes and indexes with integrated embedding, but not for document indexes.
+- They're supported for vector indexes, document indexes, and legacy integrated indexes.
 
 The examples below assume a `Client` named `pc`. For how to create one, see
 [Client configuration](../client-configuration.md).

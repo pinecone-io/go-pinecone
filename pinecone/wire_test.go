@@ -262,7 +262,7 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			response: indexModelFixture{
 				name: "hybrid",
 				fields: `{
-					"embedding": {"type": "dense_vector", "dimension": 1536, "metric": "dotproduct"},
+					"your_vector": {"type": "dense_vector", "dimension": 1536, "metric": "dotproduct"},
 					"sparse_terms": {"type": "sparse_vector"},
 					"title": {"type": "string", "full_text_search": {"language": "en"}}
 				}`,
@@ -272,7 +272,7 @@ func TestControlPlaneWireUnit(t *testing.T) {
 					Name: "hybrid",
 					Schema: IndexSchema{
 						Fields: map[string]IndexSchemaField{
-							"embedding":    {DenseVector: &DenseVectorField{Dimension: 1536, Metric: IndexMetricDotproduct}},
+							"your_vector":  {DenseVector: &DenseVectorField{Dimension: 1536, Metric: IndexMetricDotproduct}},
 							"sparse_terms": {SparseVector: &SparseVectorField{}},
 							"title":        {String: &StringField{FullTextSearch: &FullTextSearchConfig{Language: ptr("en")}}},
 						},
@@ -288,7 +288,7 @@ func TestControlPlaneWireUnit(t *testing.T) {
 				body: `{
 					"name": "hybrid",
 					"schema": {"fields": {
-						"embedding": {"type": "dense_vector", "dimension": 1536, "metric": "dotproduct"},
+						"your_vector": {"type": "dense_vector", "dimension": 1536, "metric": "dotproduct"},
 						"sparse_terms": {"type": "sparse_vector"},
 						"title": {"type": "string", "full_text_search": {"language": "en"}}
 					}},

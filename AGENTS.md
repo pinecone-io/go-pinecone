@@ -131,7 +131,10 @@ go mod tidy         # clean unused dependencies and update go.sum
 
 - `README.md` — overview and quickstarts. The quickstarts are mirrored as package examples in `pinecone/example_test.go`; keep the two in sync.
 - `guides/` — detailed usage guides (index management, data operations, inference, admin) and `guides/migration/v7.md`.
-- Guides and GoDoc follow the Pinecone docs terminology: the Documents API, Vectors API, and Records API; "integrated embedding"; "an index that stores dense/sparse vectors" rather than "dense/sparse/hybrid index"; metadata is part of a record, not "attached to a vector".
+- Guides and GoDoc follow the Pinecone docs terminology: the Documents API, Vectors API, and legacy Records API; "an index that stores dense/sparse vectors" rather than "dense/sparse/hybrid index"; metadata is part of a record, not "attached to a vector".
+- "Integrated embedding" (singular, the capability, like "full-text search") means a `StringField` that sets `Embed` or `SparseEmbed` on a document index. Say "document indexes support fields with integrated embedding". Keep the plural "embeddings" for the vectors themselves.
+- An index created with `CreateIndexForModel` is a "legacy integrated index", and "legacy integrated indexes require the legacy Records API" (`UpsertRecords`, `SearchRecords`). Tag Records API docs and headings "(legacy Records API)", and point new work at a document index with integrated embedding. Server error messages quoted in docs keep their original wording.
+- Example dense vector fields are named `your_vector`, not `embedding`, so they aren't confused with integrated embedding.
 - Keep every Go example in the guides compiling against the current SDK.
 
 ## Security Considerations

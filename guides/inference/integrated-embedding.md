@@ -1,19 +1,29 @@
-# Integrated embedding
+<a id="integrated-embedding"></a>
 
-An index with integrated embedding converts text to vectors for you, using an embedding model hosted by Pinecone. You
-upsert and search with plain text, and Pinecone embeds it on the server. You can also rerank results as part of a
-search.
+# Legacy integrated indexes (legacy Records API)
 
-You create an index with integrated embedding with `CreateIndexForModel`, choosing the embedding model at creation (see
-[Create an index with integrated embedding](../index-management/indexes.md#create-an-index-with-integrated-embedding)).
-You read and write its data through the Records API, using `UpsertRecords` and `SearchRecords`. The examples below use
+A legacy integrated index converts the text of one mapped field to vectors for you, using an embedding model hosted by
+Pinecone. You upsert and search with plain text, and Pinecone embeds it on the server. You can also rerank results as
+part of a search.
+
+You create a legacy integrated index with `CreateIndexForModel`, choosing the embedding model at creation (see
+[Create a legacy integrated index](../index-management/indexes.md#create-a-legacy-integrated-index)). Legacy integrated
+indexes require the legacy Records API: `UpsertRecords` and `SearchRecords`.
+
+For new work, create a document index instead. Document indexes support fields with integrated embedding, read and
+written through the Documents API, and add full-text search on the same fields. See
+[Integrated embedding](../data-operations/documents.md#integrated-embedding).
+
+The examples below use
 an index created with `FieldMap: map[string]interface{}{"text": "chunk_text"}`, so each record's `chunk_text` field is
 embedded.
 
 The examples below assume an `IndexConnection` named `idxConnection`. For how to create one, see
 [Targeting an index](../client-configuration.md#targeting-an-index).
 
-## Upsert records
+<a id="upsert-records"></a>
+
+## Upsert records (legacy Records API)
 
 `UpsertRecords` embeds your text and upserts the records into the connection's namespace. If the namespace doesn't
 exist, it's created. Each record:
@@ -56,7 +66,9 @@ if err != nil {
 
 Pinecone embeds upserted text as passages and search text as queries. You can't choose the input type per request.
 
-## Search records
+<a id="search-records"></a>
+
+## Search records (legacy Records API)
 
 `SearchRecords` embeds the query text and returns the `TopK` records (1 to 10,000) most similar to it, with their
 similarity scores. By default, each hit includes all of the record's fields. Set `Fields` to return only some of them.
@@ -113,5 +125,5 @@ query text to rerank against.
 
 ## Limitations
 
-Indexes created with `CreateIndexForModel` don't support updating records with text or
+Legacy integrated indexes don't support updating records with text or
 [bulk import](../data-operations/bulk-import.md).

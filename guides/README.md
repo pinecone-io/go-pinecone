@@ -17,7 +17,7 @@ reference, see [pkg.go.dev](https://pkg.go.dev/github.com/pinecone-io/go-pinecon
 ## Data operations
 
 - [Working with documents](./data-operations/documents.md): upsert, search, fetch, update, delete, and list documents
-  in document indexes
+  in document indexes, including fields with integrated embedding
 - [Working with vectors](./data-operations/vectors.md): upsert, query, fetch, update, delete, and list records in
   vector indexes
 - [Namespaces](./data-operations/namespaces.md): creating, listing, describing, and deleting namespaces
@@ -26,8 +26,8 @@ reference, see [pkg.go.dev](https://pkg.go.dev/github.com/pinecone-io/go-pinecon
 ## Inference
 
 - [Inference API](./inference/inference-api.md): embeddings, reranking, and hosted models
-- [Integrated embedding](./inference/integrated-embedding.md): upserting and searching text in indexes that embed it
-  for you
+- [Legacy integrated indexes](./inference/integrated-embedding.md): indexes created with `CreateIndexForModel`, and
+  the legacy Records API
 
 ## Administration
 

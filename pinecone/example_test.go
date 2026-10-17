@@ -190,10 +190,82 @@ func Example_bringYourOwnVectors() {
 	}
 }
 
-// Example_integratedEmbedding creates an index with integrated embedding, which embeds text with
-// a model hosted by Pinecone, then upserts and searches with plain text. It mirrors the
-// integrated embedding quickstart in the README.
+// Example_integratedEmbedding creates a document index whose "body" field uses integrated
+// embedding, so Pinecone embeds its text with a hosted model, then upserts and searches with plain
+// text. It mirrors the integrated embedding quickstart in the README.
 func Example_integratedEmbedding() {
+	ctx := context.Background()
+
+	// Reads the API key from the PINECONE_API_KEY environment variable.
+	pc, err := pinecone.NewClient(pinecone.NewClientParams{})
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	}
+
+	_, err = pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
+		Name: "embedded-articles",
+		Schema: pinecone.IndexSchema{
+			Fields: map[string]pinecone.IndexSchemaField{
+				"body": {String: &pinecone.StringField{Embed: &pinecone.EmbedConfig{}}},
+			},
+		},
+	})
+	if err != nil {
+		log.Fatalf("Failed to create index: %v", err)
+	}
+
+	// Index creation returns before the index is ready to serve requests.
+	var idx *pinecone.Index
+	for {
+		idx, err = pc.DescribeIndex(ctx, "embedded-articles")
+		if err != nil {
+			log.Fatalf("Failed to describe index: %v", err)
+		}
+		if idx.Status != nil && idx.Status.Ready {
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
+
+	idxConnection, err := pc.Index(pinecone.NewIndexConnParams{Host: idx.Host, Namespace: "example-namespace"})
+	if err != nil {
+		log.Fatalf("Failed to create IndexConnection: %v", err)
+	}
+	defer idxConnection.Close()
+
+	_, err = idxConnection.UpsertDocuments(ctx, &pinecone.UpsertDocumentsRequest{
+		Documents: []pinecone.Document{
+			{"_id": "doc-1", "body": "Apples are a great source of dietary fiber.", "category": "nutrition"},
+			{"_id": "doc-2", "body": "The Apple I was released in 1976.", "category": "product"},
+		},
+	})
+	if err != nil {
+		log.Fatalf("Failed to upsert documents: %v", err)
+	}
+
+	// Documents are indexed asynchronously and can take up to a minute to become searchable.
+	time.Sleep(30 * time.Second)
+
+	query := "healthy snacks"
+	res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
+		TopK: 2,
+		ScoreBy: []pinecone.DocumentScoringMethod{
+			{Type: pinecone.DocumentScoringTypeEmbed, Fields: []string{"body"}, Query: &query},
+		},
+		IncludeFields: []string{"body"},
+	})
+	if err != nil {
+		log.Fatalf("Failed to search documents: %v", err)
+	}
+	for _, match := range res.Matches {
+		fmt.Printf("%s: %v\n", match.Id, match.Fields["body"])
+	}
+}
+
+// Example_legacyIntegratedIndex creates a legacy integrated index with CreateIndexForModel, then
+// upserts and searches with plain text through the legacy Records API. For new work, use a
+// document index with integrated embedding instead (see Example_integratedEmbedding).
+func Example_legacyIntegratedIndex() {
 	ctx := context.Background()
 
 	pc, err := pinecone.NewClient(pinecone.NewClientParams{})
@@ -202,7 +274,7 @@ func Example_integratedEmbedding() {
 	}
 
 	_, err = pc.CreateIndexForModel(ctx, &pinecone.CreateIndexForModelRequest{
-		Name:   "example-integrated-index",
+		Name:   "example-legacy-integrated-index",
 		Cloud:  pinecone.CloudAWS,
 		Region: "us-east-1",
 		Embed: pinecone.CreateIndexForModelEmbed{
@@ -216,7 +288,7 @@ func Example_integratedEmbedding() {
 
 	var idx *pinecone.Index
 	for {
-		idx, err = pc.DescribeIndex(ctx, "example-integrated-index")
+		idx, err = pc.DescribeIndex(ctx, "example-legacy-integrated-index")
 		if err != nil {
 			log.Fatalf("Failed to describe index: %v", err)
 		}

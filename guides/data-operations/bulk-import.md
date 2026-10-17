@@ -93,5 +93,5 @@ if err != nil {
 These rules also apply:
 
 - You can't import into an existing namespace. To import into the `__default__` namespace, it must be empty.
-- You can't import into an index created with `CreateIndexForModel`. To add records to one, use
-  [`UpsertRecords`](../inference/integrated-embedding.md#upsert-records).
+- You can't import into a legacy integrated index, created with `CreateIndexForModel`. To add records to one, use
+  [`UpsertRecords`](../inference/integrated-embedding.md#upsert-records) (legacy Records API).

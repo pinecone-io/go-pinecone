@@ -1851,7 +1851,7 @@ func Test_ConfigureIndex_ValidationErrors_Unit(t *testing.T) {
 					Model: ptr("multilingual-e5-large"),
 				},
 			},
-			expectedError: "Embed is not supported by Pinecone API version 2026-07: to update the read or write parameters of an index's embedding model, use Schema",
+			expectedError: "Embed is not supported by Pinecone API version 2026-07: to update the read or write parameters of a legacy integrated index's embedding model, use Schema; to create a new index with integrated embedding, use CreateIndex with a StringField that sets Embed or SparseEmbed",
 		},
 		{
 			name:           "BYOC index switching ReadCapacity to OnDemand should succeed",

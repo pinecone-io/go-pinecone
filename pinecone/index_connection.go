@@ -1059,15 +1059,15 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 	return idx.query(ctx, req)
 }
 
-// UpsertRecords upserts records into the connection's namespace of an
-// [index with integrated embedding]; Pinecone embeds each record's field_map text field
-// server-side. Each record must carry exactly one of an "_id" or "id" field, plus the field named in
-// the index's field_map; all other fields are stored as metadata. A request may contain at most 96
-// records (2 MiB total).
+// UpsertRecords (legacy Records API) upserts records into the connection's namespace of a legacy
+// integrated index, created with [Client.CreateIndexForModel]; Pinecone embeds each record's
+// field_map text field. Each record must carry exactly one of an "_id" or "id" field, plus the field
+// named in the index's field_map; all other fields are stored as metadata. A request may contain at
+// most 96 records (2 MiB total).
 //
-// UpsertRecords is part of the legacy Records API for indexes created with
-// [Client.CreateIndexForModel]. For a document index whose schema declares a [StringField] with
-// Embed or SparseEmbed, use [IndexConnection.UpsertDocuments].
+// Legacy integrated indexes require the legacy Records API. For new work, create a document index
+// with integrated embedding (a [StringField] that sets Embed or SparseEmbed) and write to it with
+// [IndexConnection.UpsertDocuments].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -1147,8 +1147,6 @@ func (idx *IndexConnection) QueryByVectorId(ctx context.Context, in *QueryByVect
 //			log.Fatalf("Failed to upsert records. Error: %v", err)
 //	    }
 //	    log.Printf("Successfully upserted %d record(s)!\n", len(records))
-//
-// [index with integrated embedding]: https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models
 func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*IntegratedRecord) error {
 	var buffer bytes.Buffer
 	encoder := json.NewEncoder(&buffer)
@@ -1182,14 +1180,14 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 	return nil
 }
 
-// SearchRecords searches the connection's namespace with query text (Query.Inputs), a query vector
-// (Query.Vector), or a record ID (Query.Id) and returns the most similar records with their scores,
-// optionally reranked. Text queries require an [index with integrated embedding].
+// SearchRecords (legacy Records API) searches the connection's namespace with query text
+// (Query.Inputs), a query vector (Query.Vector), or a record ID (Query.Id) and returns the most
+// similar records with their scores, optionally reranked. Text queries require a legacy integrated
+// index, created with [Client.CreateIndexForModel].
 //
-// SearchRecords is part of the legacy Records API for indexes created with
-// [Client.CreateIndexForModel]. For a document index whose schema declares a [StringField] with
-// Embed or SparseEmbed, use [IndexConnection.SearchDocuments] with an "embed" or "sparse_embed"
-// [DocumentScoringMethod].
+// Legacy integrated indexes require the legacy Records API. For new work, create a document index
+// with integrated embedding (a [StringField] that sets Embed or SparseEmbed) and search it with
+// [IndexConnection.SearchDocuments] and an "embed" or "sparse_embed" [DocumentScoringMethod].
 //
 // Returns a pointer to a [SearchRecordsResponse], or an error; a non-success response is a
 // [PineconeError].
@@ -1279,8 +1277,6 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 //			log.Fatalf("Failed to search records: %v", err)
 //	    }
 //	    fmt.Printf("Search results: %+v\n", res)
-//
-// [index with integrated embedding]: https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models
 func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecordsRequest) (*SearchRecordsResponse, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*SearchRecordsRequest) cannot be nil")
@@ -1692,8 +1688,8 @@ type StartImportResponse struct {
 // StartImport starts an asynchronous import of Parquet files from object storage into the index.
 // The uri names a directory, not a single file: s3://BUCKET/DIR (AWS-hosted indexes only),
 // gs://BUCKET/DIR, or https://ACCOUNT.blob.core.windows.net/CONTAINER/DIR. For buckets that are not
-// publicly readable, configure a [storage integration] and pass its ID. Indexes with integrated
-// embedding do not support import. StartImport returns once the import is accepted; poll
+// publicly readable, configure a [storage integration] and pass its ID. Legacy integrated indexes,
+// created with [Client.CreateIndexForModel], do not support import. StartImport returns once the import is accepted; poll
 // [IndexConnection.DescribeImport] for progress.
 //
 // Returns a pointer to a [StartImportResponse] object with the [Import] ID or an error if the request fails.
@@ -2557,7 +2553,7 @@ func resolveNamespace(ns string) string {
 	return ns
 }
 
-// documentsRequest issues a documents API request against the connection's namespace, checks the
+// documentsRequest issues a Documents API request against the connection's namespace, checks the
 // expected success status, and decodes the response body into out.
 func (idx *IndexConnection) documentsRequest(ctx context.Context, operation string, body map[string]interface{}, expectedStatus int, out interface{},
 	call func(ctx context.Context, namespace string, contentType string, body io.Reader) (*http.Response, error)) error {
@@ -2591,8 +2587,9 @@ func (idx *IndexConnection) documentsRequest(ctx context.Context, operation stri
 // are dropped. The upsert is applied asynchronously, so documents may not be immediately visible to
 // [IndexConnection.SearchDocuments] or [IndexConnection.FetchDocuments].
 //
-// A [StringField] that sets Embed or SparseEmbed takes its text as a string, and Pinecone embeds it
-// with the field's model; a vector supplied for such a field is rejected.
+// A [StringField] with integrated embedding (Embed or SparseEmbed) takes its text as a string, and
+// Pinecone embeds it with the field's model; a vector supplied for such a field is rejected. To
+// write to a legacy integrated index, use [IndexConnection.UpsertRecords] (legacy Records API).
 //
 // Returns an [UpsertDocumentsResponse] whose UpsertedCount is the number of documents accepted for
 // upsert and whose Usage reports the tokens embedded, if any, or an error.
@@ -2601,7 +2598,7 @@ func (idx *IndexConnection) documentsRequest(ctx context.Context, operation stri
 //
 //	    res, err := idxConnection.UpsertDocuments(ctx, &pinecone.UpsertDocumentsRequest{
 //		    Documents: []pinecone.Document{
-//			    {"_id": "doc-1", "embedding": []float32{0.1, 0.2}, "genre": "drama"},
+//			    {"_id": "doc-1", "your_vector": []float32{0.1, 0.2}, "genre": "drama"},
 //		    },
 //	    })
 //	    if err != nil {
@@ -2633,7 +2630,8 @@ func (idx *IndexConnection) UpsertDocuments(ctx context.Context, in *UpsertDocum
 // query described by ScoreBy, ranked by the given scoring methods. See [SearchDocumentsRequest] and
 // [DocumentScoringMethod] for the accepted combinations. An "embed" or "sparse_embed" method scores
 // a [StringField] with integrated embedding by query text, which Pinecone embeds with the field's
-// model.
+// model. To search a legacy integrated index, use [IndexConnection.SearchRecords] (legacy Records
+// API).
 //
 // Example:
 //

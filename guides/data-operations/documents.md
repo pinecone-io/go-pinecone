@@ -2,12 +2,13 @@
 
 A document index is an index with a document schema, created with `CreateIndex` (see
 [Create a document index](../index-management/indexes.md#create-a-document-index)). You read and write
-its data through the Documents API, using these methods on `IndexConnection`:
+its data through the Documents API, using these methods on `IndexConnection`. Document indexes support fields with
+[integrated embedding](#integrated-embedding), where Pinecone embeds a field's text for you.
 
 | Method | Description |
 |--------|-------------|
 | `UpsertDocuments` | Write documents, replacing any with the same `_id` |
-| `SearchDocuments` | Rank documents with full-text, query-string, dense vector, or sparse vector scoring |
+| `SearchDocuments` | Rank documents with full-text, query-string, dense vector, sparse vector, or integrated embedding scoring |
 | `FetchDocuments` | Retrieve documents by ID or by filter |
 | `UpdateDocuments` | Patch fields on documents by ID, or on every document that matches a filter |
 | `DeleteDocuments` | Delete documents by ID, by filter, or all at once |
@@ -60,7 +61,7 @@ These limits apply to upserts:
 
 | Limit | Value |
 |-------|-------|
-| Documents per request | 1,000 |
+| Documents per request | 1,000, or 96 on an index with [integrated embedding](#integrated-embedding) |
 | Request size | 2 MB |
 | Document size | 2 MB |
 | `_id` length | 512 characters |
@@ -84,9 +85,13 @@ bounded timeout until the expected results appear. To confirm that an index hold
 | `"query_string"` | A Lucene query string | `Query`, with `Fields` left empty |
 | `"dense_vector"` | Dense vector similarity | `Fields` (exactly one dense vector field) and `Values` |
 | `"sparse_vector"` | Sparse vector similarity | `Fields` (exactly one sparse vector field) and `SparseValues` |
+| `"embed"` | Dense similarity to query text that Pinecone embeds | `Fields` (exactly one field that sets `Embed`) and `Query` |
+| `"sparse_embed"` | Sparse similarity to query text that Pinecone embeds | `Fields` (exactly one field that sets `SparseEmbed`) and `Query` |
 
-You can combine several methods only when every one is `"text"` or `"query_string"`. A vector method must be the only
-entry in `ScoreBy`.
+The `DocumentScoringType*` constants, such as `pinecone.DocumentScoringTypeEmbed`, hold these values.
+
+You can combine several methods only when every one is `"text"` or `"query_string"`. A vector or integrated embedding
+method must be the only entry in `ScoreBy`.
 
 By default, a match carries only its `Id` and `Score`. List the fields to return in `IncludeFields`, or pass
 `[]string{"*"}` to return every field.
@@ -144,10 +149,10 @@ To search by vector similarity, the index needs a dense or sparse vector field, 
 under that field's name:
 
 ```go
-// The index schema declares "embedding" as a DenseVectorField with Dimension 3.
+// The index schema declares "your_vector" as a DenseVectorField with Dimension 3.
 _, err := idxConnection.UpsertDocuments(ctx, &pinecone.UpsertDocumentsRequest{
 	Documents: []pinecone.Document{
-		{"_id": "doc-1", "embedding": []float32{0.1, 0.2, 0.3}, "genre": "drama"},
+		{"_id": "doc-1", "your_vector": []float32{0.1, 0.2, 0.3}, "genre": "drama"},
 	},
 })
 
@@ -156,7 +161,7 @@ queryVector := []float32{0.1, 0.2, 0.3}
 res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
 	TopK: 10,
 	ScoreBy: []pinecone.DocumentScoringMethod{
-		{Type: "dense_vector", Fields: []string{"embedding"}, Values: &queryVector},
+		{Type: "dense_vector", Fields: []string{"your_vector"}, Values: &queryVector},
 	},
 })
 ```
@@ -215,7 +220,7 @@ with a filter:
 res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
 	TopK: 10,
 	ScoreBy: []pinecone.DocumentScoringMethod{
-		{Type: "dense_vector", Fields: []string{"embedding"}, Values: &queryVector},
+		{Type: "dense_vector", Fields: []string{"your_vector"}, Values: &queryVector},
 	},
 	Filter: map[string]interface{}{
 		"$and": []interface{}{
@@ -230,6 +235,118 @@ Filtered updates and deletes don't accept text-match operators. To update or del
 fetch the matching IDs first.
 
 For more on filters, see [Filter by metadata](https://docs.pinecone.io/guides/search/filter-by-metadata).
+
+## Integrated embedding
+
+With integrated embedding, Pinecone embeds a field's text for you. Set `Embed` (dense) or `SparseEmbed` (sparse) on a
+`StringField`, upsert plain text, and search with query text. Pinecone embeds document text with a hosted model on
+upsert and update, and embeds the query with the same model on search. You never handle the vectors.
+
+```go
+model := "llama-text-embed-v2"
+
+_, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
+	Name: "embedded-articles",
+	Schema: pinecone.IndexSchema{
+		Fields: map[string]pinecone.IndexSchemaField{
+			"body": {String: &pinecone.StringField{
+				Embed:       &pinecone.EmbedConfig{Model: &model},
+				SparseEmbed: &pinecone.SparseEmbedConfig{},
+			}},
+		},
+	},
+})
+if err != nil {
+	log.Fatalf("Failed to create index: %v", err)
+}
+```
+
+Every field of `EmbedConfig` and `SparseEmbedConfig` is optional. An empty `EmbedConfig` selects the default model, at
+its default dimension and metric. The configuration is fixed at creation. `DescribeIndex` reports it resolved, with
+every omitted field filled in from the model. `WriteParameters` and `ReadParameters` set the model parameters used to
+embed document text and query text. To see which parameters a model accepts, call `pc.Inference.DescribeModel` and read `SupportedParameters`.
+
+An index has one dense slot and one sparse slot. At most one field can be a `DenseVectorField` or set `Embed`, and at
+most one can be a `SparseVectorField` or set `SparseEmbed`. A single field can set `Embed` and `SparseEmbed` together,
+and full-text search as well.
+
+Upsert documents with the field's text as a string:
+
+```go
+res, err := idxConnection.UpsertDocuments(ctx, &pinecone.UpsertDocumentsRequest{
+	Documents: []pinecone.Document{
+		{"_id": "article-1", "body": "Plant apple trees in a sunny orchard with well-drained soil.", "category": "gardening"},
+	},
+})
+if err != nil {
+	log.Fatalf("Failed to upsert documents: %v", err)
+}
+if res.Usage != nil {
+	fmt.Printf("Embedded %d tokens\n", res.Usage.EmbedTotalTokens)
+}
+```
+
+`UpsertDocumentsResponse.Usage` and `UpdateDocumentsResponse.Usage` report `EmbedTotalTokens`, the tokens Pinecone
+embedded for the write. `Usage` is nil when the request embedded nothing.
+
+Search with an `"embed"` or `"sparse_embed"` method that names the field and passes the query as text:
+
+```go
+query := "how do I grow fruit trees"
+
+res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
+	TopK: 5,
+	ScoreBy: []pinecone.DocumentScoringMethod{
+		{Type: pinecone.DocumentScoringTypeEmbed, Fields: []string{"body"}, Query: &query},
+	},
+	IncludeFields: []string{"body"},
+})
+if err != nil {
+	log.Fatalf("Failed to search documents: %v", err)
+}
+if res.Usage.EmbedTotalTokens != nil {
+	fmt.Printf("Embedded %d query tokens\n", *res.Usage.EmbedTotalTokens)
+}
+```
+
+Like a vector method, an `"embed"` or `"sparse_embed"` method must be the only entry in `ScoreBy`.
+`Usage.EmbedTotalTokens` counts the query tokens Pinecone embedded, and is nil when the response doesn't report it.
+
+### Stored text
+
+By default, the field's text is stored, and stored text is always indexed for full-text search. So a field that sets
+only `Embed` also supports `"text"` and `"query_string"` methods, and `DescribeIndex` reports `FullTextSearch` with
+default settings.
+
+`StoreText` is only meaningful as `false`, on a field that sets `Embed` or `SparseEmbed`. The API rejects `StoreText`
+false on a field without `Embed` or `SparseEmbed`, and together with `FullTextSearch`, each with a 400. Turning off text
+storage can save space when the field is only used for similarity search, or keep sensitive text out of Pinecone:
+
+```go
+storeText := false
+
+_, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
+	Name: "embedded-notes",
+	Schema: pinecone.IndexSchema{
+		Fields: map[string]pinecone.IndexSchemaField{
+			"notes": {String: &pinecone.StringField{Embed: &pinecone.EmbedConfig{}, StoreText: &storeText}},
+		},
+	},
+})
+if err != nil {
+	log.Fatalf("Failed to create index: %v", err)
+}
+```
+
+An unstored field has no full-text search. It can only be searched with an `"embed"` or `"sparse_embed"` method, and
+`$match_*` filters can't use it. Its text can't be returned either: a fetch or search whose `IncludeFields` names it is
+rejected with a 400, and `[]string{"*"}` leaves it out. If you're not sure whether you'll need full-text search, keep
+text storage on, for more search flexibility later. Like the rest of the schema, it can't be changed after creation.
+
+### Request limits
+
+An upsert or update request against a document index with integrated embedding carries at most 96 documents, rather than the
+usual 1,000. Split larger writes into requests of 96 documents or fewer.
 
 ## Fetch documents
 

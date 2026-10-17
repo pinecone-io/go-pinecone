@@ -469,7 +469,7 @@ type CreateIndexRequest struct {
 //		    Name: "hybrid",
 //		    Schema: pinecone.IndexSchema{
 //			    Fields: map[string]pinecone.IndexSchemaField{
-//				    "embedding":    {DenseVector: &pinecone.DenseVectorField{Dimension: 1536, Metric: pinecone.IndexMetricDotproduct}},
+//				    "your_vector":  {DenseVector: &pinecone.DenseVectorField{Dimension: 1536, Metric: pinecone.IndexMetricDotproduct}},
 //				    "sparse_terms": {SparseVector: &pinecone.SparseVectorField{}},
 //			    },
 //		    },
@@ -743,9 +743,11 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 	return decodeIndex(res.Body)
 }
 
-// CreateIndexForModelRequest defines the desired configuration for creating an index with an associated embedding model.
+// CreateIndexForModelRequest defines the desired configuration for creating a legacy integrated index with
+// [Client.CreateIndexForModel].
 //
-// To create an index with an associated embedding model, use the [Client.CreateIndexForModel] method.
+// For new work, create a document index with integrated embedding instead: call [Client.CreateIndex] with a
+// [StringField] that sets Embed or SparseEmbed.
 //
 // Example:
 //
@@ -805,10 +807,10 @@ type CreateIndexForModelRequest struct {
 	Tags *IndexTags
 }
 
-// CreateIndexForModelEmbed defines the embedding model configuration for an index.
+// CreateIndexForModelEmbed defines the embedding model configuration of a new legacy integrated index.
 //
-// The `CreateIndexForModelEmbed` struct is used as part of the [CreateIndexForModelRequest] when creating an index
-// with an associated embedding model. The model can't be changed after the index is created; the read and
+// The `CreateIndexForModelEmbed` struct is used as part of the [CreateIndexForModelRequest] when creating a
+// legacy integrated index. The model can't be changed after the index is created; the read and
 // write parameters can be updated with [Client.ConfigureIndex] using [ConfigureIndexParams].Schema.
 //
 // [similarity metric]: https://docs.pinecone.io/guides/index-data/create-an-index#similarity-metrics
@@ -830,13 +832,13 @@ type CreateIndexForModelEmbed struct {
 	WriteParameters *map[string]interface{}
 }
 
-// CreateIndexForModel creates and initializes a new serverless Index via the specified [Client] with integrated
-// embedding, using one of Pinecone's hosted embedding models. After the index is created, you can upsert and search for records
-// using the [IndexConnection.UpsertRecords] and [IndexConnection.SearchRecords] methods.
+// CreateIndexForModel creates a legacy integrated index, which embeds record text with one of Pinecone's
+// hosted embedding models. Legacy integrated indexes require the legacy Records API:
+// [IndexConnection.UpsertRecords] and [IndexConnection.SearchRecords].
 //
-// CreateIndexForModel creates a legacy integrated index, used with the legacy Records API. To use
-// integrated embedding on a new index, call [Client.CreateIndex] with a [StringField] that sets
-// Embed or SparseEmbed, and use the document operations such as [IndexConnection.UpsertDocuments].
+// For new work, create a document index with integrated embedding instead: call [Client.CreateIndex] with a
+// [StringField] that sets Embed or SparseEmbed, and use the Documents API, such as
+// [IndexConnection.UpsertDocuments] and [IndexConnection.SearchDocuments].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1208,8 +1210,9 @@ func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
 
 // ConfigureIndexParams contains parameters for configuring an [Index]. For any index you can
 // configure DeletionProtection and Tags. For serverless and BYOC indexes you can also configure
-// ReadCapacity, for pod-based indexes the number of Replicas and the PodType, and for indexes with
-// integrated embedding the read and write parameters of the embedding model through Schema.
+// ReadCapacity, for pod-based indexes the number of Replicas and the PodType, and for legacy
+// integrated indexes the read and write parameters of the embedding model through Schema. The
+// integrated embedding configuration of a document index is fixed at creation.
 // Each of the fields is optional, but at least one field must be set.
 // See [scale a pods-based index] for more information.
 //
@@ -1260,7 +1263,8 @@ type ConfigureIndexParams struct {
 	// Embed is not supported; setting it returns an error without calling the API.
 	//
 	// Deprecated: Pinecone API version 2026-07 no longer supports configuring an index's embedding
-	// through Embed. To update the read or write parameters of the embedding model, use Schema.
+	// through Embed. To update the read or write parameters of the embedding model of a legacy
+	// integrated index, use Schema.
 	Embed *ConfigureIndexEmbed
 	// ReadCapacity (Optional) is the [ReadCapacityParams] to apply to a serverless or BYOC index;
 	// setting it on a pod-based index returns an error. Converting an OnDemand index to Dedicated
@@ -1269,16 +1273,18 @@ type ConfigureIndexParams struct {
 	// OnDemand.
 	ReadCapacity *ReadCapacityParams
 	// Schema (Optional) is the [ConfigureIndexSchema] updating the read or write parameters of the
-	// embedding model on an index with integrated embedding.
+	// embedding model of a legacy integrated index.
 	Schema *ConfigureIndexSchema
 }
 
 // ConfigureIndexSchema holds a semantic text field update for [Client.ConfigureIndex]. It updates the
-// read and write parameters of an index's integrated embedding model; the model can't be changed.
+// read and write parameters of the embedding model of a legacy integrated index, created with
+// [Client.CreateIndexForModel]; the model can't be changed. The integrated embedding configuration
+// of a document index ([StringField] Embed and SparseEmbed) is fixed at creation and can't be updated.
 //
 // Example:
 //
-//	    _, err := pc.ConfigureIndex(ctx, "my-integrated-index", pinecone.ConfigureIndexParams{
+//	    _, err := pc.ConfigureIndex(ctx, "my-legacy-integrated-index", pinecone.ConfigureIndexParams{
 //		    Schema: &pinecone.ConfigureIndexSchema{
 //			    Fields: map[string]pinecone.ConfigureSemanticTextField{
 //				    "chunk_text": {ReadParameters: &map[string]interface{}{"input_type": "query", "truncate": "NONE"}},
@@ -1291,7 +1297,8 @@ type ConfigureIndexSchema struct {
 	Fields map[string]ConfigureSemanticTextField
 }
 
-// ConfigureSemanticTextField holds updated parameters for a semantic text field.
+// ConfigureSemanticTextField holds updated parameters for the semantic text field of a legacy
+// integrated index.
 type ConfigureSemanticTextField struct {
 	// Model (Optional) is the field's embedding model. The model can't be changed, so if set it must
 	// match the current model.
@@ -1302,11 +1309,12 @@ type ConfigureSemanticTextField struct {
 	WriteParameters *map[string]interface{}
 }
 
-// ConfigureIndexEmbed contains parameters for configuring the integrated embedding settings for an [Index].
+// ConfigureIndexEmbed contains parameters for configuring the embedding settings of a legacy integrated index.
 //
 // Deprecated: Pinecone API version 2026-07 no longer supports configuring an index's embedding through Embed, so
 // setting [ConfigureIndexParams].Embed returns an error. To update the read or write parameters of the embedding
-// model, use [ConfigureIndexParams].Schema. The model can't be changed after the index is created.
+// model of a legacy integrated index, use [ConfigureIndexParams].Schema. The model can't be changed after the
+// index is created.
 type ConfigureIndexEmbed struct {
 	// FieldMap (Optional) identifies the name of the text field from your document model that will
 	// be embedded.
@@ -1320,7 +1328,7 @@ type ConfigureIndexEmbed struct {
 }
 
 // ConfigureIndex is used to configure an existing [Index] allowing you to update the index's deletion protection status, tags,
-// read capacity configuration, and the read and write parameters of an integrated embedding model. You can also
+// read capacity configuration, and the read and write parameters of a legacy integrated index's embedding model. You can also
 // [scale a pods-based index] by increasing the pod size or changing the number of replicas.
 //
 // Parameters:
@@ -1367,7 +1375,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 		return nil, fmt.Errorf("must specify PodType, Replicas, DeletionProtection, ReadCapacity, Schema, or Tags when configuring an index")
 	}
 	if in.Embed != nil {
-		return nil, fmt.Errorf("Embed is not supported by Pinecone API version 2026-07: to update the read or write parameters of an index's embedding model, use Schema")
+		return nil, fmt.Errorf("Embed is not supported by Pinecone API version 2026-07: to update the read or write parameters of a legacy integrated index's embedding model, use Schema; to create a new index with integrated embedding, use CreateIndex with a StringField that sets Embed or SparseEmbed")
 	}
 	if in.Schema != nil && len(in.Schema.Fields) != 1 {
 		return nil, fmt.Errorf("Schema must contain exactly one field to update")
@@ -2171,6 +2179,9 @@ func (c *Client) ListRestoreJobs(ctx context.Context, in *ListRestoreJobsParams)
 
 // InferenceService exposes methods for interacting with the [Pinecone Inference API]: generating
 // embeddings, reranking documents, and describing hosted models. Access it through Client.Inference.
+//
+// To have Pinecone embed text as part of index writes and searches, use a document index with
+// integrated embedding: a [StringField] that sets Embed or SparseEmbed.
 //
 // [Pinecone Inference API]: https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models
 type InferenceService struct {

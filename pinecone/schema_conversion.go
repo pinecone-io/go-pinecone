@@ -264,7 +264,7 @@ func denseFieldForCompat(schema *IndexSchema) *DenseVectorField {
 }
 
 // semanticTextFieldForCompat returns the name and config of the schema's semantic_text field, if any.
-// An index has at most one: it's created by CreateIndexForModel with a single field_map entry.
+// Only a legacy integrated index has one: CreateIndexForModel creates it from a single field_map entry.
 func semanticTextFieldForCompat(schema *IndexSchema) (string, *SemanticTextField) {
 	if schema == nil {
 		return "", nil

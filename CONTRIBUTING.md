@@ -137,4 +137,4 @@ Two more suites are behind their own build tags. CI runs both on every pull requ
 
 ## Documentation
 
-User-facing documentation lives in `README.md` and the [`guides/`](./guides/README.md) directory, with the API reference generated from GoDoc comments. The guides and GoDoc comments follow the terminology of the [Pinecone docs](https://docs.pinecone.io/), such as the Documents API, Vectors API, and Records API, "integrated embedding", and "an index that stores dense vectors" rather than "a dense index". Keep examples in the guides compiling against the current SDK.
+User-facing documentation lives in `README.md` and the [`guides/`](./guides/README.md) directory, with the API reference generated from GoDoc comments. The guides and GoDoc comments follow the terminology of the [Pinecone docs](https://docs.pinecone.io/), such as the Documents API, Vectors API, and legacy Records API, and "an index that stores dense vectors" rather than "a dense index". Keep examples in the guides compiling against the current SDK.

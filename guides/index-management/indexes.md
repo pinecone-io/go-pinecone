@@ -4,13 +4,15 @@ An index is defined by its **schema**, which lists the fields it declares, and i
 runs. The deployment is serverless, Bring Your Own Cloud (BYOC), or pod-based (for existing indexes only). The schema
 determines which data-plane API the index uses:
 
-- A **document index** declares named fields, such as full-text-search fields and dense or sparse vector fields. You
-  read and write it through the [Documents API](../data-operations/documents.md). Create one with `CreateIndex`.
+- A **document index** declares named fields, such as full-text-search fields, dense or sparse vector fields, and
+  fields with integrated embedding. You read and write it through the [Documents API](../data-operations/documents.md).
+  Create one with `CreateIndex`.
 - A **vector index** stores vectors under the reserved field names `_values` (dense), `_sparse_values` (sparse), or
   both. You read and write it through the [Vectors API](../data-operations/vectors.md). Create one with
   `CreateServerlessIndex`, `CreateBYOCIndex`, or `CreateIndex` with a schema made only of the reserved fields.
-- An index created with `CreateIndexForModel` has **integrated embedding**, which embeds text for you. You read and
-  write it through the [Records API](../inference/integrated-embedding.md).
+- A **legacy integrated index**, created with `CreateIndexForModel`, embeds text for you. Legacy integrated indexes
+  require the [legacy Records API](../inference/integrated-embedding.md). For new work, use a document index with
+  [integrated embedding](#create-a-document-index-with-integrated-embedding) instead.
 
 The examples below assume a `Client` named `pc`. For how to create one, see
 [Client configuration](../client-configuration.md).
@@ -22,6 +24,9 @@ The examples below assume a `Client` named `pc`. For how to create one, see
 - `DenseVectorField`: Fixed-dimension dense vectors, with a `Dimension` and `Metric`. At most one per index.
 - `SparseVectorField`: Sparse vectors, which take no dimension or metric. At most one per index.
 - `StringField` with `FullTextSearch` set: Text indexed for full-text search. At most 100 per index.
+- `StringField` with `Embed` or `SparseEmbed` set: Text that Pinecone embeds with a hosted model (integrated
+  embedding). A field that sets `Embed` takes the index's one dense slot, and one that sets `SparseEmbed` takes its one
+  sparse slot. See [Create a document index with integrated embedding](#create-a-document-index-with-integrated-embedding).
 
 You don't declare metadata fields. They're indexed automatically when you upsert data. Field names can be up to 64
 bytes and can't start with `$` or `_`.
@@ -52,7 +57,7 @@ idx, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
 	Name: "example-articles",
 	Schema: pinecone.IndexSchema{
 		Fields: map[string]pinecone.IndexSchemaField{
-			"embedding":    {DenseVector: &pinecone.DenseVectorField{Dimension: 1536, Metric: pinecone.IndexMetricDotproduct}},
+			"your_vector":  {DenseVector: &pinecone.DenseVectorField{Dimension: 1536, Metric: pinecone.IndexMetricDotproduct}},
 			"sparse_terms": {SparseVector: &pinecone.SparseVectorField{}},
 			"body":         {String: &pinecone.StringField{FullTextSearch: &pinecone.FullTextSearchConfig{}}},
 		},
@@ -123,6 +128,34 @@ For the available regions, see [Create an index](https://docs.pinecone.io/guides
 `CreateIndexRequest` also accepts `ReadCapacity` (see [Dedicated read capacity](#dedicated-read-capacity)), `CmekId`,
 `DeletionProtection`, and `Tags`. `Name` is optional. If it's empty, Pinecone generates one. Set a name if you need to
 retry the request safely, because a retry with the same name fails with a conflict instead of creating a second index.
+
+### Create a document index with integrated embedding
+
+Document indexes support fields with integrated embedding. Set `Embed` (dense) or `SparseEmbed` (sparse) on a
+`StringField`, and Pinecone embeds the field's text with a hosted model when you upsert, and embeds query text when you
+search:
+
+```go
+idx, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
+	Name: "embedded-articles",
+	Schema: pinecone.IndexSchema{
+		Fields: map[string]pinecone.IndexSchemaField{
+			"body": {String: &pinecone.StringField{
+				Embed:       &pinecone.EmbedConfig{},
+				SparseEmbed: &pinecone.SparseEmbedConfig{},
+			}},
+		},
+	},
+})
+if err != nil {
+	log.Fatalf("Failed to create index: %v", err)
+}
+```
+
+Every field of `EmbedConfig` and `SparseEmbedConfig` is optional, so an empty config selects the default model. The
+configuration is fixed at creation. The text is stored and indexed for full-text search by default; set `StoreText` to
+`false` to embed it without storing it. For searching these fields, unstored text, and the 96-document request limit,
+see [Integrated embedding](../data-operations/documents.md#integrated-embedding).
 
 ## Create a vector index
 
@@ -210,16 +243,20 @@ idx, err := pc.CreateBYOCIndex(ctx, &pinecone.CreateBYOCIndexRequest{
 
 For more on BYOC, see [Bring your own cloud](https://docs.pinecone.io/guides/production/bring-your-own-cloud).
 
-## Create an index with integrated embedding
+<a id="create-an-index-with-integrated-embedding"></a>
 
-An index with integrated embedding uses an embedding model hosted by Pinecone to convert text to vectors for you. You
-choose the model when you create the index, and you can't change it afterwards. You can update the model's read and
-write parameters with `ConfigureIndex` (see [Configure an index](#configure-an-index)). Create one with
-`CreateIndexForModel`:
+## Create a legacy integrated index
+
+A legacy integrated index, created with `CreateIndexForModel`, uses an embedding model hosted by Pinecone to convert
+the text of one mapped field to vectors for you. Legacy integrated indexes require the legacy Records API. For new
+work, create a [document index with integrated embedding](#create-a-document-index-with-integrated-embedding) instead.
+
+You choose the model when you create the index, and you can't change it afterwards. You can update the model's read and
+write parameters with `ConfigureIndex` (see [Configure an index](#configure-an-index)):
 
 ```go
 idx, err := pc.CreateIndexForModel(ctx, &pinecone.CreateIndexForModelRequest{
-	Name:   "example-integrated-index",
+	Name:   "example-legacy-integrated-index",
 	Cloud:  pinecone.CloudAWS,
 	Region: "us-east-1",
 	Embed: pinecone.CreateIndexForModelEmbed{
@@ -233,7 +270,7 @@ if err != nil {
 ```
 
 `FieldMap` names the record field whose text is embedded. To upsert and search text, see
-[Integrated embedding](../inference/integrated-embedding.md).
+[Legacy integrated indexes](../inference/integrated-embedding.md).
 
 ## Wait for an index to be ready
 
@@ -336,7 +373,8 @@ You can't delete an index that has deletion protection enabled. Disable it with 
 ## Configure an index
 
 `ConfigureIndex` changes an existing index's deletion protection, tags, read capacity, and the read and write
-parameters of an integrated embedding model.
+parameters of a legacy integrated index's embedding model. The integrated embedding configuration of a document index
+is fixed at creation.
 
 ```go
 // Enable deletion protection.
@@ -360,9 +398,9 @@ _, err = pc.ConfigureIndex(ctx, "docs-example", pinecone.ConfigureIndexParams{
 	ReadCapacity: &pinecone.ReadCapacityParams{OnDemand: &pinecone.ReadCapacityOnDemandConfig{}},
 })
 
-// Update the read parameters of an integrated embedding model. The key is the name of the
-// semantic text field in the index's schema, which is the text field from its FieldMap.
-_, err = pc.ConfigureIndex(ctx, "example-integrated-index", pinecone.ConfigureIndexParams{
+// Update the read parameters of a legacy integrated index's embedding model. The key is the name
+// of the semantic text field in the index's schema, which is the text field from its FieldMap.
+_, err = pc.ConfigureIndex(ctx, "example-legacy-integrated-index", pinecone.ConfigureIndexParams{
 	Schema: &pinecone.ConfigureIndexSchema{
 		Fields: map[string]pinecone.ConfigureSemanticTextField{
 			"chunk_text": {

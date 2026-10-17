@@ -5,8 +5,9 @@ reranking models hosted by Pinecone. For the available models, see
 [embedding models](https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models) and
 [reranking models](https://docs.pinecone.io/guides/search/rerank-results#reranking-models).
 
-To have an index embed text for you when you upsert and search, use an index with
-[integrated embedding](./integrated-embedding.md) instead.
+To have an index embed text for you when you upsert and search, use a document index with
+[integrated embedding](../data-operations/documents.md#integrated-embedding) instead. For indexes created with
+`CreateIndexForModel`, see [Legacy integrated indexes](./integrated-embedding.md).
 
 The examples below assume a `Client` named `pc`. For how to create one, see
 [Client configuration](../client-configuration.md).

@@ -1,7 +1,7 @@
 # Namespaces
 
 A namespace is a partition within an index. Every data operation targets one namespace, whether it uses the Documents
-API, the Vectors API, or the Records API. An `IndexConnection` targets the namespace you set when you created it, or
+API, the Vectors API, or the legacy Records API. An `IndexConnection` targets the namespace you set when you created it, or
 the default namespace, `__default__`. For details, see
 [Targeting an index](../client-configuration.md#targeting-an-index). To learn more about namespaces, see
 [Manage namespaces](https://docs.pinecone.io/guides/manage-data/manage-namespaces).
