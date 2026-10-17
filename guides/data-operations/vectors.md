@@ -100,7 +100,13 @@ if err != nil {
 for _, match := range res.Matches {
 	fmt.Printf("%s: %f\n", match.Vector.Id, match.Score)
 }
+if res.Usage != nil && res.Usage.EgressBytes != nil {
+	fmt.Printf("Read units: %d, egress: %d bytes\n", res.Usage.ReadUnits, *res.Usage.EgressBytes)
+}
 ```
+
+`Usage.ReadUnits` is the number of read units the request consumed, and `Usage.EgressBytes` is the billed size of the
+response, in bytes. Fetch, fetch by metadata, and list responses report the same fields.
 
 Set `IncludeValues` only when you need the vector values in the response, since returning them makes results larger
 and slower. Query results are limited to 4 MB.

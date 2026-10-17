@@ -577,7 +577,7 @@ func TestDataPlaneWireUnit(t *testing.T) {
 			name:      "SearchDocuments text",
 			namespace: "movies",
 			status:    http.StatusOK,
-			response:  `{"matches": [{"_id": "doc-1", "_score": 0.9, "genre": "drama"}], "namespace": "movies", "usage": {"read_units": 5}}`,
+			response:  `{"matches": [{"_id": "doc-1", "_score": 0.9, "genre": "drama"}], "namespace": "movies", "usage": {"read_units": 5, "egress_bytes": 2048}}`,
 			call: func(t *testing.T, idx *IndexConnection) {
 				res, err := idx.SearchDocuments(context.Background(), &SearchDocumentsRequest{
 					TopK: 10,
@@ -594,6 +594,8 @@ func TestDataPlaneWireUnit(t *testing.T) {
 				assert.Equal(t, map[string]interface{}{"genre": "drama"}, res.Matches[0].Fields)
 				assert.Equal(t, int32(5), res.Usage.ReadUnits)
 				assert.Nil(t, res.Usage.EmbedTotalTokens)
+				require.NotNil(t, res.Usage.EgressBytes)
+				assert.Equal(t, int64(2048), *res.Usage.EgressBytes)
 			},
 			want: []wantRequest{{
 				method: http.MethodPost,
@@ -619,6 +621,7 @@ func TestDataPlaneWireUnit(t *testing.T) {
 				assert.Equal(t, int32(3), res.Usage.ReadUnits)
 				require.NotNil(t, res.Usage.EmbedTotalTokens)
 				assert.Equal(t, int32(4), *res.Usage.EmbedTotalTokens)
+				assert.Nil(t, res.Usage.EgressBytes, "egress_bytes is absent from the response")
 			},
 			want: []wantRequest{{
 				method: http.MethodPost,
@@ -676,12 +679,15 @@ func TestDataPlaneWireUnit(t *testing.T) {
 			name:      "FetchDocuments",
 			namespace: "movies",
 			status:    http.StatusOK,
-			response:  `{"documents": {"doc-1": {"_id": "doc-1", "genre": "drama"}}, "namespace": "movies", "usage": {"read_units": 1}}`,
+			response:  `{"documents": {"doc-1": {"_id": "doc-1", "genre": "drama"}}, "namespace": "movies", "usage": {"read_units": 1, "egress_bytes": 187}}`,
 			call: func(t *testing.T, idx *IndexConnection) {
 				res, err := idx.FetchDocuments(context.Background(), &FetchDocumentsRequest{Ids: []string{"doc-1"}})
 				require.NoError(t, err)
 				require.Contains(t, res.Documents, "doc-1")
 				assert.Equal(t, "drama", res.Documents["doc-1"]["genre"])
+				assert.Equal(t, int32(1), res.Usage.ReadUnits)
+				require.NotNil(t, res.Usage.EgressBytes)
+				assert.Equal(t, int64(187), *res.Usage.EgressBytes)
 			},
 			want: []wantRequest{{
 				method: http.MethodPost,
@@ -752,7 +758,7 @@ func TestDataPlaneWireUnit(t *testing.T) {
 			name:      "ListDocuments",
 			namespace: "movies",
 			status:    http.StatusOK,
-			response:  `{"documents": [{"_id": "doc-1"}], "namespace": "movies", "pagination": {"next": "token-1"}, "usage": {"read_units": 1}}`,
+			response:  `{"documents": [{"_id": "doc-1"}], "namespace": "movies", "pagination": {"next": "token-1"}, "usage": {"read_units": 1, "egress_bytes": 96}}`,
 			call: func(t *testing.T, idx *IndexConnection) {
 				res, err := idx.ListDocuments(context.Background(), &ListDocumentsRequest{Prefix: ptr("doc-")})
 				require.NoError(t, err)
@@ -760,11 +766,37 @@ func TestDataPlaneWireUnit(t *testing.T) {
 				assert.Equal(t, "doc-1", res.Documents[0].Id)
 				require.NotNil(t, res.Pagination)
 				assert.Equal(t, "token-1", res.Pagination.Next)
+				require.NotNil(t, res.Usage.EgressBytes)
+				assert.Equal(t, int64(96), *res.Usage.EgressBytes)
 			},
 			want: []wantRequest{{
 				method: http.MethodPost,
 				path:   "/namespaces/movies/documents/list",
 				body:   `{"prefix": "doc-"}`,
+			}},
+		},
+		{
+			name:      "SearchRecords",
+			namespace: "articles",
+			status:    http.StatusOK,
+			response:  `{"result": {"hits": [{"_id": "rec-1", "_score": 0.7, "fields": {"chunk_text": "apples"}}]}, "usage": {"read_units": 2, "embed_total_tokens": 3, "egress_bytes": 512}}`,
+			call: func(t *testing.T, idx *IndexConnection) {
+				res, err := idx.SearchRecords(context.Background(), &SearchRecordsRequest{
+					Query: SearchRecordsQuery{TopK: 5, Inputs: &map[string]interface{}{"text": "apples"}},
+				})
+				require.NoError(t, err)
+				require.Len(t, res.Result.Hits, 1)
+				assert.Equal(t, "rec-1", res.Result.Hits[0].Id)
+				assert.Equal(t, int32(2), res.Usage.ReadUnits)
+				require.NotNil(t, res.Usage.EmbedTotalTokens)
+				assert.Equal(t, int32(3), *res.Usage.EmbedTotalTokens)
+				require.NotNil(t, res.Usage.EgressBytes)
+				assert.Equal(t, int64(512), *res.Usage.EgressBytes)
+			},
+			want: []wantRequest{{
+				method: http.MethodPost,
+				path:   "/records/namespaces/articles/search",
+				body:   `{"query": {"top_k": 5, "inputs": {"text": "apples"}}}`,
 			}},
 		},
 		{

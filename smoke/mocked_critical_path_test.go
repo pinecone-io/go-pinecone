@@ -47,6 +47,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -81,6 +82,7 @@ func (m *mockVectorService) Query(_ context.Context, req *db_data_grpc.QueryRequ
 			{Id: "v1", Score: 0.99},
 			{Id: "v2", Score: 0.87},
 		},
+		Usage: &db_data_grpc.Usage{ReadUnits: proto.Uint32(5), EgressBytes: proto.Uint32(896)},
 	}, nil
 }
 
@@ -196,6 +198,10 @@ func TestMockedCriticalPath(t *testing.T) {
 	assert.Equal(t, "v1", queryResp.Matches[0].Vector.Id)
 	assert.InDelta(t, 0.99, queryResp.Matches[0].Score, 1e-6)
 	assert.Equal(t, "v2", queryResp.Matches[1].Vector.Id)
+	require.NotNil(t, queryResp.Usage, "mock reports usage")
+	assert.Equal(t, uint32(5), queryResp.Usage.ReadUnits)
+	require.NotNil(t, queryResp.Usage.EgressBytes, "egress_bytes should survive the gRPC round trip")
+	assert.Equal(t, uint32(896), *queryResp.Usage.EgressBytes)
 
 	// Every leg of the critical path was actually exercised over the wire, and
 	// the real request-building path put our inputs on the wire correctly.

@@ -96,6 +96,9 @@ method must be the only entry in `ScoreBy`.
 By default, a match carries only its `Id` and `Score`. List the fields to return in `IncludeFields`, or pass
 `[]string{"*"}` to return every field.
 
+Search, fetch, and list responses report usage in `Usage`: `ReadUnits`, the read units the request consumed, and
+`EgressBytes`, the billed size of the response in bytes.
+
 ### Full-text search
 
 A `"text"` method ranks documents by BM25 relevance to the query. The query's terms are combined with OR, so a

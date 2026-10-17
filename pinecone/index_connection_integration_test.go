@@ -18,8 +18,10 @@ import (
 func (ts *integrationTests) TestFetchVectors() {
 	ctx := context.Background()
 	res, err := ts.idxConn.FetchVectors(ctx, ts.vectorIds)
-	assert.NoError(ts.T(), err)
-	assert.NotNil(ts.T(), res)
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), res)
+	require.NotNil(ts.T(), res.Usage)
+	assert.NoError(ts.T(), checkEgressBytes(res.Usage.EgressBytes))
 }
 
 func (ts *integrationTests) TestQueryByVector() {
@@ -44,6 +46,12 @@ func (ts *integrationTests) TestQueryByVector() {
 		if res == nil {
 			return fmt.Errorf("QueryByVectorValues response is nil")
 		}
+		if res.Usage == nil {
+			return fmt.Errorf("QueryByVectorValues usage is nil")
+		}
+		if err := checkEgressBytes(res.Usage.EgressBytes); err != nil {
+			return err
+		}
 
 		assert.NoError(ts.T(), err)
 		assert.NotNil(ts.T(), res)
@@ -59,8 +67,10 @@ func (ts *integrationTests) TestQueryById() {
 
 	ctx := context.Background()
 	res, err := ts.idxConn.QueryByVectorId(ctx, req)
-	assert.NoError(ts.T(), err)
-	assert.NotNil(ts.T(), res)
+	require.NoError(ts.T(), err)
+	require.NotNil(ts.T(), res)
+	require.NotNil(ts.T(), res.Usage)
+	assert.NoError(ts.T(), checkEgressBytes(res.Usage.EgressBytes))
 }
 
 func (ts *integrationTests) TestDeleteVectorsById() {
@@ -364,6 +374,9 @@ func (ts *integrationTests) TestFetchVectorsByMetadata() {
 		// Verify namespace is set
 		assert.NotEmpty(ts.T(), res.Namespace, "Namespace is empty")
 		assert.NotNil(ts.T(), res.Usage, "Usage is nil")
+		if res.Usage != nil {
+			assert.NoError(ts.T(), checkEgressBytes(res.Usage.EgressBytes))
+		}
 
 		return nil
 	})
@@ -625,7 +638,7 @@ func (ts *integrationTests) TestIntegratedInference() {
 		if res == nil {
 			return fmt.Errorf("result is nil")
 		}
-		return nil
+		return checkEgressBytes(res.Usage.EgressBytes)
 	})
 }
 
@@ -716,9 +729,17 @@ func (ts *integrationTests) TestIntegratedEmbeddingDocuments() {
 			if res.Matches[0].Id != "shoes" {
 				return fmt.Errorf("%s search ranked %q first, want %q", tt.name, res.Matches[0].Id, "shoes")
 			}
+			if err := checkEgressBytes(res.Usage.EgressBytes); err != nil {
+				return fmt.Errorf("%s search: %w", tt.name, err)
+			}
 			return nil
 		})
 	}
+
+	fetchRes, err := idxConn.FetchDocuments(ctx, &FetchDocumentsRequest{Ids: []string{"shoes"}})
+	require.NoError(ts.T(), err)
+	require.Contains(ts.T(), fetchRes.Documents, "shoes")
+	assert.NoError(ts.T(), checkEgressBytes(fetchRes.Usage.EgressBytes))
 
 	// Error case - A field whose text isn't stored can't be returned.
 	_, err = idxConn.SearchDocuments(ctx, &SearchDocumentsRequest{

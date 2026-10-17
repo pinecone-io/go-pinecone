@@ -684,12 +684,16 @@ type IndexedFields struct {
 	Fields []string `json:"fields,omitempty"`
 }
 
-// Usage is the read-unit usage ([Read Units]) of a single data-plane operation.
+// Usage is the usage of a single vector read operation: the [Read Units] it consumed and the
+// billed egress of its response.
 //
 // [Read Units]: https://docs.pinecone.io/guides/manage-cost/understanding-cost#read-units
 type Usage struct {
 	// ReadUnits is the number of read units consumed by the operation.
 	ReadUnits uint32 `json:"read_units"`
+	// EgressBytes is the billed egress for the response, in bytes, measured on the encoded
+	// response payload.
+	EgressBytes *uint32 `json:"egress_bytes,omitempty"`
 }
 
 // RerankUsage is the usage stats ([Rerank Units]) for a reranking request.
@@ -857,10 +861,14 @@ type Import struct {
 // "id" field plus the index's field_map text field; other fields are stored as metadata.
 type IntegratedRecord map[string]interface{}
 
-// DocumentUsage reports the read units consumed by a document read operation.
+// DocumentUsage reports the read units consumed by a document read operation and the billed
+// egress of its response.
 type DocumentUsage struct {
 	// ReadUnits is the number of read units consumed by the operation.
 	ReadUnits int32 `json:"read_units"`
+	// EgressBytes is the billed egress for the response, in bytes, measured on the encoded
+	// response payload.
+	EgressBytes *int64 `json:"egress_bytes,omitempty"`
 	// EmbedTotalTokens is the number of tokens Pinecone embedded for the query of an "embed" or
 	// "sparse_embed" [DocumentScoringMethod]. Reported by [IndexConnection.SearchDocuments] only
 	// when the search embedded query text; nil otherwise.
@@ -1220,6 +1228,9 @@ type SearchUsage struct {
 	EmbedTotalTokens *int32 `json:"embed_total_tokens,omitempty"`
 	// RerankUnits is the number of rerank units consumed by the operation.
 	RerankUnits *int32 `json:"rerank_units,omitempty"`
+	// EgressBytes is the billed egress for the response, in bytes, measured on the encoded
+	// response payload.
+	EgressBytes *int64 `json:"egress_bytes,omitempty"`
 }
 
 // ModelInfoList represents a list of [ModelInfo] objects describing the models hosted by Pinecone.

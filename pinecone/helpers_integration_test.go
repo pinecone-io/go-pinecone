@@ -47,3 +47,13 @@ func generateVectorValues(dimension int32) *[]float32 {
 
 	return &values
 }
+
+func checkEgressBytes[T uint32 | int64](egressBytes *T) error {
+	if egressBytes == nil {
+		return fmt.Errorf("usage.egress_bytes is missing")
+	}
+	if *egressBytes <= 0 {
+		return fmt.Errorf("usage.egress_bytes is %d, want > 0", *egressBytes)
+	}
+	return nil
+}

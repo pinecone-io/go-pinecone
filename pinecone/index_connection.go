@@ -498,7 +498,7 @@ func (idx *IndexConnection) UpdateVectorsByMetadata(ctx context.Context, in *Upd
 type FetchVectorsResponse struct {
 	// Vectors are the fetched vectors, keyed by ID.
 	Vectors map[string]*Vector `json:"vectors,omitempty"`
-	// Usage is the usage information for the request.
+	// Usage is the [Usage] of the request: the read units consumed and the billed egress.
 	Usage *Usage `json:"usage,omitempty"`
 	// Namespace is the namespace from which the vectors were fetched.
 	Namespace string `json:"namespace"`
@@ -513,7 +513,8 @@ type FetchVectorsResponse struct {
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
 //   - ids: The unique IDs of the vectors to fetch.
 //
-// Returns a pointer to any fetched vectors or an error if the request fails.
+// Returns a pointer to any fetched vectors or an error if the request fails. Its Usage reports the
+// read units consumed and the billed egress of the response in bytes (EgressBytes).
 //
 // Example:
 //
@@ -598,7 +599,7 @@ type FetchVectorsByMetadataRequest struct {
 type FetchVectorsByMetadataResponse struct {
 	// Vectors are the fetched vectors, keyed by ID.
 	Vectors map[string]*Vector `json:"vectors,omitempty"`
-	// Usage is the usage information for the request.
+	// Usage is the [Usage] of the request: the read units consumed and the billed egress.
 	Usage *Usage `json:"usage,omitempty"`
 	// Namespace is the namespace from which the vectors were fetched.
 	Namespace string `json:"namespace"`
@@ -610,6 +611,8 @@ type FetchVectorsByMetadataResponse struct {
 // by metadata, limit the number of vectors returned, and paginate through results.
 //
 // Returns a pointer to a [FetchVectorsByMetadataResponse] object or an error if the request fails.
+// Its Usage reports the read units consumed and the billed egress of the response in bytes
+// (EgressBytes).
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -730,7 +733,7 @@ type ListVectorsRequest struct {
 type ListVectorsResponse struct {
 	// VectorIds are the unique IDs of the returned vectors.
 	VectorIds []*string `json:"vector_ids,omitempty"`
-	// Usage is the usage information for the request.
+	// Usage is the [Usage] of the request: the read units consumed and the billed egress.
 	Usage *Usage `json:"usage,omitempty"`
 	// NextPaginationToken is the token for the next page, or nil when there are no more results.
 	NextPaginationToken *string `json:"next_pagination_token,omitempty"`
@@ -743,7 +746,8 @@ type ListVectorsResponse struct {
 //
 // Note: ListVectors is only available for Serverless indexes.
 //
-// Returns a pointer to a [ListVectorsResponse] object or an error if the request fails.
+// Returns a pointer to a [ListVectorsResponse] object or an error if the request fails. Its Usage
+// reports the read units consumed and the billed egress of the response in bytes (EgressBytes).
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -864,7 +868,7 @@ type QueryByVectorValuesRequest struct {
 type QueryVectorsResponse struct {
 	// Matches are the matches, ordered from most to least similar.
 	Matches []*ScoredVector `json:"matches,omitempty"`
-	// Usage is the usage information for the request.
+	// Usage is the [Usage] of the request: the read units consumed and the billed egress.
 	Usage *Usage `json:"usage,omitempty"`
 	// Namespace is the namespace from which the vectors were queried.
 	Namespace string `json:"namespace"`
@@ -872,7 +876,8 @@ type QueryVectorsResponse struct {
 
 // QueryByVectorValues queries a Pinecone [Index] for vectors that are most similar to a provided query vector.
 //
-// Returns a pointer to a [QueryVectorsResponse] object or an error if the request fails.
+// Returns a pointer to a [QueryVectorsResponse] object or an error if the request fails. Its Usage
+// reports the read units consumed and the billed egress of the response in bytes (EgressBytes).
 //
 // Note: To issue a hybrid query with both dense and sparse values,
 // your index's similarity metric must be dot-product.
@@ -987,7 +992,8 @@ type QueryByVectorIdRequest struct {
 // QueryByVectorId uses a vector ID to query a Pinecone [Index] and retrieve vectors that are most similar to the
 // provided ID's underlying vector.
 //
-// Returns a pointer to a [QueryVectorsResponse] object or an error if the request fails.
+// Returns a pointer to a [QueryVectorsResponse] object or an error if the request fails. Its Usage
+// reports the read units consumed and the billed egress of the response in bytes (EgressBytes).
 //
 // Note: QueryByVectorId returns up to TopK matches, and the stored vector itself is normally one of
 // them. Its own score depends on the index metric. A MetadataFilter can exclude it, and fewer than
@@ -1190,7 +1196,8 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 // [IndexConnection.SearchDocuments] and an "embed" or "sparse_embed" [DocumentScoringMethod].
 //
 // Returns a pointer to a [SearchRecordsResponse], or an error; a non-success response is a
-// [PineconeError].
+// [PineconeError]. Its Usage reports the read, embedding, and rerank units consumed and the billed
+// egress of the response in bytes (EgressBytes).
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
@@ -2321,7 +2328,8 @@ func toUsage(u *db_data_grpc.Usage) *Usage {
 		return nil
 	}
 	return &Usage{
-		ReadUnits: derefOrDefault(u.ReadUnits, 0),
+		ReadUnits:   derefOrDefault(u.ReadUnits, 0),
+		EgressBytes: u.EgressBytes,
 	}
 }
 
@@ -2409,6 +2417,7 @@ func toSearchRecordsResponse(searchRecordsResponse *db_data_rest.SearchRecordsRe
 			ReadUnits:        searchRecordsResponse.Usage.ReadUnits,
 			EmbedTotalTokens: searchRecordsResponse.Usage.EmbedTotalTokens,
 			RerankUnits:      searchRecordsResponse.Usage.RerankUnits,
+			EgressBytes:      searchRecordsResponse.Usage.EgressBytes,
 		},
 	}
 }
@@ -2633,6 +2642,9 @@ func (idx *IndexConnection) UpsertDocuments(ctx context.Context, in *UpsertDocum
 // model. To search a legacy integrated index, use [IndexConnection.SearchRecords] (legacy Records
 // API).
 //
+// The response's [DocumentUsage] reports the read units consumed, any query tokens embedded, and the
+// billed egress of the response in bytes (EgressBytes).
+//
 // Example:
 //
 //	    query := "vector database"
@@ -2688,6 +2700,9 @@ func (idx *IndexConnection) SearchDocuments(ctx context.Context, in *SearchDocum
 
 // FetchDocuments retrieves documents from the namespace by ID or by metadata
 // filter. Exactly one of Ids or Filter must be provided; see [FetchDocumentsRequest].
+//
+// The response's [DocumentUsage] reports the read units consumed and the billed egress of the
+// response in bytes (EgressBytes).
 //
 // Example:
 //
@@ -2856,6 +2871,9 @@ func (idx *IndexConnection) UpdateDocuments(ctx context.Context, in *UpdateDocum
 
 // ListDocuments lists the IDs of documents in the namespace, in sorted order,
 // optionally restricted to a prefix. See [ListDocumentsRequest]; pass nil to list with defaults.
+//
+// The response's [DocumentUsage] reports the read units consumed and the billed egress of the
+// response in bytes (EgressBytes).
 //
 // Example:
 //

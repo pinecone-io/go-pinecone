@@ -726,6 +726,7 @@ func TestAkCtxUnit(t *testing.T) {
 
 func TestToUsageUnit(t *testing.T) {
 	u5 := uint32(5)
+	egress := uint32(1432)
 
 	tests := []struct {
 		name     string
@@ -738,12 +739,23 @@ func TestToUsageUnit(t *testing.T) {
 			expected: nil,
 		},
 		{
-			name: "Pass usage",
+			name: "Pass usage without egress, expect nil EgressBytes",
 			usage: &db_data_grpc.Usage{
 				ReadUnits: &u5,
 			},
 			expected: &Usage{
 				ReadUnits: 5,
+			},
+		},
+		{
+			name: "Pass usage with egress",
+			usage: &db_data_grpc.Usage{
+				ReadUnits:   &u5,
+				EgressBytes: &egress,
+			},
+			expected: &Usage{
+				ReadUnits:   5,
+				EgressBytes: &egress,
 			},
 		},
 	}
