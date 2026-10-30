@@ -35,6 +35,26 @@ jobs:
           grep -q -- '--- PASS: TestMockedCriticalPath' smoke.log \
             || { echo "::error::mocked critical-path smoke test did not run"; exit 1; }
 
+  # Unit tests for the local actions in .github/actions/. A bad bump-version
+  # result becomes a public tag that the Go module proxy caches permanently.
+  actions-tests:
+    name: Local action tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+      # Unquoted so the shell expands the glob; node --test only expands globs itself on Node 21+.
+      # A run that finds no tests can still exit 0, so fail on zero tests.
+      - name: Run action tests
+        run: |
+          set -o pipefail
+          node --test .github/actions/*/*.test.js 2>&1 | tee actions-tests.log
+          grep -Eq '^# pass [1-9]' actions-tests.log \
+            || { echo "::error::no local action tests ran"; exit 1; }
+
   build-and-test:
     runs-on: ubuntu-latest
     services:

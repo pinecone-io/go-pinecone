@@ -78,6 +78,9 @@ just test         # go test -count=1 -v -tags integration ./pinecone
 # Single test by name
 go test -v -run TestNameHere ./pinecone/...
 
+# Tests for the local GitHub Actions in .github/actions/ (needs Node 20+, no npm install)
+just test-actions
+
 # Mocked smoke test (no API key; see smoke/README.md)
 go test -tags smoke -run '^TestMockedCriticalPath$' -v -count=1 ./smoke/...
 
