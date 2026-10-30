@@ -29,7 +29,7 @@ version `2026-07`, which adds document indexes and removes the ability to create
 
 ## Prerequisites
 
-- Go 1.25 or later
+- Go 1.26 or later
 - A Pinecone API key. Sign up at [app.pinecone.io](https://app.pinecone.io), then set the key as the
   `PINECONE_API_KEY` environment variable.
 

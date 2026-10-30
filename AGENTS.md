@@ -1,7 +1,7 @@
 # Pinecone Go SDK - AI Assistant Guide
 
 **Project:** Pinecone Go SDK — Vector database client for AI applications
-**Go:** 1.25+
+**Go:** 1.26+
 **Module:** `github.com/pinecone-io/go-pinecone/v7`
 
 ## Project Overview

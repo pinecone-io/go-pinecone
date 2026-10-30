@@ -2,7 +2,7 @@
 
 ## Prereqs
 
-1. [Go](https://go.dev/doc/install) 1.25 or later (the minimum in `go.mod`)
+1. [Go](https://go.dev/doc/install) 1.26 or later (the minimum in `go.mod`)
 2. The [just](https://github.com/casey/just?tab=readme-ov-file#installation) command runner
 3. The [protobuf-compiler](https://grpc.io/docs/protoc-installation/)
 
