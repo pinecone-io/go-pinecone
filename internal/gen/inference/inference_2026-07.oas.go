@@ -120,6 +120,15 @@ type ModelInfo struct {
 	// SupportedMetrics The distance metrics supported by the model for similarity search.
 	SupportedMetrics *ModelInfoSupportedMetrics `json:"supported_metrics,omitempty"`
 
+	// SupportedOn The APIs and index types this model works with.
+	//
+	// - `standalone_inference`: The Inference API (`/embed`, `/rerank`).
+	// - `integrated_index`: A legacy integrated index created with `create-for-model`.
+	// - `document_index`: An `embed` or `sparse_embed` field in a document index schema.
+	//
+	// Omitted when not set.
+	SupportedOn *[]string `json:"supported_on,omitempty"`
+
 	// SupportedParameters List of parameters supported by the model.
 	SupportedParameters []ModelInfoSupportedParameter `json:"supported_parameters"`
 

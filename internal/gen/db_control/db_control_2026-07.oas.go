@@ -465,6 +465,12 @@ type CreateIndexFromBackupRequest struct {
 	// Possible values: `disabled` or `enabled`.
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 
+	// Deployment Where to create the index. Defaults to the cloud and region, or the BYOC environment, the backup was taken in.
+	//
+	// - `managed`: A serverless index in the given cloud and region. The cloud must match the backup's cloud.
+	// - `byoc`: A BYOC index. The environment must be the one the backup was taken in.
+	Deployment *RestoreDeploymentRequest `json:"deployment,omitempty"`
+
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
@@ -1034,6 +1040,14 @@ type ResponseStringField struct {
 
 // ResponseStringFieldType Identifies this as a string field. Must be `string`.
 type ResponseStringFieldType string
+
+// RestoreDeploymentRequest Where to create the index. Defaults to the cloud and region, or the BYOC environment, the backup was taken in.
+//
+// - `managed`: A serverless index in the given cloud and region. The cloud must match the backup's cloud.
+// - `byoc`: A BYOC index. The environment must be the one the backup was taken in.
+type RestoreDeploymentRequest struct {
+	union json.RawMessage
+}
 
 // RestoreJobList The list of restore jobs that exist in the project.
 type RestoreJobList struct {
@@ -2228,6 +2242,95 @@ func (t ReadCapacityResponse) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ReadCapacityResponse) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsManagedDeployment returns the union data inside the RestoreDeploymentRequest as a ManagedDeployment
+func (t RestoreDeploymentRequest) AsManagedDeployment() (ManagedDeployment, error) {
+	var body ManagedDeployment
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromManagedDeployment overwrites any union data inside the RestoreDeploymentRequest as the provided ManagedDeployment
+func (t *RestoreDeploymentRequest) FromManagedDeployment(v ManagedDeployment) error {
+	v.DeploymentType = "managed"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeManagedDeployment performs a merge with any union data inside the RestoreDeploymentRequest, using the provided ManagedDeployment
+func (t *RestoreDeploymentRequest) MergeManagedDeployment(v ManagedDeployment) error {
+	v.DeploymentType = "managed"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsByocDeployment returns the union data inside the RestoreDeploymentRequest as a ByocDeployment
+func (t RestoreDeploymentRequest) AsByocDeployment() (ByocDeployment, error) {
+	var body ByocDeployment
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromByocDeployment overwrites any union data inside the RestoreDeploymentRequest as the provided ByocDeployment
+func (t *RestoreDeploymentRequest) FromByocDeployment(v ByocDeployment) error {
+	v.DeploymentType = "byoc"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeByocDeployment performs a merge with any union data inside the RestoreDeploymentRequest, using the provided ByocDeployment
+func (t *RestoreDeploymentRequest) MergeByocDeployment(v ByocDeployment) error {
+	v.DeploymentType = "byoc"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t RestoreDeploymentRequest) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"deployment_type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t RestoreDeploymentRequest) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "byoc":
+		return t.AsByocDeployment()
+	case "managed":
+		return t.AsManagedDeployment()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t RestoreDeploymentRequest) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *RestoreDeploymentRequest) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

@@ -253,13 +253,16 @@ type DocumentWriteUsage struct {
 // EmbedInputs defines model for EmbedInputs.
 type EmbedInputs = map[string]interface{}
 
-// EmbedScoring Score by dense vector similarity to `query`, which Pinecone embeds with the model and read parameters of the named field's `embed` configuration. Name exactly one `string` field that declares `embed`, with `fields` or `field`. `values` and `sparse_values` are rejected.
+// EmbedScoring Score by dense vector similarity to `query`, which Pinecone embeds with the model and read parameters of the named field's `embed` configuration. Set `parameters` to override the field's read parameters for this search. Name exactly one `string` field that declares `embed`, with `fields` or `field`. `values` and `sparse_values` are rejected.
 type EmbedScoring struct {
 	// Field The one-field form of `fields`. Provide `field` or `fields` (one is required, not both).
 	Field *string `json:"field,omitempty"`
 
 	// Fields The `string` field that declares `embed`, as a one-element array. Provide `fields` or `field` (one is required, not both).
 	Fields *[]string `json:"fields,omitempty"`
+
+	// Parameters Model parameters for embedding the query in this search. They override the field's `read_parameters`. Only `task_type` can be set, and `GET /models` lists the models that accept it.
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 	// Query The text to embed and score against. Leading and trailing whitespace is trimmed; a query that is empty after trimming is rejected. At most 10,000 bytes.
 	Query string `json:"query"`
