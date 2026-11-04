@@ -73,9 +73,13 @@ type CostUsageExport struct {
 	FinishedAt *time.Time `json:"finished_at"`
 
 	// Format Encoding of the generated file. `zip` is a zip archive holding the cost records as one or more CSV files whose columns follow the FOCUS v1.4 Cost and Usage dataset, alongside a `manifest.json` describing the archive. Each CSV starts with a header line and holds at most 800,000 rows, so larger exports are split across several files, named `part-1-of-3.csv` through `part-3-of-3.csv` and ordered by those names.
+	//
 	// Every CSV carries these 45 columns, in this order: `x_OrganizationId`, `SubAccountId`, `ResourceName`, `ResourceType`, `ChargePeriodStart`, `ChargePeriodEnd`, `BillingPeriodStart`, `BillingPeriodEnd`, `SkuId`, `ServiceName`, `PricingQuantity`, `PricingUnit`, `ConsumedQuantity`, `ConsumedUnit`, `ListUnitPrice`, `ListCost`, `ContractedUnitPrice`, `ContractedCost`, `EffectiveCost`, `BilledCost`, `BillingCurrency`, `PricingCategory`, `ChargeCategory`, `ChargeClass`, `ChargeFrequency`, `ServiceCategory`, `ServiceSubcategory`, `RegionId`, `RegionName`, `HostProviderName`, `ServiceProviderName`, `InvoiceIssuerName`, `InvoiceId`, `BillingAccountId`, `BillingAccountName`, `BillingAccountType`, `SubAccountName`, `SubAccountType`, `ResourceId`, `SkuPriceId`, `SkuMeter`, `ChargeDescription`, `x_CloudId`, `Tags`, `x_ProjectMetadata`.
+	//
 	// Columns prefixed with `x_` are Pinecone extensions, which is how FOCUS requires a provider to name a column the specification does not define. `SubAccountId` and `SubAccountName` identify the Pinecone project, and `BillingAccountId` identifies the organization that is invoiced.
+	//
 	// Rows are ordered by `ChargePeriodStart`, `SubAccountName`, `ResourceName`, `ChargeDescription`, `SkuId`, `ResourceId`, across the archive as a whole rather than within each file. `InvoiceId` is provisional while its billing period is still open, so it may change for a period that has not yet closed.
+	//
 	// Possible values: `zip`.
 	Format string `json:"format"`
 
@@ -98,6 +102,7 @@ type CostUsageExport struct {
 	StartedAt *time.Time `json:"started_at"`
 
 	// Status Status of a cost usage export. `Pending` and `InProgress` mean the job is still running; `Completed` and `Failed` are terminal and never change afterwards.
+	//
 	// Possible values: `Pending`, `InProgress`, `Completed`, or `Failed`.
 	Status string `json:"status"`
 
@@ -108,6 +113,7 @@ type CostUsageExport struct {
 // CostUsageExportError Why an export failed.
 type CostUsageExportError struct {
 	// Code Machine-readable classification of the failure. `DEADLINE_EXCEEDED` means the export ran out of time and a shorter window may succeed; `INTERNAL` covers every other failure and is worth retrying once.
+	//
 	// Possible values: `DEADLINE_EXCEEDED` or `INTERNAL`.
 	Code string `json:"code"`
 

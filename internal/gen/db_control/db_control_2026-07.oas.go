@@ -345,6 +345,103 @@ type ConfigureIndexRequest struct {
 	Tags *IndexTags `json:"tags"`
 }
 
+// ConversionErrorMode How a conversion handles a source record the new index cannot take, such as a record whose metadata value for a `full_text_search` field is not a string. Records the schema can hold are never affected. If omitted, `on_error` is `abort`.
+type ConversionErrorMode struct {
+	// OnError What a record the new index cannot take does to the conversion.
+	//
+	// Possible values:
+	// - `abort`: the conversion fails, and the job's `error` names the record and the reason.
+	// - `continue`: the record is skipped and counted in the job's `records_skipped`.
+	OnError *string `json:"on_error,omitempty"`
+}
+
+// ConversionJobList The conversion jobs in the project.
+type ConversionJobList struct {
+	// Data The conversion jobs on this page, newest first.
+	Data []ConversionJobModel `json:"data"`
+
+	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
+	Pagination *PaginationResponse `json:"pagination"`
+}
+
+// ConversionJobModel The status and progress of a job that converts a vector index into a document index.
+type ConversionJobModel struct {
+	// CompletedAt Timestamp when the conversion job ended as `Completed`, `Failed`, or `Cancelled`. `null` until then.
+	CompletedAt *time.Time `json:"completed_at"`
+
+	// ConversionJobId Identifies the job when describing or cancelling it.
+	ConversionJobId string `json:"conversion_job_id"`
+
+	// CreatedAt Timestamp when the conversion job was created.
+	CreatedAt time.Time `json:"created_at"`
+
+	// Error Why the job failed, when its status is `Failed`. `null` otherwise.
+	Error *string `json:"error"`
+
+	// ErrorMode How a conversion handles a source record the new index cannot take, such as a record whose metadata value for a `full_text_search` field is not a string. Records the schema can hold are never affected. If omitted, `on_error` is `abort`.
+	ErrorMode *ConversionErrorMode `json:"error_mode,omitempty"`
+
+	// PercentComplete Progress of the conversion job, from 0 to 100. Absent until the job has started.
+	PercentComplete *float32 `json:"percent_complete,omitempty"`
+
+	// RecordsConverted The number of source records written to the document index so far.
+	RecordsConverted *int64 `json:"records_converted,omitempty"`
+
+	// RecordsSkipped The number of source records skipped because the document index cannot take them. Always `0` when `error_mode.on_error` is `abort`.
+	RecordsSkipped *int64 `json:"records_skipped,omitempty"`
+
+	// SourceIndexId Identifies the vector index the job reads from. Stays set after that index is deleted.
+	SourceIndexId string `json:"source_index_id"`
+
+	// SourceIndexName Name of the index being converted. `null` once that index has been deleted.
+	SourceIndexName *string `json:"source_index_name"`
+
+	// Status Status of the conversion job.
+	//
+	// Possible values: `Pending`, `InProgress`, `Completed`, `Failed`, or `Cancelled`.
+	Status string `json:"status"`
+
+	// TargetIndexId ID of the document index the job fills.
+	TargetIndexId string `json:"target_index_id"`
+
+	// TargetIndexName Name of the document index the job fills.
+	TargetIndexName string `json:"target_index_name"`
+}
+
+// ConvertIndexRequest The configuration of the document index a vector index is converted into.
+type ConvertIndexRequest struct {
+	// DeletionProtection Whether [deletion protection](http://docs.pinecone.io/guides/manage-data/manage-indexes#configure-deletion-protection) is enabled/disabled for the index.
+	//
+	// Possible values: `disabled` or `enabled`.
+	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
+
+	// ErrorMode How a conversion handles a source record the new index cannot take, such as a record whose metadata value for a `full_text_search` field is not a string. Records the schema can hold are never affected. If omitted, `on_error` is `abort`.
+	ErrorMode *ConversionErrorMode `json:"error_mode,omitempty"`
+
+	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
+	Name string `json:"name"`
+
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
+	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
+
+	// Schema The fields the index searches over: dense vectors, sparse vectors, and string fields searched by full-text search or by embeddings Pinecone derives from their text.
+	//
+	// An index has one dense vector slot and one sparse vector slot: at most one field can be a `dense_vector` field or declare `embed`, and at most one can be a `sparse_vector` field or declare `sparse_embed`. Metadata isn't declared in the schema; it's indexed automatically from the documents you upsert.
+	Schema CreateIndexSchema `json:"schema"`
+
+	// Tags Custom user tags added to an index, at most 20 per index. Keys must be 80 characters or less and alphanumeric, '_', or '-'. Values must be 120 characters or less and consist of printable ASCII characters or spaces. To unset a key, set the value to be an empty string. `null` in responses when the index has no tags.
+	Tags *IndexTags `json:"tags"`
+}
+
+// ConvertIndexResponse The response for converting an index.
+type ConvertIndexResponse struct {
+	// ConversionJobId Pass to Describe a conversion job to track the conversion's progress.
+	ConversionJobId string `json:"conversion_job_id"`
+
+	// IndexId The ID of the document index that was created.
+	IndexId string `json:"index_id"`
+}
+
 // CreateBackupRequest The configuration needed to create a backup of an index.
 type CreateBackupRequest struct {
 	// Description A description of the backup.
@@ -375,31 +472,34 @@ type CreateCollectionRequest struct {
 	Source string `json:"source"`
 }
 
-// CreateEmbedConfig Dense embedding configuration for a `string` field. Pinecone embeds the field's text with a hosted embedding model when documents are upserted or updated, and embeds the query text with the same model when a search scores the field with an `embed` scoring method.
+// CreateEmbedConfig Dense embedding configuration for a `string` field. Pinecone embeds the field's text when documents are upserted or updated, and the query text when a search scores the field with an `embed` scoring method.
 //
-// Every key is optional; `{}` selects the default model at its default dimension and metric. The server resolves each omitted key from the model, validates each supplied one against it, and returns the resolved configuration when the index is described. The configuration is fixed at creation and cannot be changed afterwards.
-//
-// An `embed` field occupies the index's single dense vector slot, so it cannot be combined with a `dense_vector` field or with `embed` on another field.
+// Every key is optional; `{}` selects the default model at its default dimension and metric. Fixed at creation.
 type CreateEmbedConfig struct {
-	// Dimension The dimension of the embedding vectors. Defaults to the model's default dimension. Models that support several dimensions accept any of them; for example, `llama-text-embed-v2` accepts `512` as well as its default of `1024`. A dimension the model does not support is rejected, and the error lists the supported ones.
+	// Dimension The dimension of the embedding vectors. Defaults to the model's default dimension.
 	//
 	// Refer to the [model guide](https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models) for each model's supported dimensions.
 	Dimension *int32 `json:"dimension,omitempty"`
 
-	// Metric The distance metric used for similarity search. Defaults to the model's default metric. A metric the model does not support is rejected.
+	// Metric The distance metric used for similarity search. Defaults to the model's default metric.
 	//
 	// Possible values: `cosine`, `dotproduct`, or `euclidean`.
 	Metric *string `json:"metric,omitempty"`
 
-	// Model The name of a hosted dense embedding model. Defaults to `llama-text-embed-v2`. A sparse model is rejected; declare it under `sparse_embed` instead.
+	// Model The name of a hosted dense embedding model. Defaults to `llama-text-embed-v2`.
 	//
 	// Refer to the [model guide](https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models) for available models.
 	Model *string `json:"model,omitempty"`
 
-	// ReadParameters Model-specific parameters applied when embedding search query text, such as `truncate`. Validated against the model; omitted parameters take the model's defaults. The resolved parameters are returned when the index is described.
+	// ProcessingLocation Where the model processes your data. Defaults to the model's default processing location.
+	//
+	// Supported processing locations depend on the model and your plan. See [Processing locations](https://docs.pinecone.io/guides/index-data/processing-locations).
+	ProcessingLocation *string `json:"processing_location,omitempty"`
+
+	// ReadParameters Model-specific parameters applied when embedding search query text, such as `truncate`. Omitted parameters take the model's defaults.
 	ReadParameters *map[string]interface{} `json:"read_parameters,omitempty"`
 
-	// WriteParameters Model-specific parameters applied when embedding document text, such as `truncate`. Validated against the model; omitted parameters take the model's defaults. The resolved parameters are returned when the index is described.
+	// WriteParameters Model-specific parameters applied when embedding document text, such as `truncate`. Omitted parameters take the model's defaults.
 	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
 }
 
@@ -417,7 +517,7 @@ type CreateIndexForModelRequest struct {
 
 	// Embed Specify the integrated embedding configuration for the legacy integrated index.
 	//
-	// Once set the model cannot be changed, but you can later update the embedding configuration of a legacy integrated index, including field map, read parameters, or write parameters.
+	// Once set, the model and field map can't be changed, but you can later update the read parameters and write parameters of a legacy integrated index.
 	//
 	// Refer to the [model guide](https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models) for available models and model details.
 	Embed struct {
@@ -514,58 +614,41 @@ type CreateIndexRequest struct {
 	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
-	// Schema The schema to use when creating a Pinecone index. Defines the fields the index searches over: dense vector, sparse vector, and string fields searched by full-text search or by embeddings Pinecone derives from their text.
+	// Schema The fields the index searches over: dense vectors, sparse vectors, and string fields searched by full-text search or by embeddings Pinecone derives from their text.
 	//
-	// At least one of `dense_vector`, `sparse_vector`, or a `string` field with `full_text_search`, `embed`, or `sparse_embed` must be present; an empty `fields` map is rejected. An index has one dense vector slot and one sparse vector slot: at most one field may be a `dense_vector` field or carry `embed`, and at most one may be a `sparse_vector` field or carry `sparse_embed`. At most 100 `full_text_search` fields. Metadata used for filtering is not declared in the schema; it is indexed automatically from the documents you upsert.
+	// An index has one dense vector slot and one sparse vector slot: at most one field can be a `dense_vector` field or declare `embed`, and at most one can be a `sparse_vector` field or declare `sparse_embed`. Metadata isn't declared in the schema; it's indexed automatically from the documents you upsert.
 	Schema CreateIndexSchema `json:"schema"`
 
 	// Tags Custom user tags added to an index, at most 20 per index. Keys must be 80 characters or less and alphanumeric, '_', or '-'. Values must be 120 characters or less and consist of printable ASCII characters or spaces. To unset a key, set the value to be an empty string. `null` in responses when the index has no tags.
 	Tags *IndexTags `json:"tags"`
 }
 
-// CreateIndexSchema The schema to use when creating a Pinecone index. Defines the fields the index searches over: dense vector, sparse vector, and string fields searched by full-text search or by embeddings Pinecone derives from their text.
+// CreateIndexSchema The fields the index searches over: dense vectors, sparse vectors, and string fields searched by full-text search or by embeddings Pinecone derives from their text.
 //
-// At least one of `dense_vector`, `sparse_vector`, or a `string` field with `full_text_search`, `embed`, or `sparse_embed` must be present; an empty `fields` map is rejected. An index has one dense vector slot and one sparse vector slot: at most one field may be a `dense_vector` field or carry `embed`, and at most one may be a `sparse_vector` field or carry `sparse_embed`. At most 100 `full_text_search` fields. Metadata used for filtering is not declared in the schema; it is indexed automatically from the documents you upsert.
+// An index has one dense vector slot and one sparse vector slot: at most one field can be a `dense_vector` field or declare `embed`, and at most one can be a `sparse_vector` field or declare `sparse_embed`. Metadata isn't declared in the schema; it's indexed automatically from the documents you upsert.
 type CreateIndexSchema struct {
-	// Fields A map of field names to their configurations. Field names must be unique, non-empty strings of at most 64 bytes and must not start with `$`, which introduces a filter operator.
-	//
-	// Names starting with `_` are reserved: this covers `_id`, `_values`, `_sparse_values`, and every other underscore-prefixed name. Two reserved names are accepted, and only as the whole schema: `_values` (type `dense_vector`) and/or `_sparse_values` (type `sparse_vector`) with no other fields. Such a schema creates a classic vector index, which is read and written through the vectors API rather than the Documents API — the same index that earlier API versions created from `dimension`, `metric`, and `vector_type`. Reserved fields do not accept a `description`. Any other field named with a leading `_`, or a reserved field combined with other fields, is rejected.
+	// Fields A map of field names to field configurations. Names are at most 64 bytes and can't start with `$`. Names starting with `_` are reserved; to create a vector index with the reserved `_values` and `_sparse_values` fields, see [Adopt the Documents API](https://docs.pinecone.io/guides/index-data/adopt-the-documents-api#what-this-means-for-your-existing-code).
 	Fields map[string]CreateIndexSchemaField `json:"fields"`
 }
 
-// CreateIndexSchemaField The configuration of a single field in the index schema at creation time. The `type` property determines how the field is stored and searched.
-//
-// Field types accepted at creation time:
-//
-// - `dense_vector`: Fixed-dimension floating-point vectors for ANN search.
-// - `sparse_vector`: Sparse vectors for keyword or hybrid search.
-// - `string` with `full_text_search`, `embed`, and/or `sparse_embed`: String field searched by full-text search, or by dense or sparse similarity over embeddings Pinecone derives from its text.
-//
-// Other field types seen in `IndexSchemaField` responses cannot be declared here:
-//
-// - `semantic_text` is rejected. It is how a legacy integrated index created via create-for-model describes its embedded text field. To enable integrated embedding on a field of a new document index, declare a `string` field with `embed` or `sparse_embed`.
-// - `float` (also spelled `number`), `boolean`, `string_list`, and a `string` field with none of `full_text_search`, `embed`, or `sparse_embed` are metadata types and are rejected. Include the values as document metadata and they are indexed for filtering automatically.
-//
-// Every field accepts an optional `description` of at most 256 bytes.
+// CreateIndexSchemaField The configuration of a single field. `type` determines how the field is stored and searched.
 type CreateIndexSchemaField struct {
 	union json.RawMessage
 }
 
-// CreateSparseEmbedConfig Learned-sparse embedding configuration for a `string` field. Pinecone embeds the field's text with a hosted sparse embedding model when documents are upserted or updated, and embeds the query text with the same model when a search scores the field with a `sparse_embed` scoring method.
+// CreateSparseEmbedConfig Learned-sparse embedding configuration for a `string` field. Pinecone embeds the field's text when documents are upserted or updated, and the query text when a search scores the field with a `sparse_embed` scoring method.
 //
-// Every key is optional; `{}` selects the default model. Sparse embeddings have no dimension or metric, and `dimension` or `metric` is rejected here. The resolved configuration is returned when the index is described. The configuration is fixed at creation and cannot be changed afterwards.
-//
-// A `sparse_embed` field occupies the index's single sparse vector slot, so it cannot be combined with a `sparse_vector` field or with `sparse_embed` on another field.
+// Every key is optional; `{}` selects the default model. Fixed at creation.
 type CreateSparseEmbedConfig struct {
-	// Model The name of a hosted sparse embedding model. Defaults to `pinecone-sparse-english-v0`. A dense model is rejected; declare it under `embed` instead.
+	// Model The name of a hosted sparse embedding model. Defaults to `pinecone-sparse-english-v0`.
 	//
 	// Refer to the [model guide](https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models) for available models.
 	Model *string `json:"model,omitempty"`
 
-	// ReadParameters Model-specific parameters applied when embedding search query text, such as `truncate`. Validated against the model; omitted parameters take the model's defaults. The resolved parameters are returned when the index is described.
+	// ReadParameters Model-specific parameters applied when embedding search query text, such as `truncate`. Omitted parameters take the model's defaults.
 	ReadParameters *map[string]interface{} `json:"read_parameters,omitempty"`
 
-	// WriteParameters Model-specific parameters applied when embedding document text, such as `truncate`. Validated against the model; omitted parameters take the model's defaults. The resolved parameters are returned when the index is described.
+	// WriteParameters Model-specific parameters applied when embedding document text, such as `truncate`. Omitted parameters take the model's defaults.
 	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
 }
 
@@ -713,20 +796,15 @@ type IndexSchema struct {
 	Fields map[string]IndexSchemaField `json:"fields"`
 }
 
-// IndexSchemaField The configuration of a single field in the index schema.
+// IndexSchemaField The configuration of a single field in the index schema. `type` identifies the field type:
 //
-// Most fields carry a `type` property that identifies the field type:
+// - `dense_vector`: Dense vectors.
+// - `sparse_vector`: Sparse vectors.
+// - `string`: Text for full-text search, integrated embedding, or metadata filtering.
+// - `string_list`, `float`, `boolean`: Metadata fields.
+// - `semantic_text`, `integer`: Legacy field types from older indexes.
 //
-// - `dense_vector`: Fixed-dimension floating-point vectors for ANN search.
-// - `sparse_vector`: Sparse vectors for keyword or hybrid search.
-// - `semantic_text`: The embedded text field of a legacy integrated index created via create-for-model.
-// - `string`: String field for full-text search, integrated embedding (`embed` / `sparse_embed`), or metadata filtering.
-// - `string_list`: String array field.
-// - `float`: Numeric field.
-// - `integer`: Legacy numeric field from older indexes (pre-dating float normalization). Will not appear in new indexes.
-// - `boolean`: Boolean field.
-//
-// Fields in older indexes may omit `type` entirely. These are legacy metadata fields from before typed schemas were introduced.
+// Fields in older indexes may omit `type`.
 type IndexSchemaField struct {
 	union json.RawMessage
 }
@@ -899,7 +977,7 @@ type ReadCapacityDedicatedSpec struct {
 	// Dedicated Configuration for dedicated read capacity. See [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on how to configure dedicated read capacity.
 	Dedicated ReadCapacityDedicatedConfig `json:"dedicated"`
 
-	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, and `dedicated.scaling` must be specified.
+	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, `dedicated.scaling`, and `dedicated.manual` must be specified.
 	Mode string `json:"mode"`
 }
 
@@ -917,7 +995,7 @@ type ReadCapacityDedicatedSpecResponse struct {
 
 // ReadCapacityOnDemandSpec defines model for ReadCapacityOnDemandSpec.
 type ReadCapacityOnDemandSpec struct {
-	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, and `dedicated.scaling` must be specified.
+	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, `dedicated.scaling`, and `dedicated.manual` must be specified.
 	Mode string `json:"mode"`
 }
 
@@ -973,6 +1051,9 @@ type ResponseEmbedConfig struct {
 
 	// Model The hosted dense embedding model that embeds the field's text and the query text of `embed` scoring methods.
 	Model string `json:"model"`
+
+	// ProcessingLocation Where the model processes the data.
+	ProcessingLocation *string `json:"processing_location,omitempty"`
 
 	// ReadParameters The model-specific parameters applied when embedding the query text of `embed` scoring methods, as resolved at creation: the parameters set in the create request merged with the model's defaults.
 	ReadParameters *map[string]interface{} `json:"read_parameters,omitempty"`
@@ -1148,84 +1229,64 @@ type SparseVectorField struct {
 // SparseVectorFieldType Identifies this as a sparse vector field. Must be `sparse_vector`.
 type SparseVectorFieldType string
 
-// StringField A string field configuration. The field must declare at least one search configuration:
+// StringField A string field. Declare at least one of:
 //
 // - `full_text_search`: Index the text for full-text search.
-// - `embed`: Integrated embedding with a dense model. Pinecone embeds the text with a hosted dense embedding model.
-// - `sparse_embed`: Integrated embedding with a sparse model. Pinecone embeds the text with a hosted sparse embedding model.
+// - `embed`: Embed the text with a hosted dense embedding model.
+// - `sparse_embed`: Embed the text with a hosted sparse embedding model.
 //
-// They can be combined on one field, so the same text can be searched by full-text search, dense similarity, and sparse similarity. A string field with none of them is a metadata field and is rejected; include metadata in the documents you upsert instead.
-//
-// By default the field's text is stored, and a stored field is always indexed for full-text search: when `full_text_search` is omitted, it is enabled with default settings. Set `store_text` to `false` to embed the text without storing it.
-//
-// Each value is at most 100 KB, whether or not the text is stored.
+// Combine them to search the same text in more than one way. Each value is at most 100 KB.
 type StringField struct {
 	// Description Optional description for this field, at most 256 bytes.
 	Description *string `json:"description,omitempty"`
 
-	// Embed Dense embedding configuration for a `string` field. Pinecone embeds the field's text with a hosted embedding model when documents are upserted or updated, and embeds the query text with the same model when a search scores the field with an `embed` scoring method.
+	// Embed Dense embedding configuration for a `string` field. Pinecone embeds the field's text when documents are upserted or updated, and the query text when a search scores the field with an `embed` scoring method.
 	//
-	// Every key is optional; `{}` selects the default model at its default dimension and metric. The server resolves each omitted key from the model, validates each supplied one against it, and returns the resolved configuration when the index is described. The configuration is fixed at creation and cannot be changed afterwards.
-	//
-	// An `embed` field occupies the index's single dense vector slot, so it cannot be combined with a `dense_vector` field or with `embed` on another field.
+	// Every key is optional; `{}` selects the default model at its default dimension and metric. Fixed at creation.
 	Embed *CreateEmbedConfig `json:"embed,omitempty"`
 
 	// FullTextSearch Full-text search configuration. When present, the field is indexed for full-text search.
 	//
 	// `stop_words` requires `stemming: true`. `ngram` cannot be combined with `stemming` or `stop_words`.
 	FullTextSearch *struct {
-		// Language The language for text analysis. Defaults to `en` if not specified.
+		// Language The language for text analysis.
 		Language *string `json:"language,omitempty"`
 
 		// Ngram Character n-gram tokenization for substring matching. When present, the field is tokenized into character n-grams instead of words. Cannot be combined with `stemming` or `stop_words`.
 		Ngram *struct {
-			// MaxGram Maximum n-gram length. Must be no less than `min_gram` and at most 10.
+			// MaxGram Maximum n-gram length.
 			MaxGram int `json:"max_gram"`
 
-			// MinGram Minimum n-gram length. Must be at least 1 and no greater than `max_gram`.
+			// MinGram Minimum n-gram length. Must be no greater than `max_gram`.
 			MinGram int `json:"min_gram"`
 
-			// PrefixOnly When `true`, only prefix n-grams anchored at the start of the token are generated (e.g. for autocomplete). Defaults to `false`.
+			// PrefixOnly When `true`, only prefix n-grams anchored at the start of the token are generated (e.g. for autocomplete).
 			PrefixOnly *bool `json:"prefix_only,omitempty"`
 		} `json:"ngram,omitempty"`
 
-		// Stemming Whether to apply stemming during text analysis. Defaults to `false`.
+		// Stemming Whether to apply stemming during text analysis.
 		Stemming *bool `json:"stemming,omitempty"`
 
-		// StopWords Whether to filter stop words during text analysis. Requires `stemming: true`. Defaults to `false`.
+		// StopWords Whether to filter stop words during text analysis. Requires `stemming: true`.
 		StopWords *bool `json:"stop_words,omitempty"`
 	} `json:"full_text_search,omitempty"`
 
-	// SparseEmbed Learned-sparse embedding configuration for a `string` field. Pinecone embeds the field's text with a hosted sparse embedding model when documents are upserted or updated, and embeds the query text with the same model when a search scores the field with a `sparse_embed` scoring method.
+	// SparseEmbed Learned-sparse embedding configuration for a `string` field. Pinecone embeds the field's text when documents are upserted or updated, and the query text when a search scores the field with a `sparse_embed` scoring method.
 	//
-	// Every key is optional; `{}` selects the default model. Sparse embeddings have no dimension or metric, and `dimension` or `metric` is rejected here. The resolved configuration is returned when the index is described. The configuration is fixed at creation and cannot be changed afterwards.
-	//
-	// A `sparse_embed` field occupies the index's single sparse vector slot, so it cannot be combined with a `sparse_vector` field or with `sparse_embed` on another field.
+	// Every key is optional; `{}` selects the default model. Fixed at creation.
 	SparseEmbed *CreateSparseEmbedConfig `json:"sparse_embed,omitempty"`
 
-	// StoreText When `true` (the default), the field's text is stored and the field is indexed for full-text search. Each value is then subject to the full-text limit of 10,000 tokens after tokenization, in addition to the 100 KB limit.
+	// StoreText Whether to store the field's text. A stored field is always indexed for full-text search, with default settings if `full_text_search` is omitted.
 	//
-	// When `false`, the field's text is embedded and then discarded rather than stored. Such a field must declare `embed` or `sparse_embed`, and cannot declare `full_text_search`. A fetch or search whose `include_fields` names it is rejected with `400`, and it cannot be scored with `text` or `query_string` or matched with `$match_phrase`, `$match_all`, or `$match_any`; searching it with an `embed` or `sparse_embed` scoring method still works.
-	//
-	// Fixed at creation.
+	// Set to `false` to embed the text without storing it. The field must then declare `embed` or `sparse_embed`, can't declare `full_text_search`, can't be named in `include_fields`, and can't be searched by text. Fixed at creation.
 	StoreText *bool `json:"store_text,omitempty"`
 
 	// Type Identifies this as a string field. Must be `string`.
-	Type  StringFieldType `json:"type"`
-	union json.RawMessage
+	Type StringFieldType `json:"type"`
 }
 
 // StringFieldType Identifies this as a string field. Must be `string`.
 type StringFieldType string
-
-// StringField0 defines model for .
-type StringField0 = interface{}
-
-// StringField1 defines model for .
-type StringField1 = interface{}
-
-// StringField2 defines model for .
-type StringField2 = interface{}
 
 // StringListField A string array field configuration. String array values are not declared in the index schema; include them as document metadata instead — they are indexed automatically at upsert time.
 type StringListField struct {
@@ -1349,6 +1410,30 @@ type DescribeCollectionParams struct {
 	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
 }
 
+// ListConversionJobsParams defines parameters for ListConversionJobs.
+type ListConversionJobsParams struct {
+	// Limit The number of results to return per page.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// PaginationToken The token to use to retrieve the next page of results. A malformed token is rejected with `400`.
+	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
+
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// DescribeConversionJobParams defines parameters for DescribeConversionJob.
+type DescribeConversionJobParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
+// CancelConversionJobParams defines parameters for CancelConversionJob.
+type CancelConversionJobParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
 // ListIndexesParams defines parameters for ListIndexes.
 type ListIndexesParams struct {
 	// XPineconeApiVersion Required date-based version header
@@ -1424,6 +1509,12 @@ type CreateBackupParams struct {
 	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
 }
 
+// ConvertIndexParams defines parameters for ConvertIndex.
+type ConvertIndexParams struct {
+	// XPineconeApiVersion Required date-based version header
+	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
+}
+
 // ListRestoreJobsParams defines parameters for ListRestoreJobs.
 type ListRestoreJobsParams struct {
 	// Limit The number of results to return per page.
@@ -1465,6 +1556,9 @@ type CreateBackupScheduleJSONRequestBody = CreateBackupScheduleRequest
 
 // CreateBackupJSONRequestBody defines body for CreateBackup for application/json ContentType.
 type CreateBackupJSONRequestBody = CreateBackupRequest
+
+// ConvertIndexJSONRequestBody defines body for ConvertIndex for application/json ContentType.
+type ConvertIndexJSONRequestBody = ConvertIndexRequest
 
 // AsDenseVectorField returns the union data inside the CreateIndexSchemaField as a DenseVectorField
 func (t CreateIndexSchemaField) AsDenseVectorField() (DenseVectorField, error) {
@@ -2335,197 +2429,6 @@ func (t *RestoreDeploymentRequest) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsStringField0 returns the union data inside the StringField as a StringField0
-func (t StringField) AsStringField0() (StringField0, error) {
-	var body StringField0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromStringField0 overwrites any union data inside the StringField as the provided StringField0
-func (t *StringField) FromStringField0(v StringField0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeStringField0 performs a merge with any union data inside the StringField, using the provided StringField0
-func (t *StringField) MergeStringField0(v StringField0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsStringField1 returns the union data inside the StringField as a StringField1
-func (t StringField) AsStringField1() (StringField1, error) {
-	var body StringField1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromStringField1 overwrites any union data inside the StringField as the provided StringField1
-func (t *StringField) FromStringField1(v StringField1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeStringField1 performs a merge with any union data inside the StringField, using the provided StringField1
-func (t *StringField) MergeStringField1(v StringField1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsStringField2 returns the union data inside the StringField as a StringField2
-func (t StringField) AsStringField2() (StringField2, error) {
-	var body StringField2
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromStringField2 overwrites any union data inside the StringField as the provided StringField2
-func (t *StringField) FromStringField2(v StringField2) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeStringField2 performs a merge with any union data inside the StringField, using the provided StringField2
-func (t *StringField) MergeStringField2(v StringField2) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t StringField) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	object := make(map[string]json.RawMessage)
-	if t.union != nil {
-		err = json.Unmarshal(b, &object)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if t.Description != nil {
-		object["description"], err = json.Marshal(t.Description)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'description': %w", err)
-		}
-	}
-
-	if t.Embed != nil {
-		object["embed"], err = json.Marshal(t.Embed)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'embed': %w", err)
-		}
-	}
-
-	if t.FullTextSearch != nil {
-		object["full_text_search"], err = json.Marshal(t.FullTextSearch)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'full_text_search': %w", err)
-		}
-	}
-
-	if t.SparseEmbed != nil {
-		object["sparse_embed"], err = json.Marshal(t.SparseEmbed)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'sparse_embed': %w", err)
-		}
-	}
-
-	if t.StoreText != nil {
-		object["store_text"], err = json.Marshal(t.StoreText)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'store_text': %w", err)
-		}
-	}
-
-	object["type"], err = json.Marshal(t.Type)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling 'type': %w", err)
-	}
-
-	b, err = json.Marshal(object)
-	return b, err
-}
-
-func (t *StringField) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	if err != nil {
-		return err
-	}
-	object := make(map[string]json.RawMessage)
-	err = json.Unmarshal(b, &object)
-	if err != nil {
-		return err
-	}
-
-	if raw, found := object["description"]; found {
-		err = json.Unmarshal(raw, &t.Description)
-		if err != nil {
-			return fmt.Errorf("error reading 'description': %w", err)
-		}
-	}
-
-	if raw, found := object["embed"]; found {
-		err = json.Unmarshal(raw, &t.Embed)
-		if err != nil {
-			return fmt.Errorf("error reading 'embed': %w", err)
-		}
-	}
-
-	if raw, found := object["full_text_search"]; found {
-		err = json.Unmarshal(raw, &t.FullTextSearch)
-		if err != nil {
-			return fmt.Errorf("error reading 'full_text_search': %w", err)
-		}
-	}
-
-	if raw, found := object["sparse_embed"]; found {
-		err = json.Unmarshal(raw, &t.SparseEmbed)
-		if err != nil {
-			return fmt.Errorf("error reading 'sparse_embed': %w", err)
-		}
-	}
-
-	if raw, found := object["store_text"]; found {
-		err = json.Unmarshal(raw, &t.StoreText)
-		if err != nil {
-			return fmt.Errorf("error reading 'store_text': %w", err)
-		}
-	}
-
-	if raw, found := object["type"]; found {
-		err = json.Unmarshal(raw, &t.Type)
-		if err != nil {
-			return fmt.Errorf("error reading 'type': %w", err)
-		}
-	}
-
-	return err
-}
-
 // AsDenseVectorField returns the union data inside the TypedIndexSchemaField as a DenseVectorField
 func (t TypedIndexSchemaField) AsDenseVectorField() (DenseVectorField, error) {
 	var body DenseVectorField
@@ -2910,6 +2813,15 @@ type ClientInterface interface {
 	// DescribeCollection request
 	DescribeCollection(ctx context.Context, collectionName string, params *DescribeCollectionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListConversionJobs request
+	ListConversionJobs(ctx context.Context, params *ListConversionJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DescribeConversionJob request
+	DescribeConversionJob(ctx context.Context, jobId string, params *DescribeConversionJobParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CancelConversionJob request
+	CancelConversionJob(ctx context.Context, jobId string, params *CancelConversionJobParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListIndexes request
 	ListIndexes(ctx context.Context, params *ListIndexesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2949,6 +2861,11 @@ type ClientInterface interface {
 	CreateBackupWithBody(ctx context.Context, indexName string, params *CreateBackupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateBackup(ctx context.Context, indexName string, params *CreateBackupParams, body CreateBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ConvertIndexWithBody request with any body
+	ConvertIndexWithBody(ctx context.Context, indexName string, params *ConvertIndexParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ConvertIndex(ctx context.Context, indexName string, params *ConvertIndexParams, body ConvertIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListRestoreJobs request
 	ListRestoreJobs(ctx context.Context, params *ListRestoreJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3137,6 +3054,42 @@ func (c *Client) DescribeCollection(ctx context.Context, collectionName string, 
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListConversionJobs(ctx context.Context, params *ListConversionJobsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListConversionJobsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DescribeConversionJob(ctx context.Context, jobId string, params *DescribeConversionJobParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDescribeConversionJobRequest(c.Server, jobId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CancelConversionJob(ctx context.Context, jobId string, params *CancelConversionJobParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelConversionJobRequest(c.Server, jobId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListIndexes(ctx context.Context, params *ListIndexesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListIndexesRequest(c.Server, params)
 	if err != nil {
@@ -3307,6 +3260,30 @@ func (c *Client) CreateBackupWithBody(ctx context.Context, indexName string, par
 
 func (c *Client) CreateBackup(ctx context.Context, indexName string, params *CreateBackupParams, body CreateBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateBackupRequest(c.Server, indexName, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ConvertIndexWithBody(ctx context.Context, indexName string, params *ConvertIndexParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewConvertIndexRequestWithBody(c.Server, indexName, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ConvertIndex(ctx context.Context, indexName string, params *ConvertIndexParams, body ConvertIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewConvertIndexRequest(c.Server, indexName, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3999,6 +3976,178 @@ func NewDescribeCollectionRequest(server string, collectionName string, params *
 	return req, nil
 }
 
+// NewListConversionJobsRequest generates requests for ListConversionJobs
+func NewListConversionJobsRequest(server string, params *ListConversionJobsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/conversion-jobs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PaginationToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "paginationToken", runtime.ParamLocationQuery, *params.PaginationToken); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewDescribeConversionJobRequest generates requests for DescribeConversionJob
+func NewDescribeConversionJobRequest(server string, jobId string, params *DescribeConversionJobParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "job_id", runtime.ParamLocationPath, jobId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/conversion-jobs/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewCancelConversionJobRequest generates requests for CancelConversionJob
+func NewCancelConversionJobRequest(server string, jobId string, params *CancelConversionJobParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "job_id", runtime.ParamLocationPath, jobId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/conversion-jobs/%s/cancel", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
 // NewListIndexesRequest generates requests for ListIndexes
 func NewListIndexesRequest(server string, params *ListIndexesParams) (*http.Request, error) {
 	var err error
@@ -4605,6 +4754,66 @@ func NewCreateBackupRequestWithBody(server string, indexName string, params *Cre
 	return req, nil
 }
 
+// NewConvertIndexRequest calls the generic ConvertIndex builder with application/json body
+func NewConvertIndexRequest(server string, indexName string, params *ConvertIndexParams, body ConvertIndexJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewConvertIndexRequestWithBody(server, indexName, params, "application/json", bodyReader)
+}
+
+// NewConvertIndexRequestWithBody generates requests for ConvertIndex with any type of body
+func NewConvertIndexRequestWithBody(server string, indexName string, params *ConvertIndexParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "index_name", runtime.ParamLocationPath, indexName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/indexes/%s/convert", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Pinecone-Api-Version", runtime.ParamLocationHeader, params.XPineconeApiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-Pinecone-Api-Version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
 // NewListRestoreJobsRequest generates requests for ListRestoreJobs
 func NewListRestoreJobsRequest(server string, params *ListRestoreJobsParams) (*http.Request, error) {
 	var err error
@@ -4815,6 +5024,15 @@ type ClientWithResponsesInterface interface {
 	// DescribeCollectionWithResponse request
 	DescribeCollectionWithResponse(ctx context.Context, collectionName string, params *DescribeCollectionParams, reqEditors ...RequestEditorFn) (*DescribeCollectionApiResponse, error)
 
+	// ListConversionJobsWithResponse request
+	ListConversionJobsWithResponse(ctx context.Context, params *ListConversionJobsParams, reqEditors ...RequestEditorFn) (*ListConversionJobsApiResponse, error)
+
+	// DescribeConversionJobWithResponse request
+	DescribeConversionJobWithResponse(ctx context.Context, jobId string, params *DescribeConversionJobParams, reqEditors ...RequestEditorFn) (*DescribeConversionJobApiResponse, error)
+
+	// CancelConversionJobWithResponse request
+	CancelConversionJobWithResponse(ctx context.Context, jobId string, params *CancelConversionJobParams, reqEditors ...RequestEditorFn) (*CancelConversionJobApiResponse, error)
+
 	// ListIndexesWithResponse request
 	ListIndexesWithResponse(ctx context.Context, params *ListIndexesParams, reqEditors ...RequestEditorFn) (*ListIndexesApiResponse, error)
 
@@ -4854,6 +5072,11 @@ type ClientWithResponsesInterface interface {
 	CreateBackupWithBodyWithResponse(ctx context.Context, indexName string, params *CreateBackupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBackupApiResponse, error)
 
 	CreateBackupWithResponse(ctx context.Context, indexName string, params *CreateBackupParams, body CreateBackupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBackupApiResponse, error)
+
+	// ConvertIndexWithBodyWithResponse request with any body
+	ConvertIndexWithBodyWithResponse(ctx context.Context, indexName string, params *ConvertIndexParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConvertIndexApiResponse, error)
+
+	ConvertIndexWithResponse(ctx context.Context, indexName string, params *ConvertIndexParams, body ConvertIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*ConvertIndexApiResponse, error)
 
 	// ListRestoreJobsWithResponse request
 	ListRestoreJobsWithResponse(ctx context.Context, params *ListRestoreJobsParams, reqEditors ...RequestEditorFn) (*ListRestoreJobsApiResponse, error)
@@ -5166,6 +5389,81 @@ func (r DescribeCollectionApiResponse) StatusCode() int {
 	return 0
 }
 
+type ListConversionJobsApiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ConversionJobList
+	JSON400      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListConversionJobsApiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListConversionJobsApiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DescribeConversionJobApiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ConversionJobModel
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DescribeConversionJobApiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DescribeConversionJobApiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CancelConversionJobApiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ConversionJobModel
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelConversionJobApiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelConversionJobApiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListIndexesApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -5426,6 +5724,35 @@ func (r CreateBackupApiResponse) StatusCode() int {
 	return 0
 }
 
+type ConvertIndexApiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *ConvertIndexResponse
+	JSON400      *ErrorResponse
+	JSON402      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON409      *ErrorResponse
+	JSON412      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ConvertIndexApiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ConvertIndexApiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListRestoreJobsApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -5608,6 +5935,33 @@ func (c *ClientWithResponses) DescribeCollectionWithResponse(ctx context.Context
 	return ParseDescribeCollectionApiResponse(rsp)
 }
 
+// ListConversionJobsWithResponse request returning *ListConversionJobsApiResponse
+func (c *ClientWithResponses) ListConversionJobsWithResponse(ctx context.Context, params *ListConversionJobsParams, reqEditors ...RequestEditorFn) (*ListConversionJobsApiResponse, error) {
+	rsp, err := c.ListConversionJobs(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListConversionJobsApiResponse(rsp)
+}
+
+// DescribeConversionJobWithResponse request returning *DescribeConversionJobApiResponse
+func (c *ClientWithResponses) DescribeConversionJobWithResponse(ctx context.Context, jobId string, params *DescribeConversionJobParams, reqEditors ...RequestEditorFn) (*DescribeConversionJobApiResponse, error) {
+	rsp, err := c.DescribeConversionJob(ctx, jobId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDescribeConversionJobApiResponse(rsp)
+}
+
+// CancelConversionJobWithResponse request returning *CancelConversionJobApiResponse
+func (c *ClientWithResponses) CancelConversionJobWithResponse(ctx context.Context, jobId string, params *CancelConversionJobParams, reqEditors ...RequestEditorFn) (*CancelConversionJobApiResponse, error) {
+	rsp, err := c.CancelConversionJob(ctx, jobId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelConversionJobApiResponse(rsp)
+}
+
 // ListIndexesWithResponse request returning *ListIndexesApiResponse
 func (c *ClientWithResponses) ListIndexesWithResponse(ctx context.Context, params *ListIndexesParams, reqEditors ...RequestEditorFn) (*ListIndexesApiResponse, error) {
 	rsp, err := c.ListIndexes(ctx, params, reqEditors...)
@@ -5736,6 +6090,23 @@ func (c *ClientWithResponses) CreateBackupWithResponse(ctx context.Context, inde
 		return nil, err
 	}
 	return ParseCreateBackupApiResponse(rsp)
+}
+
+// ConvertIndexWithBodyWithResponse request with arbitrary body returning *ConvertIndexApiResponse
+func (c *ClientWithResponses) ConvertIndexWithBodyWithResponse(ctx context.Context, indexName string, params *ConvertIndexParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConvertIndexApiResponse, error) {
+	rsp, err := c.ConvertIndexWithBody(ctx, indexName, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseConvertIndexApiResponse(rsp)
+}
+
+func (c *ClientWithResponses) ConvertIndexWithResponse(ctx context.Context, indexName string, params *ConvertIndexParams, body ConvertIndexJSONRequestBody, reqEditors ...RequestEditorFn) (*ConvertIndexApiResponse, error) {
+	rsp, err := c.ConvertIndex(ctx, indexName, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseConvertIndexApiResponse(rsp)
 }
 
 // ListRestoreJobsWithResponse request returning *ListRestoreJobsApiResponse
@@ -6348,6 +6719,147 @@ func ParseDescribeCollectionApiResponse(rsp *http.Response) (*DescribeCollection
 	return response, nil
 }
 
+// ParseListConversionJobsApiResponse parses an HTTP response from a ListConversionJobsWithResponse call
+func ParseListConversionJobsApiResponse(rsp *http.Response) (*ListConversionJobsApiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListConversionJobsApiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ConversionJobList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDescribeConversionJobApiResponse parses an HTTP response from a DescribeConversionJobWithResponse call
+func ParseDescribeConversionJobApiResponse(rsp *http.Response) (*DescribeConversionJobApiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DescribeConversionJobApiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ConversionJobModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCancelConversionJobApiResponse parses an HTTP response from a CancelConversionJobWithResponse call
+func ParseCancelConversionJobApiResponse(rsp *http.Response) (*CancelConversionJobApiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelConversionJobApiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ConversionJobModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListIndexesApiResponse parses an HTTP response from a ListIndexesWithResponse call
 func ParseListIndexesApiResponse(rsp *http.Response) (*ListIndexesApiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -6875,6 +7387,81 @@ func ParseCreateBackupApiResponse(rsp *http.Response) (*CreateBackupApiResponse,
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseConvertIndexApiResponse parses an HTTP response from a ConvertIndexWithResponse call
+func ParseConvertIndexApiResponse(rsp *http.Response) (*ConvertIndexApiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ConvertIndexApiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest ConvertIndexResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 402:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON402 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse

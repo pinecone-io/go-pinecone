@@ -77,6 +77,7 @@ func TestToIndexSchemaUnit(t *testing.T) {
 					"model": "llama-text-embed-v2",
 					"dimension": 1024,
 					"metric": "cosine",
+					"processing_location": "us",
 					"read_parameters": {"input_type": "query", "truncate": "END"},
 					"write_parameters": {"input_type": "passage", "truncate": "END"}
 				}
@@ -89,11 +90,12 @@ func TestToIndexSchemaUnit(t *testing.T) {
 					StopWords: ptr(false),
 				},
 				Embed: &EmbedConfig{
-					Model:           ptr("llama-text-embed-v2"),
-					Dimension:       ptr(int32(1024)),
-					Metric:          ptr(IndexMetricCosine),
-					ReadParameters:  &map[string]interface{}{"input_type": "query", "truncate": "END"},
-					WriteParameters: &map[string]interface{}{"input_type": "passage", "truncate": "END"},
+					Model:              ptr("llama-text-embed-v2"),
+					Dimension:          ptr(int32(1024)),
+					Metric:             ptr(IndexMetricCosine),
+					ProcessingLocation: ptr("us"),
+					ReadParameters:     &map[string]interface{}{"input_type": "query", "truncate": "END"},
+					WriteParameters:    &map[string]interface{}{"input_type": "passage", "truncate": "END"},
 				},
 			}},
 		},
@@ -460,6 +462,7 @@ func TestIntegratedEmbeddingSchemaRoundTripUnit(t *testing.T) {
 					"model": "llama-text-embed-v2",
 					"dimension": 1024,
 					"metric": "cosine",
+					"processing_location": "us",
 					"read_parameters": {"input_type": "query", "truncate": "END"},
 					"write_parameters": {"input_type": "passage", "truncate": "END"}
 				}
@@ -493,6 +496,7 @@ func TestIntegratedEmbeddingSchemaRoundTripUnit(t *testing.T) {
 					"model": "llama-text-embed-v2",
 					"dimension": 1024,
 					"metric": "cosine",
+					"processing_location": "us",
 					"read_parameters": {"input_type": "query", "truncate": "END"},
 					"write_parameters": {"input_type": "passage", "truncate": "END"}
 				}
@@ -624,6 +628,40 @@ func TestToDbDeploymentRequestUnit(t *testing.T) {
 			Managed: &ManagedDeployment{Cloud: CloudAWS, Region: "us-east-1"},
 			Byoc:    &ByocDeployment{Environment: "aws-us-east-1-b921"},
 		})
+		require.ErrorContains(t, err, "exactly one of Managed, Pod, or Byoc must be set on IndexDeployment")
+	})
+}
+
+func TestToDbRestoreDeploymentRequestUnit(t *testing.T) {
+	t.Run("nil deployment", func(t *testing.T) {
+		result, err := toDbRestoreDeploymentRequest(nil)
+		require.NoError(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("managed", func(t *testing.T) {
+		result, err := toDbRestoreDeploymentRequest(&IndexDeployment{Managed: &ManagedDeployment{
+			Cloud:       CloudAWS,
+			Region:      "us-west-2",
+			Environment: ptr("us-west-2-aws"),
+		}})
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"deployment_type": "managed", "cloud": "aws", "region": "us-west-2"}`, marshalJSON(t, result))
+	})
+
+	t.Run("byoc", func(t *testing.T) {
+		result, err := toDbRestoreDeploymentRequest(&IndexDeployment{Byoc: &ByocDeployment{Environment: "aws-us-east-1-b921"}})
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"deployment_type": "byoc", "environment": "aws-us-east-1-b921"}`, marshalJSON(t, result))
+	})
+
+	t.Run("pod is rejected", func(t *testing.T) {
+		_, err := toDbRestoreDeploymentRequest(&IndexDeployment{Pod: &PodDeployment{Environment: "us-east1-gcp", PodType: "p1.x1"}})
+		require.ErrorContains(t, err, "creating pod-based indexes is not supported by Pinecone API version 2026-07")
+	})
+
+	t.Run("no deployment type set", func(t *testing.T) {
+		_, err := toDbRestoreDeploymentRequest(&IndexDeployment{})
 		require.ErrorContains(t, err, "exactly one of Managed, Pod, or Byoc must be set on IndexDeployment")
 	})
 }

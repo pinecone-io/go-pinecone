@@ -135,6 +135,25 @@ func toDbDeploymentRequest(deployment *IndexDeployment) (*db_control.IndexDeploy
 	return &request, nil
 }
 
+// toDbRestoreDeploymentRequest converts a public IndexDeployment into the generated create-from-backup
+// deployment union. It accepts the same managed and BYOC variants as toDbDeploymentRequest, so it
+// reuses that conversion and copies the encoded union across.
+func toDbRestoreDeploymentRequest(deployment *IndexDeployment) (*db_control.RestoreDeploymentRequest, error) {
+	request, err := toDbDeploymentRequest(deployment)
+	if err != nil || request == nil {
+		return nil, err
+	}
+	encoded, err := request.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	var restore db_control.RestoreDeploymentRequest
+	if err := restore.UnmarshalJSON(encoded); err != nil {
+		return nil, err
+	}
+	return &restore, nil
+}
+
 // toIndexSchema converts the generated response schema into the public IndexSchema. Each field is
 // decoded straight into the matching public type, whose JSON tags mirror the wire names. Fields with
 // an unknown type are skipped rather than failing the whole response, so the SDK keeps working when

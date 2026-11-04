@@ -145,9 +145,7 @@ type ModelInfoList struct {
 	Models *[]ModelInfo `json:"models,omitempty"`
 }
 
-// ModelInfoMetric A distance metric that the embedding model supports for similarity searches.
-//
-// Possible values: `cosine`, `euclidean`, or `dotproduct`.
+// ModelInfoMetric Possible values: `cosine`, `euclidean`, or `dotproduct`.
 type ModelInfoMetric = string
 
 // ModelInfoSupportedMetrics The distance metrics supported by the model for similarity search.

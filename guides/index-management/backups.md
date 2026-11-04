@@ -64,9 +64,9 @@ set `IncludeDeleted`, which requires `IndexName`.
 
 ## Restore a backup into a new index
 
-Wait for a backup's `Status` to be `"Ready"` before you restore it. `CreateIndexFromBackup` creates a new serverless
-index in the backup's project, cloud, and region, and starts a restore job. The new index keeps the source index's
-configuration. You can set its `Tags`, `DeletionProtection`, and `ReadCapacity`.
+Wait for a backup's `Status` to be `"Ready"` before you restore it. `CreateIndexFromBackup` creates a new index in the
+backup's project and starts a restore job. The new index keeps the source index's configuration. You can set its
+`Tags`, `DeletionProtection`, `ReadCapacity`, and `Deployment`.
 
 ```go
 tags := pinecone.IndexTags{"restored_on": time.Now().Format("2006-01-02")}
@@ -89,3 +89,26 @@ fmt.Printf("Restore job status: %s\n", job.Status)
 
 A restore job's `Status` is `"Pending"`, `"Completed"`, `"Failed"`, or `"Cancelled"`. `PercentComplete` is reported
 only as 100, once the job completes. To list the project's restore jobs, use `ListRestoreJobs`.
+
+### Restore into another region
+
+By default, the index is created where the backup was taken: the same cloud and region for a serverless backup, or the
+same environment for a BYOC backup. To restore a serverless backup into another region of the same cloud, set
+`Deployment` to a `ManagedDeployment` in that region:
+
+```go
+res, err := pc.CreateIndexFromBackup(ctx, &pinecone.CreateIndexFromBackupParams{
+	BackupId: backupId,
+	Name:     "docs-example-us-west-2",
+	Deployment: &pinecone.IndexDeployment{
+		Managed: &pinecone.ManagedDeployment{Cloud: pinecone.CloudAWS, Region: "us-west-2"},
+	},
+})
+if err != nil {
+	log.Fatalf("Failed to create index from backup: %v", err)
+}
+```
+
+Cross-region restore isn't yet available from every source region; the API returns `412` when it isn't. Cross-cloud
+restore is not supported, a serverless backup can't be restored into a BYOC environment, and a BYOC backup can only be
+restored into the environment it was taken in.

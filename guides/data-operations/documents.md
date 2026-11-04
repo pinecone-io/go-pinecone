@@ -268,6 +268,9 @@ Every field of `EmbedConfig` and `SparseEmbedConfig` is optional. An empty `Embe
 its default dimension and metric. The configuration is fixed at creation. `DescribeIndex` reports it resolved, with
 every omitted field filled in from the model. `WriteParameters` and `ReadParameters` set the model parameters used to
 embed document text and query text. To see which parameters a model accepts, call `pc.Inference.DescribeModel` and read `SupportedParameters`.
+`ProcessingLocation` sets where the dense model processes your data, such as `"us"`. When it's omitted, the model's
+default processing location is used. Supported locations depend on the model and your plan; see
+[Processing locations](https://docs.pinecone.io/guides/index-data/processing-locations).
 
 An index has one dense slot and one sparse slot. At most one field can be a `DenseVectorField` or set `Embed`, and at
 most one can be a `SparseVectorField` or set `SparseEmbed`. A single field can set `Embed` and `SparseEmbed` together,
@@ -314,6 +317,80 @@ if res.Usage.EmbedTotalTokens != nil {
 
 Like a vector method, an `"embed"` or `"sparse_embed"` method must be the only entry in `ScoreBy`.
 `Usage.EmbedTotalTokens` counts the query tokens Pinecone embedded, and is nil when the response doesn't report it.
+
+### Per-search model parameters
+
+An `"embed"` method embeds the query with the field's `ReadParameters`. To override them for one search, set
+`Parameters`. Only `task_type` can be set, and only on a field whose model takes one: look for `task_type` in the
+model's `SupportedParameters` from `pc.Inference.DescribeModel` or `pc.Inference.ListModels`. The task must be
+compatible with the field's write `task_type`; for example, a field written with `classification` accepts only
+`classification`. A `"sparse_embed"` method takes no `Parameters`.
+
+The default model takes no `task_type`, so this example creates its own `fact-checks` index, whose `body` field embeds
+with `gemini-embedding-2` for retrieval, waits for it to be ready, and connects to it:
+
+```go
+model := "gemini-embedding-2"
+writeParameters := map[string]interface{}{"task_type": "retrieval_document"}
+
+_, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
+	Name: "fact-checks",
+	Schema: pinecone.IndexSchema{
+		Fields: map[string]pinecone.IndexSchemaField{
+			"body": {String: &pinecone.StringField{
+				Embed: &pinecone.EmbedConfig{Model: &model, WriteParameters: &writeParameters},
+			}},
+		},
+	},
+})
+if err != nil {
+	log.Fatalf("Failed to create index: %v", err)
+}
+
+var factIndex *pinecone.Index
+for {
+	factIndex, err = pc.DescribeIndex(ctx, "fact-checks")
+	if err != nil {
+		log.Fatalf("Failed to describe index: %v", err)
+	}
+	if factIndex.Status != nil && factIndex.Status.Ready {
+		break
+	}
+	time.Sleep(5 * time.Second)
+}
+
+factChecks, err := pc.Index(pinecone.NewIndexConnParams{Host: factIndex.Host, Namespace: "claims-en"})
+if err != nil {
+	log.Fatalf("Failed to create IndexConnection for Host %v: %v", factIndex.Host, err)
+}
+defer factChecks.Close()
+
+_, err = factChecks.UpsertDocuments(ctx, &pinecone.UpsertDocumentsRequest{
+	Documents: []pinecone.Document{
+		{"_id": "fact-1", "body": "The Eiffel Tower is 330 m tall."},
+	},
+})
+if err != nil {
+	log.Fatalf("Failed to upsert documents: %v", err)
+}
+
+query := "Is the Eiffel Tower taller than 300 m?"
+
+res, err := factChecks.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
+	TopK: 5,
+	ScoreBy: []pinecone.DocumentScoringMethod{
+		{
+			Type:       pinecone.DocumentScoringTypeEmbed,
+			Fields:     []string{"body"},
+			Query:      &query,
+			Parameters: map[string]interface{}{"task_type": "fact_verification"},
+		},
+	},
+})
+if err != nil {
+	log.Fatalf("Failed to search documents: %v", err)
+}
+```
 
 ### Stored text
 

@@ -112,3 +112,8 @@ if err != nil {
 }
 fmt.Printf("%+v\n", model)
 ```
+
+`SupportedOn` lists the APIs and index types a model works with: `"standalone_inference"` (the Inference API's
+`Embed` and `Rerank`), `"integrated_index"` (a legacy integrated index created with `CreateIndexForModel`), and
+`"document_index"` (an `Embed` or `SparseEmbed` field of a document index schema). It's nil when the API doesn't
+report it.

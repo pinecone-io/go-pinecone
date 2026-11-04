@@ -329,7 +329,7 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			response: indexModelFixture{
 				name: "articles",
 				fields: `{
-					"body": {"type": "string", "embed": {"model": "llama-text-embed-v2", "dimension": 1024}},
+					"body": {"type": "string", "embed": {"model": "llama-text-embed-v2", "dimension": 1024, "metric": "cosine", "processing_location": "us"}},
 					"summary": {"type": "string", "sparse_embed": {}, "store_text": false}
 				}`,
 			}.JSON(),
@@ -339,9 +339,10 @@ func TestControlPlaneWireUnit(t *testing.T) {
 					Schema: IndexSchema{
 						Fields: map[string]IndexSchemaField{
 							"body": {String: &StringField{Embed: &EmbedConfig{
-								Model:          ptr("llama-text-embed-v2"),
-								Dimension:      ptr(int32(1024)),
-								ReadParameters: &map[string]interface{}{"truncate": "END"},
+								Model:              ptr("llama-text-embed-v2"),
+								Dimension:          ptr(int32(1024)),
+								ProcessingLocation: ptr("us"),
+								ReadParameters:     &map[string]interface{}{"truncate": "END"},
 							}}},
 							"summary": {String: &StringField{SparseEmbed: &SparseEmbedConfig{}, StoreText: ptr(false)}},
 						},
@@ -349,6 +350,11 @@ func TestControlPlaneWireUnit(t *testing.T) {
 				})
 				require.NoError(t, err)
 				assert.Equal(t, "articles", idx.Name)
+				require.NotNil(t, idx.Schema)
+				body := idx.Schema.Fields["body"].String
+				require.NotNil(t, body)
+				require.NotNil(t, body.Embed)
+				assert.Equal(t, ptr("us"), body.Embed.ProcessingLocation)
 			},
 			want: []wantRequest{{
 				method: http.MethodPost,
@@ -359,6 +365,7 @@ func TestControlPlaneWireUnit(t *testing.T) {
 						"body": {"type": "string", "embed": {
 							"model": "llama-text-embed-v2",
 							"dimension": 1024,
+							"processing_location": "us",
 							"read_parameters": {"truncate": "END"}
 						}},
 						"summary": {"type": "string", "sparse_embed": {}, "store_text": false}
@@ -508,6 +515,67 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			}},
 		},
 		{
+			name:     "CreateIndexFromBackup into another region",
+			status:   http.StatusAccepted,
+			response: `{"index_id": "idx-1", "restore_job_id": "rj-1"}`,
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.CreateIndexFromBackup(context.Background(), &CreateIndexFromBackupParams{
+					BackupId:   "backup-1",
+					Name:       "restored-us-west-2",
+					Deployment: &IndexDeployment{Managed: &ManagedDeployment{Cloud: CloudAWS, Region: "us-west-2"}},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{{
+				method: http.MethodPost,
+				path:   "/backups/backup-1/create-index",
+				body: `{
+					"name": "restored-us-west-2",
+					"deployment": {"deployment_type": "managed", "cloud": "aws", "region": "us-west-2"},
+					"tags": null
+				}`,
+			}},
+		},
+		{
+			name:     "CreateIndexFromBackup into a BYOC environment",
+			status:   http.StatusAccepted,
+			response: `{"index_id": "idx-1", "restore_job_id": "rj-1"}`,
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.CreateIndexFromBackup(context.Background(), &CreateIndexFromBackupParams{
+					BackupId:   "backup-1",
+					Name:       "restored-byoc-index",
+					Deployment: &IndexDeployment{Byoc: &ByocDeployment{Environment: "aws-us-east-1-b921"}},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{{
+				method: http.MethodPost,
+				path:   "/backups/backup-1/create-index",
+				body: `{
+					"name": "restored-byoc-index",
+					"deployment": {"deployment_type": "byoc", "environment": "aws-us-east-1-b921"},
+					"tags": null
+				}`,
+			}},
+		},
+		{
+			name:   "DescribeModel decodes supported_on",
+			status: http.StatusOK,
+			response: `{
+				"model": "gemini-embedding-2",
+				"short_description": "A dense embedding model",
+				"type": "embed",
+				"supported_on": ["standalone_inference", "document_index"]
+			}`,
+			call: func(t *testing.T, pc *Client) {
+				model, err := pc.Inference.DescribeModel(context.Background(), "gemini-embedding-2")
+				require.NoError(t, err)
+				require.NotNil(t, model.SupportedOn)
+				assert.Equal(t, []string{"standalone_inference", "document_index"}, *model.SupportedOn)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/models/gemini-embedding-2"}},
+		},
+		{
 			name:     "ListBackups for an index including deleted",
 			status:   http.StatusOK,
 			response: `{"data": []}`,
@@ -653,6 +721,34 @@ func TestDataPlaneWireUnit(t *testing.T) {
 				method: http.MethodPost,
 				path:   "/namespaces/articles/documents/search",
 				body:   `{"top_k": 5, "score_by": [{"type": "embed", "fields": ["body"], "query": "trail running shoes"}]}`,
+			}},
+		},
+		{
+			name:      "SearchDocuments embed with parameters",
+			namespace: "claims-en",
+			status:    http.StatusOK,
+			response:  `{"matches": [], "namespace": "claims-en", "usage": {"read_units": 1}}`,
+			call: func(t *testing.T, idx *IndexConnection) {
+				_, err := idx.SearchDocuments(context.Background(), &SearchDocumentsRequest{
+					TopK: 5,
+					ScoreBy: []DocumentScoringMethod{{
+						Type:       DocumentScoringTypeEmbed,
+						Fields:     []string{"body"},
+						Query:      ptr("Is the Eiffel Tower taller than 300 m?"),
+						Parameters: map[string]interface{}{"task_type": "fact_verification"},
+					}},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{{
+				method: http.MethodPost,
+				path:   "/namespaces/claims-en/documents/search",
+				body: `{"top_k": 5, "score_by": [{
+					"type": "embed",
+					"fields": ["body"],
+					"query": "Is the Eiffel Tower taller than 300 m?",
+					"parameters": {"task_type": "fact_verification"}
+				}]}`,
 			}},
 		},
 		{

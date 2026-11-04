@@ -1808,6 +1808,11 @@ type CreateIndexFromBackupParams struct {
 	// ReadCapacity (Optional) is the read capacity for the new index. Defaults to OnDemand when nil.
 	// Dedicated capacity must be large enough to hold the backup's data.
 	ReadCapacity *ReadCapacityParams `json:"read_capacity,omitempty"`
+	// Deployment (Optional) is where to create the index. Defaults to the cloud and region, or the
+	// BYOC environment, the backup was taken in. Set Managed to restore a serverless backup into
+	// another region; its Cloud must match the backup's cloud. Set Byoc for a BYOC backup; its
+	// Environment must be the one the backup was taken in.
+	Deployment *IndexDeployment `json:"deployment,omitempty"`
 }
 
 // CreateIndexFromBackupResponse contains the response returned after creating an index from a backup. RestoreJobId can be used
@@ -1821,16 +1826,21 @@ type CreateIndexFromBackupResponse struct {
 
 // CreateIndexFromBackup creates a new [Index] from a [Backup]. The new index inherits the schema of
 // the backup's source index, including full-text-search fields and integrated embedding, and the
-// request can't override it. Backups of pod-based and BYOC indexes can't be restored, and the backup
-// must be Ready. The restore runs asynchronously; track it with [Client.DescribeRestoreJob] using the
-// returned RestoreJobId.
+// request can't override it. The backup must be Ready. The restore runs asynchronously; track it with
+// [Client.DescribeRestoreJob] using the returned RestoreJobId.
+//
+// By default, the index is created where the backup was taken: the same cloud and region for a
+// serverless backup, or the same environment for a BYOC backup. To restore a serverless backup into
+// another region of the same cloud, set Deployment to a [ManagedDeployment] in that region.
+// Cross-region restore isn't yet available from every source region; the API returns 412 when it
+// isn't.
+// Cross-cloud restore is not supported, a serverless backup can't be restored into a BYOC
+// environment, and a BYOC backup can only be restored into the environment it was taken in.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
 //   - in: A pointer to a [CreateIndexFromBackupParams] object.
-//
-// Note: Backups are only available for serverless Indexes.
 //
 // Returns a pointer to a [CreateIndexFromBackupResponse] object or an error.
 //
@@ -1872,12 +1882,17 @@ func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromB
 	if err != nil {
 		return nil, err
 	}
+	deployment, err := toDbRestoreDeploymentRequest(in.Deployment)
+	if err != nil {
+		return nil, err
+	}
 
 	res, err := c.restClient.CreateIndexFromBackupOperation(ctx, in.BackupId, &db_control.CreateIndexFromBackupOperationParams{XPineconeApiVersion: gen.PineconeApiVersion}, db_control.CreateIndexFromBackupRequest{
 		Name:               in.Name,
 		DeletionProtection: (*db_control.DeletionProtection)(in.DeletionProtection),
 		Tags:               (*db_control.IndexTags)(in.Tags),
 		ReadCapacity:       readCapacity,
+		Deployment:         deployment,
 	})
 	if err != nil {
 		return nil, err

@@ -293,6 +293,13 @@ type EmbedConfig struct {
 	// Metric (Optional) is the distance metric used for similarity search. Defaults to the model's
 	// default metric; a metric the model doesn't support is rejected.
 	Metric *IndexMetric `json:"metric,omitempty"`
+	// ProcessingLocation (Optional) is where the model processes your data, such as "us". Defaults
+	// to the model's default processing location. Supported processing locations depend on the model
+	// and your plan; see [Processing locations]. Fixed at creation, and reported when describing an
+	// index.
+	//
+	// [Processing locations]: https://docs.pinecone.io/guides/index-data/processing-locations
+	ProcessingLocation *string `json:"processing_location,omitempty"`
 	// ReadParameters (Optional) are model-specific parameters applied when embedding search query
 	// text, such as "truncate".
 	ReadParameters *map[string]interface{} `json:"read_parameters,omitempty"`
@@ -949,6 +956,15 @@ type DocumentScoringMethod struct {
 	Values *[]float32 `json:"values,omitempty"`
 	// SparseValues are the [SparseValues] for the "sparse_vector" type.
 	SparseValues *SparseValues `json:"sparse_values,omitempty"`
+	// Parameters (Optional) are model parameters for embedding the query in this search, for the
+	// "embed" type only, e.g. {"task_type": "fact_verification"}. They override the field's
+	// [EmbedConfig] ReadParameters. Only "task_type" can be set, and only on a field whose model
+	// takes one: look for "task_type" in the model's SupportedParameters from
+	// [InferenceService.DescribeModel] or [InferenceService.ListModels]. The task must be compatible
+	// with the field's write "task_type"; for example, a field written with "classification" accepts
+	// only "classification". The map is sent as given and the server checks it; leave it nil to embed
+	// with the field's ReadParameters.
+	Parameters map[string]interface{} `json:"parameters,omitempty"`
 }
 
 // SearchDocumentsRequest holds the parameters for [IndexConnection.SearchDocuments].
@@ -1261,6 +1277,13 @@ type ModelInfo struct {
 	SupportedMetrics *[]IndexMetric `json:"supported_metrics,omitempty"`
 	// SupportedParameters are the parameters supported by the model, including value constraints.
 	SupportedParameters *[]SupportedParameter `json:"supported_parameters,omitempty"`
+	// SupportedOn are the APIs and index types the model works with:
+	//   - "standalone_inference": the Inference API ([InferenceService.Embed], [InferenceService.Rerank]).
+	//   - "integrated_index": a legacy integrated index created with [Client.CreateIndexForModel].
+	//   - "document_index": an Embed or SparseEmbed field of a document index schema.
+	//
+	// Nil when the API doesn't report it.
+	SupportedOn *[]string `json:"supported_on,omitempty"`
 	// Type is the type of model (e.g. "embed" or "rerank").
 	Type string `json:"type"`
 	// VectorType is whether the embedding model produces "dense" or "sparse" embeddings.
