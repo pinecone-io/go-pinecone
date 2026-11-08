@@ -39,7 +39,7 @@ type RetryPolicy struct {
 	BaseDelay time.Duration
 	// MaxDelay is the upper bound on any single backoff. Required when MaxRetries > 0.
 	MaxDelay time.Duration
-	// BackoffMultiplier is the growth factor applied to the delay bound each attempt. Must be >= 1
+	// BackoffMultiplier is the growth factor applied to the delay bound each attempt. Must be finite and >= 1
 	// when MaxRetries > 0 (2 is typical).
 	BackoffMultiplier float64
 }
@@ -74,8 +74,8 @@ func (p *RetryPolicy) validate() error {
 	if p.BaseDelay > p.MaxDelay {
 		return fmt.Errorf("RetryPolicy.BaseDelay (%s) must be <= MaxDelay (%s)", p.BaseDelay, p.MaxDelay)
 	}
-	if p.BackoffMultiplier < 1 {
-		return fmt.Errorf("RetryPolicy.BackoffMultiplier must be >= 1, got %v", p.BackoffMultiplier)
+	if math.IsNaN(p.BackoffMultiplier) || math.IsInf(p.BackoffMultiplier, 0) || p.BackoffMultiplier < 1 {
+		return fmt.Errorf("RetryPolicy.BackoffMultiplier must be finite and >= 1, got %v", p.BackoffMultiplier)
 	}
 	return nil
 }
