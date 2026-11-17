@@ -292,13 +292,21 @@ func TestReadCapacityAutoNotEnabledIntegration(t *testing.T) {
 	if os.Getenv("PINECONE_TEST_DRN_AUTOSCALING_DISABLED") == "" {
 		t.Skip("set PINECONE_TEST_DRN_AUTOSCALING_DISABLED for an organization without replica autoscaling")
 	}
+	name := readCapacityTestIndexName("rc-auto-off")
 	_, err := pc.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
-		Name:         readCapacityTestIndexName("rc-auto-off"),
+		Name:         name,
 		Dimension:    ptr(int32(setDimensionsForTestIndexes())),
 		Metric:       ptr(IndexMetricCosine),
 		Cloud:        CloudAWS,
 		Region:       "us-east-1",
 		ReadCapacity: autoReadCapacity(1, 2),
 	})
+	if err == nil {
+		t.Cleanup(func() {
+			if err := pc.DeleteIndex(context.Background(), name); err != nil {
+				t.Logf("cleanup: deleting index %s: %v", name, err)
+			}
+		})
+	}
 	requireAPIError(t, err, "FORBIDDEN")
 }

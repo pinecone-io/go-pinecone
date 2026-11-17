@@ -679,6 +679,70 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			want: []wantRequest{{method: http.MethodGet, path: "/indexes/dedicated-index"}},
 		},
 		{
+			// Creating needs replicas; the error lists what a create requires instead of pointing at
+			// keeping the current scaling.
+			name:     "CreateServerlessIndex empty Manual returns the incomplete-configuration error",
+			status:   http.StatusCreated,
+			response: indexModelFixture{name: "dedicated-index"}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
+					Name:      "dedicated-index",
+					Cloud:     CloudAWS,
+					Region:    "us-east-1",
+					Dimension: ptr(int32(3)),
+					ReadCapacity: &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{
+						NodeType: ptr("b1"),
+						Shards:   ptr(int32(1)),
+						Scaling:  &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{}},
+					}},
+				})
+				require.ErrorIs(t, err, errDedicatedReadCapacityIncomplete)
+			},
+			want: []wantRequest{},
+		},
+		{
+			// Shards wins over the deprecated Manual.Shards from a scaling block copied from describe.
+			name:     "ConfigureIndex with conflicting shard counts sends Dedicated.Shards",
+			status:   http.StatusOK,
+			response: indexModelFixture{name: "dedicated-index", readCapacity: dedicatedManualReadCapacityJSON}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.ConfigureIndex(context.Background(), "dedicated-index", ConfigureIndexParams{
+					ReadCapacity: &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{
+						Shards:  ptr(int32(3)),
+						Scaling: &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(2)), Shards: ptr(int32(1))}},
+					}},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes/dedicated-index"},
+				{
+					method: http.MethodPatch,
+					path:   "/indexes/dedicated-index",
+					body:   `{"read_capacity": {"mode": "Dedicated", "dedicated": {"shards": 3, "scaling": "Manual", "manual": {"replicas": 2}}}, "tags": null}`,
+				},
+			},
+		},
+		{
+			name:     "ConfigureIndex changes only the node type of an autoscaled index",
+			status:   http.StatusOK,
+			response: indexModelFixture{name: "autoscaling-index", readCapacity: autoscaledReadCapacityJSON}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.ConfigureIndex(context.Background(), "autoscaling-index", ConfigureIndexParams{
+					ReadCapacity: &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{NodeType: ptr("t1")}},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes/autoscaling-index"},
+				{
+					method: http.MethodPatch,
+					path:   "/indexes/autoscaling-index",
+					body:   `{"read_capacity": {"mode": "Dedicated", "dedicated": {"node_type": "t1"}}, "tags": null}`,
+				},
+			},
+		},
+		{
 			name:     "DescribeIndex Dedicated Manual read capacity",
 			status:   http.StatusOK,
 			response: indexModelFixture{name: "dedicated-index", readCapacity: dedicatedManualReadCapacityJSON}.JSON(),
@@ -840,9 +904,8 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			want: []wantRequest{{method: http.MethodGet, path: "/indexes/dedicated-index"}},
 		},
 		{
-			// Different values in Shards and the deprecated Manual.Shards are both sent, so the API
-			// explains the conflict instead of the SDK picking one.
-			name:     "CreateServerlessIndex with conflicting shard counts sends both",
+			// Shards wins over a different deprecated Manual.Shards.
+			name:     "CreateServerlessIndex with conflicting shard counts sends Dedicated.Shards",
 			status:   http.StatusCreated,
 			response: indexModelFixture{name: "dedicated-index"}.JSON(),
 			call: func(t *testing.T, pc *Client) {
@@ -868,7 +931,7 @@ func TestControlPlaneWireUnit(t *testing.T) {
 					"name": "dedicated-index",
 					"schema": {"fields": {"_values": {"type": "dense_vector", "dimension": 3, "metric": "cosine"}}},
 					"deployment": ` + managedDeploymentJSON + `,
-					"read_capacity": {"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 2, "scaling": "Manual", "manual": {"replicas": 1, "shards": 1}}},
+					"read_capacity": {"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 2, "scaling": "Manual", "manual": {"replicas": 1}}},
 					"tags": null
 				}`,
 			}},
