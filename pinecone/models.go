@@ -688,7 +688,7 @@ type ReadCapacityAutoScaling struct {
 // ReadCapacityStatus represents the current status of factors affecting the read capacity of a serverless index.
 type ReadCapacityStatus struct {
 	// State is the overall status state: "Ready", "Scaling", "Migrating", or "Error". The API may
-	// add states, so don't assume this list is exhaustive. When it's "Error", ErrorMessage says why.
+	// add states, so don't assume this list is exhaustive. When it's "Error", ErrorMessage, if set, says why.
 	State string `json:"state"`
 	// CurrentReplicas is the current number of replicas per shard. For an autoscaled index, it's
 	// the live count the autoscaler has reached.

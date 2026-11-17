@@ -371,8 +371,12 @@ func ExampleClient_ConfigureIndex_replicaAutoscaling() {
 			if status.State == "Ready" {
 				break
 			}
-			if status.State == "Error" && status.ErrorMessage != nil {
-				log.Fatalf("Read capacity error: %s", *status.ErrorMessage)
+			if status.State == "Error" {
+				message := "no error message"
+				if status.ErrorMessage != nil {
+					message = *status.ErrorMessage
+				}
+				log.Fatalf("Read capacity error: %s", message)
 			}
 		}
 		time.Sleep(30 * time.Second)
