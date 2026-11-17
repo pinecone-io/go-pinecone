@@ -330,8 +330,9 @@ for _, idx := range idxs {
 
 An index created with a feature from a later API version than this SDK uses can't be described by this SDK, so
 `ListIndexes` leaves it out. `ListIncompatibleIndexes` lists those indexes, each with the oldest API version that can
-describe it. `DescribeIndex` and `ConfigureIndex` refuse such an index with the error code `FAILED_PRECONDITION`, and
-`DeleteIndex` works. To work with it, upgrade to an SDK that supports that API version.
+describe it. `DescribeIndex` and `ConfigureIndex` refuse such an index with the error code `FAILED_PRECONDITION`.
+`DeleteIndex` works unless deletion protection is on, which this SDK can't turn off for such an index. To work with
+it, upgrade to an SDK that supports that API version.
 
 ```go
 incompatible, err := pc.ListIncompatibleIndexes(ctx)

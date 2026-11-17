@@ -979,6 +979,26 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			want: []wantRequest{{method: http.MethodGet, path: "/indexes"}},
 		},
 		{
+			// A malformed incompatible_indexes must not stop ListIndexes from returning the full
+			// indexes; only ListIncompatibleIndexes reports it.
+			name:     "ListIndexes ignores a malformed incompatible_indexes",
+			status:   http.StatusOK,
+			response: `{"indexes": [` + indexModelFixture{name: "docs"}.JSON() + `], "incompatible_indexes": {"name": 7}}`,
+			call: func(t *testing.T, pc *Client) {
+				indexes, err := pc.ListIndexes(context.Background())
+				require.NoError(t, err)
+				require.Len(t, indexes, 1)
+				assert.Equal(t, "docs", indexes[0].Name)
+
+				_, err = pc.ListIncompatibleIndexes(context.Background())
+				require.Error(t, err)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes"},
+				{method: http.MethodGet, path: "/indexes"},
+			},
+		},
+		{
 			name:     "DescribeIndex of an incompatible index returns the 412 as a PineconeError",
 			status:   http.StatusPreconditionFailed,
 			response: incompatibleIndex412JSON,

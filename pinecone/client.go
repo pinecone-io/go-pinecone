@@ -406,7 +406,9 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 // because they use features this SDK's API version can't represent. Each [IncompatibleIndex] names
 // the oldest API version that can describe it. Such an index still exists and counts toward project
 // limits. [Client.DescribeIndex] and [Client.ConfigureIndex] refuse it with a [PineconeError] whose
-// error code is FAILED_PRECONDITION; [Client.DeleteIndex] works.
+// error code is FAILED_PRECONDITION. [Client.DeleteIndex] works unless the index has deletion
+// protection enabled; this API version can't turn that off, so use an SDK or API version that can
+// describe the index.
 //
 // It returns an empty slice when every index can be described.
 //
@@ -429,20 +431,31 @@ func (c *Client) ListIncompatibleIndexes(ctx context.Context) ([]*IncompatibleIn
 		return nil, err
 	}
 
-	incompatible := make([]*IncompatibleIndex, 0)
-	if indexList.IncompatibleIndexes != nil {
-		for _, idx := range *indexList.IncompatibleIndexes {
-			incompatible = append(incompatible, &IncompatibleIndex{
-				Name:          idx.Name,
-				MinAPIVersion: idx.MinApiVersion,
-				Message:       idx.Message,
-			})
+	var entries []db_control.IncompatibleIndex
+	if len(indexList.IncompatibleIndexes) > 0 {
+		if err := json.Unmarshal(indexList.IncompatibleIndexes, &entries); err != nil {
+			return nil, fmt.Errorf("failed to decode incompatible_indexes: %w", err)
 		}
+	}
+	incompatible := make([]*IncompatibleIndex, 0, len(entries))
+	for _, idx := range entries {
+		incompatible = append(incompatible, &IncompatibleIndex{
+			Name:          idx.Name,
+			MinAPIVersion: idx.MinApiVersion,
+			Message:       idx.Message,
+		})
 	}
 	return incompatible, nil
 }
 
-func (c *Client) listIndexes(ctx context.Context) (*db_control.IndexList, error) {
+// indexListResponse keeps incompatible_indexes undecoded, so a malformed entry there can't stop
+// ListIndexes from returning the full indexes.
+type indexListResponse struct {
+	Indexes             *[]db_control.IndexModel `json:"indexes,omitempty"`
+	IncompatibleIndexes json.RawMessage          `json:"incompatible_indexes,omitempty"`
+}
+
+func (c *Client) listIndexes(ctx context.Context) (*indexListResponse, error) {
 	res, err := c.restClient.ListIndexes(ctx, &db_control.ListIndexesParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
@@ -453,7 +466,7 @@ func (c *Client) listIndexes(ctx context.Context) (*db_control.IndexList, error)
 		return nil, handleErrorResponseBody(res, "failed to list indexes: ")
 	}
 
-	var indexList db_control.IndexList
+	var indexList indexListResponse
 	if err := json.NewDecoder(res.Body).Decode(&indexList); err != nil {
 		return nil, err
 	}
@@ -1167,6 +1180,10 @@ func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest
 }
 
 // DescribeIndex retrieves information about a specific [Index]. See [Index] for more information.
+//
+// An index that uses features this SDK's API version can't represent returns a [PineconeError]
+// whose error code is FAILED_PRECONDITION and whose message names the API version to use. Such an
+// index is listed by [Client.ListIncompatibleIndexes] rather than [Client.ListIndexes].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
