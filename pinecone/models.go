@@ -510,8 +510,8 @@ type Collection struct {
 type IncompatibleCollection struct {
 	// Name is the name of the collection.
 	Name string `json:"name"`
-	// CompatibleAPIVersion is an API version that can describe the collection, such as "2027-01", chosen
-	// by Pinecone as the one to move to. Other versions may also work, and API versions are not
+	// CompatibleAPIVersion is an API version that can describe the collection, such as "2027-01",
+	// chosen by Pinecone as the one to move to. Other versions may also work, and API versions are not
 	// guaranteed to be ordered. Use it, not Message, to act on the entry.
 	CompatibleAPIVersion string `json:"compatible_api_version"`
 	// Message explains in plain words why the collection can't be described and what to do. Its
@@ -594,8 +594,8 @@ type BYOCSpec struct {
 type IncompatibleIndex struct {
 	// Name is the name of the index.
 	Name string `json:"name"`
-	// CompatibleAPIVersion is an API version that can describe the index, such as "2027-01", chosen
-	// by Pinecone as the one to move to. Other versions may also work, and API versions are not
+	// CompatibleAPIVersion is an API version that can describe the index, such as "2027-01", chosen by
+	// Pinecone as the one to move to. Other versions may also work, and API versions are not
 	// guaranteed to be ordered. Use it, not Message, to act on the entry.
 	CompatibleAPIVersion string `json:"compatible_api_version"`
 	// Message explains in plain words why the index can't be described and what to do. Its wording
@@ -1560,8 +1560,8 @@ type RestoreJobList struct {
 type IncompatibleRestoreJob struct {
 	// RestoreJobId is the unique identifier of the restore job.
 	RestoreJobId string `json:"restore_job_id"`
-	// CompatibleAPIVersion is an API version that can describe the restore job, such as "2027-01", chosen
-	// by Pinecone as the one to move to. Other versions may also work, and API versions are not
+	// CompatibleAPIVersion is an API version that can describe the restore job, such as "2027-01",
+	// chosen by Pinecone as the one to move to. Other versions may also work, and API versions are not
 	// guaranteed to be ordered. Use it, not Message, to act on the entry.
 	CompatibleAPIVersion string `json:"compatible_api_version"`
 	// Message explains in plain words why the restore job can't be described and what to do. Its
