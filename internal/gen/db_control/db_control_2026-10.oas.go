@@ -97,6 +97,9 @@ type BackupList struct {
 	// Data List of backup objects
 	Data *[]BackupModel `json:"data,omitempty"`
 
+	// IncompatibleBackups Backups that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `data`. An entry counts toward the page size like a full item, so pagination is unaffected. This field is omitted when there are none.
+	IncompatibleBackups *[]IncompatibleBackup `json:"incompatible_backups,omitempty"`
+
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
 }
@@ -202,6 +205,9 @@ type BackupScheduleHistoryList struct {
 	// Data Backups from this schedule for the current page.
 	Data []BackupScheduleHistoryItem `json:"data"`
 
+	// IncompatibleBackups Backups from this schedule that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `data`. An entry counts toward the page size like a full item, so pagination is unaffected. This field is omitted when there are none.
+	IncompatibleBackups *[]IncompatibleBackup `json:"incompatible_backups,omitempty"`
+
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
 }
@@ -210,6 +216,9 @@ type BackupScheduleHistoryList struct {
 type BackupScheduleList struct {
 	// Data Backup schedules returned for this page.
 	Data []BackupScheduleResponse `json:"data"`
+
+	// IncompatibleBackupSchedules Backup schedules that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `data`. An entry counts toward the page size like a full item, so pagination is unaffected. This field is omitted when there are none.
+	IncompatibleBackupSchedules *[]IncompatibleBackupSchedule `json:"incompatible_backup_schedules,omitempty"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
@@ -294,6 +303,9 @@ type ByocDeploymentDeploymentType string
 type CollectionList struct {
 	// Collections List of collections in the project
 	Collections *[]CollectionModel `json:"collections,omitempty"`
+
+	// IncompatibleCollections Collections that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `collections`. This field is omitted when there are none.
+	IncompatibleCollections *[]IncompatibleCollection `json:"incompatible_collections,omitempty"`
 }
 
 // CollectionModel The CollectionModel describes the configuration and status of a Pinecone collection.
@@ -359,6 +371,9 @@ type ConversionErrorMode struct {
 type ConversionJobList struct {
 	// Data The conversion jobs on this page, newest first.
 	Data []ConversionJobModel `json:"data"`
+
+	// IncompatibleConversionJobs Conversion jobs that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `data`. An entry counts toward the page size like a full item, so pagination is unaffected. This field is omitted when there are none.
+	IncompatibleConversionJobs *[]IncompatibleConversionJob `json:"incompatible_conversion_jobs,omitempty"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
@@ -712,6 +727,54 @@ type FloatField struct {
 // FloatFieldType Identifies this as a float field. Must be `float`.
 type FloatFieldType string
 
+// IncompatibleBackup A backup that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the oldest API version that can describe it and a message explaining what to do. Using this API version to describe it or create an index from it returns `412 FAILED_PRECONDITION` with the same message.
+type IncompatibleBackup struct {
+	// BackupId The unique identifier of the backup.
+	BackupId string `json:"backup_id"`
+
+	// Message A human-readable explanation of why this API version can't describe the backup and what to do about it. The wording may change; use `min_api_version` to act on the entry programmatically.
+	Message string `json:"message"`
+
+	// MinApiVersion The oldest API version that can describe this backup, in the form used by the `X-Pinecone-Api-Version` header. It is `unstable` when only the unstable API version can describe the backup.
+	MinApiVersion string `json:"min_api_version"`
+}
+
+// IncompatibleBackupSchedule A backup schedule that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the oldest API version that can describe it and a message explaining what to do. Using this API version to describe or update it returns `412 FAILED_PRECONDITION` with the same message.
+type IncompatibleBackupSchedule struct {
+	// Message A human-readable explanation of why this API version can't describe the backup schedule and what to do about it. The wording may change; use `min_api_version` to act on the entry programmatically.
+	Message string `json:"message"`
+
+	// MinApiVersion The oldest API version that can describe this backup schedule, in the form used by the `X-Pinecone-Api-Version` header. It is `unstable` when only the unstable API version can describe the backup schedule.
+	MinApiVersion string `json:"min_api_version"`
+
+	// ScheduleId Identifies the schedule when deleting it, or when describing or updating it with a newer API version.
+	ScheduleId string `json:"schedule_id"`
+}
+
+// IncompatibleCollection A collection that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the oldest API version that can describe it and a message explaining what to do. Using this API version to describe it returns `412 FAILED_PRECONDITION` with the same message.
+type IncompatibleCollection struct {
+	// Message A human-readable explanation of why this API version can't describe the collection and what to do about it. The wording may change; use `min_api_version` to act on the entry programmatically.
+	Message string `json:"message"`
+
+	// MinApiVersion The oldest API version that can describe this collection, in the form used by the `X-Pinecone-Api-Version` header. It is `unstable` when only the unstable API version can describe the collection.
+	MinApiVersion string `json:"min_api_version"`
+
+	// Name The name of the collection.
+	Name string `json:"name"`
+}
+
+// IncompatibleConversionJob A conversion job that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the oldest API version that can describe it and a message explaining what to do. Using this API version to describe or cancel it returns `412 FAILED_PRECONDITION` with the same message.
+type IncompatibleConversionJob struct {
+	// ConversionJobId Identifies the job when describing or cancelling it with a newer API version.
+	ConversionJobId string `json:"conversion_job_id"`
+
+	// Message A human-readable explanation of why this API version can't describe the conversion job and what to do about it. The wording may change; use `min_api_version` to act on the entry programmatically.
+	Message string `json:"message"`
+
+	// MinApiVersion The oldest API version that can describe this conversion job, in the form used by the `X-Pinecone-Api-Version` header. It is `unstable` when only the unstable API version can describe the conversion job.
+	MinApiVersion string `json:"min_api_version"`
+}
+
 // IncompatibleIndex An index that exists in the project but uses features this API version can't represent. Only its name is shown, with the oldest API version that can describe it and a message explaining what to do. Describing or configuring this index with this API version returns `412 FAILED_PRECONDITION` with the same message.
 type IncompatibleIndex struct {
 	// Message A human-readable explanation of why this API version can't describe the index and what to do about it. The wording may change; use `min_api_version` to act on the entry programmatically.
@@ -722,6 +785,18 @@ type IncompatibleIndex struct {
 
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
+}
+
+// IncompatibleRestoreJob A restore job that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the oldest API version that can describe it and a message explaining what to do. Using this API version to describe it returns `412 FAILED_PRECONDITION` with the same message.
+type IncompatibleRestoreJob struct {
+	// Message A human-readable explanation of why this API version can't describe the restore job and what to do about it. The wording may change; use `min_api_version` to act on the entry programmatically.
+	Message string `json:"message"`
+
+	// MinApiVersion The oldest API version that can describe this restore job, in the form used by the `X-Pinecone-Api-Version` header. It is `unstable` when only the unstable API version can describe the restore job.
+	MinApiVersion string `json:"min_api_version"`
+
+	// RestoreJobId Identifies the job when describing it with a newer API version.
+	RestoreJobId string `json:"restore_job_id"`
 }
 
 // IndexDeployment The deployment configuration of a Pinecone index. The `deployment_type` field indicates which infrastructure model the index uses.
@@ -1188,6 +1263,9 @@ type RestoreDeploymentRequest struct {
 type RestoreJobList struct {
 	// Data List of restore job objects
 	Data []RestoreJobModel `json:"data"`
+
+	// IncompatibleRestoreJobs Restore jobs that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `data`. An entry counts toward the page size like a full item, so pagination is unaffected. This field is omitted when there are none.
+	IncompatibleRestoreJobs *[]IncompatibleRestoreJob `json:"incompatible_restore_jobs,omitempty"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
@@ -5152,6 +5230,7 @@ type DescribeBackupScheduleApiResponse struct {
 	JSON200      *BackupScheduleResponse
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5179,6 +5258,7 @@ type UpdateBackupScheduleApiResponse struct {
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5279,6 +5359,7 @@ type DescribeBackupApiResponse struct {
 	JSON200      *BackupModel
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5407,6 +5488,7 @@ type DescribeCollectionApiResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *CollectionModel
 	JSON404      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5457,6 +5539,7 @@ type DescribeConversionJobApiResponse struct {
 	JSON200      *ConversionJobModel
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5482,6 +5565,7 @@ type CancelConversionJobApiResponse struct {
 	JSON200      *ConversionJobModel
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5824,6 +5908,7 @@ type DescribeRestoreJobApiResponse struct {
 	JSON200      *RestoreJobModel
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -6242,6 +6327,13 @@ func ParseDescribeBackupScheduleApiResponse(rsp *http.Response) (*DescribeBackup
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6302,6 +6394,13 @@ func ParseUpdateBackupScheduleApiResponse(rsp *http.Response) (*UpdateBackupSche
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
@@ -6490,6 +6589,13 @@ func ParseDescribeBackupApiResponse(rsp *http.Response) (*DescribeBackupApiRespo
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
@@ -6747,6 +6853,13 @@ func ParseDescribeCollectionApiResponse(rsp *http.Response) (*DescribeCollection
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6841,6 +6954,13 @@ func ParseDescribeConversionJobApiResponse(rsp *http.Response) (*DescribeConvers
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6887,6 +7007,13 @@ func ParseCancelConversionJobApiResponse(rsp *http.Response) (*CancelConversionJ
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
@@ -7617,6 +7744,13 @@ func ParseDescribeRestoreJobApiResponse(rsp *http.Response) (*DescribeRestoreJob
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
