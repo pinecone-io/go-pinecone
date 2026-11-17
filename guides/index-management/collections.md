@@ -39,7 +39,7 @@ A collection that uses a feature from a later API version than this SDK uses can
 `ListCollections` leaves it out. `ListIncompatibleCollections` lists those collections, each with the oldest API version
 that can describe it. `DescribeCollection` refuses such a collection with the error code `FAILED_PRECONDITION`;
 `DeleteCollection` still works. To work with it, upgrade to an SDK that supports that API version; don't override the
-`X-Pinecone-Api-Version` header (see [List indexes](indexes.md#list-indexes)).
+`X-Pinecone-Api-Version` header, because this SDK's request and response types are built for one API version.
 
 ```go
 incompatible, err := pc.ListIncompatibleCollections(ctx)

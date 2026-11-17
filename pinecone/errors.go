@@ -40,7 +40,7 @@ type PineconeError struct {
 // documents, or nil when the response has none. Values are strings, numbers or booleans; numbers
 // decode as float64, as with encoding/json.
 func (pe *PineconeError) Details() map[string]any {
-	if pe.details == nil {
+	if pe == nil || pe.details == nil {
 		return nil
 	}
 	return maps.Clone(*pe.details)

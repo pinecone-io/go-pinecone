@@ -67,7 +67,8 @@ A backup that uses a feature from a later API version than this SDK uses can't b
 can describe it. Each one counts toward `Limit`, so a page can hold fewer than `Limit` backups in `Data` while
 `Pagination` still points to more. `DescribeBackup` and `CreateIndexFromBackup` refuse such a backup with the error code
 `FAILED_PRECONDITION`; `DeleteBackup` still works. To work with it, upgrade to an SDK that supports that API version;
-don't override the `X-Pinecone-Api-Version` header (see [List indexes](indexes.md#list-indexes)).
+don't override the `X-Pinecone-Api-Version` header, because this SDK's request and response types are built for one
+API version.
 
 ```go
 backups, err := pc.ListBackups(ctx, nil)

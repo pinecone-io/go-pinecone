@@ -435,14 +435,14 @@ func (c *Client) ListIncompatibleIndexes(ctx context.Context) ([]*IncompatibleIn
 		return nil, err
 	}
 
-	var entries []db_control.IncompatibleIndex
-	if len(indexList.IncompatibleIndexes) > 0 {
-		if err := json.Unmarshal(indexList.IncompatibleIndexes, &entries); err != nil {
-			return nil, fmt.Errorf("failed to decode incompatible_indexes: %w", err)
-		}
+	if err := requireJSONArray(indexList.IncompatibleIndexes); err != nil {
+		return nil, fmt.Errorf("failed to decode incompatible_indexes: %w", err)
 	}
-	incompatible := make([]*IncompatibleIndex, 0, len(entries))
-	for _, idx := range entries {
+	incompatible := make([]*IncompatibleIndex, 0)
+	for _, idx := range incompatibleEntries[db_control.IncompatibleIndex](indexList.IncompatibleIndexes) {
+		if idx.Name == "" {
+			continue
+		}
 		incompatible = append(incompatible, &IncompatibleIndex{
 			Name:          idx.Name,
 			MinAPIVersion: idx.MinApiVersion,
@@ -699,7 +699,8 @@ type ReadCapacityDedicatedConfig struct {
 	// increased processing power and memory.
 	NodeType *string `json:"node_type"`
 	// Shards is the number of shards to use. Shards determine the storage capacity of an index,
-	// with each shard providing 250 GB of storage.
+	// with each shard providing 250 GB of storage. When set, it wins over the deprecated
+	// Scaling.Manual.Shards.
 	Shards *int32 `json:"shards,omitempty"`
 	// Scaling is the scaling strategy: a fixed number of replicas per shard (Manual), or replica
 	// autoscaling between bounds (Auto). Set at most one of Manual and Auto.
@@ -1641,14 +1642,14 @@ func (c *Client) ListIncompatibleCollections(ctx context.Context) ([]*Incompatib
 		return nil, err
 	}
 
-	var entries []db_control.IncompatibleCollection
-	if len(collectionsResponse.IncompatibleCollections) > 0 {
-		if err := json.Unmarshal(collectionsResponse.IncompatibleCollections, &entries); err != nil {
-			return nil, fmt.Errorf("failed to decode incompatible_collections: %w", err)
-		}
+	if err := requireJSONArray(collectionsResponse.IncompatibleCollections); err != nil {
+		return nil, fmt.Errorf("failed to decode incompatible_collections: %w", err)
 	}
-	incompatible := make([]*IncompatibleCollection, 0, len(entries))
-	for _, collection := range entries {
+	incompatible := make([]*IncompatibleCollection, 0)
+	for _, collection := range incompatibleEntries[db_control.IncompatibleCollection](collectionsResponse.IncompatibleCollections) {
+		if collection.Name == "" {
+			continue
+		}
 		incompatible = append(incompatible, &IncompatibleCollection{
 			Name:          collection.Name,
 			MinAPIVersion: collection.MinApiVersion,
@@ -2826,6 +2827,16 @@ func incompatibleEntries[T any](raw json.RawMessage) []T {
 	return entries
 }
 
+// requireJSONArray returns an error unless raw is absent, null, or a JSON array. The
+// ListIncompatible* methods use it so a malformed list is reported instead of read as empty.
+func requireJSONArray(raw json.RawMessage) error {
+	if len(raw) == 0 {
+		return nil
+	}
+	var items []json.RawMessage
+	return json.Unmarshal(raw, &items)
+}
+
 // backupListResponse keeps incompatible_backups undecoded; see incompatibleEntries.
 type backupListResponse struct {
 	Data                *[]db_control.BackupModel      `json:"data,omitempty"`
@@ -3066,7 +3077,8 @@ func decodeErrorResponse(resBodyBytes []byte) (*db_control.ErrorResponse, error)
 		return nil, fmt.Errorf("failed to decode error response: %w", err)
 	}
 
-	if errorResponse.Status == 0 {
+	// Some error bodies carry error.code without a top-level status.
+	if errorResponse.Status == 0 && errorResponse.Error.Code == "" {
 		return nil, fmt.Errorf("unable to parse ErrorResponse: %v", string(resBodyBytes))
 	}
 
@@ -3325,7 +3337,11 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 	if err := validateReadCapacityScaling(new.Dedicated.Scaling); err != nil {
 		return nil, err
 	}
-	shards, legacyShards := readCapacityShards(new.Dedicated)
+	// An empty Manual block would send replicas 0 and pause the index.
+	if manual := scalingManual(new.Dedicated.Scaling); manual != nil && manual.Replicas == nil && manual.Shards == nil {
+		return nil, errEmptyManualScalingPatch
+	}
+	shards := readCapacityShards(new.Dedicated)
 
 	patchConfig := db_control.ReadCapacityDedicatedPatchConfig{
 		NodeType: new.Dedicated.NodeType,
@@ -3355,21 +3371,6 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 		}
 	}
 
-	if legacyShards != nil {
-		// Both shard fields set to different values: send both as given and let the API reject it.
-		var spec db_control.ReadCapacityDedicatedPatchSpec
-		spec.Dedicated = patchConfig
-		spec.Mode = "Dedicated"
-		raw, err := withManualShards(spec, *legacyShards)
-		if err != nil {
-			return nil, err
-		}
-		if err := result.UnmarshalJSON(raw); err != nil {
-			return nil, err
-		}
-		return &result, nil
-	}
-
 	if err := result.FromReadCapacityDedicatedPatchSpec(db_control.ReadCapacityDedicatedPatchSpec{
 		Dedicated: patchConfig,
 		Mode:      "Dedicated",
@@ -3382,72 +3383,34 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 
 var errDedicatedReadCapacityIncomplete = errors.New("Dedicated read capacity must be configured with a node type, shards, and a scaling strategy (Scaling.Manual with Replicas, or Scaling.Auto)")
 
-// Rejects only what can't be translated into one request: Manual and Auto together, and an empty
-// Manual block, which would otherwise send replicas 0 and pause the index. Ranges are left to the
+var errEmptyManualScalingPatch = errors.New("Scaling.Manual must set Replicas; to change only the shard count, set Dedicated.Shards, and to keep the current scaling, omit Scaling")
+
+// Rejects Manual and Auto together, which can't become one scaling value. Ranges are left to the
 // API.
 func validateReadCapacityScaling(scaling *ReadCapacityScaling) error {
-	if scaling == nil {
-		return nil
-	}
-	if scaling.Manual != nil && scaling.Auto != nil {
+	if scaling != nil && scaling.Manual != nil && scaling.Auto != nil {
 		return fmt.Errorf("both Scaling.Manual and Scaling.Auto are set; set only one")
-	}
-	if manual := scaling.Manual; manual != nil && manual.Replicas == nil && manual.Shards == nil {
-		return fmt.Errorf("Scaling.Manual must set Replicas or Shards; to keep the current scaling, omit Scaling")
 	}
 	return nil
 }
 
-// Returns the shard count to send as dedicated.shards: Dedicated.Shards, or else the deprecated
-// Scaling.Manual.Shards. When both are set to different values, the second return value is the
-// deprecated value, which the caller sends unchanged inside the manual block so the API can reject
-// the conflict.
-func readCapacityShards(dedicated *ReadCapacityDedicatedConfig) (shards *int32, conflictingLegacyShards *int32) {
-	var legacy *int32
-	if dedicated.Scaling != nil && dedicated.Scaling.Manual != nil {
-		legacy = dedicated.Scaling.Manual.Shards
+func scalingManual(scaling *ReadCapacityScaling) *ReadCapacityManualScaling {
+	if scaling == nil {
+		return nil
 	}
-	switch {
-	case dedicated.Shards == nil:
-		return legacy, nil
-	case legacy != nil && *legacy != *dedicated.Shards:
-		return dedicated.Shards, legacy
-	default:
-		return dedicated.Shards, nil
-	}
+	return scaling.Manual
 }
 
-// Marshals a read capacity spec and adds shards to its dedicated.manual block, creating the block
-// if needed. The generated 2026-10 types have no field for it.
-func withManualShards(spec interface{}, shards int32) ([]byte, error) {
-	raw, err := json.Marshal(spec)
-	if err != nil {
-		return nil, err
+// Returns the shard count to send as dedicated.shards: Dedicated.Shards when set, which wins over
+// the deprecated Scaling.Manual.Shards, and otherwise the deprecated value.
+func readCapacityShards(dedicated *ReadCapacityDedicatedConfig) *int32 {
+	if dedicated.Shards != nil {
+		return dedicated.Shards
 	}
-	var body map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &body); err != nil {
-		return nil, err
+	if manual := scalingManual(dedicated.Scaling); manual != nil {
+		return manual.Shards
 	}
-	var dedicated map[string]json.RawMessage
-	if err := json.Unmarshal(body["dedicated"], &dedicated); err != nil {
-		return nil, err
-	}
-	manual := map[string]json.RawMessage{}
-	if existing, ok := dedicated["manual"]; ok {
-		if err := json.Unmarshal(existing, &manual); err != nil {
-			return nil, err
-		}
-	}
-	if manual["shards"], err = json.Marshal(shards); err != nil {
-		return nil, err
-	}
-	if dedicated["manual"], err = json.Marshal(manual); err != nil {
-		return nil, err
-	}
-	if body["dedicated"], err = json.Marshal(dedicated); err != nil {
-		return nil, err
-	}
-	return json.Marshal(body)
+	return nil
 }
 
 // Converts the ReadCapacityParams to db_control.ReadCapacity - used for CreateServerlessIndex,
@@ -3480,7 +3443,7 @@ func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.
 	if err := validateReadCapacityScaling(dedicated.Scaling); err != nil {
 		return nil, err
 	}
-	shards, legacyShards := readCapacityShards(dedicated)
+	shards := readCapacityShards(dedicated)
 	if dedicated.NodeType == nil || shards == nil || dedicated.Scaling == nil {
 		return nil, errDedicatedReadCapacityIncomplete
 	}
@@ -3506,17 +3469,6 @@ func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.
 	dedicatedSpec := db_control.ReadCapacityDedicatedSpec{
 		Dedicated: config,
 		Mode:      "Dedicated",
-	}
-	if legacyShards != nil {
-		// Both shard fields set to different values: send both as given and let the API reject it.
-		raw, err := withManualShards(dedicatedSpec, *legacyShards)
-		if err != nil {
-			return nil, err
-		}
-		if err := result.UnmarshalJSON(raw); err != nil {
-			return nil, err
-		}
-		return &result, nil
 	}
 	if err := result.FromReadCapacityDedicatedSpec(dedicatedSpec); err != nil {
 		return nil, err
@@ -3555,6 +3507,11 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 		nodeType := config.NodeType
 		dedicated.NodeType = &nodeType
 		dedicated.ScalingStrategy = pointerOrNil(ReadCapacityScalingStrategy(config.Scaling))
+		for _, known := range []ReadCapacityScalingStrategy{ReadCapacityScalingStrategyManual, ReadCapacityScalingStrategyAuto} {
+			if strings.EqualFold(config.Scaling, string(known)) {
+				dedicated.ScalingStrategy = &known
+			}
+		}
 		if config.Shards != nil {
 			s := *config.Shards
 			dedicated.Shards = &s
