@@ -317,7 +317,8 @@ index with dedicated read nodes supports only one namespace. For details, see
 [Dedicated read nodes](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes/overview).
 
 Code written for v7 that sets `Scaling.Manual.Shards` still works: the SDK sends it as `Shards`. That field is
-deprecated. If you set both to different values, the request fails.
+deprecated. If you set both to different values, the request fails. Describe fills in the deprecated field too, so
+before you change `Shards` on a scaling block copied from a describe response, set `Scaling.Manual.Shards` to nil.
 
 ### Replica autoscaling
 
@@ -346,7 +347,10 @@ idx, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
 
 When you describe an autoscaled index, `ReadCapacity.Dedicated.ScalingStrategy` is
 `pinecone.ReadCapacityScalingStrategyAuto`, `Scaling.Auto` holds the bounds, and `Scaling.Manual` is nil. The live
-number of replicas per shard is in `ReadCapacity.Dedicated.Status.CurrentReplicas`.
+number of replicas per shard is in `ReadCapacity.Dedicated.Status.CurrentReplicas`. The autoscaler changes the replica
+count without leaving the `"Ready"` state, so it doesn't block your own changes.
+
+`MinReplicas` must be at least 1. To pause an autoscaled index, switch it to `Scaling.Manual` with `Replicas` set to 0.
 
 ### Change read capacity
 

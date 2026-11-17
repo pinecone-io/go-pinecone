@@ -661,7 +661,7 @@ type ReadCapacityScaling struct {
 type ReadCapacityManualScaling struct {
 	// Replicas is the number of replicas per shard. Replicas duplicate the compute resources and
 	// data of an index, allowing higher query throughput and availability. Setting replicas to 0
-	// disables the index but can be used to reduce costs while usage is paused.
+	// pauses the index, which can reduce costs while it isn't in use.
 	Replicas *int32 `json:"replicas"`
 	// Shards is the number of shards to use. On describe, it's set for indexes using manual
 	// scaling. On requests, it's sent as [ReadCapacityDedicatedConfig].Shards when that field is
@@ -677,6 +677,7 @@ type ReadCapacityManualScaling struct {
 // ReadCapacityAutoScaling represents replica autoscaling configuration. Both bounds are per shard
 // and required: unlike [ReadCapacityManualScaling].Replicas, you can't change one bound alone.
 // MinReplicas must be at least 1, and MaxReplicas at least MinReplicas; the API rejects other values.
+// To pause an autoscaled index, switch it to [ReadCapacityManualScaling] with Replicas set to 0.
 type ReadCapacityAutoScaling struct {
 	// MinReplicas is the lowest number of replicas per shard that Pinecone scales down to.
 	MinReplicas int32 `json:"min_replicas"`
@@ -691,9 +692,11 @@ type ReadCapacityStatus struct {
 	// add states, so don't assume this list is exhaustive. When it's "Error", ErrorMessage, if set, says why.
 	State string `json:"state"`
 	// CurrentReplicas is the current number of replicas per shard. For an autoscaled index, it's
-	// the live count the autoscaler has reached.
+	// the live count the autoscaler has reached; autoscaling changes it without leaving "Ready". It's
+	// nil for OnDemand and until a Dedicated index finishes provisioning.
 	CurrentReplicas *int32 `json:"current_replicas,omitempty"`
-	// CurrentShards is the current number of shards.
+	// CurrentShards is the current number of shards. It's nil for OnDemand and until a Dedicated
+	// index finishes provisioning.
 	CurrentShards *int32 `json:"current_shards,omitempty"`
 	// ErrorMessage describes any issues with the read capacity configuration.
 	ErrorMessage *string `json:"error_message,omitempty"`
