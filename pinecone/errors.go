@@ -13,9 +13,6 @@ import (
 // operations) return gRPC status errors instead; inspect them with status.Code(err) from
 // google.golang.org/grpc/status. Network and response-decoding failures are returned as plain
 // errors.
-//
-// To branch on the API's error code, such as "ABORTED" when a read capacity change is still in
-// progress, decode Msg.Error() as JSON and read its "error_code" field.
 type PineconeError struct {
 	// Code is the HTTP status code of the response.
 	Code int

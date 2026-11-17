@@ -376,7 +376,7 @@ capacity. Wait until the state is `"Ready"`, then try again. The client's `Retry
 The whole `ConfigureIndex` call fails, so tags or deletion protection set in the same call aren't applied either. To
 change them while read capacity is being applied, use a separate call without `ReadCapacity`.
 
-The error code is part of the error's `Msg`. This example retries on `ABORTED` and stops on any other error:
+`PineconeError.ErrorCode` holds the error code. This example retries on `ABORTED` and stops on any other error:
 
 ```go
 params := pinecone.ConfigureIndexParams{
@@ -394,10 +394,7 @@ for {
 		break
 	}
 	var pcErr *pinecone.PineconeError
-	var details struct {
-		ErrorCode string `json:"error_code"`
-	}
-	if !errors.As(err, &pcErr) || json.Unmarshal([]byte(pcErr.Msg.Error()), &details) != nil || details.ErrorCode != "ABORTED" {
+	if !errors.As(err, &pcErr) || pcErr.ErrorCode != "ABORTED" {
 		log.Fatalf("Failed to configure index: %v", err)
 	}
 	// Another read capacity change is still being applied. Try again once it settles.
