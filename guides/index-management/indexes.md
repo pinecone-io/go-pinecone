@@ -317,8 +317,9 @@ index with dedicated read nodes supports only one namespace. For details, see
 [Dedicated read nodes](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes/overview).
 
 Code written for v7 that sets `Scaling.Manual.Shards` still works: the SDK sends it as `Shards`. That field is
-deprecated. If you set both to different values, the request fails. Describe fills in the deprecated field too, so
-before you change `Shards` on a scaling block copied from a describe response, set `Scaling.Manual.Shards` to nil.
+deprecated. If you set both to different values, the request fails. Describe fills in the deprecated field for a
+manually scaled index, so if you copy `Scaling` from a describe response and also set a new `Shards`, set
+`Scaling.Manual.Shards` to nil first.
 
 ### Replica autoscaling
 
@@ -357,7 +358,8 @@ count without leaving the `"Ready"` state, so it doesn't block your own changes.
 You can change read capacity later with `ConfigureIndex`; see [Configure an index](#configure-an-index). A change can
 take up to 30 minutes to complete, and reads and writes continue normally while it's applied. While it's applied,
 `ReadCapacity.Dedicated.Status.State` is `"Scaling"` or `"Migrating"`, and another read capacity change fails with the
-error code `ABORTED`. Wait until the state is `"Ready"`, then try again. The error code is part of the error's `Msg`.
+error code `ABORTED`. The whole `ConfigureIndex` call fails, so tags or deletion protection set in the same call aren't
+applied either; change them in a separate call, which works while a read capacity change is applied. Wait until the state is `"Ready"`, then try again. The error code is part of the error's `Msg`.
 This example retries on `ABORTED` and stops on any other error:
 
 ```go
