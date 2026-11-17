@@ -290,9 +290,9 @@ Serverless and BYOC indexes use on-demand read capacity by default, except in a 
 dedicated read capacity. To provision dedicated read nodes instead, set
 `ReadCapacity` when you create the index. You need to set `NodeType` (`"b1"` or `"t1"`, which has more processing power
 and memory), `Shards`, and a scaling strategy. With manual scaling, you set a fixed number of `Replicas` per shard.
-Dedicated read capacity is billed for as long as the index exists; the examples use the smallest shape. For choosing a node type,
-shard count, and replica count, see
-[Dedicated read nodes](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes/overview).
+Dedicated read capacity is billed for as long as the index exists; the examples use the smallest shape. The
+[Dedicated read nodes](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes/overview) overview has more on
+these settings.
 
 ```go
 nodeType := "b1"
