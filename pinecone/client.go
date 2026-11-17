@@ -84,7 +84,9 @@ type NewClientParams struct {
 	// the PINECONE_ADDITIONAL_HEADERS environment variable (a JSON object) are merged in; values in
 	// Headers take precedence. The "Api-Key" header is always set from ApiKey, and NewClient writes
 	// it into this map. gRPC data-plane calls made through [IndexConnection] send only the
-	// authentication header, not other custom headers.
+	// authentication header, not other custom headers. Don't set X-Pinecone-Api-Version here: the
+	// SDK's request and response types match the API version it was built for, and under another
+	// version requests can be wrong and response fields can be dropped without an error.
 	Headers map[string]string
 	// Host (Optional) is the host URL of the Pinecone API, used for control-plane and inference
 	// requests. Defaults to the PINECONE_CONTROLLER_HOST environment variable, or
@@ -107,7 +109,9 @@ type NewClientBaseParams struct {
 	// "Authorization" and "X-Project-Id" headers are required if authenticating using a JWT. Headers
 	// from the PINECONE_ADDITIONAL_HEADERS environment variable (a JSON object) are merged in; values
 	// in Headers take precedence. gRPC data-plane calls made through [IndexConnection] send only the
-	// authentication header, not other custom headers.
+	// authentication header, not other custom headers. Don't set X-Pinecone-Api-Version here: the
+	// SDK's request and response types match the API version it was built for, and under another
+	// version requests can be wrong and response fields can be dropped without an error.
 	Headers map[string]string
 	// Host (Optional) is the host URL of the Pinecone API, used for control-plane and inference
 	// requests. Defaults to the PINECONE_CONTROLLER_HOST environment variable, or
@@ -1188,7 +1192,9 @@ func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest
 //
 // An index that uses features this SDK's API version can't represent returns a [PineconeError]
 // whose error code is FAILED_PRECONDITION and whose message names the API version to use. Such an
-// index is listed by [Client.ListIncompatibleIndexes] rather than [Client.ListIndexes].
+// index is listed by [Client.ListIncompatibleIndexes] rather than [Client.ListIndexes]. To work
+// with it, upgrade to an SDK version that supports that API version; overriding the
+// X-Pinecone-Api-Version header instead leaves this SDK's types out of step with the responses.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
