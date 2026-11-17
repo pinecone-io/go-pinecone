@@ -727,7 +727,7 @@ type FloatField struct {
 // FloatFieldType Identifies this as a float field. Must be `float`.
 type FloatFieldType string
 
-// IncompatibleBackup A backup that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the oldest API version that can describe it and a message explaining what to do. Using this API version to describe it or create an index from it returns `412 FAILED_PRECONDITION` with the same message.
+// IncompatibleBackup A backup that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the oldest API version that can describe it and a message explaining what to do. Using this API version to describe it or create an index from it returns `412 FAILED_PRECONDITION` with the same message. Later releases may add fields to this object, such as the newest API version that can describe the resource; ignore fields you don't recognize.
 type IncompatibleBackup struct {
 	// BackupId The unique identifier of the backup.
 	BackupId string `json:"backup_id"`
@@ -739,7 +739,7 @@ type IncompatibleBackup struct {
 	MinApiVersion string `json:"min_api_version"`
 }
 
-// IncompatibleBackupSchedule A backup schedule that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the oldest API version that can describe it and a message explaining what to do. Using this API version to describe or update it returns `412 FAILED_PRECONDITION` with the same message.
+// IncompatibleBackupSchedule A backup schedule that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the oldest API version that can describe it and a message explaining what to do. Using this API version to describe or update it returns `412 FAILED_PRECONDITION` with the same message. Later releases may add fields to this object, such as the newest API version that can describe the resource; ignore fields you don't recognize.
 type IncompatibleBackupSchedule struct {
 	// Message A human-readable explanation of why this API version can't describe the backup schedule and what to do about it. The wording may change; use `min_api_version` to act on the entry programmatically.
 	Message string `json:"message"`
@@ -751,7 +751,7 @@ type IncompatibleBackupSchedule struct {
 	ScheduleId string `json:"schedule_id"`
 }
 
-// IncompatibleCollection A collection that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the oldest API version that can describe it and a message explaining what to do. Using this API version to describe it returns `412 FAILED_PRECONDITION` with the same message.
+// IncompatibleCollection A collection that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the oldest API version that can describe it and a message explaining what to do. Using this API version to describe it returns `412 FAILED_PRECONDITION` with the same message. Later releases may add fields to this object, such as the newest API version that can describe the resource; ignore fields you don't recognize.
 type IncompatibleCollection struct {
 	// Message A human-readable explanation of why this API version can't describe the collection and what to do about it. The wording may change; use `min_api_version` to act on the entry programmatically.
 	Message string `json:"message"`
@@ -763,7 +763,7 @@ type IncompatibleCollection struct {
 	Name string `json:"name"`
 }
 
-// IncompatibleConversionJob A conversion job that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the oldest API version that can describe it and a message explaining what to do. Using this API version to describe or cancel it returns `412 FAILED_PRECONDITION` with the same message.
+// IncompatibleConversionJob A conversion job that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the oldest API version that can describe it and a message explaining what to do. Using this API version to describe or cancel it returns `412 FAILED_PRECONDITION` with the same message. Later releases may add fields to this object, such as the newest API version that can describe the resource; ignore fields you don't recognize.
 type IncompatibleConversionJob struct {
 	// ConversionJobId Identifies the job when describing or cancelling it with a newer API version.
 	ConversionJobId string `json:"conversion_job_id"`
@@ -775,7 +775,7 @@ type IncompatibleConversionJob struct {
 	MinApiVersion string `json:"min_api_version"`
 }
 
-// IncompatibleIndex An index that exists in the project but uses features this API version can't represent. Only its name is shown, with the oldest API version that can describe it and a message explaining what to do. Describing or configuring this index with this API version returns `412 FAILED_PRECONDITION` with the same message.
+// IncompatibleIndex An index that exists in the project but uses features this API version can't represent. Only its name is shown, with the oldest API version that can describe it and a message explaining what to do. Describing or configuring this index with this API version returns `412 FAILED_PRECONDITION` with the same message. Later releases may add fields to this object, such as the newest API version that can describe the resource; ignore fields you don't recognize.
 type IncompatibleIndex struct {
 	// Message A human-readable explanation of why this API version can't describe the index and what to do about it. The wording may change; use `min_api_version` to act on the entry programmatically.
 	Message string `json:"message"`
@@ -787,7 +787,7 @@ type IncompatibleIndex struct {
 	Name string `json:"name"`
 }
 
-// IncompatibleRestoreJob A restore job that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the oldest API version that can describe it and a message explaining what to do. Using this API version to describe it returns `412 FAILED_PRECONDITION` with the same message.
+// IncompatibleRestoreJob A restore job that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the oldest API version that can describe it and a message explaining what to do. Using this API version to describe it returns `412 FAILED_PRECONDITION` with the same message. Later releases may add fields to this object, such as the newest API version that can describe the resource; ignore fields you don't recognize.
 type IncompatibleRestoreJob struct {
 	// Message A human-readable explanation of why this API version can't describe the restore job and what to do about it. The wording may change; use `min_api_version` to act on the entry programmatically.
 	Message string `json:"message"`
