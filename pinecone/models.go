@@ -80,7 +80,9 @@ const (
 type IndexStatus struct {
 	// Ready reports whether the index can serve requests. It is true when State is
 	// IndexStatusStateReady or IndexStatusStateDisabled, and while an existing index is being upgraded;
-	// it is false while the index is scaling. Check State to tell a disabled index from a ready one.
+	// it is false while a pod-based index is scaling. A dedicated read capacity change doesn't make it
+	// false; see ReadCapacity.Dedicated.Status for that. Check State to tell a disabled index from a
+	// ready one.
 	Ready bool `json:"ready"`
 	// State is the current [IndexStatusState] of the index.
 	State IndexStatusState `json:"state"`
@@ -618,8 +620,8 @@ type ReadCapacityDedicated struct {
 	// NodeType is the type of machines in use.
 	NodeType *string `json:"node_type"`
 	// Shards is the configured number of shards. Shards determine the storage capacity of an
-	// index, with each shard providing 250 GB of storage. The shard count is fixed under every
-	// scaling strategy.
+	// index, with each shard providing 250 GB of storage. Autoscaling never changes it; change it
+	// with [Client.ConfigureIndex].
 	Shards *int32 `json:"shards,omitempty"`
 	// ScalingStrategy is the [ReadCapacityScalingStrategy] the API reports, or nil when it reports
 	// none.

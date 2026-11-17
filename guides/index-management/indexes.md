@@ -290,7 +290,9 @@ Serverless and BYOC indexes use on-demand read capacity by default, except in a 
 dedicated read capacity. To provision dedicated read nodes instead, set
 `ReadCapacity` when you create the index. You need to set `NodeType` (`"b1"` or `"t1"`, which has more processing power
 and memory), `Shards`, and a scaling strategy. With manual scaling, you set a fixed number of `Replicas` per shard.
-Dedicated read capacity is billed for as long as the index exists; the examples use the smallest shape.
+Dedicated read capacity is billed for as long as the index exists; the examples use the smallest shape. For choosing a node type,
+shard count, and replica count, see
+[Dedicated read nodes](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes/overview).
 
 ```go
 nodeType := "b1"
@@ -324,7 +326,7 @@ manually scaled index, so if you copy `Scaling` from a describe response and als
 ### Replica autoscaling
 
 With `Scaling.Auto`, Pinecone moves the number of replicas per shard between `MinReplicas` and `MaxReplicas` as load
-changes. The shard count stays fixed. Your organization must be enabled for replica autoscaling; otherwise the request
+changes. The autoscaler never changes the shard count; change it yourself with `ConfigureIndex`. Your organization must be enabled for replica autoscaling; otherwise the request
 fails with a `PineconeError` whose error code is `FORBIDDEN`.
 
 Against per-index and per-project read node limits, an index counts as `Shards` × `Replicas` read nodes, or as
@@ -464,6 +466,9 @@ if err != nil {
 ```
 
 You can't delete an index that has deletion protection enabled. Disable it with `ConfigureIndex` first.
+
+Deletion is asynchronous. Until it finishes, the index still appears in `ListIndexes` with `Status.State`
+`"Terminating"`, along with its read capacity configuration.
 
 ## Configure an index
 
