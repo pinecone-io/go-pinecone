@@ -423,9 +423,9 @@ An index created with a feature from a later API version than this SDK uses can'
 `ListIndexes` leaves it out. `ListIncompatibleIndexes` lists those indexes, each with the oldest API version that can
 describe it. `DescribeIndex` and `ConfigureIndex` refuse such an index with the error code `FAILED_PRECONDITION`.
 `DeleteIndex` works unless deletion protection is on, which this SDK can't turn off for such an index. To work with
-it, upgrade to an SDK that supports that API version. The error message also suggests setting the API version header;
-don't do that with this SDK (for example through `Headers`), because its request and response types are built for
-one API version and the difference goes unnoticed.
+it, upgrade to an SDK that supports that API version. The error message's advice to set the `X-Pinecone-Api-Version`
+header is for direct API calls; don't do that with this SDK (for example through `Headers`), because its request and
+response types are built for one API version and the difference goes unnoticed.
 
 ```go
 incompatible, err := pc.ListIncompatibleIndexes(ctx)
