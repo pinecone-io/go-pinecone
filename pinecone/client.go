@@ -2778,7 +2778,8 @@ func decodeIndex(resBody io.ReadCloser) (*Index, error) {
 }
 
 // incompatibleEntries decodes an incompatible_* array one entry at a time, leaving out entries that
-// don't decode, so a malformed entry can't hide the rest of a list response.
+// don't decode, so a malformed entry can't hide the rest of a list response. Callers also drop
+// entries without an identifier, such as null or {}.
 func incompatibleEntries[T any](raw json.RawMessage) []T {
 	var items []json.RawMessage
 	if err := json.Unmarshal(raw, &items); err != nil {
@@ -2809,6 +2810,9 @@ func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
 	var backupList BackupList
 	backupList.IncompatibleBackups = make([]*IncompatibleBackup, 0)
 	for _, backup := range incompatibleEntries[db_control.IncompatibleBackup](backupListDb.IncompatibleBackups) {
+		if backup.BackupId == "" {
+			continue
+		}
 		backupList.IncompatibleBackups = append(backupList.IncompatibleBackups, &IncompatibleBackup{
 			BackupId:      backup.BackupId,
 			MinAPIVersion: backup.MinApiVersion,
@@ -2843,6 +2847,9 @@ func decodeRestoreJobList(resBody io.ReadCloser) (*RestoreJobList, error) {
 	var restoreJobList RestoreJobList
 	restoreJobList.IncompatibleRestoreJobs = make([]*IncompatibleRestoreJob, 0)
 	for _, job := range incompatibleEntries[db_control.IncompatibleRestoreJob](restoreJobListDb.IncompatibleRestoreJobs) {
+		if job.RestoreJobId == "" {
+			continue
+		}
 		restoreJobList.IncompatibleRestoreJobs = append(restoreJobList.IncompatibleRestoreJobs, &IncompatibleRestoreJob{
 			RestoreJobId:  job.RestoreJobId,
 			MinAPIVersion: job.MinApiVersion,

@@ -1138,7 +1138,7 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			name:   "ListBackups tolerates malformed incompatible_backups entries",
 			status: http.StatusOK,
 			response: `{"data": [{"backup_id": "bkp-1", "source_index_name": "docs", "source_index_id": "idx-1", "status": "Ready", "cloud": "aws", "region": "us-east-1"}],
-				"incompatible_backups": [{"backup_id": "bkp-2", "min_api_version": 2027, "message": "m1"}, "bkp-3", {"backup_id": "bkp-4", "min_api_version": "2027-01", "message": "m2"}]}`,
+				"incompatible_backups": [{"backup_id": "bkp-2", "min_api_version": 2027, "message": "m1"}, "bkp-3", null, {}, {"backup_id": "bkp-4", "min_api_version": "2027-01", "message": "m2"}]}`,
 			call: func(t *testing.T, pc *Client) {
 				backups, err := pc.ListBackups(context.Background(), nil)
 				require.NoError(t, err)
@@ -1200,7 +1200,7 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			name:   "ListRestoreJobs tolerates a malformed incompatible_restore_jobs",
 			status: http.StatusOK,
 			response: `{"data": [{"restore_job_id": "rj-1", "backup_id": "bkp-1", "target_index_name": "docs", "target_index_id": "idx-1", "status": "Completed", "created_at": "2026-03-15T10:30:00Z", "percent_complete": 100}],
-				"incompatible_restore_jobs": [{"restore_job_id": 7}, {"restore_job_id": "rj-3", "min_api_version": "2027-01", "message": "m2"}]}`,
+				"incompatible_restore_jobs": [{"restore_job_id": 7}, null, {"min_api_version": "2027-01"}, {"restore_job_id": "rj-3", "min_api_version": "2027-01", "message": "m2"}]}`,
 			call: func(t *testing.T, pc *Client) {
 				jobs, err := pc.ListRestoreJobs(context.Background(), nil)
 				require.NoError(t, err)
