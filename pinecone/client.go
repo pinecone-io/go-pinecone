@@ -431,14 +431,14 @@ func (c *Client) ListIncompatibleIndexes(ctx context.Context) ([]*IncompatibleIn
 		return nil, err
 	}
 
-	var entries []db_control.IncompatibleIndex
-	if len(indexList.IncompatibleIndexes) > 0 {
-		if err := json.Unmarshal(indexList.IncompatibleIndexes, &entries); err != nil {
-			return nil, fmt.Errorf("failed to decode incompatible_indexes: %w", err)
-		}
+	if err := requireJSONArray(indexList.IncompatibleIndexes); err != nil {
+		return nil, fmt.Errorf("failed to decode incompatible_indexes: %w", err)
 	}
-	incompatible := make([]*IncompatibleIndex, 0, len(entries))
-	for _, idx := range entries {
+	incompatible := make([]*IncompatibleIndex, 0)
+	for _, idx := range incompatibleEntries[db_control.IncompatibleIndex](indexList.IncompatibleIndexes) {
+		if idx.Name == "" {
+			continue
+		}
 		incompatible = append(incompatible, &IncompatibleIndex{
 			Name:          idx.Name,
 			MinAPIVersion: idx.MinApiVersion,
@@ -1615,14 +1615,14 @@ func (c *Client) ListIncompatibleCollections(ctx context.Context) ([]*Incompatib
 		return nil, err
 	}
 
-	var entries []db_control.IncompatibleCollection
-	if len(collectionsResponse.IncompatibleCollections) > 0 {
-		if err := json.Unmarshal(collectionsResponse.IncompatibleCollections, &entries); err != nil {
-			return nil, fmt.Errorf("failed to decode incompatible_collections: %w", err)
-		}
+	if err := requireJSONArray(collectionsResponse.IncompatibleCollections); err != nil {
+		return nil, fmt.Errorf("failed to decode incompatible_collections: %w", err)
 	}
-	incompatible := make([]*IncompatibleCollection, 0, len(entries))
-	for _, collection := range entries {
+	incompatible := make([]*IncompatibleCollection, 0)
+	for _, collection := range incompatibleEntries[db_control.IncompatibleCollection](collectionsResponse.IncompatibleCollections) {
+		if collection.Name == "" {
+			continue
+		}
 		incompatible = append(incompatible, &IncompatibleCollection{
 			Name:          collection.Name,
 			MinAPIVersion: collection.MinApiVersion,
@@ -2797,6 +2797,16 @@ func incompatibleEntries[T any](raw json.RawMessage) []T {
 	return entries
 }
 
+// requireJSONArray returns an error unless raw is absent, null, or a JSON array. The
+// ListIncompatible* methods use it so a malformed list is reported instead of read as empty.
+func requireJSONArray(raw json.RawMessage) error {
+	if len(raw) == 0 {
+		return nil
+	}
+	var items []json.RawMessage
+	return json.Unmarshal(raw, &items)
+}
+
 // backupListResponse keeps incompatible_backups undecoded; see incompatibleEntries.
 type backupListResponse struct {
 	Data                *[]db_control.BackupModel      `json:"data,omitempty"`
@@ -3037,7 +3047,8 @@ func decodeErrorResponse(resBodyBytes []byte) (*db_control.ErrorResponse, error)
 		return nil, fmt.Errorf("failed to decode error response: %w", err)
 	}
 
-	if errorResponse.Status == 0 {
+	// Some error bodies carry error.code without a top-level status.
+	if errorResponse.Status == 0 && errorResponse.Error.Code == "" {
 		return nil, fmt.Errorf("unable to parse ErrorResponse: %v", string(resBodyBytes))
 	}
 

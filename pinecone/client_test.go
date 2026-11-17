@@ -487,6 +487,22 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 			errorCode:    "INVALID_ARGUMENT",
 			message:      "failed to create index: max_replicas must be >= min_replicas & < 10",
 		}, {
+			name:         "ErrorResponse body without a top-level status",
+			responseBody: mockResponse(`{"error": {"code": "FAILED_PRECONDITION", "message": "needs a newer API version"}}`, http.StatusPreconditionFailed),
+			statusCode:   http.StatusPreconditionFailed,
+			prefix:       "failed to describe index: ",
+			errorOutput:  `{"status_code":412,"body":"{\"error\": {\"code\": \"FAILED_PRECONDITION\", \"message\": \"needs a newer API version\"}}","error_code":"FAILED_PRECONDITION","message":"failed to describe index: needs a newer API version"}`,
+			errorCode:    "FAILED_PRECONDITION",
+			message:      "failed to describe index: needs a newer API version",
+		}, {
+			name:         "ErrorResponse body with details but no reason",
+			responseBody: mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "message": "bad", "details": {"field": "top_k"}}}`, http.StatusBadRequest),
+			statusCode:   http.StatusBadRequest,
+			errorOutput:  `{"status_code":400,"body":"{\"status\": 400, \"error\": {\"code\": \"INVALID_ARGUMENT\", \"message\": \"bad\", \"details\": {\"field\": \"top_k\"}}}","error_code":"INVALID_ARGUMENT","message":"bad","details":"&map[field:top_k]"}`,
+			errorCode:    "INVALID_ARGUMENT",
+			message:      "bad",
+			details:      map[string]any{"field": "top_k"},
+		}, {
 			name:         "test JSON body",
 			responseBody: mockResponse(`{"message": "test error message", "extraCode": 665}`, http.StatusBadRequest),
 			statusCode:   http.StatusBadRequest,
@@ -2315,4 +2331,9 @@ func TestPineconeErrorDetailsIsACopy(t *testing.T) {
 	require.ErrorAs(t, err, &pcErr)
 	pcErr.Details()["limit_documents"] = 1
 	assert.Equal(t, float64(1000), pcErr.Details()["limit_documents"])
+}
+
+func TestPineconeErrorDetailsOnNilError(t *testing.T) {
+	var pcErr *PineconeError
+	assert.Nil(t, pcErr.Details())
 }

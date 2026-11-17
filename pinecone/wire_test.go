@@ -1063,6 +1063,20 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			},
 		},
 		{
+			// Entries are decoded one at a time: a wrong-typed entry, null, or one without a name is
+			// left out, and the rest are still returned.
+			name:   "ListIncompatibleIndexes skips malformed and unnamed entries",
+			status: http.StatusOK,
+			response: `{"indexes": [],
+				"incompatible_indexes": [{"name": "bad", "min_api_version": 2027}, "docs-v3", null, {}, {"min_api_version": "2027-01"}, {"name": "docs-v2", "min_api_version": "2027-01", "message": "m"}]}`,
+			call: func(t *testing.T, pc *Client) {
+				incompatible, err := pc.ListIncompatibleIndexes(context.Background())
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleIndex{{Name: "docs-v2", MinAPIVersion: "2027-01", Message: "m"}}, incompatible)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/indexes"}},
+		},
+		{
 			name:     "DescribeIndex of an incompatible index returns the 412 as a PineconeError",
 			status:   http.StatusPreconditionFailed,
 			response: incompatibleIndex412JSON,
@@ -1135,6 +1149,18 @@ func TestControlPlaneWireUnit(t *testing.T) {
 				{method: http.MethodGet, path: "/collections"},
 				{method: http.MethodGet, path: "/collections"},
 			},
+		},
+		{
+			name:   "ListIncompatibleCollections skips malformed and unnamed entries",
+			status: http.StatusOK,
+			response: `{"collections": [],
+				"incompatible_collections": [{"name": "bad", "min_api_version": 2027}, "archive-2024", null, {}, {"name": "archive-2025", "min_api_version": "2027-01", "message": "m"}]}`,
+			call: func(t *testing.T, pc *Client) {
+				incompatible, err := pc.ListIncompatibleCollections(context.Background())
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleCollection{{Name: "archive-2025", MinAPIVersion: "2027-01", Message: "m"}}, incompatible)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/collections"}},
 		},
 		{
 			name:     "DescribeCollection of an incompatible collection returns the 412 as a PineconeError",
@@ -1270,6 +1296,19 @@ func TestControlPlaneWireUnit(t *testing.T) {
 				require.NoError(t, err)
 				require.Len(t, jobs.Data, 1)
 				assert.Equal(t, []*IncompatibleRestoreJob{{RestoreJobId: "rj-3", MinAPIVersion: "2027-01", Message: "m2"}}, jobs.IncompatibleRestoreJobs)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/restore-jobs"}},
+		},
+		{
+			name:     "ListRestoreJobs ignores a non-array incompatible_restore_jobs",
+			status:   http.StatusOK,
+			response: `{"data": [{"restore_job_id": "rj-1", "backup_id": "bkp-1", "target_index_name": "docs", "target_index_id": "idx-1", "status": "Completed", "created_at": "2026-03-15T10:30:00Z", "percent_complete": 100}], "incompatible_restore_jobs": {"restore_job_id": "rj-2"}}`,
+			call: func(t *testing.T, pc *Client) {
+				jobs, err := pc.ListRestoreJobs(context.Background(), nil)
+				require.NoError(t, err)
+				require.Len(t, jobs.Data, 1)
+				assert.NotNil(t, jobs.IncompatibleRestoreJobs)
+				assert.Empty(t, jobs.IncompatibleRestoreJobs)
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/restore-jobs"}},
 		},
@@ -1803,13 +1842,8 @@ func requireIncompatibleError(t *testing.T, err error, message string) {
 	var pcErr *PineconeError
 	require.ErrorAs(t, err, &pcErr)
 	assert.Equal(t, http.StatusPreconditionFailed, pcErr.Code)
-	var details struct {
-		ErrorCode string `json:"error_code"`
-		Message   string `json:"message"`
-	}
-	require.NoError(t, json.Unmarshal([]byte(pcErr.Msg.Error()), &details))
-	assert.Equal(t, "FAILED_PRECONDITION", details.ErrorCode)
-	assert.Contains(t, details.Message, message)
+	assert.Equal(t, "FAILED_PRECONDITION", pcErr.ErrorCode)
+	assert.Contains(t, pcErr.Message, message)
 }
 
 func requireIncompatibleIndexError(t *testing.T, err error) {
