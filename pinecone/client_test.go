@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/pinecone-io/go-pinecone/v7/internal/gen"
-	"github.com/pinecone-io/go-pinecone/v7/internal/gen/db_control"
-	"github.com/pinecone-io/go-pinecone/v7/internal/gen/inference"
-	"github.com/pinecone-io/go-pinecone/v7/internal/provider"
-	"github.com/pinecone-io/go-pinecone/v7/internal/utils"
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen"
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen/db_control"
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen/inference"
+	"github.com/pinecone-io/go-pinecone/v8/internal/provider"
+	"github.com/pinecone-io/go-pinecone/v8/internal/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

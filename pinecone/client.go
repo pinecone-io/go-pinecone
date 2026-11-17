@@ -18,12 +18,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pinecone-io/go-pinecone/v7/internal/gen"
-	"github.com/pinecone-io/go-pinecone/v7/internal/gen/db_control"
-	db_data_rest "github.com/pinecone-io/go-pinecone/v7/internal/gen/db_data/rest"
-	"github.com/pinecone-io/go-pinecone/v7/internal/gen/inference"
-	"github.com/pinecone-io/go-pinecone/v7/internal/provider"
-	"github.com/pinecone-io/go-pinecone/v7/internal/useragent"
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen"
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen/db_control"
+	db_data_rest "github.com/pinecone-io/go-pinecone/v8/internal/gen/db_data/rest"
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen/inference"
+	"github.com/pinecone-io/go-pinecone/v8/internal/provider"
+	"github.com/pinecone-io/go-pinecone/v8/internal/useragent"
 	"google.golang.org/grpc"
 )
 

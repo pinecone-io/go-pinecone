@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/pinecone-io/go-pinecone/v7/internal/utils"
+	"github.com/pinecone-io/go-pinecone/v8/internal/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/structpb"
 

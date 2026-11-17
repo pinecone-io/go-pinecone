@@ -19,7 +19,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
+	"github.com/pinecone-io/go-pinecone/v8/pinecone"
 )
 
 func main() {

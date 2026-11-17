@@ -1,4 +1,4 @@
-# Pinecone Go SDK &middot; ![License](https://img.shields.io/github/license/pinecone-io/go-pinecone?color=orange) [![Go Reference](https://pkg.go.dev/badge/github.com/pinecone-io/go-pinecone/v7.svg)](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v7/pinecone)
+# Pinecone Go SDK &middot; ![License](https://img.shields.io/github/license/pinecone-io/go-pinecone?color=orange) [![Go Reference](https://pkg.go.dev/badge/github.com/pinecone-io/go-pinecone/v8.svg)](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v8/pinecone)
 
 The Pinecone Go SDK is the official Go client for [Pinecone Database](https://www.pinecone.io).
 
@@ -20,8 +20,8 @@ the API reference, see [Pinecone API](https://docs.pinecone.io/reference/api/int
 ## Documentation
 
 - [Guides](./guides/README.md): detailed usage guides for each area of the SDK
-- [API reference](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v7/pinecone) for the latest release, or
-  [for `main`](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v7@main/pinecone)
+- [API reference](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v8/pinecone) for the latest release, or
+  [for `main`](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v8@main/pinecone)
 - [Pinecone documentation](https://docs.pinecone.io/)
 
 If you're upgrading from v7, see the [v8 migration guide](./guides/migration/v8.md). v8 moves to API version
@@ -39,18 +39,18 @@ version `2026-07`, which adds document indexes and removes the ability to create
 ## Installation
 
 ```shell
-go get github.com/pinecone-io/go-pinecone/v7/pinecone
+go get github.com/pinecone-io/go-pinecone/v8/pinecone
 ```
 
 To upgrade to the latest version:
 
 ```shell
-go get -u github.com/pinecone-io/go-pinecone/v7/pinecone@latest
+go get -u github.com/pinecone-io/go-pinecone/v8/pinecone@latest
 ```
 
 ## Quickstart
 
-These quickstarts are also on [pkg.go.dev](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v7/pinecone#pkg-examples)
+These quickstarts are also on [pkg.go.dev](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v8/pinecone#pkg-examples)
 as package examples, which are compiled with the SDK's tests.
 
 ### Full-text search
@@ -67,7 +67,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
+	"github.com/pinecone-io/go-pinecone/v8/pinecone"
 )
 
 func main() {
