@@ -1505,7 +1505,7 @@ type BackupList struct {
 // version can't represent, so [Client.ListBackups] reports it in [BackupList].IncompatibleBackups
 // instead of Data. [Client.DescribeBackup] and [Client.CreateIndexFromBackup] refuse it with a
 // [PineconeError] whose error code is FAILED_PRECONDITION and whose Reason is
-// RESOURCE_INCOMPATIBLE_WITH_API_VERSION; [Client.DeleteBackup] still works.
+// [ReasonResourceIncompatibleWithAPIVersion]; [Client.DeleteBackup] still works.
 type IncompatibleBackup struct {
 	// BackupId is the unique identifier of the backup.
 	BackupId string `json:"backup_id"`
@@ -1556,7 +1556,7 @@ type RestoreJobList struct {
 // IncompatibleRestoreJob is a restore job that uses features this SDK's API version can't
 // represent, so [Client.ListRestoreJobs] reports it in [RestoreJobList].IncompatibleRestoreJobs
 // instead of Data. [Client.DescribeRestoreJob] refuses it with a [PineconeError] whose error code
-// is FAILED_PRECONDITION and whose Reason is RESOURCE_INCOMPATIBLE_WITH_API_VERSION.
+// is FAILED_PRECONDITION and whose Reason is [ReasonResourceIncompatibleWithAPIVersion].
 type IncompatibleRestoreJob struct {
 	// RestoreJobId is the unique identifier of the restore job.
 	RestoreJobId string `json:"restore_job_id"`
