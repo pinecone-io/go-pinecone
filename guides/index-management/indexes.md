@@ -353,10 +353,11 @@ number of replicas per shard is in `ReadCapacity.Dedicated.Status.CurrentReplica
 You can change read capacity later with `ConfigureIndex`; see [Configure an index](#configure-an-index). A change can
 take up to 30 minutes to complete, and reads and writes continue normally while it's applied. While it's applied,
 `ReadCapacity.Dedicated.Status.State` is `"Scaling"` or `"Migrating"`, and another read capacity change fails with the
-error code `ABORTED`. Wait until the state is `"Ready"`, then try again. The error code is part of the error's `Msg`:
+error code `ABORTED`. Wait until the state is `"Ready"`, then try again. The error code is part of the error's `Msg`.
+This example retries on `ABORTED` and stops on any other error:
 
 ```go
-_, err := pc.ConfigureIndex(ctx, "articles-autoscaling", pinecone.ConfigureIndexParams{
+params := pinecone.ConfigureIndexParams{
 	ReadCapacity: &pinecone.ReadCapacityParams{
 		Dedicated: &pinecone.ReadCapacityDedicatedConfig{
 			Scaling: &pinecone.ReadCapacityScaling{
@@ -364,15 +365,21 @@ _, err := pc.ConfigureIndex(ctx, "articles-autoscaling", pinecone.ConfigureIndex
 			},
 		},
 	},
-})
-var pcErr *pinecone.PineconeError
-if errors.As(err, &pcErr) {
+}
+for {
+	_, err := pc.ConfigureIndex(ctx, "articles-autoscaling", params)
+	if err == nil {
+		break
+	}
+	var pcErr *pinecone.PineconeError
 	var details struct {
 		ErrorCode string `json:"error_code"`
 	}
-	if json.Unmarshal([]byte(pcErr.Msg.Error()), &details) == nil && details.ErrorCode == "ABORTED" {
-		// A read capacity change is still in progress. Wait for "Ready" and retry.
+	if !errors.As(err, &pcErr) || json.Unmarshal([]byte(pcErr.Msg.Error()), &details) != nil || details.ErrorCode != "ABORTED" {
+		log.Fatalf("Failed to configure index: %v", err)
 	}
+	// Another read capacity change is still being applied. Try again once it settles.
+	time.Sleep(time.Minute)
 }
 ```
 
