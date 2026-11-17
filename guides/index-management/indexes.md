@@ -332,6 +332,11 @@ Against per-index and per-project read node limits, an index counts as `Shards` 
 `Shards` × `MaxReplicas` when it autoscales, even while it runs fewer. A request that would go over a limit also fails
 with `FORBIDDEN`, so show the error's message rather than assuming which case it is.
 
+A program can't tell the two `FORBIDDEN` cases apart from the error code. If yours falls back from `Scaling.Auto` to
+`Scaling.Manual` when autoscaling isn't available, request `Replicas` equal to `MaxReplicas`. That's the same number of
+read nodes, so a limit error fails again and reaches you, instead of the fallback quietly giving the index less
+capacity than you asked for.
+
 ```go
 nodeType := "b1"
 shards := int32(1)

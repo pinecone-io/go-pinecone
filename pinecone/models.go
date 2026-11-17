@@ -654,7 +654,8 @@ type ReadCapacityScaling struct {
 	Manual *ReadCapacityManualScaling `json:"manual,omitempty"`
 	// Auto is the replica autoscaling configuration: Pinecone moves the number of replicas per
 	// shard between MinReplicas and MaxReplicas as load changes. On requests, the organization
-	// must be enabled for replica autoscaling; otherwise the request fails with a [PineconeError].
+	// must be enabled for replica autoscaling; otherwise the request fails with a [PineconeError] whose
+	// error code is FORBIDDEN. A request over a read node limit fails with the same error code.
 	Auto *ReadCapacityAutoScaling `json:"auto,omitempty"`
 }
 
