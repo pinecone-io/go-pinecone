@@ -229,7 +229,8 @@ idx, err := pc.CreateBYOCIndex(ctx, &pinecone.CreateBYOCIndexRequest{
 ```
 
 Like a serverless index, a BYOC index uses on-demand read capacity by default. To provision dedicated read nodes
-instead, set `ReadCapacity` (see [Dedicated read capacity](#dedicated-read-capacity)).
+instead, set `ReadCapacity` (see [Dedicated read capacity](#dedicated-read-capacity)). Some BYOC environments support
+only dedicated read capacity; there, on-demand, including the default, fails, so set `ReadCapacity` to `Dedicated`.
 
 For more on BYOC, see [Bring your own cloud](https://docs.pinecone.io/guides/production/bring-your-own-cloud).
 
