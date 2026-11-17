@@ -1,8 +1,9 @@
 # Collections
 
 [A collection is a static copy of an index](https://docs.pinecone.io/guides/indexes/understanding-collections).
-Collections are available only for pod-based indexes. Pinecone API versions `2026-07` and later can't create pod-based indexes or
-create an index from a collection, so collections are mainly useful for keeping copies of existing pod-based indexes.
+Collections are available only for pod-based indexes. Pinecone API versions `2026-07` and later can't create pod-based
+indexes or create an index from a collection, so collections are mainly useful for keeping copies of existing pod-based
+indexes.
 A collection can't be moved to a different project. For serverless indexes, use [backups](./backups.md) instead.
 
 The examples below assume a `Client` named `pc`. For how to create one, see
@@ -39,7 +40,7 @@ A collection that uses a feature from a later API version than this SDK uses can
 `ListCollections` leaves it out. `ListIncompatibleCollections` lists those collections, each with the oldest API version
 that can describe it. `DescribeCollection` refuses such a collection with the error code `FAILED_PRECONDITION`;
 `DeleteCollection` still works. To work with it, upgrade to an SDK that supports that API version; don't override the
-`X-Pinecone-Api-Version` header (see [List indexes](indexes.md#list-indexes)).
+`X-Pinecone-Api-Version` header, because this SDK's request and response types are built for one API version.
 
 ```go
 incompatible, err := pc.ListIncompatibleCollections(ctx)

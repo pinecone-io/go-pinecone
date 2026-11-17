@@ -319,15 +319,15 @@ index with dedicated read nodes supports only one namespace. For details, see
 [Dedicated read nodes](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes/overview).
 
 Code written for v7 that sets `Scaling.Manual.Shards` still works: the SDK sends it as `Shards`. That field is
-deprecated. If you set both to different values, the request fails. Describe fills in the deprecated field for a
-manually scaled index, so if you copy `Scaling` from a describe response and also set a new `Shards`, set
-`Scaling.Manual.Shards` to nil first.
+deprecated. If you set both, `Shards` wins and the deprecated value is ignored, so a `Scaling` block copied from a
+describe response, which fills in the deprecated field for a manually scaled index, doesn't undo a change to `Shards`.
 
 ### Replica autoscaling
 
 With `Scaling.Auto`, Pinecone moves the number of replicas per shard between `MinReplicas` and `MaxReplicas` as load
-changes. The autoscaler never changes the shard count; change it yourself with `ConfigureIndex`. Your organization must be enabled for replica autoscaling; otherwise the request
-fails with a `PineconeError` whose error code is `FORBIDDEN`.
+changes. The autoscaler never changes the shard count; change it yourself with `ConfigureIndex`. Your organization
+must be enabled for replica autoscaling; otherwise the request fails with a `PineconeError` whose error code is
+`FORBIDDEN`.
 
 Against per-index and per-project read node limits, an index counts as `Shards` × `Replicas` read nodes, or as
 `Shards` × `MaxReplicas` when it autoscales, even while it runs fewer. A request that would go over a limit also fails
@@ -551,9 +551,10 @@ Deletion protection prevents deleting the index, but not deleting its namespaces
 
 ## Existing pod-based indexes
 
-Pinecone API versions `2026-07` and later don't support creating pod-based indexes. Existing pod-based indexes keep working. You
-can list, describe, and delete them, run data operations against them, create [collections](./collections.md) from
-them, and scale them with `ConfigureIndex`. You can only increase the pod size, and you can't change the pod family (such as `p1`).
+Pinecone API versions `2026-07` and later don't support creating pod-based indexes. Existing pod-based indexes keep
+working. You can list, describe, and delete them, run data operations against them, create
+[collections](./collections.md) from them, and scale them with `ConfigureIndex`. You can only increase the pod size, and
+you can't change the pod family (such as `p1`).
 
 ```go
 // Scale the pod size from "x2" to "x4" and the number of replicas to 4.
