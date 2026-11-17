@@ -621,7 +621,8 @@ type ReadCapacityDedicated struct {
 	// index, with each shard providing 250 GB of storage. The shard count is fixed under every
 	// scaling strategy.
 	Shards *int32 `json:"shards,omitempty"`
-	// ScalingStrategy is the [ReadCapacityScalingStrategy] the API reports.
+	// ScalingStrategy is the [ReadCapacityScalingStrategy] the API reports, or nil when it reports
+	// none.
 	ScalingStrategy *ReadCapacityScalingStrategy `json:"scaling_strategy,omitempty"`
 	// Scaling is the [ReadCapacityScaling] configuration for the strategy in ScalingStrategy. It's
 	// nil when this version of the SDK doesn't know the strategy, or when the API reports a

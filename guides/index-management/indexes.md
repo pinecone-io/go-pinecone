@@ -282,7 +282,8 @@ for {
 ```
 
 For an index with dedicated read capacity, also wait until `ReadCapacity.Dedicated.Status.State` is `"Ready"`. If it's
-`"Error"`, `Status.ErrorMessage`, if set, says why; stop waiting rather than loop.
+`"Error"`, `Status.ErrorMessage`, if set, says why; stop waiting rather than loop. Read capacity in `"Error"` can still
+be configured, so fix the cause and call `ConfigureIndex` again.
 
 ## Dedicated read capacity
 
@@ -362,7 +363,8 @@ count without leaving the `"Ready"` state, so it doesn't block your own changes.
 You can change read capacity later with `ConfigureIndex`; see [Configure an index](#configure-an-index). A change can
 take up to 30 minutes to complete, and reads and writes continue normally while it's applied. While it's applied,
 `ReadCapacity.Dedicated.Status.State` is `"Scaling"` or `"Migrating"`, and another read capacity change fails with the
-error code `ABORTED`. Wait until the state is `"Ready"`, then try again.
+error code `ABORTED`. That includes the initial provisioning right after you create an index with dedicated read
+capacity. Wait until the state is `"Ready"`, then try again. The client's `RetryPolicy` doesn't retry `ABORTED`.
 
 The whole `ConfigureIndex` call fails, so tags or deletion protection set in the same call aren't applied either. To
 change them while read capacity is being applied, use a separate call without `ReadCapacity`.
