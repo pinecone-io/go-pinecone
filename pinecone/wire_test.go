@@ -2,6 +2,7 @@ package pinecone
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,6 +26,7 @@ const (
 	byocDeploymentJSON    = `{"deployment_type": "byoc", "environment": "test-environ"}`
 	denseFieldsJSON       = `{"_values": {"type": "dense_vector", "dimension": 3, "metric": "cosine"}}`
 
+	autoscaledReadCapacityJSON      = `{"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 2, "scaling": "Auto", "auto": {"min_replicas": 2, "max_replicas": 8}}, "status": {"state": "Ready", "current_replicas": 5, "current_shards": 2}}`
 	dedicatedManualReadCapacityJSON = `{"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 1, "scaling": "Manual", "manual": {"replicas": 2}}, "status": {"state": "Ready", "current_replicas": 2, "current_shards": 1}}`
 )
 
@@ -696,6 +698,182 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			want: []wantRequest{{method: http.MethodGet, path: "/indexes/dedicated-index"}},
 		},
 		{
+			name:     "CreateIndex with replica autoscaling",
+			status:   http.StatusCreated,
+			response: indexModelFixture{name: "autoscaling-index", readCapacity: autoscaledReadCapacityJSON}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				idx, err := pc.CreateIndex(context.Background(), &CreateIndexRequest{
+					Name: "autoscaling-index",
+					Schema: IndexSchema{Fields: map[string]IndexSchemaField{
+						"your_vector": {DenseVector: &DenseVectorField{Dimension: 1536, Metric: IndexMetricCosine}},
+					}},
+					ReadCapacity: &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{
+						NodeType: ptr("b1"),
+						Shards:   ptr(int32(2)),
+						Scaling:  &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8}},
+					}},
+				})
+				require.NoError(t, err)
+				require.NotNil(t, idx.ReadCapacity)
+				dedicated := idx.ReadCapacity.Dedicated
+				require.NotNil(t, dedicated)
+				assert.Equal(t, ReadCapacityScalingStrategyAuto, *dedicated.ScalingStrategy)
+				assert.Equal(t, int32(2), *dedicated.Shards)
+				assert.Nil(t, dedicated.Scaling.Manual)
+				assert.Equal(t, &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8}, dedicated.Scaling.Auto)
+				assert.Equal(t, int32(5), *dedicated.Status.CurrentReplicas)
+			},
+			want: []wantRequest{{
+				method: http.MethodPost,
+				path:   "/indexes",
+				body: `{
+					"name": "autoscaling-index",
+					"schema": {"fields": {"your_vector": {"type": "dense_vector", "dimension": 1536, "metric": "cosine"}}},
+					"read_capacity": {"mode": "Dedicated", "dedicated": {
+						"node_type": "b1",
+						"shards": 2,
+						"scaling": "Auto",
+						"auto": {"min_replicas": 2, "max_replicas": 8}
+					}},
+					"tags": null
+				}`,
+			}},
+		},
+		{
+			name:     "ConfigureIndex turns on replica autoscaling",
+			status:   http.StatusOK,
+			response: indexModelFixture{name: "dedicated-index", readCapacity: dedicatedManualReadCapacityJSON}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.ConfigureIndex(context.Background(), "dedicated-index", ConfigureIndexParams{
+					ReadCapacity: &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{
+						Scaling: &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8}},
+					}},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes/dedicated-index"},
+				{
+					method: http.MethodPatch,
+					path:   "/indexes/dedicated-index",
+					body:   `{"read_capacity": {"mode": "Dedicated", "dedicated": {"scaling": "Auto", "auto": {"min_replicas": 2, "max_replicas": 8}}}, "tags": null}`,
+				},
+			},
+		},
+		{
+			name:     "ConfigureIndex changes the bounds of an autoscaled index",
+			status:   http.StatusOK,
+			response: indexModelFixture{name: "autoscaling-index", readCapacity: autoscaledReadCapacityJSON}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.ConfigureIndex(context.Background(), "autoscaling-index", ConfigureIndexParams{
+					ReadCapacity: &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{
+						Scaling: &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 1, MaxReplicas: 4}},
+					}},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes/autoscaling-index"},
+				{
+					method: http.MethodPatch,
+					path:   "/indexes/autoscaling-index",
+					body:   `{"read_capacity": {"mode": "Dedicated", "dedicated": {"scaling": "Auto", "auto": {"min_replicas": 1, "max_replicas": 4}}}, "tags": null}`,
+				},
+			},
+		},
+		{
+			name:     "ConfigureIndex changes only shards of an autoscaled index",
+			status:   http.StatusOK,
+			response: indexModelFixture{name: "autoscaling-index", readCapacity: autoscaledReadCapacityJSON}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.ConfigureIndex(context.Background(), "autoscaling-index", ConfigureIndexParams{
+					ReadCapacity: &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{Shards: ptr(int32(3))}},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes/autoscaling-index"},
+				{
+					method: http.MethodPatch,
+					path:   "/indexes/autoscaling-index",
+					body:   `{"read_capacity": {"mode": "Dedicated", "dedicated": {"shards": 3}}, "tags": null}`,
+				},
+			},
+		},
+		{
+			name:     "ConfigureIndex switches an autoscaled index back to a fixed replica count",
+			status:   http.StatusOK,
+			response: indexModelFixture{name: "autoscaling-index", readCapacity: autoscaledReadCapacityJSON}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.ConfigureIndex(context.Background(), "autoscaling-index", ConfigureIndexParams{
+					ReadCapacity: &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{
+						Scaling: &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(4))}},
+					}},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes/autoscaling-index"},
+				{
+					method: http.MethodPatch,
+					path:   "/indexes/autoscaling-index",
+					body:   `{"read_capacity": {"mode": "Dedicated", "dedicated": {"scaling": "Manual", "manual": {"replicas": 4}}}, "tags": null}`,
+				},
+			},
+		},
+		{
+			// Manual and Auto can't become one scaling value, so nothing is sent after the describe.
+			name:     "ConfigureIndex with both Manual and Auto returns an error",
+			status:   http.StatusOK,
+			response: indexModelFixture{name: "dedicated-index", readCapacity: dedicatedManualReadCapacityJSON}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.ConfigureIndex(context.Background(), "dedicated-index", ConfigureIndexParams{
+					ReadCapacity: &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{
+						Scaling: &ReadCapacityScaling{
+							Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(2))},
+							Auto:   &ReadCapacityAutoScaling{MinReplicas: 1, MaxReplicas: 2},
+						},
+					}},
+				})
+				require.ErrorContains(t, err, "both Scaling.Manual and Scaling.Auto are set")
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/indexes/dedicated-index"}},
+		},
+		{
+			// Different values in Shards and the deprecated Manual.Shards are both sent, so the API
+			// explains the conflict instead of the SDK picking one.
+			name:     "CreateServerlessIndex with conflicting shard counts sends both",
+			status:   http.StatusCreated,
+			response: indexModelFixture{name: "dedicated-index"}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
+					Name:      "dedicated-index",
+					Cloud:     CloudAWS,
+					Region:    "us-east-1",
+					Dimension: ptr(int32(3)),
+					ReadCapacity: &ReadCapacityParams{
+						Dedicated: &ReadCapacityDedicatedConfig{
+							NodeType: ptr("b1"),
+							Shards:   ptr(int32(2)),
+							Scaling:  &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(1)), Shards: ptr(int32(1))}},
+						},
+					},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{{
+				method: http.MethodPost,
+				path:   "/indexes",
+				body: `{
+					"name": "dedicated-index",
+					"schema": {"fields": {"_values": {"type": "dense_vector", "dimension": 3, "metric": "cosine"}}},
+					"deployment": ` + managedDeploymentJSON + `,
+					"read_capacity": {"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 2, "scaling": "Manual", "manual": {"replicas": 1, "shards": 1}}},
+					"tags": null
+				}`,
+			}},
+		},
+		{
 			name:     "ListBackups for an index including deleted",
 			status:   http.StatusOK,
 			response: `{"data": []}`,
@@ -1078,4 +1256,39 @@ func TestDataPlaneWireUnit(t *testing.T) {
 			assertRequests(t, server.requests(), tt.want)
 		})
 	}
+}
+
+// The v7.2.0 shape (shards inside Scaling.Manual) and the 2026-10 shape (Dedicated.Shards) must put
+// the same bytes on the wire, for create and for configure.
+func TestReadCapacityDeprecatedShardsWireIdenticalUnit(t *testing.T) {
+	oldShape := &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{
+		NodeType: ptr("b1"),
+		Scaling:  &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(1)), Shards: ptr(int32(2))}},
+	}}
+	newShape := &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{
+		NodeType: ptr("b1"),
+		Shards:   ptr(int32(2)),
+		Scaling:  &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(1))}},
+	}}
+
+	oldCreate, err := readCapacityParamsToReadCapacity(oldShape)
+	require.NoError(t, err)
+	newCreate, err := readCapacityParamsToReadCapacity(newShape)
+	require.NoError(t, err)
+	oldBytes, err := json.Marshal(oldCreate)
+	require.NoError(t, err)
+	newBytes, err := json.Marshal(newCreate)
+	require.NoError(t, err)
+	assert.Equal(t, string(newBytes), string(oldBytes), "create")
+
+	current := &ReadCapacity{Dedicated: &ReadCapacityDedicated{NodeType: ptr("b1")}}
+	oldPatch, err := patchReadCapacity(oldShape, current)
+	require.NoError(t, err)
+	newPatch, err := patchReadCapacity(newShape, current)
+	require.NoError(t, err)
+	oldBytes, err = json.Marshal(oldPatch)
+	require.NoError(t, err)
+	newBytes, err = json.Marshal(newPatch)
+	require.NoError(t, err)
+	assert.Equal(t, string(newBytes), string(oldBytes), "configure")
 }

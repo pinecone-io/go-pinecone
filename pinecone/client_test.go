@@ -1343,7 +1343,7 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 			},
 		},
 		{
-			name: "Dedicated with NodeType only should error (2026-07 create requires full manual scaling config)",
+			name: "Dedicated with NodeType only should error (create requires shards and a scaling strategy)",
 			input: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
 					NodeType: ptr("t1"),
@@ -1392,6 +1392,118 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 				assert.Equal(t, "Manual", dedicatedSpec.Dedicated.Scaling)
 				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Manual.Replicas)
 				assert.Equal(t, int32(3), dedicatedSpec.Dedicated.Shards)
+				assert.Nil(t, dedicatedSpec.Dedicated.Auto)
+			},
+		},
+		{
+			name: "Dedicated with Shards beside Manual scaling",
+			input: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Shards:   ptr(int32(2)),
+					Scaling:  &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(0))}},
+				},
+			},
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				dedicatedSpec, err := result.AsReadCapacityDedicatedSpec()
+				require.NoError(t, err)
+				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Shards)
+				assert.Equal(t, "Manual", dedicatedSpec.Dedicated.Scaling)
+				require.NotNil(t, dedicatedSpec.Dedicated.Manual)
+				assert.Equal(t, int32(0), dedicatedSpec.Dedicated.Manual.Replicas)
+			},
+		},
+		{
+			name: "Dedicated with Auto scaling",
+			input: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Shards:   ptr(int32(2)),
+					Scaling:  &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8}},
+				},
+			},
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				dedicatedSpec, err := result.AsReadCapacityDedicatedSpec()
+				require.NoError(t, err)
+				assert.Equal(t, "Auto", dedicatedSpec.Dedicated.Scaling)
+				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Shards)
+				assert.Nil(t, dedicatedSpec.Dedicated.Manual)
+				require.NotNil(t, dedicatedSpec.Dedicated.Auto)
+				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Auto.MinReplicas)
+				assert.Equal(t, int32(8), dedicatedSpec.Dedicated.Auto.MaxReplicas)
+			},
+		},
+		{
+			// Bounds are the API's to judge: the SDK sends them as given.
+			name: "Dedicated with out-of-range Auto bounds is sent as given",
+			input: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Shards:   ptr(int32(2)),
+					Scaling:  &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 4, MaxReplicas: 2}},
+				},
+			},
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				dedicatedSpec, err := result.AsReadCapacityDedicatedSpec()
+				require.NoError(t, err)
+				require.NotNil(t, dedicatedSpec.Dedicated.Auto)
+				assert.Equal(t, int32(4), dedicatedSpec.Dedicated.Auto.MinReplicas)
+				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Auto.MaxReplicas)
+			},
+		},
+		{
+			name: "Dedicated with Auto scaling and no shards should error",
+			input: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Scaling:  &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8}},
+				},
+			},
+			wantError: true,
+		},
+		{
+			name: "Dedicated with both Manual and Auto scaling should error",
+			input: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Shards:   ptr(int32(2)),
+					Scaling: &ReadCapacityScaling{
+						Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(2))},
+						Auto:   &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8},
+					},
+				},
+			},
+			wantError: true,
+		},
+		{
+			name: "Shards and the same deprecated Manual.Shards send shards once",
+			input: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Shards:   ptr(int32(2)),
+					Scaling:  &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(2)), Shards: ptr(int32(2))}},
+				},
+			},
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				raw, err := json.Marshal(result)
+				require.NoError(t, err)
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 2, "scaling": "Manual", "manual": {"replicas": 2}}}`, string(raw))
+			},
+		},
+		{
+			// Neither value is dropped silently: both go to the API, which rejects the request.
+			name: "Shards and a different deprecated Manual.Shards are both sent",
+			input: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Shards:   ptr(int32(2)),
+					Scaling:  &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(2)), Shards: ptr(int32(3))}},
+				},
+			},
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				raw, err := json.Marshal(result)
+				require.NoError(t, err)
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 2, "scaling": "Manual", "manual": {"replicas": 2, "shards": 3}}}`, string(raw))
 			},
 		},
 	}
@@ -1515,6 +1627,156 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 				require.NotNil(t, dedicatedSpec.Dedicated.Manual)
 				assert.Equal(t, int32(4), dedicatedSpec.Dedicated.Manual.Replicas)
 				assert.Nil(t, dedicatedSpec.Dedicated.Shards)
+			},
+		},
+		{
+			name: "dedicated shards-only patch keeps the scaling strategy",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{Shards: ptr(int32(3))},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.NoError(t, err)
+				dedicatedSpec, specErr := result.AsReadCapacityDedicatedPatchSpec()
+				require.NoError(t, specErr)
+				require.NotNil(t, dedicatedSpec.Dedicated.Shards)
+				assert.Equal(t, int32(3), *dedicatedSpec.Dedicated.Shards)
+				assert.Nil(t, dedicatedSpec.Dedicated.Scaling)
+				assert.Nil(t, dedicatedSpec.Dedicated.Manual)
+				assert.Nil(t, dedicatedSpec.Dedicated.Auto)
+			},
+		},
+		{
+			name: "deprecated Manual.Shards without Replicas patches only shards",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					Scaling: &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Shards: ptr(int32(3))}},
+				},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.NoError(t, err)
+				dedicatedSpec, specErr := result.AsReadCapacityDedicatedPatchSpec()
+				require.NoError(t, specErr)
+				require.NotNil(t, dedicatedSpec.Dedicated.Shards)
+				assert.Equal(t, int32(3), *dedicatedSpec.Dedicated.Shards)
+				assert.Nil(t, dedicatedSpec.Dedicated.Scaling)
+				assert.Nil(t, dedicatedSpec.Dedicated.Manual)
+			},
+		},
+		{
+			// A scaling block copied from describe carries the old count in the deprecated field, so
+			// changing Shards sends both counts and the API rejects the conflict.
+			name: "changing shards with a scaling block copied from describe sends both shard counts",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					Shards:  ptr(int32(4)),
+					Scaling: dedicatedOld.Dedicated.Scaling,
+				},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.NoError(t, err)
+				raw, marshalErr := json.Marshal(result)
+				require.NoError(t, marshalErr)
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"shards": 4, "scaling": "Manual", "manual": {"replicas": 1, "shards": 1}}}`, string(raw))
+			},
+		},
+		{
+			name: "dedicated to autoscaling sends scaling Auto with bounds",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					Scaling: &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8}},
+				},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.NoError(t, err)
+				dedicatedSpec, specErr := result.AsReadCapacityDedicatedPatchSpec()
+				require.NoError(t, specErr)
+				require.NotNil(t, dedicatedSpec.Dedicated.Scaling)
+				assert.Equal(t, "Auto", *dedicatedSpec.Dedicated.Scaling)
+				require.NotNil(t, dedicatedSpec.Dedicated.Auto)
+				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Auto.MinReplicas)
+				assert.Equal(t, int32(8), dedicatedSpec.Dedicated.Auto.MaxReplicas)
+				assert.Nil(t, dedicatedSpec.Dedicated.Manual)
+				assert.Nil(t, dedicatedSpec.Dedicated.Shards)
+			},
+		},
+		{
+			name: "on-demand to autoscaling without shards should error",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Scaling:  &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8}},
+				},
+			},
+			oldConfig: onDemandOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				assert.ErrorIs(t, err, errDedicatedReadCapacityIncomplete)
+				assert.Nil(t, result)
+			},
+		},
+		{
+			name: "on-demand to autoscaling with node type, shards, and bounds succeeds",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Shards:   ptr(int32(1)),
+					Scaling:  &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 1, MaxReplicas: 2}},
+				},
+			},
+			oldConfig: onDemandOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.NoError(t, err)
+				raw, marshalErr := json.Marshal(result)
+				require.NoError(t, marshalErr)
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 1, "scaling": "Auto", "auto": {"min_replicas": 1, "max_replicas": 2}}}`, string(raw))
+			},
+		},
+		{
+			name: "empty Manual block should error instead of being dropped",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					Scaling: &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{}},
+				},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				assert.EqualError(t, err, "Scaling.Manual must set Replicas or Shards; to keep the current scaling, omit Scaling")
+				assert.Nil(t, result)
+			},
+		},
+		{
+			// Bounds are the API's to judge: the SDK sends them as given.
+			name: "Auto bounds out of range are sent as given",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					Scaling: &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 0, MaxReplicas: 0}},
+				},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.NoError(t, err)
+				raw, marshalErr := json.Marshal(result)
+				require.NoError(t, marshalErr)
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"scaling": "Auto", "auto": {"min_replicas": 0, "max_replicas": 0}}}`, string(raw))
+			},
+		},
+		{
+			name: "both Manual and Auto should error",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					Scaling: &ReadCapacityScaling{
+						Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(2))},
+						Auto:   &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8},
+					},
+				},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				assert.EqualError(t, err, "both Scaling.Manual and Scaling.Auto are set; set only one")
+				assert.Nil(t, result)
 			},
 		},
 		{
@@ -1665,12 +1927,82 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 		return &result
 	}()
 
+	fromJSON := func(body string) *db_control.ReadCapacityResponse {
+		var result db_control.ReadCapacityResponse
+		if err := json.Unmarshal([]byte(body), &result); err != nil {
+			panic(err)
+		}
+		return &result
+	}
+
 	tests := []struct {
 		name      string
 		input     *db_control.ReadCapacityResponse
 		wantError bool
 		expected  *ReadCapacity
 	}{
+		{
+			name: "Dedicated mode with auto scaling",
+			input: fromJSON(`{"mode": "Dedicated",
+				"dedicated": {"node_type": "b1", "shards": 2, "scaling": "Auto",
+					"auto": {"min_replicas": 2, "max_replicas": 8}},
+				"status": {"state": "Ready", "current_shards": 2, "current_replicas": 5}}`),
+			expected: &ReadCapacity{
+				Dedicated: &ReadCapacityDedicated{
+					NodeType:        ptr("b1"),
+					Shards:          ptr(int32(2)),
+					ScalingStrategy: ptr(ReadCapacityScalingStrategyAuto),
+					Scaling: &ReadCapacityScaling{
+						Auto: &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8},
+					},
+					Status: ReadCapacityStatus{State: "Ready", CurrentReplicas: ptr(int32(5)), CurrentShards: ptr(int32(2))},
+				},
+			},
+		},
+		{
+			name: "Dedicated mode with manual scaling reports shards in both places",
+			input: fromJSON(`{"mode": "Dedicated",
+				"dedicated": {"node_type": "b1", "shards": 2, "scaling": "Manual", "manual": {"replicas": 0}},
+				"status": {"state": "Ready", "current_shards": 2, "current_replicas": 0}}`),
+			expected: &ReadCapacity{
+				Dedicated: &ReadCapacityDedicated{
+					NodeType:        ptr("b1"),
+					Shards:          ptr(int32(2)),
+					ScalingStrategy: ptr(ReadCapacityScalingStrategyManual),
+					Scaling: &ReadCapacityScaling{
+						Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(0)), Shards: ptr(int32(2))},
+					},
+					Status: ReadCapacityStatus{State: "Ready", CurrentReplicas: ptr(int32(0)), CurrentShards: ptr(int32(2))},
+				},
+			},
+		},
+		{
+			name: "Dedicated mode with an unknown scaling strategy reports it and leaves scaling nil",
+			input: fromJSON(`{"mode": "Dedicated",
+				"dedicated": {"node_type": "c9", "shards": 2, "scaling": "SomethingNew", "something_new": {}},
+				"status": {"state": "Paused", "current_shards": 2, "current_replicas": 5}}`),
+			expected: &ReadCapacity{
+				Dedicated: &ReadCapacityDedicated{
+					NodeType:        ptr("c9"),
+					Shards:          ptr(int32(2)),
+					ScalingStrategy: ptr(ReadCapacityScalingStrategy("SomethingNew")),
+					Status:          ReadCapacityStatus{State: "Paused", CurrentReplicas: ptr(int32(5)), CurrentShards: ptr(int32(2))},
+				},
+			},
+		},
+		{
+			name: "Dedicated mode with Auto strategy but no auto block leaves scaling nil",
+			input: fromJSON(`{"mode": "Dedicated",
+				"dedicated": {"node_type": "b1", "scaling": "Auto"},
+				"status": {"state": "Migrating", "current_shards": null, "current_replicas": null}}`),
+			expected: &ReadCapacity{
+				Dedicated: &ReadCapacityDedicated{
+					NodeType:        ptr("b1"),
+					ScalingStrategy: ptr(ReadCapacityScalingStrategyAuto),
+					Status:          ReadCapacityStatus{State: "Migrating"},
+				},
+			},
+		},
 		{
 			name:      "nil input",
 			input:     nil,
@@ -1733,7 +2065,9 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 			wantError: false,
 			expected: &ReadCapacity{
 				Dedicated: &ReadCapacityDedicated{
-					NodeType: ptr("b1"),
+					NodeType:        ptr("b1"),
+					Shards:          ptr(int32(3)),
+					ScalingStrategy: ptr(ReadCapacityScalingStrategyManual),
 					Scaling: &ReadCapacityScaling{
 						Manual: &ReadCapacityManualScaling{
 							Replicas: ptr(int32(2)),
