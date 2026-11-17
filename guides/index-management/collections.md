@@ -1,8 +1,9 @@
 # Collections
 
 [A collection is a static copy of an index](https://docs.pinecone.io/guides/indexes/understanding-collections).
-Collections are available only for pod-based indexes. Pinecone API versions `2026-07` and later can't create pod-based indexes or
-create an index from a collection, so collections are mainly useful for keeping copies of existing pod-based indexes.
+Collections are available only for pod-based indexes. Pinecone API versions `2026-07` and later can't create pod-based
+indexes or create an index from a collection, so collections are mainly useful for keeping copies of existing pod-based
+indexes.
 A collection can't be moved to a different project. For serverless indexes, use [backups](./backups.md) instead.
 
 The examples below assume a `Client` named `pc`. For how to create one, see
