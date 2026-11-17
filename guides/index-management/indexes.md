@@ -358,9 +358,12 @@ count without leaving the `"Ready"` state, so it doesn't block your own changes.
 You can change read capacity later with `ConfigureIndex`; see [Configure an index](#configure-an-index). A change can
 take up to 30 minutes to complete, and reads and writes continue normally while it's applied. While it's applied,
 `ReadCapacity.Dedicated.Status.State` is `"Scaling"` or `"Migrating"`, and another read capacity change fails with the
-error code `ABORTED`. The whole `ConfigureIndex` call fails, so tags or deletion protection set in the same call aren't
-applied either; change them in a separate call, which works while a read capacity change is applied. Wait until the state is `"Ready"`, then try again. The error code is part of the error's `Msg`.
-This example retries on `ABORTED` and stops on any other error:
+error code `ABORTED`. Wait until the state is `"Ready"`, then try again.
+
+The whole `ConfigureIndex` call fails, so tags or deletion protection set in the same call aren't applied either. To
+change them while read capacity is being applied, use a separate call without `ReadCapacity`.
+
+The error code is part of the error's `Msg`. This example retries on `ABORTED` and stops on any other error:
 
 ```go
 params := pinecone.ConfigureIndexParams{
