@@ -1439,7 +1439,7 @@ func TestReadCapacityDeprecatedShardsWireIdenticalUnit(t *testing.T) {
 	assert.Equal(t, string(newBytes), string(oldBytes), "configure")
 }
 
-const incompatibleIndex412JSON = `{"status": 412, "error": {"code": "FAILED_PRECONDITION", "message": "Index 'docs-v2' uses features that API version 2026-10 can't represent. To view or configure it, set the API version header to 2027-01 or later."}}`
+const incompatibleIndex412JSON = `{"status": 412, "error": {"code": "FAILED_PRECONDITION", "message": "Index 'docs-v2' uses features that API version 2026-10 can't represent. To view or configure it, upgrade to a Pinecone SDK that supports API version 2027-01 or later. If you call the API directly, set the X-Pinecone-Api-Version header to 2027-01 or later."}}`
 
 func requireIncompatibleIndexError(t *testing.T, err error) {
 	t.Helper()
@@ -1452,5 +1452,5 @@ func requireIncompatibleIndexError(t *testing.T, err error) {
 	}
 	require.NoError(t, json.Unmarshal([]byte(pcErr.Msg.Error()), &details))
 	assert.Equal(t, "FAILED_PRECONDITION", details.ErrorCode)
-	assert.Contains(t, details.Message, "Index 'docs-v2' uses features that API version 2026-10 can't represent. To view or configure it, set the API version header to 2027-01 or later.")
+	assert.Contains(t, details.Message, "Index 'docs-v2' uses features that API version 2026-10 can't represent. To view or configure it, upgrade to a Pinecone SDK that supports API version 2027-01 or later. If you call the API directly, set the X-Pinecone-Api-Version header to 2027-01 or later.")
 }
