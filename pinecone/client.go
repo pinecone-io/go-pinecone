@@ -404,9 +404,9 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 
 // ListIncompatibleIndexes lists the indexes in the project that [Client.ListIndexes] leaves out
 // because they use features this SDK's API version can't represent. Each [IncompatibleIndex] names
-// the oldest API version that can describe it. Such an index still exists and counts toward project
-// limits. [Client.DescribeIndex] and [Client.ConfigureIndex] refuse it with a [PineconeError] whose
-// error code is FAILED_PRECONDITION. [Client.DeleteIndex] works unless the index has deletion
+// an API version that can describe it. Such an index still exists and counts toward project limits.
+// [Client.DescribeIndex] and [Client.ConfigureIndex] refuse it with a [PineconeError] whose error
+// code is FAILED_PRECONDITION and whose Reason is RESOURCE_INCOMPATIBLE_WITH_API_VERSION. [Client.DeleteIndex] works unless the index has deletion
 // protection enabled; this API version can't turn that off, so use an SDK or API version that can
 // describe the index.
 //
@@ -423,7 +423,7 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 //		log.Fatalf("Failed to list indexes: %v", err)
 //	}
 //	for _, idx := range incompatible {
-//		fmt.Printf("%s needs API version %s or later\n", idx.Name, idx.MinAPIVersion)
+//		fmt.Printf("%s: use API version %s\n", idx.Name, idx.CompatibleAPIVersion)
 //	}
 func (c *Client) ListIncompatibleIndexes(ctx context.Context) ([]*IncompatibleIndex, error) {
 	indexList, err := c.listIndexes(ctx)
@@ -435,15 +435,11 @@ func (c *Client) ListIncompatibleIndexes(ctx context.Context) ([]*IncompatibleIn
 		return nil, fmt.Errorf("failed to decode incompatible_indexes: %w", err)
 	}
 	incompatible := make([]*IncompatibleIndex, 0)
-	for _, idx := range incompatibleEntries[db_control.IncompatibleIndex](indexList.IncompatibleIndexes) {
+	for _, idx := range incompatibleEntries[IncompatibleIndex](indexList.IncompatibleIndexes) {
 		if idx.Name == "" {
 			continue
 		}
-		incompatible = append(incompatible, &IncompatibleIndex{
-			Name:          idx.Name,
-			MinAPIVersion: idx.MinApiVersion,
-			Message:       idx.Message,
-		})
+		incompatible = append(incompatible, &idx)
 	}
 	return incompatible, nil
 }
@@ -1590,9 +1586,9 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 
 // ListIncompatibleCollections lists the collections in the project that [Client.ListCollections]
 // leaves out because they use features this SDK's API version can't represent. Each
-// [IncompatibleCollection] names the oldest API version that can describe it.
-// [Client.DescribeCollection] refuses such a collection with a [PineconeError] whose error code is
-// FAILED_PRECONDITION; [Client.DeleteCollection] still works.
+// [IncompatibleCollection] names an API version that can describe it. [Client.DescribeCollection]
+// refuses such a collection with a [PineconeError] whose error code is FAILED_PRECONDITION and whose
+// Reason is RESOURCE_INCOMPATIBLE_WITH_API_VERSION; [Client.DeleteCollection] still works.
 //
 // It returns an empty slice when every collection can be described.
 //
@@ -1607,7 +1603,7 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 //		log.Fatalf("Failed to list collections: %v", err)
 //	}
 //	for _, collection := range incompatible {
-//		fmt.Printf("%s needs API version %s or later\n", collection.Name, collection.MinAPIVersion)
+//		fmt.Printf("%s: use API version %s\n", collection.Name, collection.CompatibleAPIVersion)
 //	}
 func (c *Client) ListIncompatibleCollections(ctx context.Context) ([]*IncompatibleCollection, error) {
 	collectionsResponse, err := c.listCollections(ctx)
@@ -1619,15 +1615,11 @@ func (c *Client) ListIncompatibleCollections(ctx context.Context) ([]*Incompatib
 		return nil, fmt.Errorf("failed to decode incompatible_collections: %w", err)
 	}
 	incompatible := make([]*IncompatibleCollection, 0)
-	for _, collection := range incompatibleEntries[db_control.IncompatibleCollection](collectionsResponse.IncompatibleCollections) {
+	for _, collection := range incompatibleEntries[IncompatibleCollection](collectionsResponse.IncompatibleCollections) {
 		if collection.Name == "" {
 			continue
 		}
-		incompatible = append(incompatible, &IncompatibleCollection{
-			Name:          collection.Name,
-			MinAPIVersion: collection.MinApiVersion,
-			Message:       collection.Message,
-		})
+		incompatible = append(incompatible, &collection)
 	}
 	return incompatible, nil
 }
@@ -2821,15 +2813,11 @@ func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
 	}
 	var backupList BackupList
 	backupList.IncompatibleBackups = make([]*IncompatibleBackup, 0)
-	for _, backup := range incompatibleEntries[db_control.IncompatibleBackup](backupListDb.IncompatibleBackups) {
+	for _, backup := range incompatibleEntries[IncompatibleBackup](backupListDb.IncompatibleBackups) {
 		if backup.BackupId == "" {
 			continue
 		}
-		backupList.IncompatibleBackups = append(backupList.IncompatibleBackups, &IncompatibleBackup{
-			BackupId:      backup.BackupId,
-			MinAPIVersion: backup.MinApiVersion,
-			Message:       backup.Message,
-		})
+		backupList.IncompatibleBackups = append(backupList.IncompatibleBackups, &backup)
 	}
 	if backupListDb.Data != nil {
 		backupList.Data = make([]*Backup, len(*backupListDb.Data))
@@ -2858,15 +2846,11 @@ func decodeRestoreJobList(resBody io.ReadCloser) (*RestoreJobList, error) {
 	}
 	var restoreJobList RestoreJobList
 	restoreJobList.IncompatibleRestoreJobs = make([]*IncompatibleRestoreJob, 0)
-	for _, job := range incompatibleEntries[db_control.IncompatibleRestoreJob](restoreJobListDb.IncompatibleRestoreJobs) {
+	for _, job := range incompatibleEntries[IncompatibleRestoreJob](restoreJobListDb.IncompatibleRestoreJobs) {
 		if job.RestoreJobId == "" {
 			continue
 		}
-		restoreJobList.IncompatibleRestoreJobs = append(restoreJobList.IncompatibleRestoreJobs, &IncompatibleRestoreJob{
-			RestoreJobId:  job.RestoreJobId,
-			MinAPIVersion: job.MinApiVersion,
-			Message:       job.Message,
-		})
+		restoreJobList.IncompatibleRestoreJobs = append(restoreJobList.IncompatibleRestoreJobs, &job)
 	}
 	if len(restoreJobListDb.Data) > 0 {
 		restoreJobList.Data = make([]*RestoreJob, len(restoreJobListDb.Data))

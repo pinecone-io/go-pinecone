@@ -508,9 +508,10 @@ type Collection struct {
 type IncompatibleCollection struct {
 	// Name is the name of the collection.
 	Name string `json:"name"`
-	// MinAPIVersion is the oldest API version that can describe the collection, such as "2027-01",
-	// or "unstable" when only the unstable version can. Use it, not Message, to act on the entry.
-	MinAPIVersion string `json:"min_api_version"`
+	// CompatibleAPIVersion is an API version that can describe the collection, such as "2027-01", chosen
+	// by Pinecone as the one to move to. Other versions may also work, and API versions are not
+	// guaranteed to be ordered. Use it, not Message, to act on the entry.
+	CompatibleAPIVersion string `json:"compatible_api_version"`
 	// Message explains in plain words why the collection can't be described and what to do. Its
 	// wording may change.
 	Message string `json:"message"`
@@ -590,9 +591,10 @@ type BYOCSpec struct {
 type IncompatibleIndex struct {
 	// Name is the name of the index.
 	Name string `json:"name"`
-	// MinAPIVersion is the oldest API version that can describe the index, such as "2027-01", or
-	// "unstable" when only the unstable version can. Use it, not Message, to act on the entry.
-	MinAPIVersion string `json:"min_api_version"`
+	// CompatibleAPIVersion is an API version that can describe the index, such as "2027-01", chosen
+	// by Pinecone as the one to move to. Other versions may also work, and API versions are not
+	// guaranteed to be ordered. Use it, not Message, to act on the entry.
+	CompatibleAPIVersion string `json:"compatible_api_version"`
 	// Message explains in plain words why the index can't be described and what to do. Its wording
 	// may change.
 	Message string `json:"message"`
@@ -1493,13 +1495,15 @@ type BackupList struct {
 // IncompatibleBackup is a backup that exists in the project but uses features this SDK's API
 // version can't represent, so [Client.ListBackups] reports it in [BackupList].IncompatibleBackups
 // instead of Data. [Client.DescribeBackup] and [Client.CreateIndexFromBackup] refuse it with a
-// [PineconeError] whose error code is FAILED_PRECONDITION; [Client.DeleteBackup] still works.
+// [PineconeError] whose error code is FAILED_PRECONDITION and whose Reason is
+// RESOURCE_INCOMPATIBLE_WITH_API_VERSION; [Client.DeleteBackup] still works.
 type IncompatibleBackup struct {
 	// BackupId is the unique identifier of the backup.
 	BackupId string `json:"backup_id"`
-	// MinAPIVersion is the oldest API version that can describe the backup, such as "2027-01", or
-	// "unstable" when only the unstable version can. Use it, not Message, to act on the entry.
-	MinAPIVersion string `json:"min_api_version"`
+	// CompatibleAPIVersion is an API version that can describe the backup, such as "2027-01", chosen
+	// by Pinecone as the one to move to. Other versions may also work, and API versions are not
+	// guaranteed to be ordered. Use it, not Message, to act on the entry.
+	CompatibleAPIVersion string `json:"compatible_api_version"`
 	// Message explains in plain words why the backup can't be described and what to do. Its
 	// wording may change.
 	Message string `json:"message"`
@@ -1543,14 +1547,14 @@ type RestoreJobList struct {
 // IncompatibleRestoreJob is a restore job that uses features this SDK's API version can't
 // represent, so [Client.ListRestoreJobs] reports it in [RestoreJobList].IncompatibleRestoreJobs
 // instead of Data. [Client.DescribeRestoreJob] refuses it with a [PineconeError] whose error code
-// is FAILED_PRECONDITION.
+// is FAILED_PRECONDITION and whose Reason is RESOURCE_INCOMPATIBLE_WITH_API_VERSION.
 type IncompatibleRestoreJob struct {
 	// RestoreJobId is the unique identifier of the restore job.
 	RestoreJobId string `json:"restore_job_id"`
-	// MinAPIVersion is the oldest API version that can describe the restore job, such as
-	// "2027-01", or "unstable" when only the unstable version can. Use it, not Message, to act on
-	// the entry.
-	MinAPIVersion string `json:"min_api_version"`
+	// CompatibleAPIVersion is an API version that can describe the restore job, such as "2027-01", chosen
+	// by Pinecone as the one to move to. Other versions may also work, and API versions are not
+	// guaranteed to be ordered. Use it, not Message, to act on the entry.
+	CompatibleAPIVersion string `json:"compatible_api_version"`
 	// Message explains in plain words why the restore job can't be described and what to do. Its
 	// wording may change.
 	Message string `json:"message"`

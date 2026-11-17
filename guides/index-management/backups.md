@@ -62,13 +62,14 @@ err = pc.DeleteBackup(ctx, backupId)
 To list every backup in the project, leave out `IndexName`. To also list backups of deleted indexes that had that name,
 set `IncludeDeleted`, which requires `IndexName`.
 
-A backup that uses a feature from a later API version than this SDK uses can't be described by this SDK, so
-`ListBackups` reports it in `IncompatibleBackups` instead of `Data`, with its `BackupId` and the oldest API version that
-can describe it. Each one counts toward `Limit`, so a page can hold fewer than `Limit` backups in `Data` while
+A backup that uses a feature this SDK's API version can't represent can't be described by this SDK, so `ListBackups`
+reports it in `IncompatibleBackups` instead of `Data`, with its `BackupId` and a `CompatibleAPIVersion`: an API version
+that can describe it, chosen by Pinecone as the one to move to. Other versions may also work, and API versions aren't
+guaranteed to be ordered. Each one counts toward `Limit`, so a page can hold fewer than `Limit` backups in `Data` while
 `Pagination` still points to more. `DescribeBackup` and `CreateIndexFromBackup` refuse such a backup with the error code
-`FAILED_PRECONDITION`; `DeleteBackup` still works. To work with it, upgrade to an SDK that supports that API version;
-don't override the `X-Pinecone-Api-Version` header, because this SDK's request and response types are built for one
-API version.
+`FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`; `DeleteBackup` still works. To work with
+it, upgrade to an SDK that supports that API version; don't override the `X-Pinecone-Api-Version` header, because this
+SDK's request and response types are built for one API version.
 
 ```go
 backups, err := pc.ListBackups(ctx, nil)
@@ -76,7 +77,7 @@ if err != nil {
 	log.Fatalf("Failed to list backups: %v", err)
 }
 for _, b := range backups.IncompatibleBackups {
-	fmt.Printf("%s (needs API version %s or later)\n", b.BackupId, b.MinAPIVersion)
+	fmt.Printf("%s (use API version %s)\n", b.BackupId, b.CompatibleAPIVersion)
 }
 ```
 
@@ -105,10 +106,10 @@ if err != nil {
 fmt.Printf("Restore job status: %s\n", job.Status)
 ```
 
-A restore job's `Status` is `"Pending"`, `"Completed"`, `"Failed"`, or `"Cancelled"`. `PercentComplete` is reported
-only as 100, once the job completes. To list the project's restore jobs, use `ListRestoreJobs`. Like `ListBackups`, it
+A restore job's `Status` is `"Pending"`, `"Completed"`, `"Failed"`, or `"Cancelled"`. `PercentComplete` is reported only
+as 100, once the job completes. To list the project's restore jobs, use `ListRestoreJobs`. Like `ListBackups`, it
 reports a restore job this SDK can't describe in `IncompatibleRestoreJobs` instead of `Data`, and `DescribeRestoreJob`
-refuses such a job with the error code `FAILED_PRECONDITION`.
+refuses such a job with the error code `FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`.
 
 ### Restore into another region
 
