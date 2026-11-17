@@ -2168,7 +2168,7 @@ func Test_ConfigureIndex_ValidationErrors_Unit(t *testing.T) {
 			configParams: ConfigureIndexParams{
 				PodType: "p1.x1",
 			},
-			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes",
+			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes. To change the read node replicas of a serverless or BYOC index, set ReadCapacity.Dedicated.Scaling",
 		},
 		{
 			name:           "Serverless index with Replicas should error",
@@ -2176,7 +2176,7 @@ func Test_ConfigureIndex_ValidationErrors_Unit(t *testing.T) {
 			configParams: ConfigureIndexParams{
 				Replicas: 4,
 			},
-			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes",
+			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes. To change the read node replicas of a serverless or BYOC index, set ReadCapacity.Dedicated.Scaling",
 		},
 		{
 			name:           "Serverless index with both PodType and Replicas should error",
@@ -2185,7 +2185,7 @@ func Test_ConfigureIndex_ValidationErrors_Unit(t *testing.T) {
 				PodType:  "p1.x1",
 				Replicas: 4,
 			},
-			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes",
+			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes. To change the read node replicas of a serverless or BYOC index, set ReadCapacity.Dedicated.Scaling",
 		},
 		{
 			name:           "BYOC index with PodType should error",
@@ -2193,7 +2193,7 @@ func Test_ConfigureIndex_ValidationErrors_Unit(t *testing.T) {
 			configParams: ConfigureIndexParams{
 				PodType: "p1.x1",
 			},
-			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes",
+			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes. To change the read node replicas of a serverless or BYOC index, set ReadCapacity.Dedicated.Scaling",
 		},
 		{
 			name:           "BYOC index with Replicas should error",
@@ -2201,7 +2201,7 @@ func Test_ConfigureIndex_ValidationErrors_Unit(t *testing.T) {
 			configParams: ConfigureIndexParams{
 				Replicas: 2,
 			},
-			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes",
+			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes. To change the read node replicas of a serverless or BYOC index, set ReadCapacity.Dedicated.Scaling",
 		},
 		{
 			name:           "Embed always errors under API versions 2026-07 and later",

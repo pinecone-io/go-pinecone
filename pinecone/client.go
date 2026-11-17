@@ -1447,6 +1447,17 @@ type ConfigureIndexEmbed struct {
 //		     fmt.Printf("Failed to configure index: %v\n", err)
 //		 }
 //
+//		 // To change the read node replicas of a serverless or BYOC index with dedicated read
+//		 // capacity, here by turning on replica autoscaling between 1 and 3 replicas per shard:
+//		 _, err = pc.ConfigureIndex(ctx, "my-index", pinecone.ConfigureIndexParams{
+//		     ReadCapacity: &pinecone.ReadCapacityParams{Dedicated: &pinecone.ReadCapacityDedicatedConfig{
+//		         Scaling: &pinecone.ReadCapacityScaling{Auto: &pinecone.ReadCapacityAutoScaling{MinReplicas: 1, MaxReplicas: 3}},
+//		     }},
+//		 })
+//		 if err != nil {
+//		     fmt.Printf("Failed to configure index: %v\n", err)
+//		 }
+//
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/pods/scale-pod-based-indexes
 func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIndexParams) (*Index, error) {
 	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" && in.Tags == nil && in.ReadCapacity == nil && in.Schema == nil && in.Embed == nil {
@@ -1476,7 +1487,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 		return nil, fmt.Errorf("cannot configure ReadCapacity on a pod index; ReadCapacity is only supported for serverless and BYOC indexes")
 	}
 	if !isPod && (podType != nil || replicas != nil) {
-		return nil, fmt.Errorf("cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes")
+		return nil, fmt.Errorf("cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes. To change the read node replicas of a serverless or BYOC index, set ReadCapacity.Dedicated.Scaling")
 	}
 
 	var request db_control.ConfigureIndexRequest
