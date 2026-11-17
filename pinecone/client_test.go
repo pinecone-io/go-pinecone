@@ -1799,7 +1799,8 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 			},
 		},
 		{
-			name: "nil old to dedicated without manual scaling should error",
+			// Without a known current configuration the SDK sends the partial patch for the API to judge.
+			name: "nil old to dedicated with node type only sends the patch",
 			newParams: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
 					NodeType: ptr("b1"),
@@ -1807,8 +1808,10 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 			},
 			oldConfig: nil,
 			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
-				assert.Error(t, err)
-				assert.Nil(t, result)
+				require.NoError(t, err)
+				raw, marshalErr := json.Marshal(result)
+				require.NoError(t, marshalErr)
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"node_type": "b1"}}`, string(raw))
 			},
 		},
 		{

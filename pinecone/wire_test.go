@@ -874,6 +874,48 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			}},
 		},
 		{
+			// Describe may omit read_capacity, so the SDK can't tell whether the index is OnDemand; the
+			// API judges a partial Dedicated change instead of the SDK refusing it.
+			name:     "ConfigureIndex shards only when describe omits read capacity",
+			status:   http.StatusOK,
+			response: indexModelFixture{name: "unclassified-index"}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.ConfigureIndex(context.Background(), "unclassified-index", ConfigureIndexParams{
+					ReadCapacity: &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{Shards: ptr(int32(2))}},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes/unclassified-index"},
+				{
+					method: http.MethodPatch,
+					path:   "/indexes/unclassified-index",
+					body:   `{"read_capacity": {"mode": "Dedicated", "dedicated": {"shards": 2}}, "tags": null}`,
+				},
+			},
+		},
+		{
+			name:     "ConfigureIndex Auto bounds when describe reports an unlisted mode",
+			status:   http.StatusOK,
+			response: indexModelFixture{name: "unclassified-index", readCapacity: `{"mode": "Burst", "status": {"state": "Ready"}}`}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.ConfigureIndex(context.Background(), "unclassified-index", ConfigureIndexParams{
+					ReadCapacity: &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{
+						Scaling: &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 1, MaxReplicas: 4}},
+					}},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes/unclassified-index"},
+				{
+					method: http.MethodPatch,
+					path:   "/indexes/unclassified-index",
+					body:   `{"read_capacity": {"mode": "Dedicated", "dedicated": {"scaling": "Auto", "auto": {"min_replicas": 1, "max_replicas": 4}}}, "tags": null}`,
+				},
+			},
+		},
+		{
 			name:     "ListBackups for an index including deleted",
 			status:   http.StatusOK,
 			response: `{"data": []}`,

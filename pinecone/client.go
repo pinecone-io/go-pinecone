@@ -3098,8 +3098,9 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 		}
 	}
 
-	// nil / OnDemand -> Dedicated
-	if old == nil || old.OnDemand != nil {
+	// OnDemand -> Dedicated. When describe has no read capacity the SDK understands (omitted, or
+	// an unlisted mode), it can't tell whether this is a conversion, so the API judges the patch.
+	if old != nil && old.OnDemand != nil {
 		if patchConfig.NodeType == nil || patchConfig.Shards == nil || patchConfig.Scaling == nil {
 			return nil, errDedicatedReadCapacityIncomplete
 		}
