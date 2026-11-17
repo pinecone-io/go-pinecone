@@ -1843,7 +1843,7 @@ func requireIncompatibleError(t *testing.T, err error, message string) {
 	require.ErrorAs(t, err, &pcErr)
 	assert.Equal(t, http.StatusPreconditionFailed, pcErr.Code)
 	assert.Equal(t, "FAILED_PRECONDITION", pcErr.ErrorCode)
-	assert.Equal(t, "RESOURCE_INCOMPATIBLE_WITH_API_VERSION", pcErr.Reason)
+	assert.Equal(t, ReasonResourceIncompatibleWithAPIVersion, pcErr.Reason)
 	assert.Contains(t, pcErr.Message, message)
 }
 

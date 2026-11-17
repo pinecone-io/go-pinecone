@@ -420,7 +420,8 @@ If an index uses a feature that this SDK's API version can't represent, this SDK
 leaves it out. `ListIncompatibleIndexes` lists those indexes, each with a `CompatibleAPIVersion`: an API version that
 can describe it, chosen by Pinecone as the one to move to. Other versions may also work, and API versions aren't
 guaranteed to be ordered. `DescribeIndex` and `ConfigureIndex` refuse such an index with the error code
-`FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`. `DeleteIndex` works unless deletion
+`FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`, which the SDK names
+`pinecone.ReasonResourceIncompatibleWithAPIVersion`. `DeleteIndex` works unless deletion
 protection is on, which this SDK can't turn off for such an index. To work with it, upgrade to an SDK that supports that
 API version. The error message's advice to set the `X-Pinecone-Api-Version` header is for direct API calls; don't do
 that with this SDK (for example through `Headers`), because its request and response types are built for one API version
