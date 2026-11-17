@@ -646,8 +646,9 @@ const (
 	ReadCapacityScalingStrategyAuto ReadCapacityScalingStrategy = "Auto"
 )
 
-// ReadCapacityScaling represents the scaling strategy for dedicated read capacity. Exactly one of
-// Manual or Auto is set.
+// ReadCapacityScaling represents the scaling strategy for dedicated read capacity. On describe,
+// exactly one of Manual or Auto is set. On requests, set at most one; setting neither is the same
+// as omitting Scaling.
 type ReadCapacityScaling struct {
 	// Manual is the manual scaling configuration, with a fixed number of replicas per shard.
 	Manual *ReadCapacityManualScaling `json:"manual,omitempty"`
@@ -665,8 +666,8 @@ type ReadCapacityManualScaling struct {
 	Replicas *int32 `json:"replicas"`
 	// Shards is the number of shards to use. On describe, it's set for indexes using manual
 	// scaling. On requests, it's sent as [ReadCapacityDedicatedConfig].Shards when that field is
-	// nil or has the same value. If both are set to different values, both are sent and the API
-	// rejects the request.
+	// nil. When both are set, [ReadCapacityDedicatedConfig].Shards wins and this value is ignored,
+	// so a Scaling block copied from describe doesn't undo a shard change.
 	//
 	// Deprecated: Use [ReadCapacityDedicatedConfig].Shards on requests and
 	// [ReadCapacityDedicated].Shards on responses. Pinecone API version 2026-10 moved shards out

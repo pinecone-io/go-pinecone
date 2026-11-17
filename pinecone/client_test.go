@@ -1530,8 +1530,7 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 			},
 		},
 		{
-			// Neither value is dropped silently: both go to the API, which rejects the request.
-			name: "Shards and a different deprecated Manual.Shards are both sent",
+			name: "Shards wins over a different deprecated Manual.Shards",
 			input: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
 					NodeType: ptr("b1"),
@@ -1542,7 +1541,7 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 			validate: func(t *testing.T, result *db_control.ReadCapacity) {
 				raw, err := json.Marshal(result)
 				require.NoError(t, err)
-				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 2, "scaling": "Manual", "manual": {"replicas": 2, "shards": 3}}}`, string(raw))
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 2, "scaling": "Manual", "manual": {"replicas": 2}}}`, string(raw))
 			},
 		},
 	}
@@ -1704,9 +1703,9 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 			},
 		},
 		{
-			// A scaling block copied from describe carries the old count in the deprecated field, so
-			// changing Shards sends both counts and the API rejects the conflict.
-			name: "changing shards with a scaling block copied from describe sends both shard counts",
+			// A scaling block copied from describe carries the old count in the deprecated field;
+			// Dedicated.Shards wins, so the shard change goes through.
+			name: "changing shards with a scaling block copied from describe sends the new shard count",
 			newParams: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
 					Shards:  ptr(int32(4)),
@@ -1718,7 +1717,7 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 				require.NoError(t, err)
 				raw, marshalErr := json.Marshal(result)
 				require.NoError(t, marshalErr)
-				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"shards": 4, "scaling": "Manual", "manual": {"replicas": 1, "shards": 1}}}`, string(raw))
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"shards": 4, "scaling": "Manual", "manual": {"replicas": 1}}}`, string(raw))
 			},
 		},
 		{
@@ -1782,8 +1781,34 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 			},
 			oldConfig: dedicatedOld,
 			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
-				assert.EqualError(t, err, "Scaling.Manual must set Replicas or Shards; to keep the current scaling, omit Scaling")
+				assert.EqualError(t, err, "Scaling.Manual must set Replicas; to change only the shard count, set Dedicated.Shards, and to keep the current scaling, omit Scaling")
 				assert.Nil(t, result)
+			},
+		},
+		{
+			name: "dedicated node type only patch keeps the scaling strategy and shards",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{NodeType: ptr("t1")},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.NoError(t, err)
+				raw, marshalErr := json.Marshal(result)
+				require.NoError(t, marshalErr)
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"node_type": "t1"}}`, string(raw))
+			},
+		},
+		{
+			name: "Scaling with neither Manual nor Auto is the same as omitting it",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{Shards: ptr(int32(2)), Scaling: &ReadCapacityScaling{}},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.NoError(t, err)
+				raw, marshalErr := json.Marshal(result)
+				require.NoError(t, marshalErr)
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"shards": 2}}`, string(raw))
 			},
 		},
 		{
@@ -1983,6 +2008,25 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 		wantError bool
 		expected  *ReadCapacity
 	}{
+		{
+			// ScalingStrategy and Scaling agree even when the API's casing differs from the constants.
+			name: "Dedicated mode with a lowercase auto strategy",
+			input: fromJSON(`{"mode": "Dedicated",
+				"dedicated": {"node_type": "b1", "shards": 2, "scaling": "auto",
+					"auto": {"min_replicas": 2, "max_replicas": 8}},
+				"status": {"state": "Ready"}}`),
+			expected: &ReadCapacity{
+				Dedicated: &ReadCapacityDedicated{
+					NodeType:        ptr("b1"),
+					Shards:          ptr(int32(2)),
+					ScalingStrategy: ptr(ReadCapacityScalingStrategyAuto),
+					Scaling: &ReadCapacityScaling{
+						Auto: &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8},
+					},
+					Status: ReadCapacityStatus{State: "Ready"},
+				},
+			},
+		},
 		{
 			name: "Dedicated mode with auto scaling",
 			input: fromJSON(`{"mode": "Dedicated",
