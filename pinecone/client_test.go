@@ -448,18 +448,44 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 		statusCode   int
 		prefix       string
 		errorOutput  string
+		errorCode    string
+		message      string
+		reason       string
+		details      map[string]any
 	}{
 		{
 			name:         "test ErrorResponse body",
 			responseBody: mockResponse(`{"error": { "code": "INVALID_ARGUMENT", "message": "test error message"}, "status": 400}`, http.StatusBadRequest),
 			statusCode:   http.StatusBadRequest,
 			errorOutput:  `{"status_code":400,"body":"{\"error\": { \"code\": \"INVALID_ARGUMENT\", \"message\": \"test error message\"}, \"status\": 400}","error_code":"INVALID_ARGUMENT","message":"test error message"}`,
+			errorCode:    "INVALID_ARGUMENT",
+			message:      "test error message",
+		}, {
+			name:         "test ErrorResponse body with prefix",
+			responseBody: mockResponse(`{"error": {"code": "ABORTED", "message": "busy"}, "status": 409}`, http.StatusConflict),
+			statusCode:   http.StatusConflict,
+			prefix:       "failed to configure index: ",
+			errorOutput:  `{"status_code":409,"body":"{\"error\": {\"code\": \"ABORTED\", \"message\": \"busy\"}, \"status\": 409}","error_code":"ABORTED","message":"failed to configure index: busy"}`,
+			errorCode:    "ABORTED",
+			message:      "failed to configure index: busy",
+		}, {
+			name:         "test ErrorResponse body with reason and details",
+			responseBody: mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "too many", "details": {"limit_documents": 1000, "actual_documents": 1001, "retryable": false, "unit": "documents"}}}`, http.StatusBadRequest),
+			statusCode:   http.StatusBadRequest,
+			prefix:       "failed to upsert documents: ",
+			errorOutput:  `{"status_code":400,"body":"{\"status\": 400, \"error\": {\"code\": \"INVALID_ARGUMENT\", \"reason\": \"TOO_MANY_DOCUMENTS\", \"message\": \"too many\", \"details\": {\"limit_documents\": 1000, \"actual_documents\": 1001, \"retryable\": false, \"unit\": \"documents\"}}}","error_code":"INVALID_ARGUMENT","reason":"TOO_MANY_DOCUMENTS","message":"failed to upsert documents: too many","details":"&map[actual_documents:1001 limit_documents:1000 retryable:false unit:documents]"}`,
+			errorCode:    "INVALID_ARGUMENT",
+			message:      "failed to upsert documents: too many",
+			reason:       "TOO_MANY_DOCUMENTS",
+			details:      map[string]any{"limit_documents": float64(1000), "actual_documents": float64(1001), "retryable": false, "unit": "documents"},
 		}, {
 			name:         "server message with <, > and & is not HTML-escaped",
 			responseBody: mockResponse(`{"error": {"code": "INVALID_ARGUMENT", "message": "max_replicas must be >= min_replicas & < 10"}, "status": 400}`, http.StatusBadRequest),
 			statusCode:   http.StatusBadRequest,
 			prefix:       "failed to create index: ",
 			errorOutput:  `{"status_code":400,"body":"{\"error\": {\"code\": \"INVALID_ARGUMENT\", \"message\": \"max_replicas must be >= min_replicas & < 10\"}, \"status\": 400}","error_code":"INVALID_ARGUMENT","message":"failed to create index: max_replicas must be >= min_replicas & < 10"}`,
+			errorCode:    "INVALID_ARGUMENT",
+			message:      "failed to create index: max_replicas must be >= min_replicas & < 10",
 		}, {
 			name:         "test JSON body",
 			responseBody: mockResponse(`{"message": "test error message", "extraCode": 665}`, http.StatusBadRequest),
@@ -483,6 +509,13 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := handleErrorResponseBody(tt.responseBody, tt.prefix)
 			assert.Equal(t, err.Error(), tt.errorOutput, "Expected error to be '%s', but got '%s'", tt.errorOutput, err.Error())
+			var pcErr *PineconeError
+			require.ErrorAs(t, err, &pcErr)
+			assert.Equal(t, tt.statusCode, pcErr.Code)
+			assert.Equal(t, tt.errorCode, pcErr.ErrorCode)
+			assert.Equal(t, tt.message, pcErr.Message)
+			assert.Equal(t, tt.reason, pcErr.Reason)
+			assert.Equal(t, tt.details, pcErr.Details())
 
 		})
 	}

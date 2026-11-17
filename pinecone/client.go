@@ -3044,11 +3044,13 @@ func decodeErrorResponse(resBodyBytes []byte) (*db_control.ErrorResponse, error)
 }
 
 type errorResponseMap struct {
-	StatusCode int    `json:"status_code"`
-	Body       string `json:"body,omitempty"`
-	ErrorCode  string `json:"error_code,omitempty"`
-	Message    string `json:"message,omitempty"`
-	Details    string `json:"details,omitempty"`
+	StatusCode int             `json:"status_code"`
+	Body       string          `json:"body,omitempty"`
+	ErrorCode  string          `json:"error_code,omitempty"`
+	Reason     string          `json:"reason,omitempty"`
+	Message    string          `json:"message,omitempty"`
+	Details    string          `json:"details,omitempty"`
+	details    *map[string]any `json:"-"`
 }
 
 func handleErrorResponseBody(response *http.Response, errMsgPrefix string) error {
@@ -3066,9 +3068,13 @@ func handleErrorResponseBody(response *http.Response, errMsgPrefix string) error
 		if err == nil {
 			errMap.Message = errorResponse.Error.Message
 			errMap.ErrorCode = string(errorResponse.Error.Code)
+			if errorResponse.Error.Reason != nil {
+				errMap.Reason = *errorResponse.Error.Reason
+			}
 
 			if errorResponse.Error.Details != nil {
 				errMap.Details = fmt.Sprintf("%+v", errorResponse.Error.Details)
+				errMap.details = errorResponse.Error.Details
 			}
 		}
 	}
@@ -3093,7 +3099,14 @@ func formatError(errMap errorResponseMap) error {
 	}
 	baseError := errors.New(strings.TrimSuffix(buf.String(), "\n"))
 
-	return &PineconeError{Code: errMap.StatusCode, Msg: baseError}
+	return &PineconeError{
+		Code:      errMap.StatusCode,
+		ErrorCode: errMap.ErrorCode,
+		Reason:    errMap.Reason,
+		Message:   errMap.Message,
+		details:   errMap.details,
+		Msg:       baseError,
+	}
 }
 
 func buildClientBaseOptions(in NewClientBaseParams) []db_control.ClientOption {
