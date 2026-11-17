@@ -24,6 +24,8 @@ const (
 	podDeploymentJSON     = `{"deployment_type": "pod", "environment": "us-east1-gcp", "pod_type": "p1.x1", "replicas": 1, "shards": 1}`
 	byocDeploymentJSON    = `{"deployment_type": "byoc", "environment": "test-environ"}`
 	denseFieldsJSON       = `{"_values": {"type": "dense_vector", "dimension": 3, "metric": "cosine"}}`
+
+	dedicatedManualReadCapacityJSON = `{"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 1, "scaling": "Manual", "manual": {"replicas": 2}}, "status": {"state": "Ready", "current_replicas": 2, "current_shards": 1}}`
 )
 
 // indexModelFixture builds an IndexModel response body. Empty fields fall back to a ready managed
@@ -34,6 +36,8 @@ type indexModelFixture struct {
 	deployment string
 	fields     string
 	tags       string
+	// readCapacity is the raw read_capacity JSON; empty omits the key.
+	readCapacity string
 }
 
 func (f indexModelFixture) JSON() string {
@@ -52,7 +56,12 @@ func (f indexModelFixture) JSON() string {
 	if f.tags == "" {
 		f.tags = "null"
 	}
+	readCapacity := ""
+	if f.readCapacity != "" {
+		readCapacity = `"read_capacity": ` + f.readCapacity + `,`
+	}
 	return fmt.Sprintf(`{
+		%s
 		"name": %q,
 		"host": "https://test-host.pinecone.io",
 		"deletion_protection": "disabled",
@@ -60,7 +69,7 @@ func (f indexModelFixture) JSON() string {
 		"deployment": %s,
 		"schema": {"fields": %s},
 		"tags": %s
-	}`, f.name, f.state == IndexStatusStateReady, f.state, f.deployment, f.fields, f.tags)
+	}`, readCapacity, f.name, f.state == IndexStatusStateReady, f.state, f.deployment, f.fields, f.tags)
 }
 
 type wireRequest struct {
@@ -162,7 +171,7 @@ func assertRequests(t *testing.T, got []wireRequest, want []wantRequest) {
 }
 
 func TestPineconeApiVersionUnit(t *testing.T) {
-	assert.Equal(t, "2026-07", gen.PineconeApiVersion)
+	assert.Equal(t, "2026-10", gen.PineconeApiVersion)
 }
 
 func TestControlPlaneWireUnit(t *testing.T) {
@@ -507,8 +516,9 @@ func TestControlPlaneWireUnit(t *testing.T) {
 					"name": "restored-index",
 					"read_capacity": {"mode": "Dedicated", "dedicated": {
 						"node_type": "t1",
+						"shards": 1,
 						"scaling": "Manual",
-						"manual": {"replicas": 1, "shards": 1}
+						"manual": {"replicas": 1}
 					}},
 					"tags": null
 				}`,
@@ -574,6 +584,116 @@ func TestControlPlaneWireUnit(t *testing.T) {
 				assert.Equal(t, []string{"standalone_inference", "document_index"}, *model.SupportedOn)
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/models/gemini-embedding-2"}},
+		},
+		{
+			// The v7.2.0-documented Manual shape: shards move from manual to dedicated on the wire.
+			name:     "CreateServerlessIndex with Dedicated Manual read capacity",
+			status:   http.StatusCreated,
+			response: indexModelFixture{name: "dedicated-index"}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{
+					Name:      "dedicated-index",
+					Cloud:     CloudAWS,
+					Region:    "us-east-1",
+					Dimension: ptr(int32(3)),
+					ReadCapacity: &ReadCapacityParams{
+						Dedicated: &ReadCapacityDedicatedConfig{
+							NodeType: ptr("b1"),
+							Scaling:  &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(1)), Shards: ptr(int32(1))}},
+						},
+					},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{{
+				method: http.MethodPost,
+				path:   "/indexes",
+				body: `{
+					"name": "dedicated-index",
+					"schema": {"fields": {"_values": {"type": "dense_vector", "dimension": 3, "metric": "cosine"}}},
+					"deployment": ` + managedDeploymentJSON + `,
+					"read_capacity": {"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 1, "scaling": "Manual", "manual": {"replicas": 1}}},
+					"tags": null
+				}`,
+			}},
+		},
+		{
+			name:     "ConfigureIndex Manual replicas and shards",
+			status:   http.StatusOK,
+			response: indexModelFixture{name: "dedicated-index", readCapacity: dedicatedManualReadCapacityJSON}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.ConfigureIndex(context.Background(), "dedicated-index", ConfigureIndexParams{
+					ReadCapacity: &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{
+						Scaling: &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(3)), Shards: ptr(int32(2))}},
+					}},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes/dedicated-index"},
+				{
+					method: http.MethodPatch,
+					path:   "/indexes/dedicated-index",
+					body:   `{"read_capacity": {"mode": "Dedicated", "dedicated": {"shards": 2, "scaling": "Manual", "manual": {"replicas": 3}}}, "tags": null}`,
+				},
+			},
+		},
+		{
+			// A Manual block with only Shards changes the shard count and keeps the current replicas.
+			name:     "ConfigureIndex Manual shards only",
+			status:   http.StatusOK,
+			response: indexModelFixture{name: "dedicated-index", readCapacity: dedicatedManualReadCapacityJSON}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.ConfigureIndex(context.Background(), "dedicated-index", ConfigureIndexParams{
+					ReadCapacity: &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{
+						Scaling: &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Shards: ptr(int32(2))}},
+					}},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes/dedicated-index"},
+				{
+					method: http.MethodPatch,
+					path:   "/indexes/dedicated-index",
+					body:   `{"read_capacity": {"mode": "Dedicated", "dedicated": {"shards": 2}}, "tags": null}`,
+				},
+			},
+		},
+		{
+			// An empty Manual block can't be sent: 2026-10 requires manual.replicas, and 0 would pause
+			// the index.
+			name:     "ConfigureIndex empty Manual returns an error",
+			status:   http.StatusOK,
+			response: indexModelFixture{name: "dedicated-index", readCapacity: dedicatedManualReadCapacityJSON}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.ConfigureIndex(context.Background(), "dedicated-index", ConfigureIndexParams{
+					ReadCapacity: &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{
+						Scaling: &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{}},
+					}},
+				})
+				require.ErrorContains(t, err, "Scaling.Manual must set Replicas")
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/indexes/dedicated-index"}},
+		},
+		{
+			name:     "DescribeIndex Dedicated Manual read capacity",
+			status:   http.StatusOK,
+			response: indexModelFixture{name: "dedicated-index", readCapacity: dedicatedManualReadCapacityJSON}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				idx, err := pc.DescribeIndex(context.Background(), "dedicated-index")
+				require.NoError(t, err)
+				require.NotNil(t, idx.ReadCapacity)
+				dedicated := idx.ReadCapacity.Dedicated
+				require.NotNil(t, dedicated)
+				assert.Equal(t, "b1", *dedicated.NodeType)
+				require.NotNil(t, dedicated.Scaling)
+				require.NotNil(t, dedicated.Scaling.Manual)
+				assert.Equal(t, int32(2), *dedicated.Scaling.Manual.Replicas)
+				assert.Equal(t, int32(1), *dedicated.Scaling.Manual.Shards)
+				assert.Equal(t, "Ready", dedicated.Status.State)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/indexes/dedicated-index"}},
 		},
 		{
 			name:     "ListBackups for an index including deleted",
