@@ -286,12 +286,13 @@ For an index with dedicated read capacity, also wait until `ReadCapacity.Dedicat
 
 Serverless and BYOC indexes use on-demand read capacity by default. To provision dedicated read nodes instead, set
 `ReadCapacity` when you create the index. You need to set `NodeType` (`"b1"` or `"t1"`, which has more processing power
-and memory) and manual `Replicas` and `Shards`:
+and memory), `Shards`, and a scaling strategy. With manual scaling, you set a fixed number of `Replicas` per shard.
+Dedicated read capacity is billed for as long as the index exists; the examples use the smallest shape.
 
 ```go
-nodeType := "t1"
-replicas := int32(1)
+nodeType := "b1"
 shards := int32(1)
+replicas := int32(1)
 
 idx, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
 	Name:   "articles-dedicated",
@@ -299,8 +300,9 @@ idx, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
 	ReadCapacity: &pinecone.ReadCapacityParams{
 		Dedicated: &pinecone.ReadCapacityDedicatedConfig{
 			NodeType: &nodeType,
+			Shards:   &shards,
 			Scaling: &pinecone.ReadCapacityScaling{
-				Manual: &pinecone.ReadCapacityManualScaling{Replicas: &replicas, Shards: &shards},
+				Manual: &pinecone.ReadCapacityManualScaling{Replicas: &replicas},
 			},
 		},
 	},
@@ -311,8 +313,65 @@ Each shard provides 250 GB of storage, and an index needs at least one. Setting 
 index with dedicated read nodes supports only one namespace. For details, see
 [Dedicated read nodes](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes/overview).
 
-You can change read capacity later with `ConfigureIndex`. You can make one change every 10 minutes, and each change can
-take up to 30 minutes to complete. Reads and writes continue normally while it's applied.
+Code written for v7 that sets `Scaling.Manual.Shards` still works: the SDK sends it as `Shards`. That field is
+deprecated. If you set both to different values, the request fails.
+
+### Replica autoscaling
+
+With `Scaling.Auto`, Pinecone moves the number of replicas per shard between `MinReplicas` and `MaxReplicas` as load
+changes. The shard count stays fixed, and quota counts `MaxReplicas`. Your organization must be enabled for replica
+autoscaling; otherwise the request fails with a `PineconeError` whose error code is `FORBIDDEN`.
+
+```go
+nodeType := "b1"
+shards := int32(1)
+
+idx, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
+	Name:   "articles-autoscaling",
+	Schema: schema,
+	ReadCapacity: &pinecone.ReadCapacityParams{
+		Dedicated: &pinecone.ReadCapacityDedicatedConfig{
+			NodeType: &nodeType,
+			Shards:   &shards,
+			Scaling: &pinecone.ReadCapacityScaling{
+				Auto: &pinecone.ReadCapacityAutoScaling{MinReplicas: 1, MaxReplicas: 2},
+			},
+		},
+	},
+})
+```
+
+When you describe an autoscaled index, `ReadCapacity.Dedicated.ScalingStrategy` is
+`pinecone.ReadCapacityScalingStrategyAuto`, `Scaling.Auto` holds the bounds, and `Scaling.Manual` is nil. The live
+number of replicas per shard is in `ReadCapacity.Dedicated.Status.CurrentReplicas`.
+
+### Change read capacity
+
+You can change read capacity later with `ConfigureIndex`; see [Configure an index](#configure-an-index). A change can
+take up to 30 minutes to complete, and reads and writes continue normally while it's applied. While it's applied,
+`ReadCapacity.Dedicated.Status.State` is `"Scaling"` or `"Migrating"`, and another read capacity change fails with the
+error code `ABORTED`. Wait until the state is `"Ready"`, then try again. The error code is part of the error's `Msg`:
+
+```go
+_, err := pc.ConfigureIndex(ctx, "articles-autoscaling", pinecone.ConfigureIndexParams{
+	ReadCapacity: &pinecone.ReadCapacityParams{
+		Dedicated: &pinecone.ReadCapacityDedicatedConfig{
+			Scaling: &pinecone.ReadCapacityScaling{
+				Auto: &pinecone.ReadCapacityAutoScaling{MinReplicas: 1, MaxReplicas: 3},
+			},
+		},
+	},
+})
+var pcErr *pinecone.PineconeError
+if errors.As(err, &pcErr) {
+	var details struct {
+		ErrorCode string `json:"error_code"`
+	}
+	if json.Unmarshal([]byte(pcErr.Msg.Error()), &details) == nil && details.ErrorCode == "ABORTED" {
+		// A read capacity change is still in progress. Wait for "Ready" and retry.
+	}
+}
+```
 
 ## List indexes
 
@@ -419,15 +478,44 @@ _, err = pc.ConfigureIndex(ctx, "example-legacy-integrated-index", pinecone.Conf
 
 An index can have up to 20 tags. Tag keys can be up to 80 characters, and values up to 120.
 
-To move an index from on-demand to dedicated read capacity, set `NodeType`, `Scaling.Manual.Replicas`, and
-`Scaling.Manual.Shards`. When you change an existing dedicated configuration, fields you leave out keep their current
-values.
+To move an index from on-demand to dedicated read capacity, set `NodeType`, `Shards`, and a scaling strategy
+(`Scaling.Manual` with `Replicas`, or `Scaling.Auto`). When you change an existing dedicated configuration, fields you
+leave out keep their current values. Changing only `NodeType` or `Shards` keeps the current scaling strategy, including
+the bounds of an autoscaled index.
+
+```go
+// Turn on replica autoscaling, or change the bounds of an autoscaled index.
+_, err = pc.ConfigureIndex(ctx, "articles-dedicated", pinecone.ConfigureIndexParams{
+	ReadCapacity: &pinecone.ReadCapacityParams{
+		Dedicated: &pinecone.ReadCapacityDedicatedConfig{
+			Scaling: &pinecone.ReadCapacityScaling{
+				Auto: &pinecone.ReadCapacityAutoScaling{MinReplicas: 1, MaxReplicas: 2},
+			},
+		},
+	},
+})
+
+// Switch back to a fixed number of replicas per shard.
+replicas := int32(1)
+_, err = pc.ConfigureIndex(ctx, "articles-dedicated", pinecone.ConfigureIndexParams{
+	ReadCapacity: &pinecone.ReadCapacityParams{
+		Dedicated: &pinecone.ReadCapacityDedicatedConfig{
+			Scaling: &pinecone.ReadCapacityScaling{
+				Manual: &pinecone.ReadCapacityManualScaling{Replicas: &replicas},
+			},
+		},
+	},
+})
+```
+
+A `Scaling.Manual` block with neither `Replicas` nor the deprecated `Shards` returns an error without calling the API:
+the SDK can't send a manual configuration without a replica count, and sending 0 would pause the index.
 
 Deletion protection prevents deleting the index, but not deleting its namespaces or records.
 
 ## Existing pod-based indexes
 
-Pinecone API version `2026-07` doesn't support creating pod-based indexes. Existing pod-based indexes keep working. You
+Pinecone API versions `2026-07` and later don't support creating pod-based indexes. Existing pod-based indexes keep working. You
 can list, describe, and delete them, run data operations against them, create [collections](./collections.md) from
 them, and scale them with `ConfigureIndex`. You can only increase the pod size, and you can't change the pod family (such as `p1`).
 

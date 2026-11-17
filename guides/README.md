@@ -35,4 +35,5 @@ reference, see [pkg.go.dev](https://pkg.go.dev/github.com/pinecone-io/go-pinecon
 
 ## Upgrading
 
+- [v8 migration guide](./migration/v8.md): changes for Pinecone API version `2026-10`
 - [v7 migration guide](./migration/v7.md): changes for Pinecone API version `2026-07`

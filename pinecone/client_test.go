@@ -388,7 +388,7 @@ func TestCreateIndexSchemaValidationUnit(t *testing.T) {
 		},
 		Deployment: &IndexDeployment{Pod: &PodDeployment{Environment: "us-east1-gcp", PodType: "p1.x1"}},
 	})
-	require.ErrorContains(t, err, "creating pod-based indexes is not supported by Pinecone API version 2026-07")
+	require.ErrorContains(t, err, "creating pod-based indexes is not supported by Pinecone API versions 2026-07 and later")
 }
 
 func TestLegacyCreateGuidedErrorsUnit(t *testing.T) {
@@ -399,17 +399,17 @@ func TestLegacyCreateGuidedErrorsUnit(t *testing.T) {
 	_, err := client.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
 		Name: "x", Cloud: CloudAWS, Region: "us-east-1", Dimension: &dimension, SourceCollection: ptr("my-collection"),
 	})
-	require.ErrorContains(t, err, "SourceCollection is not supported by Pinecone API version 2026-07")
+	require.ErrorContains(t, err, "SourceCollection is not supported by Pinecone API versions 2026-07 and later")
 
 	_, err = client.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
 		Name: "x", Cloud: CloudAWS, Region: "us-east-1", Dimension: &dimension, Schema: &MetadataSchema{},
 	})
-	require.ErrorContains(t, err, "Schema is not supported by Pinecone API version 2026-07")
+	require.ErrorContains(t, err, "Schema is not supported by Pinecone API versions 2026-07 and later")
 
 	_, err = client.CreateBYOCIndex(ctx, &CreateBYOCIndexRequest{
 		Name: "x", Environment: "e", Dimension: &dimension, Schema: &MetadataSchema{},
 	})
-	require.ErrorContains(t, err, "Schema is not supported by Pinecone API version 2026-07")
+	require.ErrorContains(t, err, "Schema is not supported by Pinecone API versions 2026-07 and later")
 }
 
 func TestConfigureIndexSchemaValidationUnit(t *testing.T) {
@@ -2204,14 +2204,14 @@ func Test_ConfigureIndex_ValidationErrors_Unit(t *testing.T) {
 			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes",
 		},
 		{
-			name:           "Embed always errors under the 2026-07 API",
+			name:           "Embed always errors under API versions 2026-07 and later",
 			deploymentJSON: managedDeploymentJSON,
 			configParams: ConfigureIndexParams{
 				Embed: &ConfigureIndexEmbed{
 					Model: ptr("multilingual-e5-large"),
 				},
 			},
-			expectedError: "Embed is not supported by Pinecone API version 2026-07: to update the read or write parameters of a legacy integrated index's embedding model, use Schema; to create a new index with integrated embedding, use CreateIndex with a StringField that sets Embed or SparseEmbed",
+			expectedError: "Embed is not supported by Pinecone API versions 2026-07 and later: to update the read or write parameters of a legacy integrated index's embedding model, use Schema; to create a new index with integrated embedding, use CreateIndex with a StringField that sets Embed or SparseEmbed",
 		},
 		{
 			name:           "BYOC index switching ReadCapacity to OnDemand should succeed",

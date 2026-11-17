@@ -28,7 +28,7 @@ Three-plane design, each with its own client struct:
 - `admin_client.go` — `AdminClient`: Admin operations (projects, orgs, API keys, role bindings, service accounts, invites, users)
 - `index_connection.go` — `IndexConnection`: Data Plane. Vector and namespace operations over gRPC; document, record (integrated embedding), and bulk import operations over REST
 - `models.go` — All shared types, constants, and enums (`IndexMetric`, `Cloud`, `IndexStatus`, etc.)
-- `schema_conversion.go` — Converts between public `IndexSchema` types and the generated `2026-07` schema types; derives the deprecated `Index` fields (`Metric`, `Dimension`, `Spec`, ...)
+- `schema_conversion.go` — Converts between public `IndexSchema` types and the generated `2026-10` schema types; derives the deprecated `Index` fields (`Metric`, `Dimension`, `Spec`, ...)
 - `validation.go` — Client-side request validation (limits such as `TopK`, ID length, non-empty filters)
 - `retry.go` — `RetryPolicy` and retry handling for REST and gRPC
 - `admin_token.go` — OAuth token refresh for `AdminClient`
@@ -46,7 +46,7 @@ Three-plane design, each with its own client struct:
 - `internal/utils/` — Internal utility functions
 
 **Code Generation:**
-Generated code under `internal/gen/` is produced by `codegen/build-clients.sh` from API specs in `codegen/apis/` (a private git submodule). `just gen` regenerates from the `codegen/apis` commit pinned by this repository, so it's reproducible. To pick up newer specs, run `just gen --update-pin`, which checks out the `apis` repo's latest `main` first; commit the updated `codegen/apis` pointer along with the regenerated code. The current API version is `2026-07`.
+Generated code under `internal/gen/` is produced by `codegen/build-clients.sh` from API specs in `codegen/apis/` (a private git submodule). `just gen` regenerates from the `codegen/apis` commit pinned by this repository, so it's reproducible. To pick up newer specs, run `just gen --update-pin`, which checks out the `apis` repo's latest `main` first; commit the updated `codegen/apis` pointer along with the regenerated code. The current API version is `2026-10`.
 
 ## Build & Test Commands
 

@@ -107,8 +107,8 @@ type IndexEmbed struct {
 	// Metric is the distance metric used by the embedding model. If VectorType is "sparse", the
 	// metric must be "dotproduct". If VectorType is "dense", the metric defaults to "cosine".
 	Metric *IndexMetric `json:"metric,omitempty"`
-	// VectorType is always nil: Pinecone API version 2026-07 doesn't report it. A nil Dimension
-	// means the model produces sparse vectors.
+	// VectorType is always nil: Pinecone API versions 2026-07 and later don't report it. A nil
+	// Dimension means the model produces sparse vectors.
 	VectorType *string `json:"vector_type,omitempty"`
 	// FieldMap identifies the name of the text field from your document model that is embedded.
 	FieldMap *map[string]interface{} `json:"field_map,omitempty"`
@@ -392,7 +392,7 @@ type IndexDeployment struct {
 	// Managed is set for a serverless index. See [ManagedDeployment].
 	Managed *ManagedDeployment `json:"managed,omitempty"`
 	// Pod is set for a pod-based index. See [PodDeployment]. Pod-based indexes can't be created
-	// on API version 2026-07, but existing ones are still reported.
+	// on API versions 2026-07 and later, but existing ones are still reported.
 	Pod *PodDeployment `json:"pod,omitempty"`
 	// Byoc is set for a BYOC index. See [ByocDeployment].
 	Byoc *ByocDeployment `json:"byoc,omitempty"`
@@ -553,7 +553,7 @@ type PodSpec struct {
 	ShardCount int32 `json:"shard_count"`
 	// SourceCollection is the name of the [Collection] used as a source for the index.
 	SourceCollection *string `json:"source_collection,omitempty"`
-	// MetadataConfig is always nil: Pinecone API version 2026-07 doesn't report it. Metadata
+	// MetadataConfig is always nil: Pinecone API versions 2026-07 and later don't report it. Metadata
 	// fields configured for filtering are reported in Index.Schema.
 	MetadataConfig *PodSpecMetadataConfig `json:"metadata_config,omitempty"`
 }
@@ -564,7 +564,7 @@ type ServerlessSpec struct {
 	Cloud Cloud `json:"cloud"`
 	// Region is the region where the index is hosted.
 	Region string `json:"region"`
-	// Schema is always nil: Pinecone API version 2026-07 doesn't report it. Metadata
+	// Schema is always nil: Pinecone API versions 2026-07 and later don't report it. Metadata
 	// fields configured for filtering are reported in Index.Schema.
 	Schema *MetadataSchema `json:"schema,omitempty"`
 	// SourceCollection is the name of the [Collection] used as a source for the index.
@@ -577,7 +577,7 @@ type ServerlessSpec struct {
 type BYOCSpec struct {
 	// Environment is the environment where the index is hosted.
 	Environment string `json:"environment"`
-	// Schema is always nil: Pinecone API version 2026-07 doesn't report it. Metadata
+	// Schema is always nil: Pinecone API versions 2026-07 and later don't report it. Metadata
 	// fields configured for filtering are reported in Index.Schema.
 	Schema *MetadataSchema `json:"schema,omitempty"`
 	// ReadCapacity is the [ReadCapacity] configuration of the index.
@@ -676,7 +676,7 @@ type ReadCapacityManualScaling struct {
 
 // ReadCapacityAutoScaling represents replica autoscaling configuration. Both bounds are per shard
 // and required: unlike [ReadCapacityManualScaling].Replicas, you can't change one bound alone.
-// MinReplicas must be at least 1, and MaxReplicas at least MinReplicas.
+// MinReplicas must be at least 1, and MaxReplicas at least MinReplicas; the API rejects other values.
 type ReadCapacityAutoScaling struct {
 	// MinReplicas is the lowest number of replicas per shard that Pinecone scales down to.
 	MinReplicas int32 `json:"min_replicas"`

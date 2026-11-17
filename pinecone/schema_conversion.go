@@ -99,7 +99,7 @@ func toDbCreateIndexSchema(schema IndexSchema) (db_control.CreateIndexSchema, er
 }
 
 // toDbDeploymentRequest converts a public IndexDeployment into the generated create-request
-// deployment union. Managed and BYOC are the only deployment types the 2026-07 create request
+// deployment union. Managed and BYOC are the only deployment types the create request
 // accepts; the backend rejects pod creation on this API version.
 func toDbDeploymentRequest(deployment *IndexDeployment) (*db_control.IndexDeploymentRequest, error) {
 	if deployment == nil {
@@ -130,7 +130,7 @@ func toDbDeploymentRequest(deployment *IndexDeployment) (*db_control.IndexDeploy
 			return nil, err
 		}
 	case deployment.Pod != nil:
-		return nil, fmt.Errorf("creating pod-based indexes is not supported by Pinecone API version 2026-07; use a Managed or Byoc deployment instead. Existing pod-based indexes can still be used and scaled")
+		return nil, fmt.Errorf("creating pod-based indexes is not supported by Pinecone API versions 2026-07 and later; use a Managed or Byoc deployment instead. Existing pod-based indexes can still be used and scaled")
 	}
 	return &request, nil
 }
@@ -310,7 +310,7 @@ func hasSparseField(schema *IndexSchema) bool {
 }
 
 // applyIndexCompatFields populates the deprecated computed fields (Metric, VectorType, Dimension,
-// Spec, Embed) on an Index from its 2026-07 Schema and Deployment.
+// Spec, Embed) on an Index from its Schema and Deployment.
 //
 // Vector-type resolution: indexes that store dense vectors always report both "_values" and
 // "_sparse_values" regardless of how they were created, so a dense field wins over a sparse one.

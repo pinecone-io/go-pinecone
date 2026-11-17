@@ -753,10 +753,10 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 	}
 
 	if in.SourceCollection != nil {
-		return nil, fmt.Errorf("SourceCollection is not supported by Pinecone API version 2026-07, which does not support creating an index from a collection; use CreateIndexFromBackup to restore a backup into a new index")
+		return nil, fmt.Errorf("SourceCollection is not supported by Pinecone API versions 2026-07 and later, which do not support creating an index from a collection; use CreateIndexFromBackup to restore a backup into a new index")
 	}
 	if in.Schema != nil {
-		return nil, fmt.Errorf("Schema is not supported by Pinecone API version 2026-07: metadata fields are indexed automatically when you upsert data, so they don't need to be declared")
+		return nil, fmt.Errorf("Schema is not supported by Pinecone API versions 2026-07 and later: metadata fields are indexed automatically when you upsert data, so they don't need to be declared")
 	}
 
 	vectorType, err := validateVectorType(in.VectorType, in.Dimension, in.Metric)
@@ -1126,7 +1126,7 @@ func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest
 	}
 
 	if in.Schema != nil {
-		return nil, fmt.Errorf("Schema is not supported by Pinecone API version 2026-07: metadata fields are indexed automatically when you upsert data, so they don't need to be declared")
+		return nil, fmt.Errorf("Schema is not supported by Pinecone API versions 2026-07 and later: metadata fields are indexed automatically when you upsert data, so they don't need to be declared")
 	}
 
 	deletionProtection := derefOrDefault(in.DeletionProtection, "disabled")
@@ -1336,9 +1336,9 @@ type ConfigureIndexParams struct {
 	Tags IndexTags
 	// Embed is not supported; setting it returns an error without calling the API.
 	//
-	// Deprecated: Pinecone API version 2026-07 no longer supports configuring an index's embedding
-	// through Embed. To update the read or write parameters of the embedding model of a legacy
-	// integrated index, use Schema.
+	// Deprecated: Pinecone API versions 2026-07 and later no longer support configuring an index's
+	// embedding through Embed. To update the read or write parameters of the embedding model of a
+	// legacy integrated index, use Schema.
 	Embed *ConfigureIndexEmbed
 	// ReadCapacity (Optional) is the [ReadCapacityParams] to apply to a serverless or BYOC index;
 	// setting it on a pod-based index returns an error. Converting an OnDemand index to Dedicated
@@ -1385,8 +1385,8 @@ type ConfigureSemanticTextField struct {
 
 // ConfigureIndexEmbed contains parameters for configuring the embedding settings of a legacy integrated index.
 //
-// Deprecated: Pinecone API version 2026-07 no longer supports configuring an index's embedding through Embed, so
-// setting [ConfigureIndexParams].Embed returns an error. To update the read or write parameters of the embedding
+// Deprecated: Pinecone API versions 2026-07 and later no longer support configuring an index's embedding through
+// Embed, so setting [ConfigureIndexParams].Embed returns an error. To update the read or write parameters of the embedding
 // model of a legacy integrated index, use [ConfigureIndexParams].Schema. The model can't be changed after the
 // index is created.
 type ConfigureIndexEmbed struct {
@@ -1449,7 +1449,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 		return nil, fmt.Errorf("must specify PodType, Replicas, DeletionProtection, ReadCapacity, Schema, or Tags when configuring an index")
 	}
 	if in.Embed != nil {
-		return nil, fmt.Errorf("Embed is not supported by Pinecone API version 2026-07: to update the read or write parameters of a legacy integrated index's embedding model, use Schema; to create a new index with integrated embedding, use CreateIndex with a StringField that sets Embed or SparseEmbed")
+		return nil, fmt.Errorf("Embed is not supported by Pinecone API versions 2026-07 and later: to update the read or write parameters of a legacy integrated index's embedding model, use Schema; to create a new index with integrated embedding, use CreateIndex with a StringField that sets Embed or SparseEmbed")
 	}
 	if in.Schema != nil && len(in.Schema.Fields) != 1 {
 		return nil, fmt.Errorf("Schema must contain exactly one field to update")
