@@ -673,7 +673,8 @@ type CreateServerlessIndexRequest struct {
 
 // ReadCapacityParams is the read capacity configuration for a new index, or for an index changed
 // with [Client.ConfigureIndex]. Set exactly one of Dedicated or OnDemand. When nil, a new index uses
-// OnDemand read capacity. Both modes are supported for serverless and BYOC indexes.
+// OnDemand read capacity. Both modes are supported for serverless and BYOC indexes, except in a BYOC
+// environment that supports only Dedicated read capacity, which rejects OnDemand, sent or defaulted.
 type ReadCapacityParams struct {
 	// Dedicated selects Dedicated read capacity mode. See [ReadCapacityDedicatedConfig] for the
 	// fields required when creating an index and when changing one with [Client.ConfigureIndex].
@@ -1953,7 +1954,8 @@ type CreateIndexFromBackupParams struct {
 	Tags *IndexTags `json:"tags,omitempty"`
 	// ReadCapacity (Optional) is the read capacity for the new index. Defaults to OnDemand when nil,
 	// except that a BYOC environment that supports only Dedicated read capacity rejects OnDemand,
-	// including this default. Dedicated capacity must be large enough to hold the backup's data.
+	// including this default; set Dedicated there. Dedicated capacity must be large enough to hold
+	// the backup's data.
 	ReadCapacity *ReadCapacityParams `json:"read_capacity,omitempty"`
 	// Deployment (Optional) is where to create the index. Defaults to the cloud and region, or the
 	// BYOC environment, the backup was taken in. Set Managed to restore a serverless backup into

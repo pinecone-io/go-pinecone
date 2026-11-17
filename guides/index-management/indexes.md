@@ -230,7 +230,7 @@ idx, err := pc.CreateBYOCIndex(ctx, &pinecone.CreateBYOCIndexRequest{
 
 Like a serverless index, a BYOC index uses on-demand read capacity by default. To provision dedicated read nodes
 instead, set `ReadCapacity` (see [Dedicated read capacity](#dedicated-read-capacity)). Some BYOC environments support
-only dedicated read capacity; there, on-demand, including the default, fails, so set `ReadCapacity` to `Dedicated`.
+only dedicated read capacity; there, on-demand, including the default, fails, so set `ReadCapacity.Dedicated`.
 
 For more on BYOC, see [Bring your own cloud](https://docs.pinecone.io/guides/production/bring-your-own-cloud).
 
@@ -286,7 +286,8 @@ For an index with dedicated read capacity, also wait until `ReadCapacity.Dedicat
 
 ## Dedicated read capacity
 
-Serverless and BYOC indexes use on-demand read capacity by default. To provision dedicated read nodes instead, set
+Serverless and BYOC indexes use on-demand read capacity by default, except in a BYOC environment that supports only
+dedicated read capacity. To provision dedicated read nodes instead, set
 `ReadCapacity` when you create the index. You need to set `NodeType` (`"b1"` or `"t1"`, which has more processing power
 and memory), `Shards`, and a scaling strategy. With manual scaling, you set a fixed number of `Replicas` per shard.
 Dedicated read capacity is billed for as long as the index exists; the examples use the smallest shape.
@@ -460,7 +461,8 @@ _, err = pc.ConfigureIndex(ctx, "articles", pinecone.ConfigureIndexParams{
 	},
 })
 
-// Switch a vector index to on-demand read capacity.
+// Switch a vector index to on-demand read capacity. A BYOC environment that supports only dedicated
+// read capacity rejects this.
 _, err = pc.ConfigureIndex(ctx, "docs-example", pinecone.ConfigureIndexParams{
 	ReadCapacity: &pinecone.ReadCapacityParams{OnDemand: &pinecone.ReadCapacityOnDemandConfig{}},
 })
