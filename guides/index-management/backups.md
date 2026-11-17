@@ -62,7 +62,7 @@ err = pc.DeleteBackup(ctx, backupId)
 To list every backup in the project, leave out `IndexName`. To also list backups of deleted indexes that had that name,
 set `IncludeDeleted`, which requires `IndexName`.
 
-A backup that uses a feature this SDK's API version can't represent can't be described by this SDK, so `ListBackups`
+If a backup uses a feature that this SDK's API version can't represent, this SDK can't describe it, so `ListBackups`
 reports it in `IncompatibleBackups` instead of `Data`, with its `BackupId` and a `CompatibleAPIVersion`: an API version
 that can describe it, chosen by Pinecone as the one to move to. Other versions may also work, and API versions aren't
 guaranteed to be ordered. Each one counts toward `Limit`, so a page can hold fewer than `Limit` backups in `Data` while

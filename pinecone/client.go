@@ -406,9 +406,9 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 // because they use features this SDK's API version can't represent. Each [IncompatibleIndex] names
 // an API version that can describe it. Such an index still exists and counts toward project limits.
 // [Client.DescribeIndex] and [Client.ConfigureIndex] refuse it with a [PineconeError] whose error
-// code is FAILED_PRECONDITION and whose Reason is RESOURCE_INCOMPATIBLE_WITH_API_VERSION. [Client.DeleteIndex] works unless the index has deletion
-// protection enabled; this API version can't turn that off, so use an SDK or API version that can
-// describe the index.
+// code is FAILED_PRECONDITION and whose Reason is RESOURCE_INCOMPATIBLE_WITH_API_VERSION.
+// [Client.DeleteIndex] works unless the index has deletion protection enabled; this API version
+// can't turn that off, so use an SDK or API version that can describe the index.
 //
 // It returns an empty slice when every index can be described.
 //
@@ -1180,8 +1180,9 @@ func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest
 // DescribeIndex retrieves information about a specific [Index]. See [Index] for more information.
 //
 // An index that uses features this SDK's API version can't represent returns a [PineconeError]
-// whose error code is FAILED_PRECONDITION and whose message names the API version to use. Such an
-// index is listed by [Client.ListIncompatibleIndexes] rather than [Client.ListIndexes].
+// whose error code is FAILED_PRECONDITION and whose Reason is
+// RESOURCE_INCOMPATIBLE_WITH_API_VERSION; its message names the API version to use. Such an index
+// is listed by [Client.ListIncompatibleIndexes] rather than [Client.ListIndexes].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1653,8 +1654,10 @@ func (c *Client) listCollections(ctx context.Context) (*collectionListResponse, 
 // for more information.
 //
 // A collection that uses features this SDK's API version can't represent returns a [PineconeError]
-// whose error code is FAILED_PRECONDITION and whose message names the API version to use. Such a
-// collection is listed by [Client.ListIncompatibleCollections] rather than [Client.ListCollections].
+// whose error code is FAILED_PRECONDITION and whose Reason is
+// RESOURCE_INCOMPATIBLE_WITH_API_VERSION; its message names the API version to use. Such a
+// collection is listed by [Client.ListIncompatibleCollections] rather than
+// [Client.ListCollections].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1970,10 +1973,11 @@ type CreateIndexFromBackupResponse struct {
 // another region of the same cloud, set Deployment to a [ManagedDeployment] in that region.
 // Cross-region restore isn't yet available from every source region; the API returns 412 when it
 // isn't. A backup that uses features this SDK's API version can't represent also returns a 412
-// [PineconeError] with error code FAILED_PRECONDITION, whose message names the API version to use;
-// [Client.ListBackups] reports such a backup in [BackupList].IncompatibleBackups.
-// Cross-cloud restore is not supported, a serverless backup can't be restored into a BYOC
-// environment, and a BYOC backup can only be restored into the environment it was taken in.
+// [PineconeError] with error code FAILED_PRECONDITION and Reason
+// RESOURCE_INCOMPATIBLE_WITH_API_VERSION, whose message names the API version to use;
+// [Client.ListBackups] reports such a backup in [BackupList].IncompatibleBackups. Cross-cloud
+// restore is not supported, a serverless backup can't be restored into a BYOC environment, and a
+// BYOC backup can only be restored into the environment it was taken in.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -2057,7 +2061,8 @@ func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromB
 // DescribeBackup describes a specific [Backup] by ID.
 //
 // A backup that uses features this SDK's API version can't represent returns a [PineconeError]
-// whose error code is FAILED_PRECONDITION and whose message names the API version to use.
+// whose error code is FAILED_PRECONDITION and whose Reason is
+// RESOURCE_INCOMPATIBLE_WITH_API_VERSION; its message names the API version to use.
 // [Client.ListBackups] reports such a backup in [BackupList].IncompatibleBackups instead of Data.
 //
 // Parameters:
@@ -2230,10 +2235,11 @@ func (c *Client) DeleteBackup(ctx context.Context, backupId string) error {
 
 // DescribeRestoreJob describes a specific [RestoreJob] by ID.
 //
-// A restore job that uses features this SDK's API version can't represent returns a
-// [PineconeError] whose error code is FAILED_PRECONDITION and whose message names the API version
-// to use. [Client.ListRestoreJobs] reports such a job in [RestoreJobList].IncompatibleRestoreJobs
-// instead of Data.
+// A restore job that uses features this SDK's API version can't represent returns a [PineconeError]
+// whose error code is FAILED_PRECONDITION and whose Reason is
+// RESOURCE_INCOMPATIBLE_WITH_API_VERSION; its message names the API version to use.
+// [Client.ListRestoreJobs] reports such a job in [RestoreJobList].IncompatibleRestoreJobs instead
+// of Data.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request

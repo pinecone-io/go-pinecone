@@ -35,7 +35,7 @@ for _, collection := range collections {
 }
 ```
 
-A collection that uses a feature this SDK's API version can't represent can't be described by this SDK, so
+If a collection uses a feature that this SDK's API version can't represent, this SDK can't describe it, so
 `ListCollections` leaves it out. `ListIncompatibleCollections` lists those collections, each with a
 `CompatibleAPIVersion`: an API version that can describe it, chosen by Pinecone as the one to move to. Other versions
 may also work, and API versions aren't guaranteed to be ordered. `DescribeCollection` refuses such a collection with the
