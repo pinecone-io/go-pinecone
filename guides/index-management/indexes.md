@@ -467,7 +467,8 @@ if err != nil {
 }
 ```
 
-You can't delete an index that has deletion protection enabled. Disable it with `ConfigureIndex` first.
+You can't delete an index that has deletion protection enabled. Disable it with `ConfigureIndex` first. For an index
+listed by `ListIncompatibleIndexes` that isn't possible with this SDK; see [List indexes](#list-indexes).
 
 Deletion is asynchronous. Until it finishes, the index still appears in `ListIndexes` with `Status.State`
 `"Terminating"`, along with its read capacity configuration.

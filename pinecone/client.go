@@ -1248,6 +1248,8 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 // in the Terminating state, for a short time after DeleteIndex returns. DeleteIndex returns a
 // [PineconeError] with Code 403 if deletion protection is enabled (disable it with
 // [Client.ConfigureIndex] first), or with Code 412 if a collection is being created from the index.
+// For an index listed by [Client.ListIncompatibleIndexes], this SDK can't turn deletion protection
+// off, because ConfigureIndex refuses such an index; use an SDK version that can describe it.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1414,6 +1416,10 @@ type ConfigureIndexEmbed struct {
 // ConfigureIndex is used to configure an existing [Index] allowing you to update the index's deletion protection status, tags,
 // read capacity configuration, and the read and write parameters of a legacy integrated index's embedding model. You can also
 // [scale a pods-based index] by increasing the pod size or changing the number of replicas.
+//
+// An index that uses features this SDK's API version can't represent, as listed by
+// [Client.ListIncompatibleIndexes], returns a [PineconeError] whose error code is FAILED_PRECONDITION,
+// and nothing is changed.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request

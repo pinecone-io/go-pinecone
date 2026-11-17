@@ -588,7 +588,8 @@ type BYOCSpec struct {
 
 // IncompatibleIndex is an index that exists in the project but uses features this SDK's API
 // version can't represent, so [Client.ListIndexes] leaves it out. List these with
-// [Client.ListIncompatibleIndexes].
+// [Client.ListIncompatibleIndexes]. It carries only the fields below; for example, whether
+// deletion protection is on isn't reported.
 type IncompatibleIndex struct {
 	// Name is the name of the index.
 	Name string `json:"name"`
