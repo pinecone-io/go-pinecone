@@ -36,11 +36,13 @@ for _, collection := range collections {
 }
 ```
 
-A collection that uses a feature from a later API version than this SDK uses can't be described by this SDK, so
-`ListCollections` leaves it out. `ListIncompatibleCollections` lists those collections, each with the oldest API version
-that can describe it. `DescribeCollection` refuses such a collection with the error code `FAILED_PRECONDITION`;
-`DeleteCollection` still works. To work with it, upgrade to an SDK that supports that API version; don't override the
-`X-Pinecone-Api-Version` header, because this SDK's request and response types are built for one API version.
+A collection that uses a feature this SDK's API version can't represent can't be described by this SDK, so
+`ListCollections` leaves it out. `ListIncompatibleCollections` lists those collections, each with a
+`CompatibleAPIVersion`: an API version that can describe it, chosen by Pinecone as the one to move to. Other versions
+may also work, and API versions aren't guaranteed to be ordered. `DescribeCollection` refuses such a collection with the
+error code `FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`; `DeleteCollection` still
+works. To work with it, upgrade to an SDK that supports that API version; don't override the `X-Pinecone-Api-Version`
+header, because this SDK's request and response types are built for one API version.
 
 ```go
 incompatible, err := pc.ListIncompatibleCollections(ctx)
@@ -48,7 +50,7 @@ if err != nil {
 	log.Fatalf("Failed to list collections: %v", err)
 }
 for _, collection := range incompatible {
-	fmt.Printf("- %s (needs API version %s or later)\n", collection.Name, collection.MinAPIVersion)
+	fmt.Printf("- %s (use API version %s)\n", collection.Name, collection.CompatibleAPIVersion)
 }
 ```
 
