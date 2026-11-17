@@ -1416,8 +1416,9 @@ type ConfigureIndexEmbed struct {
 // [scale a pods-based index] by increasing the pod size or changing the number of replicas.
 //
 // An index that uses features this SDK's API version can't represent, as listed by
-// [Client.ListIncompatibleIndexes], returns a [PineconeError] whose error code is FAILED_PRECONDITION,
-// and nothing is changed.
+// [Client.ListIncompatibleIndexes], returns a [PineconeError] whose error code is
+// FAILED_PRECONDITION and whose Reason is RESOURCE_INCOMPATIBLE_WITH_API_VERSION, and nothing is
+// changed.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
