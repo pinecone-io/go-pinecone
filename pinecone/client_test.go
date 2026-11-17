@@ -2261,3 +2261,14 @@ func mockResponse(body string, statusCode int) *http.Response {
 		Header:     make(http.Header),
 	}
 }
+
+// PineconeError must stay comparable with ==; adding a map or slice field would break callers.
+var _ = PineconeError{} == PineconeError{}
+
+func TestPineconeErrorDetailsIsACopy(t *testing.T) {
+	err := handleErrorResponseBody(mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "too many", "details": {"limit_documents": 1000}}}`, http.StatusBadRequest), "")
+	var pcErr *PineconeError
+	require.ErrorAs(t, err, &pcErr)
+	pcErr.Details()["limit_documents"] = 1
+	assert.Equal(t, float64(1000), pcErr.Details()["limit_documents"])
+}
