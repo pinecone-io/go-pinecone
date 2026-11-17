@@ -27,8 +27,6 @@ func RunSuites(t *testing.T) {
 	clientId, clientIdPresent := os.LookupEnv("PINECONE_CLIENT_ID")
 	clientSecret, clientSecretPresent := os.LookupEnv("PINECONE_CLIENT_SECRET")
 	assert.True(t, apiKeyPresent, "PINECONE_API_KEY env variable not set")
-	assert.True(t, clientIdPresent, "PINECONE_CLIENT_ID env variable not set")
-	assert.True(t, clientSecretPresent, "PINECONE_CLIENT_SECRET env variable not set")
 
 	// Check if we're skipping suites via environment variables
 	skipAdminSuite, skipAdminSuitePresent := os.LookupEnv("PINECONE_SKIP_ADMIN")
@@ -42,6 +40,10 @@ func RunSuites(t *testing.T) {
 	if skipServerlessSuitePresent && skipServerlessSuite == "true" {
 		skipServerless = true
 	}
+	if !skipAdmin {
+		assert.True(t, clientIdPresent, "PINECONE_CLIENT_ID env variable not set")
+		assert.True(t, clientSecretPresent, "PINECONE_CLIENT_SECRET env variable not set")
+	}
 
 	sourceTag := "pinecone_test_go_sdk"
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: sourceTag})
@@ -49,12 +51,15 @@ func RunSuites(t *testing.T) {
 	require.NoError(t, err)
 	indexTags := IndexTags{"test1": "test-tag-1", "test2": "test-tag-2"}
 
-	adminClient, err := NewAdminClient(NewAdminClientParams{
-		ClientId:     clientId,
-		ClientSecret: clientSecret,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, adminClient, "AdminClient should not be nil after creation")
+	var adminClient *AdminClient
+	if !skipAdmin {
+		adminClient, err = NewAdminClient(NewAdminClientParams{
+			ClientId:     clientId,
+			ClientSecret: clientSecret,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, adminClient, "AdminClient should not be nil after creation")
+	}
 
 	// Metadata schemas are no longer declared at index creation under 2026-07;
 	// metadata fields are indexed automatically at upsert.
