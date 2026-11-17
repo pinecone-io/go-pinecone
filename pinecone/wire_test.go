@@ -1020,6 +1020,218 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			want: []wantRequest{{method: http.MethodGet, path: "/indexes/docs-v2"}},
 		},
 		{
+			name:   "ListCollections and ListIncompatibleCollections with a mixed list",
+			status: http.StatusOK,
+			response: `{"collections": [{"name": "small-collection", "status": "Ready", "environment": "us-east1-gcp"}],
+				"incompatible_collections": [{"name": "archive-2025", "min_api_version": "2027-01", "message": "Collection 'archive-2025' uses features that API version 2026-10 can't represent."}]}`,
+			call: func(t *testing.T, pc *Client) {
+				collections, err := pc.ListCollections(context.Background())
+				require.NoError(t, err)
+				require.Len(t, collections, 1)
+				assert.Equal(t, "small-collection", collections[0].Name)
+
+				incompatible, err := pc.ListIncompatibleCollections(context.Background())
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleCollection{{
+					Name:          "archive-2025",
+					MinAPIVersion: "2027-01",
+					Message:       "Collection 'archive-2025' uses features that API version 2026-10 can't represent.",
+				}}, incompatible)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/collections"},
+				{method: http.MethodGet, path: "/collections"},
+			},
+		},
+		{
+			name:     "ListIncompatibleCollections when the key is absent",
+			status:   http.StatusOK,
+			response: `{"collections": []}`,
+			call: func(t *testing.T, pc *Client) {
+				incompatible, err := pc.ListIncompatibleCollections(context.Background())
+				require.NoError(t, err)
+				assert.NotNil(t, incompatible)
+				assert.Empty(t, incompatible)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/collections"}},
+		},
+		{
+			name:     "ListCollections ignores a malformed incompatible_collections",
+			status:   http.StatusOK,
+			response: `{"collections": [{"name": "small-collection", "status": "Ready", "environment": "us-east1-gcp"}], "incompatible_collections": {"name": 7}}`,
+			call: func(t *testing.T, pc *Client) {
+				collections, err := pc.ListCollections(context.Background())
+				require.NoError(t, err)
+				require.Len(t, collections, 1)
+
+				_, err = pc.ListIncompatibleCollections(context.Background())
+				require.Error(t, err)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/collections"},
+				{method: http.MethodGet, path: "/collections"},
+			},
+		},
+		{
+			name:     "DescribeCollection of an incompatible collection returns the 412 as a PineconeError",
+			status:   http.StatusPreconditionFailed,
+			response: incompatible412JSON(incompatibleCollectionMessage),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.DescribeCollection(context.Background(), "archive-2025")
+				requireIncompatibleError(t, err, incompatibleCollectionMessage)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/collections/archive-2025"}},
+		},
+		{
+			// Incompatible entries count toward the page size, so Pagination can point to more
+			// pages while Data holds fewer than Limit backups.
+			name:   "ListBackups for the project with incompatible backups",
+			status: http.StatusOK,
+			response: `{"data": [{"backup_id": "bkp-1", "source_index_name": "docs", "source_index_id": "idx-1", "status": "Ready", "cloud": "aws", "region": "us-east-1"}],
+				"pagination": {"next": "dG9rZW4="},
+				"incompatible_backups": [
+					{"backup_id": "bkp-2", "min_api_version": "2027-01", "message": "m1"},
+					{"backup_id": "bkp-3", "min_api_version": "unstable", "message": "m2"}]}`,
+			call: func(t *testing.T, pc *Client) {
+				backups, err := pc.ListBackups(context.Background(), &ListBackupsParams{Limit: ptr(3)})
+				require.NoError(t, err)
+				require.Len(t, backups.Data, 1)
+				assert.Equal(t, "bkp-1", backups.Data[0].BackupId)
+				require.NotNil(t, backups.Pagination)
+				assert.Equal(t, "dG9rZW4=", backups.Pagination.Next)
+				assert.Equal(t, []*IncompatibleBackup{
+					{BackupId: "bkp-2", MinAPIVersion: "2027-01", Message: "m1"},
+					{BackupId: "bkp-3", MinAPIVersion: "unstable", Message: "m2"},
+				}, backups.IncompatibleBackups)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/backups", query: "limit=3"}},
+		},
+		{
+			name:   "ListBackups for an index with an incompatible backup",
+			status: http.StatusOK,
+			response: `{"data": [],
+				"incompatible_backups": [{"backup_id": "bkp-2", "min_api_version": "2027-01", "message": "m1"}]}`,
+			call: func(t *testing.T, pc *Client) {
+				backups, err := pc.ListBackups(context.Background(), &ListBackupsParams{IndexName: ptr("docs")})
+				require.NoError(t, err)
+				assert.Empty(t, backups.Data)
+				assert.Equal(t, []*IncompatibleBackup{{BackupId: "bkp-2", MinAPIVersion: "2027-01", Message: "m1"}}, backups.IncompatibleBackups)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/indexes/docs/backups"}},
+		},
+		{
+			name:     "ListBackups without incompatible_backups",
+			status:   http.StatusOK,
+			response: `{"data": [{"backup_id": "bkp-1", "source_index_name": "docs", "source_index_id": "idx-1", "status": "Ready", "cloud": "aws", "region": "us-east-1"}]}`,
+			call: func(t *testing.T, pc *Client) {
+				backups, err := pc.ListBackups(context.Background(), nil)
+				require.NoError(t, err)
+				require.Len(t, backups.Data, 1)
+				assert.NotNil(t, backups.IncompatibleBackups)
+				assert.Empty(t, backups.IncompatibleBackups)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/backups"}},
+		},
+		{
+			// A malformed incompatible_backups must not stop ListBackups from returning the full
+			// backups. An entry that doesn't decode is left out; the others are kept.
+			name:   "ListBackups tolerates malformed incompatible_backups entries",
+			status: http.StatusOK,
+			response: `{"data": [{"backup_id": "bkp-1", "source_index_name": "docs", "source_index_id": "idx-1", "status": "Ready", "cloud": "aws", "region": "us-east-1"}],
+				"incompatible_backups": [{"backup_id": "bkp-2", "min_api_version": 2027, "message": "m1"}, "bkp-3", {"backup_id": "bkp-4", "min_api_version": "2027-01", "message": "m2"}]}`,
+			call: func(t *testing.T, pc *Client) {
+				backups, err := pc.ListBackups(context.Background(), nil)
+				require.NoError(t, err)
+				require.Len(t, backups.Data, 1)
+				assert.Equal(t, []*IncompatibleBackup{{BackupId: "bkp-4", MinAPIVersion: "2027-01", Message: "m2"}}, backups.IncompatibleBackups)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/backups"}},
+		},
+		{
+			name:     "ListBackups ignores an incompatible_backups that isn't an array",
+			status:   http.StatusOK,
+			response: `{"data": [{"backup_id": "bkp-1", "source_index_name": "docs", "source_index_id": "idx-1", "status": "Ready", "cloud": "aws", "region": "us-east-1"}], "incompatible_backups": {"backup_id": "bkp-2"}}`,
+			call: func(t *testing.T, pc *Client) {
+				backups, err := pc.ListBackups(context.Background(), nil)
+				require.NoError(t, err)
+				require.Len(t, backups.Data, 1)
+				assert.Empty(t, backups.IncompatibleBackups)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/backups"}},
+		},
+		{
+			name:     "DescribeBackup of an incompatible backup returns the 412 as a PineconeError",
+			status:   http.StatusPreconditionFailed,
+			response: incompatible412JSON(incompatibleBackupMessage),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.DescribeBackup(context.Background(), "bkp-2")
+				requireIncompatibleError(t, err, incompatibleBackupMessage)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/backups/bkp-2"}},
+		},
+		{
+			name:     "CreateIndexFromBackup of an incompatible backup returns the 412 as a PineconeError",
+			status:   http.StatusPreconditionFailed,
+			response: incompatible412JSON(incompatibleBackupMessage),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.CreateIndexFromBackup(context.Background(), &CreateIndexFromBackupParams{BackupId: "bkp-2", Name: "restored"})
+				requireIncompatibleError(t, err, incompatibleBackupMessage)
+			},
+			want: []wantRequest{{method: http.MethodPost, path: "/backups/bkp-2/create-index", body: `{"name": "restored", "tags": null}`}},
+		},
+		{
+			name:   "ListRestoreJobs with incompatible restore jobs",
+			status: http.StatusOK,
+			response: `{"data": [{"restore_job_id": "rj-1", "backup_id": "bkp-1", "target_index_name": "docs", "target_index_id": "idx-1", "status": "Completed", "created_at": "2026-03-15T10:30:00Z", "percent_complete": 100}],
+				"pagination": {"next": "dG9rZW4="},
+				"incompatible_restore_jobs": [{"restore_job_id": "rj-2", "min_api_version": "2027-01", "message": "m1"}]}`,
+			call: func(t *testing.T, pc *Client) {
+				jobs, err := pc.ListRestoreJobs(context.Background(), &ListRestoreJobsParams{Limit: ptr(2)})
+				require.NoError(t, err)
+				require.Len(t, jobs.Data, 1)
+				assert.Equal(t, "rj-1", jobs.Data[0].RestoreJobId)
+				require.NotNil(t, jobs.Pagination)
+				assert.Equal(t, "dG9rZW4=", jobs.Pagination.Next)
+				assert.Equal(t, []*IncompatibleRestoreJob{{RestoreJobId: "rj-2", MinAPIVersion: "2027-01", Message: "m1"}}, jobs.IncompatibleRestoreJobs)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/restore-jobs", query: "limit=2"}},
+		},
+		{
+			name:   "ListRestoreJobs tolerates a malformed incompatible_restore_jobs",
+			status: http.StatusOK,
+			response: `{"data": [{"restore_job_id": "rj-1", "backup_id": "bkp-1", "target_index_name": "docs", "target_index_id": "idx-1", "status": "Completed", "created_at": "2026-03-15T10:30:00Z", "percent_complete": 100}],
+				"incompatible_restore_jobs": [{"restore_job_id": 7}, {"restore_job_id": "rj-3", "min_api_version": "2027-01", "message": "m2"}]}`,
+			call: func(t *testing.T, pc *Client) {
+				jobs, err := pc.ListRestoreJobs(context.Background(), nil)
+				require.NoError(t, err)
+				require.Len(t, jobs.Data, 1)
+				assert.Equal(t, []*IncompatibleRestoreJob{{RestoreJobId: "rj-3", MinAPIVersion: "2027-01", Message: "m2"}}, jobs.IncompatibleRestoreJobs)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/restore-jobs"}},
+		},
+		{
+			name:     "ListRestoreJobs without incompatible_restore_jobs",
+			status:   http.StatusOK,
+			response: `{"data": []}`,
+			call: func(t *testing.T, pc *Client) {
+				jobs, err := pc.ListRestoreJobs(context.Background(), nil)
+				require.NoError(t, err)
+				assert.NotNil(t, jobs.IncompatibleRestoreJobs)
+				assert.Empty(t, jobs.IncompatibleRestoreJobs)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/restore-jobs"}},
+		},
+		{
+			name:     "DescribeRestoreJob of an incompatible restore job returns the 412 as a PineconeError",
+			status:   http.StatusPreconditionFailed,
+			response: incompatible412JSON(incompatibleRestoreJobMessage),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.DescribeRestoreJob(context.Background(), "rj-2")
+				requireIncompatibleError(t, err, incompatibleRestoreJobMessage)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/restore-jobs/rj-2"}},
+		},
+		{
 			name:     "ListBackups for an index including deleted",
 			status:   http.StatusOK,
 			response: `{"data": []}`,
@@ -1441,7 +1653,25 @@ func TestReadCapacityDeprecatedShardsWireIdenticalUnit(t *testing.T) {
 
 const incompatibleIndex412JSON = `{"status": 412, "error": {"code": "FAILED_PRECONDITION", "message": "Index 'docs-v2' uses features that API version 2026-10 can't represent. To view or configure it, upgrade to a Pinecone SDK that supports API version 2027-01 or later. If you call the API directly, set the X-Pinecone-Api-Version header to 2027-01 or later."}}`
 
-func requireIncompatibleIndexError(t *testing.T, err error) {
+// Messages from apis 8a0f771b (412*RequiresNewerApiVersion.yaml examples).
+const (
+	incompatibleCollectionMessage = "Collection 'archive-2025' uses features that API version 2026-10 can't represent. To view it, upgrade to a Pinecone SDK that supports API version 2027-01 or later. If you call the API directly, set the X-Pinecone-Api-Version header to 2027-01 or later."
+	incompatibleBackupMessage     = "Backup 'bkp-2' uses features that API version 2026-10 can't represent. To view or restore it, upgrade to a Pinecone SDK that supports API version 2027-01 or later. If you call the API directly, set the X-Pinecone-Api-Version header to 2027-01 or later."
+	incompatibleRestoreJobMessage = "Restore job 'rj-2' uses features that API version 2026-10 can't represent. To view it, upgrade to a Pinecone SDK that supports API version 2027-01 or later. If you call the API directly, set the X-Pinecone-Api-Version header to 2027-01 or later."
+)
+
+func incompatible412JSON(message string) string {
+	body, err := json.Marshal(map[string]any{
+		"status": 412,
+		"error":  map[string]string{"code": "FAILED_PRECONDITION", "message": message},
+	})
+	if err != nil {
+		panic(err)
+	}
+	return string(body)
+}
+
+func requireIncompatibleError(t *testing.T, err error, message string) {
 	t.Helper()
 	var pcErr *PineconeError
 	require.ErrorAs(t, err, &pcErr)
@@ -1452,5 +1682,10 @@ func requireIncompatibleIndexError(t *testing.T, err error) {
 	}
 	require.NoError(t, json.Unmarshal([]byte(pcErr.Msg.Error()), &details))
 	assert.Equal(t, "FAILED_PRECONDITION", details.ErrorCode)
-	assert.Contains(t, details.Message, "Index 'docs-v2' uses features that API version 2026-10 can't represent. To view or configure it, upgrade to a Pinecone SDK that supports API version 2027-01 or later. If you call the API directly, set the X-Pinecone-Api-Version header to 2027-01 or later.")
+	assert.Contains(t, details.Message, message)
+}
+
+func requireIncompatibleIndexError(t *testing.T, err error) {
+	t.Helper()
+	requireIncompatibleError(t, err, "Index 'docs-v2' uses features that API version 2026-10 can't represent. To view or configure it, upgrade to a Pinecone SDK that supports API version 2027-01 or later. If you call the API directly, set the X-Pinecone-Api-Version header to 2027-01 or later.")
 }

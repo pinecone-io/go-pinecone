@@ -502,6 +502,20 @@ type Collection struct {
 	Environment string `json:"environment"`
 }
 
+// IncompatibleCollection is a collection that exists in the project but uses features this SDK's
+// API version can't represent, so [Client.ListCollections] leaves it out. List these with
+// [Client.ListIncompatibleCollections].
+type IncompatibleCollection struct {
+	// Name is the name of the collection.
+	Name string `json:"name"`
+	// MinAPIVersion is the oldest API version that can describe the collection, such as "2027-01",
+	// or "unstable" when only the unstable version can. Use it, not Message, to act on the entry.
+	MinAPIVersion string `json:"min_api_version"`
+	// Message explains in plain words why the collection can't be described and what to do. Its
+	// wording may change.
+	Message string `json:"message"`
+}
+
 // CollectionStatus is the status of a Pinecone [Collection].
 type CollectionStatus string
 
@@ -1468,6 +1482,26 @@ type BackupList struct {
 	// Pagination holds the token for fetching the next page of results. It is nil when there are
 	// no more results; otherwise pass Pagination.Next as the next request's PaginationToken.
 	Pagination *Pagination `json:"pagination,omitempty"`
+	// IncompatibleBackups lists the backups on this page that this SDK's API version can't
+	// describe, so they're left out of Data. Each counts toward Limit like a backup in Data, so a
+	// page can hold fewer than Limit backups in Data while Pagination still points to more. It is
+	// empty when every backup can be described.
+	IncompatibleBackups []*IncompatibleBackup `json:"incompatible_backups,omitempty"`
+}
+
+// IncompatibleBackup is a backup that exists in the project but uses features this SDK's API
+// version can't represent, so [Client.ListBackups] reports it in [BackupList].IncompatibleBackups
+// instead of Data. [Client.DescribeBackup] and [Client.CreateIndexFromBackup] refuse it with a
+// [PineconeError] whose error code is FAILED_PRECONDITION; [Client.DeleteBackup] still works.
+type IncompatibleBackup struct {
+	// BackupId is the unique identifier of the backup.
+	BackupId string `json:"backup_id"`
+	// MinAPIVersion is the oldest API version that can describe the backup, such as "2027-01", or
+	// "unstable" when only the unstable version can. Use it, not Message, to act on the entry.
+	MinAPIVersion string `json:"min_api_version"`
+	// Message explains in plain words why the backup can't be described and what to do. Its
+	// wording may change.
+	Message string `json:"message"`
 }
 
 // RestoreJob describes the status of a restore job.
@@ -1498,6 +1532,27 @@ type RestoreJobList struct {
 	// Pagination holds the token for fetching the next page of results. It is nil when there are
 	// no more results; otherwise pass Pagination.Next as the next request's PaginationToken.
 	Pagination *Pagination `json:"pagination,omitempty"`
+	// IncompatibleRestoreJobs lists the restore jobs on this page that this SDK's API version
+	// can't describe, so they're left out of Data. Each counts toward Limit like a restore job in
+	// Data, so a page can hold fewer than Limit restore jobs in Data while Pagination still points
+	// to more. It is empty when every restore job can be described.
+	IncompatibleRestoreJobs []*IncompatibleRestoreJob `json:"incompatible_restore_jobs,omitempty"`
+}
+
+// IncompatibleRestoreJob is a restore job that uses features this SDK's API version can't
+// represent, so [Client.ListRestoreJobs] reports it in [RestoreJobList].IncompatibleRestoreJobs
+// instead of Data. [Client.DescribeRestoreJob] refuses it with a [PineconeError] whose error code
+// is FAILED_PRECONDITION.
+type IncompatibleRestoreJob struct {
+	// RestoreJobId is the unique identifier of the restore job.
+	RestoreJobId string `json:"restore_job_id"`
+	// MinAPIVersion is the oldest API version that can describe the restore job, such as
+	// "2027-01", or "unstable" when only the unstable version can. Use it, not Message, to act on
+	// the entry.
+	MinAPIVersion string `json:"min_api_version"`
+	// Message explains in plain words why the restore job can't be described and what to do. Its
+	// wording may change.
+	Message string `json:"message"`
 }
 
 // Project represents the details of a project.

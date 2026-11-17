@@ -62,6 +62,23 @@ err = pc.DeleteBackup(ctx, backupId)
 To list every backup in the project, leave out `IndexName`. To also list backups of deleted indexes that had that name,
 set `IncludeDeleted`, which requires `IndexName`.
 
+A backup that uses a feature from a later API version than this SDK uses can't be described by this SDK, so
+`ListBackups` reports it in `IncompatibleBackups` instead of `Data`, with its `BackupId` and the oldest API version that
+can describe it. Each one counts toward `Limit`, so a page can hold fewer than `Limit` backups in `Data` while
+`Pagination` still points to more. `DescribeBackup` and `CreateIndexFromBackup` refuse such a backup with the error code
+`FAILED_PRECONDITION`; `DeleteBackup` still works. To work with it, upgrade to an SDK that supports that API version;
+don't override the `X-Pinecone-Api-Version` header (see [List indexes](indexes.md#list-indexes)).
+
+```go
+backups, err := pc.ListBackups(ctx, nil)
+if err != nil {
+	log.Fatalf("Failed to list backups: %v", err)
+}
+for _, b := range backups.IncompatibleBackups {
+	fmt.Printf("%s (needs API version %s or later)\n", b.BackupId, b.MinAPIVersion)
+}
+```
+
 ## Restore a backup into a new index
 
 Wait for a backup's `Status` to be `"Ready"` before you restore it. `CreateIndexFromBackup` creates a new index in the
@@ -88,7 +105,9 @@ fmt.Printf("Restore job status: %s\n", job.Status)
 ```
 
 A restore job's `Status` is `"Pending"`, `"Completed"`, `"Failed"`, or `"Cancelled"`. `PercentComplete` is reported
-only as 100, once the job completes. To list the project's restore jobs, use `ListRestoreJobs`.
+only as 100, once the job completes. To list the project's restore jobs, use `ListRestoreJobs`. Like `ListBackups`, it
+reports a restore job this SDK can't describe in `IncompatibleRestoreJobs` instead of `Data`, and `DescribeRestoreJob`
+refuses such a job with the error code `FAILED_PRECONDITION`.
 
 ### Restore into another region
 

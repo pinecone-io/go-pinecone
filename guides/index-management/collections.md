@@ -35,6 +35,22 @@ for _, collection := range collections {
 }
 ```
 
+A collection that uses a feature from a later API version than this SDK uses can't be described by this SDK, so
+`ListCollections` leaves it out. `ListIncompatibleCollections` lists those collections, each with the oldest API version
+that can describe it. `DescribeCollection` refuses such a collection with the error code `FAILED_PRECONDITION`;
+`DeleteCollection` still works. To work with it, upgrade to an SDK that supports that API version; don't override the
+`X-Pinecone-Api-Version` header (see [List indexes](indexes.md#list-indexes)).
+
+```go
+incompatible, err := pc.ListIncompatibleCollections(ctx)
+if err != nil {
+	log.Fatalf("Failed to list collections: %v", err)
+}
+for _, collection := range incompatible {
+	fmt.Printf("- %s (needs API version %s or later)\n", collection.Name, collection.MinAPIVersion)
+}
+```
+
 ## Describe a collection
 
 ```go
