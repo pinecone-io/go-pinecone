@@ -1232,6 +1232,39 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			want: []wantRequest{{method: http.MethodGet, path: "/restore-jobs/rj-2"}},
 		},
 		{
+			// Entry models may gain fields in later releases (apis a101b112); unknown ones are ignored.
+			name:   "Incompatible entries with fields the SDK doesn't know",
+			status: http.StatusOK,
+			response: `{"indexes": [], "collections": [], "data": [],
+				"incompatible_indexes": [{"name": "i", "min_api_version": "2027-01", "max_api_version": "2027-04", "message": "m"}],
+				"incompatible_collections": [{"name": "c", "min_api_version": "2027-01", "max_api_version": "2027-04", "message": "m"}],
+				"incompatible_backups": [{"backup_id": "b", "min_api_version": "2027-01", "max_api_version": "2027-04", "message": "m"}],
+				"incompatible_restore_jobs": [{"restore_job_id": "r", "min_api_version": "2027-01", "max_api_version": "2027-04", "message": "m"}]}`,
+			call: func(t *testing.T, pc *Client) {
+				indexes, err := pc.ListIncompatibleIndexes(context.Background())
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleIndex{{Name: "i", MinAPIVersion: "2027-01", Message: "m"}}, indexes)
+
+				collections, err := pc.ListIncompatibleCollections(context.Background())
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleCollection{{Name: "c", MinAPIVersion: "2027-01", Message: "m"}}, collections)
+
+				backups, err := pc.ListBackups(context.Background(), nil)
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleBackup{{BackupId: "b", MinAPIVersion: "2027-01", Message: "m"}}, backups.IncompatibleBackups)
+
+				jobs, err := pc.ListRestoreJobs(context.Background(), nil)
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleRestoreJob{{RestoreJobId: "r", MinAPIVersion: "2027-01", Message: "m"}}, jobs.IncompatibleRestoreJobs)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes"},
+				{method: http.MethodGet, path: "/collections"},
+				{method: http.MethodGet, path: "/backups"},
+				{method: http.MethodGet, path: "/restore-jobs"},
+			},
+		},
+		{
 			name:     "ListBackups for an index including deleted",
 			status:   http.StatusOK,
 			response: `{"data": []}`,
