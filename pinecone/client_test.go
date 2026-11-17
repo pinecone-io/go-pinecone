@@ -455,6 +455,12 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 			statusCode:   http.StatusBadRequest,
 			errorOutput:  `{"status_code":400,"body":"{\"error\": { \"code\": \"INVALID_ARGUMENT\", \"message\": \"test error message\"}, \"status\": 400}","error_code":"INVALID_ARGUMENT","message":"test error message"}`,
 		}, {
+			name:         "server message with <, > and & is not HTML-escaped",
+			responseBody: mockResponse(`{"error": {"code": "INVALID_ARGUMENT", "message": "max_replicas must be >= min_replicas & < 10"}, "status": 400}`, http.StatusBadRequest),
+			statusCode:   http.StatusBadRequest,
+			prefix:       "failed to create index: ",
+			errorOutput:  `{"status_code":400,"body":"{\"error\": {\"code\": \"INVALID_ARGUMENT\", \"message\": \"max_replicas must be >= min_replicas & < 10\"}, \"status\": 400}","error_code":"INVALID_ARGUMENT","message":"failed to create index: max_replicas must be >= min_replicas & < 10"}`,
+		}, {
 			name:         "test JSON body",
 			responseBody: mockResponse(`{"message": "test error message", "extraCode": 665}`, http.StatusBadRequest),
 			statusCode:   http.StatusBadRequest,

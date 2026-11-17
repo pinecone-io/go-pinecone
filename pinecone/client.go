@@ -4,6 +4,7 @@
 package pinecone
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -2881,11 +2882,15 @@ func handleErrorResponseBody(response *http.Response, errMsgPrefix string) error
 }
 
 func formatError(errMap errorResponseMap) error {
-	jsonString, err := json.Marshal(errMap)
-	if err != nil {
+	// json.Marshal would escape <, > and & as \u003c, \u003e and \u0026, which makes server
+	// messages such as "max_replicas must be >= min_replicas" hard to read.
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(errMap); err != nil {
 		return err
 	}
-	baseError := errors.New(string(jsonString))
+	baseError := errors.New(strings.TrimSuffix(buf.String(), "\n"))
 
 	return &PineconeError{Code: errMap.StatusCode, Msg: baseError}
 }
