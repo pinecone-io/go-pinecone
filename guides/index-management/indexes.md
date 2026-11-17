@@ -416,13 +416,15 @@ for _, idx := range idxs {
 }
 ```
 
-An index created with a feature from a later API version than this SDK uses can't be described by this SDK, so
-`ListIndexes` leaves it out. `ListIncompatibleIndexes` lists those indexes, each with the oldest API version that can
-describe it. `DescribeIndex` and `ConfigureIndex` refuse such an index with the error code `FAILED_PRECONDITION`.
-`DeleteIndex` works unless deletion protection is on, which this SDK can't turn off for such an index. To work with
-it, upgrade to an SDK that supports that API version. The error message's advice to set the `X-Pinecone-Api-Version`
-header is for direct API calls; don't do that with this SDK (for example through `Headers`), because its request and
-response types are built for one API version and the difference goes unnoticed.
+An index created with a feature that this SDK's API version can't represent can't be described by this SDK, so
+`ListIndexes` leaves it out. `ListIncompatibleIndexes` lists those indexes, each with a `CompatibleAPIVersion`: an API
+version that can describe it, chosen by Pinecone as the one to move to. Other versions may also work, and API versions
+aren't guaranteed to be ordered. `DescribeIndex` and `ConfigureIndex` refuse such an index with the error code
+`FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`. `DeleteIndex` works unless deletion
+protection is on, which this SDK can't turn off for such an index. To work with it, upgrade to an SDK that supports that
+API version. The error message's advice to set the `X-Pinecone-Api-Version` header is for direct API calls; don't do
+that with this SDK (for example through `Headers`), because its request and response types are built for one API version
+and the difference goes unnoticed.
 
 ```go
 incompatible, err := pc.ListIncompatibleIndexes(ctx)
@@ -430,7 +432,7 @@ if err != nil {
 	log.Fatalf("Failed to list indexes: %v", err)
 }
 for _, idx := range incompatible {
-	fmt.Printf("- %s (needs API version %s or later)\n", idx.Name, idx.MinAPIVersion)
+	fmt.Printf("- %s (use API version %s)\n", idx.Name, idx.CompatibleAPIVersion)
 }
 ```
 
