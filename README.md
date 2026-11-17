@@ -281,6 +281,7 @@ Indexes created with `CreateIndexForModel` are legacy integrated indexes, which 
   - [Legacy integrated indexes](./guides/inference/integrated-embedding.md): indexes created with
     `CreateIndexForModel`, and the legacy Records API
 - [Admin API](./guides/admin.md)
+- [v8 migration guide](./guides/migration/v8.md)
 - [v7 migration guide](./guides/migration/v7.md)
 
 ## Support
