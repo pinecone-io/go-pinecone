@@ -449,7 +449,8 @@ func (c *Client) ListIncompatibleIndexes(ctx context.Context) ([]*IncompatibleIn
 }
 
 // indexListResponse keeps incompatible_indexes undecoded, so a malformed entry there can't stop
-// ListIndexes from returning the full indexes.
+// ListIndexes from returning the full indexes. The incompatible_* keys are required in 2026-10, but
+// servers deployed before that change omit them, so every list decoder treats a missing key as empty.
 type indexListResponse struct {
 	Indexes             *[]db_control.IndexModel `json:"indexes,omitempty"`
 	IncompatibleIndexes json.RawMessage          `json:"incompatible_indexes,omitempty"`

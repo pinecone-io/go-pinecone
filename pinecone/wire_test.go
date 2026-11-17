@@ -967,6 +967,7 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			},
 		},
 		{
+			// Servers deployed before the arrays became required omit the key.
 			name:     "ListIncompatibleIndexes when the key is absent",
 			status:   http.StatusOK,
 			response: `{"indexes": [` + indexModelFixture{name: "docs"}.JSON() + `]}`,
@@ -1230,6 +1231,36 @@ func TestControlPlaneWireUnit(t *testing.T) {
 				requireIncompatibleError(t, err, incompatibleRestoreJobMessage)
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/restore-jobs/rj-2"}},
+		},
+		{
+			// 2026-10 always sends the incompatible_* arrays, empty when there are none (apis 95b17e0e).
+			name:   "Empty incompatible arrays",
+			status: http.StatusOK,
+			response: `{"indexes": [], "collections": [], "data": [],
+				"incompatible_indexes": [], "incompatible_collections": [], "incompatible_backups": [], "incompatible_restore_jobs": []}`,
+			call: func(t *testing.T, pc *Client) {
+				indexes, err := pc.ListIncompatibleIndexes(context.Background())
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleIndex{}, indexes)
+
+				collections, err := pc.ListIncompatibleCollections(context.Background())
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleCollection{}, collections)
+
+				backups, err := pc.ListBackups(context.Background(), nil)
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleBackup{}, backups.IncompatibleBackups)
+
+				jobs, err := pc.ListRestoreJobs(context.Background(), nil)
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleRestoreJob{}, jobs.IncompatibleRestoreJobs)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes"},
+				{method: http.MethodGet, path: "/collections"},
+				{method: http.MethodGet, path: "/backups"},
+				{method: http.MethodGet, path: "/restore-jobs"},
+			},
 		},
 		{
 			// Entry models may gain fields in later releases (apis a101b112); unknown ones are ignored.
