@@ -97,8 +97,8 @@ type BackupList struct {
 	// Data List of backup objects
 	Data *[]BackupModel `json:"data,omitempty"`
 
-	// IncompatibleBackups Backups that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `data`. An entry counts toward the page size like a full item, so pagination is unaffected. This field is omitted when there are none.
-	IncompatibleBackups *[]IncompatibleBackup `json:"incompatible_backups,omitempty"`
+	// IncompatibleBackups Backups that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `data`. An entry counts toward the page size like a full item, so pagination is unaffected. The array is empty when there are none.
+	IncompatibleBackups []IncompatibleBackup `json:"incompatible_backups"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
@@ -205,8 +205,8 @@ type BackupScheduleHistoryList struct {
 	// Data Backups from this schedule for the current page.
 	Data []BackupScheduleHistoryItem `json:"data"`
 
-	// IncompatibleBackups Backups from this schedule that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `data`. An entry counts toward the page size like a full item, so pagination is unaffected. This field is omitted when there are none.
-	IncompatibleBackups *[]IncompatibleBackup `json:"incompatible_backups,omitempty"`
+	// IncompatibleBackups Backups from this schedule that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `data`. An entry counts toward the page size like a full item, so pagination is unaffected. The array is empty when there are none.
+	IncompatibleBackups []IncompatibleBackup `json:"incompatible_backups"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
@@ -217,8 +217,8 @@ type BackupScheduleList struct {
 	// Data Backup schedules returned for this page.
 	Data []BackupScheduleResponse `json:"data"`
 
-	// IncompatibleBackupSchedules Backup schedules that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `data`. An entry counts toward the page size like a full item, so pagination is unaffected. This field is omitted when there are none.
-	IncompatibleBackupSchedules *[]IncompatibleBackupSchedule `json:"incompatible_backup_schedules,omitempty"`
+	// IncompatibleBackupSchedules Backup schedules that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `data`. An entry counts toward the page size like a full item, so pagination is unaffected. The array is empty when there are none.
+	IncompatibleBackupSchedules []IncompatibleBackupSchedule `json:"incompatible_backup_schedules"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
@@ -304,8 +304,8 @@ type CollectionList struct {
 	// Collections List of collections in the project
 	Collections *[]CollectionModel `json:"collections,omitempty"`
 
-	// IncompatibleCollections Collections that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `collections`. This field is omitted when there are none.
-	IncompatibleCollections *[]IncompatibleCollection `json:"incompatible_collections,omitempty"`
+	// IncompatibleCollections Collections that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `collections`. The array is empty when there are none.
+	IncompatibleCollections []IncompatibleCollection `json:"incompatible_collections"`
 }
 
 // CollectionModel The CollectionModel describes the configuration and status of a Pinecone collection.
@@ -372,8 +372,8 @@ type ConversionJobList struct {
 	// Data The conversion jobs on this page, newest first.
 	Data []ConversionJobModel `json:"data"`
 
-	// IncompatibleConversionJobs Conversion jobs that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `data`. An entry counts toward the page size like a full item, so pagination is unaffected. This field is omitted when there are none.
-	IncompatibleConversionJobs *[]IncompatibleConversionJob `json:"incompatible_conversion_jobs,omitempty"`
+	// IncompatibleConversionJobs Conversion jobs that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `data`. An entry counts toward the page size like a full item, so pagination is unaffected. The array is empty when there are none.
+	IncompatibleConversionJobs []IncompatibleConversionJob `json:"incompatible_conversion_jobs"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
@@ -701,11 +701,14 @@ type ErrorResponse struct {
 		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `INTERNAL`, `FORBIDDEN`, `PAYMENT_REQUIRED`, `SERVICE_UNAVAILABLE`, `PAYLOAD_TOO_LARGE`, or `UNPROCESSABLE_ENTITY`.
 		Code string `json:"code"`
 
-		// Details Additional information about the error. This field is not guaranteed to be present.
+		// Details Machine-readable facts about the error, as a flat object whose values are strings, integers or booleans. On API version 2026-10 and later it appears only together with `reason`, and holds only the keys that reason documents. This field is not guaranteed to be present.
 		Details *map[string]interface{} `json:"details,omitempty"`
 
 		// Message A human-readable description of the error
 		Message string `json:"message"`
+
+		// Reason The exact cause of the error, when the error names one. Only some errors set it, and only on API version 2026-10 and later; no error in this API sets one yet. Each reason belongs to one `code`, keeps its name and meaning within an API version, and documents the `details` keys it sets. New reasons may be added: treat a value you don't recognize as if `reason` were absent, and act on `code`.
+		Reason *string `json:"reason,omitempty"`
 	} `json:"error"`
 
 	// Status The HTTP status code of the error.
@@ -775,7 +778,7 @@ type IncompatibleConversionJob struct {
 	MinApiVersion string `json:"min_api_version"`
 }
 
-// IncompatibleIndex An index that exists in the project but uses features this API version can't represent. Only its name is shown, with the oldest API version that can describe it and a message explaining what to do. Describing or configuring this index with this API version returns `412 FAILED_PRECONDITION` with the same message. Later releases may add fields to this object, such as the newest API version that can describe the resource; ignore fields you don't recognize.
+// IncompatibleIndex An index that exists in the project but uses features this API version can't represent. Only its name is shown, with the oldest API version that can describe it and a message explaining what to do. Describing or configuring this index with this API version returns `412 FAILED_PRECONDITION` with the same message. Operations that act on the index without returning it still succeed: deleting it, converting it, creating a backup, backup schedule or collection from it, and listing its backups and backup schedules. Later releases may add fields to this object, such as the newest API version that can describe the resource; ignore fields you don't recognize.
 type IncompatibleIndex struct {
 	// Message A human-readable explanation of why this API version can't describe the index and what to do about it. The wording may change; use `min_api_version` to act on the entry programmatically.
 	Message string `json:"message"`
@@ -818,8 +821,8 @@ type IndexDeploymentRequest struct {
 
 // IndexList The list of indexes that exist in the project.
 type IndexList struct {
-	// IncompatibleIndexes Indexes in the project that this API version can't describe, because they use features added in a later API version. These indexes still exist and still count toward project limits, but they are not included in `indexes`. This field is omitted when there are none.
-	IncompatibleIndexes *[]IncompatibleIndex `json:"incompatible_indexes,omitempty"`
+	// IncompatibleIndexes Indexes in the project that this API version can't describe, because they use features added in a later API version. These indexes still exist and still count toward project limits, but they are not included in `indexes`. The array is empty when there are none.
+	IncompatibleIndexes []IncompatibleIndex `json:"incompatible_indexes"`
 
 	// Indexes List of indexes in the project
 	Indexes *[]IndexModel `json:"indexes,omitempty"`
@@ -1264,8 +1267,8 @@ type RestoreJobList struct {
 	// Data List of restore job objects
 	Data []RestoreJobModel `json:"data"`
 
-	// IncompatibleRestoreJobs Restore jobs that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `data`. An entry counts toward the page size like a full item, so pagination is unaffected. This field is omitted when there are none.
-	IncompatibleRestoreJobs *[]IncompatibleRestoreJob `json:"incompatible_restore_jobs,omitempty"`
+	// IncompatibleRestoreJobs Restore jobs that this API version can't describe, because they use features added in a later API version. They still exist but are not included in `data`. An entry counts toward the page size like a full item, so pagination is unaffected. The array is empty when there are none.
+	IncompatibleRestoreJobs []IncompatibleRestoreJob `json:"incompatible_restore_jobs"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`

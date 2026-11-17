@@ -271,8 +271,22 @@ type ErrorResponse struct {
 		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `INTERNAL`, `FORBIDDEN`, `PAYMENT_REQUIRED`, `SERVICE_UNAVAILABLE`, or `PAYLOAD_TOO_LARGE`.
 		Code string `json:"code"`
 
+		// Details Machine-readable facts about the error, as a flat object whose values are strings, integers or booleans. It appears only together with `reason`, and holds only the keys that reason documents:
+		// - `limit_documents`, `actual_documents`: the most documents one request takes, and how many the request sent.
+		// - `field`: the name of the field being embedded.
+		// - `model`: the name of the embedding model.
+		Details *map[string]interface{} `json:"details,omitempty"`
+
 		// Message A human-readable description of the error, including how to correct the request where possible.
 		Message string `json:"message"`
+
+		// Reason The exact cause of the error, when the error names one. Only some errors set it, and only on API version 2026-10 and later. Each reason belongs to one `code`, keeps its name and meaning within an API version, and documents the `details` keys it sets. New reasons may be added: treat a value you don't recognize as if `reason` were absent, and act on `code`.
+		//
+		// Possible values:
+		// - `TOO_MANY_DOCUMENTS` (`INVALID_ARGUMENT`): the request has more documents than the operation takes. `details`: `limit_documents`, `actual_documents`.
+		// - `RATE_LIMIT_EXCEEDED` (`RESOURCE_EXHAUSTED`): embedding hit a per-second or per-minute limit. The same request can succeed after backing off. `details`: `field`, `model`.
+		// - `MONTHLY_LIMIT_EXCEEDED` (`RESOURCE_EXHAUSTED`): embedding hit a limit for the current month. Retrying fails until the limit resets or the plan changes. `details`: `field`, `model`.
+		Reason *string `json:"reason,omitempty"`
 	} `json:"error"`
 
 	// Status The HTTP status code of the error.
@@ -5515,6 +5529,7 @@ type SearchDocumentsApiResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *SearchDocumentsResponse
 	JSON400      *ErrorResponse
+	JSON429      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON5XX      *ErrorResponse
 }
@@ -5541,6 +5556,7 @@ type UpdateDocumentsApiResponse struct {
 	JSON202      *UpdateDocumentsResponse
 	JSON400      *ErrorResponse
 	JSON412      *ErrorResponse
+	JSON429      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON5XX      *ErrorResponse
 }
@@ -5567,6 +5583,7 @@ type UpsertDocumentsApiResponse struct {
 	JSON202      *UpsertDocumentsResponse
 	JSON400      *ErrorResponse
 	JSON409      *ErrorResponse
+	JSON429      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON5XX      *ErrorResponse
 }
@@ -7100,6 +7117,13 @@ func ParseSearchDocumentsApiResponse(rsp *http.Response) (*SearchDocumentsApiRes
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -7154,6 +7178,13 @@ func ParseUpdateDocumentsApiResponse(rsp *http.Response) (*UpdateDocumentsApiRes
 		}
 		response.JSON412 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -7207,6 +7238,13 @@ func ParseUpsertDocumentsApiResponse(rsp *http.Response) (*UpsertDocumentsApiRes
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
