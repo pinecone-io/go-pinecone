@@ -347,7 +347,8 @@ func ensureHostHasHttps(host string) string {
 	return host
 }
 
-// ListIndexes retrieves a list of all Indexes in a Pinecone [project].
+// ListIndexes retrieves a list of all Indexes in a Pinecone [project]. Indexes that use features
+// this SDK's API version can't represent are left out; list them with [Client.ListIncompatibleIndexes].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -379,18 +380,7 @@ func ensureHostHasHttps(host string) string {
 //
 // [project]: https://docs.pinecone.io/guides/projects/understanding-projects
 func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
-	res, err := c.restClient.ListIndexes(ctx, &db_control.ListIndexesParams{XPineconeApiVersion: gen.PineconeApiVersion})
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return nil, handleErrorResponseBody(res, "failed to list indexes: ")
-	}
-
-	var indexList db_control.IndexList
-	err = json.NewDecoder(res.Body).Decode(&indexList)
+	indexList, err := c.listIndexes(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -410,6 +400,64 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	}
 
 	return indexes, nil
+}
+
+// ListIncompatibleIndexes lists the indexes in the project that [Client.ListIndexes] leaves out
+// because they use features this SDK's API version can't represent. Each [IncompatibleIndex] names
+// the oldest API version that can describe it. Such an index still exists and counts toward project
+// limits. [Client.DescribeIndex] and [Client.ConfigureIndex] refuse it with a [PineconeError] whose
+// error code is FAILED_PRECONDITION; [Client.DeleteIndex] works.
+//
+// It returns an empty slice when every index can be described.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime, allowing for the request
+//     to be canceled or to timeout according to the context's deadline.
+//
+// Example:
+//
+//	incompatible, err := pc.ListIncompatibleIndexes(ctx)
+//	if err != nil {
+//		log.Fatalf("Failed to list indexes: %v", err)
+//	}
+//	for _, idx := range incompatible {
+//		fmt.Printf("%s needs API version %s or later\n", idx.Name, idx.MinAPIVersion)
+//	}
+func (c *Client) ListIncompatibleIndexes(ctx context.Context) ([]*IncompatibleIndex, error) {
+	indexList, err := c.listIndexes(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	incompatible := make([]*IncompatibleIndex, 0)
+	if indexList.IncompatibleIndexes != nil {
+		for _, idx := range *indexList.IncompatibleIndexes {
+			incompatible = append(incompatible, &IncompatibleIndex{
+				Name:          idx.Name,
+				MinAPIVersion: idx.MinApiVersion,
+				Message:       idx.Message,
+			})
+		}
+	}
+	return incompatible, nil
+}
+
+func (c *Client) listIndexes(ctx context.Context) (*db_control.IndexList, error) {
+	res, err := c.restClient.ListIndexes(ctx, &db_control.ListIndexesParams{XPineconeApiVersion: gen.PineconeApiVersion})
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to list indexes: ")
+	}
+
+	var indexList db_control.IndexList
+	if err := json.NewDecoder(res.Body).Decode(&indexList); err != nil {
+		return nil, err
+	}
+	return &indexList, nil
 }
 
 // CreateIndexRequest holds the parameters for creating an index from an explicit schema with

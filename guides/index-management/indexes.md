@@ -328,6 +328,21 @@ for _, idx := range idxs {
 }
 ```
 
+An index created with a feature from a later API version than this SDK uses can't be described by this SDK, so
+`ListIndexes` leaves it out. `ListIncompatibleIndexes` lists those indexes, each with the oldest API version that can
+describe it. `DescribeIndex` and `ConfigureIndex` refuse such an index with the error code `FAILED_PRECONDITION`, and
+`DeleteIndex` works. To work with it, upgrade to an SDK that supports that API version.
+
+```go
+incompatible, err := pc.ListIncompatibleIndexes(ctx)
+if err != nil {
+	log.Fatalf("Failed to list indexes: %v", err)
+}
+for _, idx := range incompatible {
+	fmt.Printf("- %s (needs API version %s or later)\n", idx.Name, idx.MinAPIVersion)
+}
+```
+
 ## Describe an index
 
 The following example describes an index by name. The returned `Index` includes its `Host`, `Status`, `Schema`, and

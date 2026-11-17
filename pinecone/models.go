@@ -570,6 +570,20 @@ type BYOCSpec struct {
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 }
 
+// IncompatibleIndex is an index that exists in the project but uses features this SDK's API
+// version can't represent, so [Client.ListIndexes] leaves it out. List these with
+// [Client.ListIncompatibleIndexes].
+type IncompatibleIndex struct {
+	// Name is the name of the index.
+	Name string `json:"name"`
+	// MinAPIVersion is the oldest API version that can describe the index, such as "2027-01", or
+	// "unstable" when only the unstable version can. Use it, not Message, to act on the entry.
+	MinAPIVersion string `json:"min_api_version"`
+	// Message explains in plain words why the index can't be described and what to do. Its wording
+	// may change.
+	Message string `json:"message"`
+}
+
 // ReadCapacity represents the read capacity configuration returned from the API.
 // [ReadCapacity] is a tagged union which can have either [ReadCapacityOnDemand] or [ReadCapacityDedicated].
 type ReadCapacity struct {

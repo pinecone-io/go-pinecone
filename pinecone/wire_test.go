@@ -916,6 +916,90 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			},
 		},
 		{
+			// Indexes 2026-10 can't describe come back in their own array; ListIndexes keeps returning
+			// only full indexes, so existing code never sees a partial Index.
+			name:   "ListIndexes and ListIncompatibleIndexes with a mixed list",
+			status: http.StatusOK,
+			response: `{"indexes": [` + indexModelFixture{name: "docs"}.JSON() + `],
+				"incompatible_indexes": [{"name": "docs-v2", "min_api_version": "2027-01", "message": "Index 'docs-v2' uses features that API version 2026-10 can't represent."}]}`,
+			call: func(t *testing.T, pc *Client) {
+				indexes, err := pc.ListIndexes(context.Background())
+				require.NoError(t, err)
+				require.Len(t, indexes, 1)
+				assert.Equal(t, "docs", indexes[0].Name)
+				require.NotNil(t, indexes[0].Status)
+
+				incompatible, err := pc.ListIncompatibleIndexes(context.Background())
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleIndex{{
+					Name:          "docs-v2",
+					MinAPIVersion: "2027-01",
+					Message:       "Index 'docs-v2' uses features that API version 2026-10 can't represent.",
+				}}, incompatible)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes"},
+				{method: http.MethodGet, path: "/indexes"},
+			},
+		},
+		{
+			// min_api_version values the SDK doesn't know pass through unchanged.
+			name:   "ListIncompatibleIndexes when every index is incompatible",
+			status: http.StatusOK,
+			response: `{"indexes": [], "incompatible_indexes": [
+				{"name": "a", "min_api_version": "unstable", "message": "m1"},
+				{"name": "b", "min_api_version": "2099-04", "message": "m2"}]}`,
+			call: func(t *testing.T, pc *Client) {
+				indexes, err := pc.ListIndexes(context.Background())
+				require.NoError(t, err)
+				assert.Empty(t, indexes)
+
+				incompatible, err := pc.ListIncompatibleIndexes(context.Background())
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleIndex{
+					{Name: "a", MinAPIVersion: "unstable", Message: "m1"},
+					{Name: "b", MinAPIVersion: "2099-04", Message: "m2"},
+				}, incompatible)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes"},
+				{method: http.MethodGet, path: "/indexes"},
+			},
+		},
+		{
+			name:     "ListIncompatibleIndexes when the key is absent",
+			status:   http.StatusOK,
+			response: `{"indexes": [` + indexModelFixture{name: "docs"}.JSON() + `]}`,
+			call: func(t *testing.T, pc *Client) {
+				incompatible, err := pc.ListIncompatibleIndexes(context.Background())
+				require.NoError(t, err)
+				assert.NotNil(t, incompatible)
+				assert.Empty(t, incompatible)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/indexes"}},
+		},
+		{
+			name:     "DescribeIndex of an incompatible index returns the 412 as a PineconeError",
+			status:   http.StatusPreconditionFailed,
+			response: incompatibleIndex412JSON,
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.DescribeIndex(context.Background(), "docs-v2")
+				requireIncompatibleIndexError(t, err)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/indexes/docs-v2"}},
+		},
+		{
+			// ConfigureIndex describes the index first, so the refusal arrives before any PATCH.
+			name:     "ConfigureIndex of an incompatible index returns the 412 as a PineconeError",
+			status:   http.StatusPreconditionFailed,
+			response: incompatibleIndex412JSON,
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.ConfigureIndex(context.Background(), "docs-v2", ConfigureIndexParams{Tags: IndexTags{"team": "search"}})
+				requireIncompatibleIndexError(t, err)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/indexes/docs-v2"}},
+		},
+		{
 			name:     "ListBackups for an index including deleted",
 			status:   http.StatusOK,
 			response: `{"data": []}`,
@@ -1333,4 +1417,20 @@ func TestReadCapacityDeprecatedShardsWireIdenticalUnit(t *testing.T) {
 	newBytes, err = json.Marshal(newPatch)
 	require.NoError(t, err)
 	assert.Equal(t, string(newBytes), string(oldBytes), "configure")
+}
+
+const incompatibleIndex412JSON = `{"status": 412, "error": {"code": "FAILED_PRECONDITION", "message": "Index 'docs-v2' uses features that API version 2026-10 can't represent. To view or configure it, set the API version header to 2027-01 or later."}}`
+
+func requireIncompatibleIndexError(t *testing.T, err error) {
+	t.Helper()
+	var pcErr *PineconeError
+	require.ErrorAs(t, err, &pcErr)
+	assert.Equal(t, http.StatusPreconditionFailed, pcErr.Code)
+	var details struct {
+		ErrorCode string `json:"error_code"`
+		Message   string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(pcErr.Msg.Error()), &details))
+	assert.Equal(t, "FAILED_PRECONDITION", details.ErrorCode)
+	assert.Contains(t, details.Message, "Index 'docs-v2' uses features that API version 2026-10 can't represent. To view or configure it, set the API version header to 2027-01 or later.")
 }
