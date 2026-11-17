@@ -366,8 +366,14 @@ func ExampleClient_ConfigureIndex_replicaAutoscaling() {
 		if err != nil {
 			log.Fatalf("Failed to describe index: %v", err)
 		}
-		if rc := idx.ReadCapacity; rc != nil && rc.Dedicated != nil && rc.Dedicated.Status.State == "Ready" {
-			break
+		if rc := idx.ReadCapacity; rc != nil && rc.Dedicated != nil {
+			status := rc.Dedicated.Status
+			if status.State == "Ready" {
+				break
+			}
+			if status.State == "Error" && status.ErrorMessage != nil {
+				log.Fatalf("Read capacity error: %s", *status.ErrorMessage)
+			}
 		}
 		time.Sleep(30 * time.Second)
 	}

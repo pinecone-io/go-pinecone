@@ -280,7 +280,8 @@ for {
 }
 ```
 
-For an index with dedicated read capacity, also wait until `ReadCapacity.Dedicated.Status.State` is `"Ready"`.
+For an index with dedicated read capacity, also wait until `ReadCapacity.Dedicated.Status.State` is `"Ready"`. If it's
+`"Error"`, `Status.ErrorMessage` says why, and the state won't change on its own.
 
 ## Dedicated read capacity
 
