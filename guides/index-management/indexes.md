@@ -73,7 +73,6 @@ Document indexes have these limitations:
 
 - They run only on serverless deployments.
 - You can't change the schema after the index is created.
-- They don't support [backups](./backups.md).
 - You can't switch them from dedicated read capacity back to on-demand.
 
 ### Configure text processing

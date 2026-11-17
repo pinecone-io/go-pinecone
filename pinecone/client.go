@@ -1965,8 +1965,9 @@ type CreateIndexFromBackupParams struct {
 	Tags *IndexTags `json:"tags,omitempty"`
 	// ReadCapacity (Optional) is the read capacity for the new index. Defaults to OnDemand when nil,
 	// except that a BYOC environment that supports only Dedicated read capacity rejects OnDemand,
-	// including this default; set Dedicated there. Dedicated capacity must be large enough to hold
-	// the backup's data.
+	// including this default; set Dedicated there. Read capacity isn't copied from the source index.
+	// Dedicated capacity needs enough shards to hold the backup's data; with too few, the request
+	// fails and the error message names the minimum.
 	ReadCapacity *ReadCapacityParams `json:"read_capacity,omitempty"`
 	// Deployment (Optional) is where to create the index. Defaults to the cloud and region, or the
 	// BYOC environment, the backup was taken in. Set Managed to restore a serverless backup into
