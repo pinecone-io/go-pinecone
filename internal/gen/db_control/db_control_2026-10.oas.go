@@ -712,6 +712,18 @@ type FloatField struct {
 // FloatFieldType Identifies this as a float field. Must be `float`.
 type FloatFieldType string
 
+// IncompatibleIndex An index that exists in the project but uses features this API version can't represent. Only its name is shown, with the oldest API version that can describe it and a message explaining what to do. Describing or configuring this index with this API version returns `412 FAILED_PRECONDITION` with the same message.
+type IncompatibleIndex struct {
+	// Message A human-readable explanation of why this API version can't describe the index and what to do about it. The wording may change; use `min_api_version` to act on the entry programmatically.
+	Message string `json:"message"`
+
+	// MinApiVersion The oldest API version that can describe this index, in the form used by the `X-Pinecone-Api-Version` header. It is `unstable` when only the unstable API version can describe the index.
+	MinApiVersion string `json:"min_api_version"`
+
+	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
+	Name string `json:"name"`
+}
+
 // IndexDeployment The deployment configuration of a Pinecone index. The `deployment_type` field indicates which infrastructure model the index uses.
 //
 // - `pod`: Dedicated pod-based infrastructure. Suitable for workloads that require predictable performance.
@@ -731,6 +743,9 @@ type IndexDeploymentRequest struct {
 
 // IndexList The list of indexes that exist in the project.
 type IndexList struct {
+	// IncompatibleIndexes Indexes in the project that this API version can't describe, because they use features added in a later API version. These indexes still exist and still count toward project limits, but they are not included in `indexes`. This field is omitted when there are none.
+	IncompatibleIndexes *[]IncompatibleIndex `json:"incompatible_indexes,omitempty"`
+
 	// Indexes List of indexes in the project
 	Indexes *[]IndexModel `json:"indexes,omitempty"`
 }
@@ -5596,6 +5611,7 @@ type DescribeIndexApiResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *IndexModel
 	JSON404      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5623,6 +5639,7 @@ type ConfigureIndexApiResponse struct {
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -7134,6 +7151,13 @@ func ParseDescribeIndexApiResponse(rsp *http.Response) (*DescribeIndexApiRespons
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -7194,6 +7218,13 @@ func ParseConfigureIndexApiResponse(rsp *http.Response) (*ConfigureIndexApiRespo
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
