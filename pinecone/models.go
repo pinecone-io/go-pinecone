@@ -681,8 +681,8 @@ type ReadCapacityManualScaling struct {
 type ReadCapacityAutoScaling struct {
 	// MinReplicas is the lowest number of replicas per shard that Pinecone scales down to.
 	MinReplicas int32 `json:"min_replicas"`
-	// MaxReplicas is the highest number of replicas per shard that Pinecone scales up to. Quota
-	// counts the maximum.
+	// MaxReplicas is the highest number of replicas per shard that Pinecone scales up to. Read node
+	// limits count the index at Shards × MaxReplicas.
 	MaxReplicas int32 `json:"max_replicas"`
 }
 
