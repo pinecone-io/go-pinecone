@@ -488,12 +488,12 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 			message:      "failed to create index: max_replicas must be >= min_replicas & < 10",
 		}, {
 			name:         "ErrorResponse body without a top-level status",
-			responseBody: mockResponse(`{"error": {"code": "FAILED_PRECONDITION", "message": "needs a newer API version"}}`, http.StatusPreconditionFailed),
+			responseBody: mockResponse(`{"error": {"code": "FAILED_PRECONDITION", "message": "index is incompatible with this API version"}}`, http.StatusPreconditionFailed),
 			statusCode:   http.StatusPreconditionFailed,
 			prefix:       "failed to describe index: ",
-			errorOutput:  `{"status_code":412,"body":"{\"error\": {\"code\": \"FAILED_PRECONDITION\", \"message\": \"needs a newer API version\"}}","error_code":"FAILED_PRECONDITION","message":"failed to describe index: needs a newer API version"}`,
+			errorOutput:  `{"status_code":412,"body":"{\"error\": {\"code\": \"FAILED_PRECONDITION\", \"message\": \"index is incompatible with this API version\"}}","error_code":"FAILED_PRECONDITION","message":"failed to describe index: index is incompatible with this API version"}`,
 			errorCode:    "FAILED_PRECONDITION",
-			message:      "failed to describe index: needs a newer API version",
+			message:      "failed to describe index: index is incompatible with this API version",
 		}, {
 			name:         "ErrorResponse body with details but no reason",
 			responseBody: mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "message": "bad", "details": {"field": "top_k"}}}`, http.StatusBadRequest),

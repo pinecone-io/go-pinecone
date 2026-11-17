@@ -416,10 +416,10 @@ for _, idx := range idxs {
 }
 ```
 
-An index created with a feature that this SDK's API version can't represent can't be described by this SDK, so
-`ListIndexes` leaves it out. `ListIncompatibleIndexes` lists those indexes, each with a `CompatibleAPIVersion`: an API
-version that can describe it, chosen by Pinecone as the one to move to. Other versions may also work, and API versions
-aren't guaranteed to be ordered. `DescribeIndex` and `ConfigureIndex` refuse such an index with the error code
+If an index uses a feature that this SDK's API version can't represent, this SDK can't describe it, so `ListIndexes`
+leaves it out. `ListIncompatibleIndexes` lists those indexes, each with a `CompatibleAPIVersion`: an API version that
+can describe it, chosen by Pinecone as the one to move to. Other versions may also work, and API versions aren't
+guaranteed to be ordered. `DescribeIndex` and `ConfigureIndex` refuse such an index with the error code
 `FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`. `DeleteIndex` works unless deletion
 protection is on, which this SDK can't turn off for such an index. To work with it, upgrade to an SDK that supports that
 API version. The error message's advice to set the `X-Pinecone-Api-Version` header is for direct API calls; don't do

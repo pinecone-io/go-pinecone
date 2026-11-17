@@ -1369,10 +1369,10 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			name:   "Incompatible entries with fields the SDK doesn't know",
 			status: http.StatusOK,
 			response: `{"indexes": [], "collections": [], "data": [],
-				"incompatible_indexes": [{"name": "i", "compatible_api_version": "2027-01", "max_api_version": "2027-04", "message": "m"}],
-				"incompatible_collections": [{"name": "c", "compatible_api_version": "2027-01", "max_api_version": "2027-04", "message": "m"}],
-				"incompatible_backups": [{"backup_id": "b", "compatible_api_version": "2027-01", "max_api_version": "2027-04", "message": "m"}],
-				"incompatible_restore_jobs": [{"restore_job_id": "r", "compatible_api_version": "2027-01", "max_api_version": "2027-04", "message": "m"}]}`,
+				"incompatible_indexes": [{"name": "i", "compatible_api_version": "2027-01", "docs_url": "https://docs.pinecone.io", "message": "m"}],
+				"incompatible_collections": [{"name": "c", "compatible_api_version": "2027-01", "docs_url": "https://docs.pinecone.io", "message": "m"}],
+				"incompatible_backups": [{"backup_id": "b", "compatible_api_version": "2027-01", "docs_url": "https://docs.pinecone.io", "message": "m"}],
+				"incompatible_restore_jobs": [{"restore_job_id": "r", "compatible_api_version": "2027-01", "docs_url": "https://docs.pinecone.io", "message": "m"}]}`,
 			call: func(t *testing.T, pc *Client) {
 				indexes, err := pc.ListIncompatibleIndexes(context.Background())
 				require.NoError(t, err)
