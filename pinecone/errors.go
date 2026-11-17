@@ -36,6 +36,14 @@ type PineconeError struct {
 	details *map[string]any
 }
 
+// ReasonResourceIncompatibleWithAPIVersion is the [PineconeError.Reason] the API sets, with the
+// error code FAILED_PRECONDITION and HTTP status 412, when a call names an index, collection,
+// backup, or restore job that uses features this SDK's API version can't represent. The resource's
+// entry in [Client.ListIncompatibleIndexes], [Client.ListIncompatibleCollections],
+// [BackupList].IncompatibleBackups, or [RestoreJobList].IncompatibleRestoreJobs names an API version
+// that can describe it.
+const ReasonResourceIncompatibleWithAPIVersion = "RESOURCE_INCOMPATIBLE_WITH_API_VERSION"
+
 // Details returns a copy of the machine-readable facts about the error, keyed as its Reason
 // documents, or nil when the response has none. Values are strings, numbers or booleans; numbers
 // decode as float64, as with encoding/json.
