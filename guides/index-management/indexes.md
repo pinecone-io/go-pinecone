@@ -327,9 +327,9 @@ With `Scaling.Auto`, Pinecone moves the number of replicas per shard between `Mi
 changes. The shard count stays fixed. Your organization must be enabled for replica autoscaling; otherwise the request
 fails with a `PineconeError` whose error code is `FORBIDDEN`.
 
-An index uses `Shards` × `Replicas` dedicated read nodes, or `Shards` × `MaxReplicas` when it autoscales, and read nodes
-count against per-index and per-project limits. A request that would go over a limit also fails with `FORBIDDEN`, so
-show the error's message rather than assuming which case it is.
+Against per-index and per-project read node limits, an index counts as `Shards` × `Replicas` read nodes, or as
+`Shards` × `MaxReplicas` when it autoscales, even while it runs fewer. A request that would go over a limit also fails
+with `FORBIDDEN`, so show the error's message rather than assuming which case it is.
 
 ```go
 nodeType := "b1"
