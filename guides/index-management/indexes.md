@@ -329,12 +329,13 @@ for _, idx := range idxs {
 ```
 
 If an index uses a feature that this SDK's API version can't represent, this SDK can't describe it, so `ListIndexes`
-leaves it out. `ListIncompatibleIndexes` lists those indexes, each with a `CompatibleAPIVersion`: an API version that
-can describe it, chosen by Pinecone as the one to move to. Other versions may also work, and API versions aren't
-guaranteed to be ordered. `DescribeIndex` and `ConfigureIndex` refuse such an index with the error code
-`FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`. `DeleteIndex` works unless deletion
-protection is on, which this SDK can't turn off for such an index. To work with it, upgrade to an SDK that supports that
-API version.
+leaves it out. `ListIncompatibleIndexes` lists those indexes. Each entry's `MinimumAPIVersion` is the earliest generally
+available API version that can describe the index, and every later one can too; `PreviewAPIVersion` is the earliest
+early-access API version that can. Either is `nil` when there's no such version, and when both are, no public API
+version can describe the index yet. `DescribeIndex` and `ConfigureIndex` refuse such an index with the error code
+`FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`; `PineconeError.Details()` carries the
+same versions. `DeleteIndex` works unless deletion protection is on, which this SDK can't turn off for such an index. To
+work with it, upgrade to an SDK that supports an API version that can describe it.
 
 ```go
 incompatible, err := pc.ListIncompatibleIndexes(ctx)
@@ -342,7 +343,14 @@ if err != nil {
 	log.Fatalf("Failed to list indexes: %v", err)
 }
 for _, idx := range incompatible {
-	fmt.Printf("- %s (use API version %s)\n", idx.Name, idx.CompatibleAPIVersion)
+	switch {
+	case idx.MinimumAPIVersion != nil:
+		fmt.Printf("- %s (use API version %s or later)\n", idx.Name, *idx.MinimumAPIVersion)
+	case idx.PreviewAPIVersion != nil:
+		fmt.Printf("- %s (only on early-access API version %s)\n", idx.Name, *idx.PreviewAPIVersion)
+	default:
+		fmt.Printf("- %s (no public API version yet)\n", idx.Name)
+	}
 }
 ```
 
