@@ -1152,7 +1152,8 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			name:   "ListCollections and ListIncompatibleCollections with a mixed list",
 			status: http.StatusOK,
 			response: `{"collections": [{"name": "small-collection", "status": "Ready", "environment": "us-east1-gcp"}],
-				"incompatible_collections": [{"name": "archive-2025", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "Collection 'archive-2025' uses features that API version 2026-10 can't represent."}]}`,
+				"incompatible_collections": [{"name": "archive-2025", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "Collection 'archive-2025' uses features that API version 2026-10 can't represent."},
+					{"name": "archive-preview", "minimum_api_version": null, "preview_api_version": "2027-07.alpha", "message": "m2"}]}`,
 			call: func(t *testing.T, pc *Client) {
 				collections, err := pc.ListCollections(context.Background())
 				require.NoError(t, err)
@@ -1165,6 +1166,10 @@ func TestControlPlaneWireUnit(t *testing.T) {
 					Name:              "archive-2025",
 					MinimumAPIVersion: ptr("2027-04"),
 					Message:           "Collection 'archive-2025' uses features that API version 2026-10 can't represent.",
+				}, {
+					Name:              "archive-preview",
+					PreviewAPIVersion: ptr("2027-07.alpha"),
+					Message:           "m2",
 				}}, incompatible)
 			},
 			want: []wantRequest{
@@ -1325,7 +1330,8 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			status: http.StatusOK,
 			response: `{"data": [{"restore_job_id": "rj-1", "backup_id": "bkp-1", "target_index_name": "docs", "target_index_id": "idx-1", "status": "Completed", "created_at": "2026-03-15T10:30:00Z", "percent_complete": 100}],
 				"pagination": {"next": "dG9rZW4="},
-				"incompatible_restore_jobs": [{"restore_job_id": "rj-2", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m1"}]}`,
+				"incompatible_restore_jobs": [{"restore_job_id": "rj-2", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m1"},
+					{"restore_job_id": "rj-3", "minimum_api_version": null, "preview_api_version": "2027-07.alpha", "message": "m2"}]}`,
 			call: func(t *testing.T, pc *Client) {
 				jobs, err := pc.ListRestoreJobs(context.Background(), &ListRestoreJobsParams{Limit: ptr(2)})
 				require.NoError(t, err)
@@ -1333,7 +1339,10 @@ func TestControlPlaneWireUnit(t *testing.T) {
 				assert.Equal(t, "rj-1", jobs.Data[0].RestoreJobId)
 				require.NotNil(t, jobs.Pagination)
 				assert.Equal(t, "dG9rZW4=", jobs.Pagination.Next)
-				assert.Equal(t, []*IncompatibleRestoreJob{{RestoreJobId: "rj-2", MinimumAPIVersion: ptr("2027-04"), Message: "m1"}}, jobs.IncompatibleRestoreJobs)
+				assert.Equal(t, []*IncompatibleRestoreJob{
+					{RestoreJobId: "rj-2", MinimumAPIVersion: ptr("2027-04"), Message: "m1"},
+					{RestoreJobId: "rj-3", PreviewAPIVersion: ptr("2027-07.alpha"), Message: "m2"},
+				}, jobs.IncompatibleRestoreJobs)
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/restore-jobs", query: "limit=2"}},
 		},

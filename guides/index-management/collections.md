@@ -41,8 +41,9 @@ is the earliest generally available API version that can describe the collection
 `PreviewAPIVersion` is the earliest early-access API version that can. Either is `nil` when there's no such version, and
 when both are, no public API version can describe the collection yet. `DescribeCollection` refuses such a collection
 with the error code `FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`; `DeleteCollection`
-still works. To work with it, upgrade to an SDK that supports an API version that can describe it; don't override the
-`X-Pinecone-Api-Version` header, because this SDK's request and response types are built for one API version.
+still works. To work with it, upgrade to an SDK that supports an API version that can describe it, when there is one;
+don't override the `X-Pinecone-Api-Version` header, because this SDK's request and response types are built for one API
+version.
 
 ```go
 incompatible, err := pc.ListIncompatibleCollections(ctx)

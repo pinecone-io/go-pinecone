@@ -332,10 +332,11 @@ If an index uses a feature that this SDK's API version can't represent, this SDK
 leaves it out. `ListIncompatibleIndexes` lists those indexes. Each entry's `MinimumAPIVersion` is the earliest generally
 available API version that can describe the index, and every later one can too; `PreviewAPIVersion` is the earliest
 early-access API version that can. Either is `nil` when there's no such version, and when both are, no public API
-version can describe the index yet. `DescribeIndex` and `ConfigureIndex` refuse such an index with the error code
-`FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`; `PineconeError.Details()` carries the
-same versions. `DeleteIndex` works unless deletion protection is on, which this SDK can't turn off for such an index. To
-work with it, upgrade to an SDK that supports an API version that can describe it.
+version can describe the index yet. `DescribeIndex`, `ConfigureIndex`, `CreateCollection`, and `CreateBackup` refuse
+such an index with the error code `FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`;
+`PineconeError.Details()` carries the same versions. `DeleteIndex` works unless deletion protection is on, which this
+SDK can't turn off for such an index. To work with it, upgrade to an SDK that supports an API version that can describe
+it, when there is one.
 
 ```go
 incompatible, err := pc.ListIncompatibleIndexes(ctx)
