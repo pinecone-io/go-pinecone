@@ -410,8 +410,9 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 // because they use features this SDK's API version can't represent. Each [IncompatibleIndex] names
 // the earliest generally available and early-access API versions that can describe it, when there
 // are any. Such an index still exists and counts toward project limits.
-// [Client.DescribeIndex] and [Client.ConfigureIndex] refuse it with a [PineconeError] whose error
-// code is FAILED_PRECONDITION and whose Reason is [ReasonResourceIncompatibleWithAPIVersion].
+// [Client.DescribeIndex], [Client.ConfigureIndex], [Client.CreateCollection], and
+// [Client.CreateBackup] refuse it with a [PineconeError] whose error code is FAILED_PRECONDITION
+// and whose Reason is [ReasonResourceIncompatibleWithAPIVersion].
 // [Client.DeleteIndex] works unless the index has deletion protection enabled; this API version
 // can't turn that off, so use an SDK or API version that can describe the index.
 //
