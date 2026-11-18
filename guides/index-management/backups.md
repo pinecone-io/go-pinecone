@@ -63,13 +63,15 @@ To list every backup in the project, leave out `IndexName`. To also list backups
 set `IncludeDeleted`, which requires `IndexName`.
 
 If a backup uses a feature that this SDK's API version can't represent, this SDK can't describe it, so `ListBackups`
-reports it in `IncompatibleBackups` instead of `Data`, with its `BackupId` and a `CompatibleAPIVersion`: an API version
-that can describe it, chosen by Pinecone as the one to move to. Other versions may also work, and API versions aren't
-guaranteed to be ordered. Each one counts toward `Limit`, so a page can hold fewer than `Limit` backups in `Data` while
-`Pagination` still points to more. `DescribeBackup` and `CreateIndexFromBackup` refuse such a backup with the error code
-`FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`; `DeleteBackup` still works. To work with
-it, upgrade to an SDK that supports that API version; don't override the `X-Pinecone-Api-Version` header, because this
-SDK's request and response types are built for one API version.
+reports it in `IncompatibleBackups` instead of `Data`, with its `BackupId`. Each entry's `MinimumAPIVersion` is the
+earliest generally available API version that can describe the backup, and every later one can too; `PreviewAPIVersion`
+is the earliest early-access API version that can. Either is `nil` when there's no such version, and when both are, no
+public API version can describe the backup yet. Each incompatible backup counts toward `Limit`, so a page can hold fewer
+than `Limit` backups in `Data` while `Pagination` still points to more. `DescribeBackup` and `CreateIndexFromBackup`
+refuse such a backup with the error code `FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`;
+`DeleteBackup` still works. To work with it, upgrade to an SDK that supports an API version that can describe it; don't
+override the `X-Pinecone-Api-Version` header, because this SDK's request and response types are built for one API
+version.
 
 ```go
 backups, err := pc.ListBackups(ctx, nil)
@@ -77,7 +79,11 @@ if err != nil {
 	log.Fatalf("Failed to list backups: %v", err)
 }
 for _, b := range backups.IncompatibleBackups {
-	fmt.Printf("%s (use API version %s)\n", b.BackupId, b.CompatibleAPIVersion)
+	if b.MinimumAPIVersion != nil {
+		fmt.Printf("%s (use API version %s or later)\n", b.BackupId, *b.MinimumAPIVersion)
+	} else {
+		fmt.Printf("%s: %s\n", b.BackupId, b.Message)
+	}
 }
 ```
 

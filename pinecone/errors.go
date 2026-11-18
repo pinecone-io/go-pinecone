@@ -38,10 +38,16 @@ type PineconeError struct {
 
 // ReasonResourceIncompatibleWithAPIVersion is the [PineconeError.Reason] the API sets, with the
 // error code FAILED_PRECONDITION and HTTP status 412, when a call names an index, collection,
-// backup, or restore job that uses features this SDK's API version can't represent. The resource's
-// entry in [Client.ListIncompatibleIndexes], [Client.ListIncompatibleCollections],
-// [BackupList].IncompatibleBackups, or [RestoreJobList].IncompatibleRestoreJobs names an API version
-// that can describe it.
+// backup, or restore job that uses features this SDK's API version can't represent. Retrying with
+// the same API version fails.
+//
+// [PineconeError.Details] holds "api_version", the API version of the request, and the string keys
+// "minimum_api_version" and "preview_api_version", which mean the same as MinimumAPIVersion and
+// PreviewAPIVersion on [IncompatibleIndex]. A version key is left out when there's no such version;
+// when both are left out, no public API version can act on the resource yet. The resource's entry
+// in [Client.ListIncompatibleIndexes], [Client.ListIncompatibleCollections],
+// [BackupList].IncompatibleBackups, or [RestoreJobList].IncompatibleRestoreJobs carries the same
+// versions.
 const ReasonResourceIncompatibleWithAPIVersion = "RESOURCE_INCOMPATIBLE_WITH_API_VERSION"
 
 // Details returns a copy of the machine-readable facts about the error, keyed as its Reason

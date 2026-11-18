@@ -209,7 +209,7 @@ type ErrorResponse struct {
 		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `QUOTA_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `UNIMPLEMENTED`, `INTERNAL`, `UNAVAILABLE`, `DATA_LOSS`, `FORBIDDEN`, or `UNPROCESSABLE_ENTITY`.
 		Code string `json:"code"`
 
-		// Details Machine-readable facts about the error, as a flat object whose values are strings, integers or booleans. On API version 2026-10 and later it appears only together with `reason`, and holds only the keys that reason documents. This field is not guaranteed to be present.
+		// Details Machine-readable facts about the error, as a flat object whose values are strings, integers or booleans, never `null`; a key with no value is left out. On API version 2026-10 and later it is set alongside `reason`, and may include the keys documented for that reason; more may be added, so ignore keys you don't recognize. This field is not guaranteed to be present.
 		Details *map[string]interface{} `json:"details,omitempty"`
 		Message string                  `json:"message"`
 

@@ -271,7 +271,7 @@ type ErrorResponse struct {
 		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `INTERNAL`, `FORBIDDEN`, `PAYMENT_REQUIRED`, `SERVICE_UNAVAILABLE`, or `PAYLOAD_TOO_LARGE`.
 		Code string `json:"code"`
 
-		// Details Machine-readable facts about the error, as a flat object whose values are strings, integers or booleans. It appears only together with `reason`, and holds only the keys that reason documents:
+		// Details Machine-readable facts about the error, as a flat object whose values are strings, integers or booleans, never `null`; a key with no value is left out. On API version 2026-10 and later it is set alongside `reason`, and may include the keys listed for that reason; more may be added, so ignore keys you don't recognize. This field is not guaranteed to be present. Keys the current reasons set:
 		// - `limit_documents`, `actual_documents`: the most documents one request takes, and how many the request sent.
 		// - `field`: the name of the field being embedded.
 		// - `model`: the name of the embedding model.
@@ -284,8 +284,8 @@ type ErrorResponse struct {
 		//
 		// Possible values:
 		// - `TOO_MANY_DOCUMENTS` (`INVALID_ARGUMENT`): the request has more documents than the operation takes. `details`: `limit_documents`, `actual_documents`.
-		// - `RATE_LIMIT_EXCEEDED` (`RESOURCE_EXHAUSTED`): embedding hit a per-second or per-minute limit. The same request can succeed after backing off. `details`: `field`, `model`.
-		// - `MONTHLY_LIMIT_EXCEEDED` (`RESOURCE_EXHAUSTED`): embedding hit a limit for the current month. Retrying fails until the limit resets or the plan changes. `details`: `field`, `model`.
+		// - `RATE_LIMIT_EXCEEDED` (`RESOURCE_EXHAUSTED`): a per-second or per-minute limit was hit. The same request can succeed after backing off. Today embedding limits set it, with `details` keys `field` and `model`.
+		// - `MONTHLY_LIMIT_EXCEEDED` (`RESOURCE_EXHAUSTED`): a limit for the current month was hit. Retrying fails until the limit resets or the plan changes. Today embedding limits set it, with `details` keys `field` and `model`.
 		Reason *string `json:"reason,omitempty"`
 	} `json:"error"`
 
@@ -922,6 +922,9 @@ type TextScoring struct {
 
 // TextScoringType The scoring method. Always `text`.
 type TextScoringType string
+
+// TooManyRequestsMessage The plain-text body of a `429` response from request rate limiting in front of the service. Those requests are rejected before they reach the index, so they carry a short message rather than an error object.
+type TooManyRequestsMessage = string
 
 // UnauthorizedMessage The plain-text body of a `401` response. Authentication failures are rejected before the request reaches the index, so they carry the message `Unauthorized` rather than an error object.
 type UnauthorizedMessage = string
@@ -7138,6 +7141,9 @@ func ParseSearchDocumentsApiResponse(rsp *http.Response) (*SearchDocumentsApiRes
 		}
 		response.JSON5XX = &dest
 
+	case rsp.StatusCode == 429:
+		// Content-type (text/plain) unsupported
+
 	}
 
 	return response, nil
@@ -7199,6 +7205,9 @@ func ParseUpdateDocumentsApiResponse(rsp *http.Response) (*UpdateDocumentsApiRes
 		}
 		response.JSON5XX = &dest
 
+	case rsp.StatusCode == 429:
+		// Content-type (text/plain) unsupported
+
 	}
 
 	return response, nil
@@ -7259,6 +7268,9 @@ func ParseUpsertDocumentsApiResponse(rsp *http.Response) (*UpsertDocumentsApiRes
 			return nil, err
 		}
 		response.JSON5XX = &dest
+
+	case rsp.StatusCode == 429:
+		// Content-type (text/plain) unsupported
 
 	}
 

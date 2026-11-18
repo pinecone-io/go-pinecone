@@ -37,12 +37,13 @@ for _, collection := range collections {
 ```
 
 If a collection uses a feature that this SDK's API version can't represent, this SDK can't describe it, so
-`ListCollections` leaves it out. `ListIncompatibleCollections` lists those collections, each with a
-`CompatibleAPIVersion`: an API version that can describe it, chosen by Pinecone as the one to move to. Other versions
-may also work, and API versions aren't guaranteed to be ordered. `DescribeCollection` refuses such a collection with the
-error code `FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`; `DeleteCollection` still
-works. To work with it, upgrade to an SDK that supports that API version; don't override the `X-Pinecone-Api-Version`
-header, because this SDK's request and response types are built for one API version.
+`ListCollections` leaves it out. `ListIncompatibleCollections` lists those collections. Each entry's `MinimumAPIVersion`
+is the earliest generally available API version that can describe the collection, and every later one can too;
+`PreviewAPIVersion` is the earliest early-access API version that can. Either is `nil` when there's no such version, and
+when both are, no public API version can describe the collection yet. `DescribeCollection` refuses such a collection
+with the error code `FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`; `DeleteCollection`
+still works. To work with it, upgrade to an SDK that supports an API version that can describe it; don't override the
+`X-Pinecone-Api-Version` header, because this SDK's request and response types are built for one API version.
 
 ```go
 incompatible, err := pc.ListIncompatibleCollections(ctx)
@@ -50,7 +51,11 @@ if err != nil {
 	log.Fatalf("Failed to list collections: %v", err)
 }
 for _, collection := range incompatible {
-	fmt.Printf("- %s (use API version %s)\n", collection.Name, collection.CompatibleAPIVersion)
+	if collection.MinimumAPIVersion != nil {
+		fmt.Printf("- %s (use API version %s or later)\n", collection.Name, *collection.MinimumAPIVersion)
+	} else {
+		fmt.Printf("- %s: %s\n", collection.Name, collection.Message)
+	}
 }
 ```
 
