@@ -517,9 +517,9 @@ type IncompatibleCollection struct {
 	// fields, not Message, to act on the entry.
 	MinimumAPIVersion *string `json:"minimum_api_version"`
 	// PreviewAPIVersion is the earliest early-access API version that can describe the collection,
-	// such as "2027-07.alpha". It's nil when no early-access API version can. It's set independently
-	// of MinimumAPIVersion, and both may be set. When both are nil, no public API version can describe
-	// the collection yet.
+	// such as "2027-07.alpha", in the form the X-Pinecone-Api-Version header uses. It's nil when no
+	// early-access API version can. It's set independently of MinimumAPIVersion, and both may be set.
+	// When both are nil, no public API version can describe the collection yet.
 	PreviewAPIVersion *string `json:"preview_api_version"`
 	// Message explains in plain words why the collection can't be described and what to do. Its
 	// wording may change.
@@ -608,9 +608,9 @@ type IncompatibleIndex struct {
 	// Message, to act on the entry.
 	MinimumAPIVersion *string `json:"minimum_api_version"`
 	// PreviewAPIVersion is the earliest early-access API version that can describe the index, such as
-	// "2027-07.alpha". It's nil when no early-access API version can. It's set independently of
-	// MinimumAPIVersion, and both may be set. When both are nil, no public API version can describe
-	// the index yet.
+	// "2027-07.alpha", in the form the X-Pinecone-Api-Version header uses. It's nil when no
+	// early-access API version can. It's set independently of MinimumAPIVersion, and both may be set.
+	// When both are nil, no public API version can describe the index yet.
 	PreviewAPIVersion *string `json:"preview_api_version"`
 	// Message explains in plain words why the index can't be described and what to do. Its wording
 	// may change.
@@ -1530,9 +1530,9 @@ type IncompatibleBackup struct {
 	// Message, to act on the entry.
 	MinimumAPIVersion *string `json:"minimum_api_version"`
 	// PreviewAPIVersion is the earliest early-access API version that can describe the backup, such as
-	// "2027-07.alpha". It's nil when no early-access API version can. It's set independently of
-	// MinimumAPIVersion, and both may be set. When both are nil, no public API version can describe
-	// the backup yet.
+	// "2027-07.alpha", in the form the X-Pinecone-Api-Version header uses. It's nil when no
+	// early-access API version can. It's set independently of MinimumAPIVersion, and both may be set.
+	// When both are nil, no public API version can describe the backup yet.
 	PreviewAPIVersion *string `json:"preview_api_version"`
 	// Message explains in plain words why the backup can't be described and what to do. Its
 	// wording may change.
@@ -1588,9 +1588,9 @@ type IncompatibleRestoreJob struct {
 	// version fields, not Message, to act on the entry.
 	MinimumAPIVersion *string `json:"minimum_api_version"`
 	// PreviewAPIVersion is the earliest early-access API version that can describe the restore job,
-	// such as "2027-07.alpha". It's nil when no early-access API version can. It's set independently
-	// of MinimumAPIVersion, and both may be set. When both are nil, no public API version can describe
-	// the restore job yet.
+	// such as "2027-07.alpha", in the form the X-Pinecone-Api-Version header uses. It's nil when no
+	// early-access API version can. It's set independently of MinimumAPIVersion, and both may be set.
+	// When both are nil, no public API version can describe the restore job yet.
 	PreviewAPIVersion *string `json:"preview_api_version"`
 	// Message explains in plain words why the restore job can't be described and what to do. Its
 	// wording may change.
