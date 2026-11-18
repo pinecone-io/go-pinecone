@@ -66,11 +66,12 @@ If a backup uses a feature that this SDK's API version can't represent, this SDK
 reports it in `IncompatibleBackups` instead of `Data`, with its `BackupId`. Each entry's `MinimumAPIVersion` is the
 earliest generally available API version that can describe the backup, and every later one can too; `PreviewAPIVersion`
 is the earliest early-access API version that can. Either is `nil` when there's no such version, and when both are, no
-public API version can describe the backup yet. Each one counts toward `Limit`, so a page can hold fewer than `Limit`
-backups in `Data` while `Pagination` still points to more. `DescribeBackup` and `CreateIndexFromBackup` refuse such a
-backup with the error code `FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`; `DeleteBackup`
-still works. To work with it, upgrade to an SDK that supports an API version that can describe it; don't override the
-`X-Pinecone-Api-Version` header, because this SDK's request and response types are built for one API version.
+public API version can describe the backup yet. Each incompatible backup counts toward `Limit`, so a page can hold fewer
+than `Limit` backups in `Data` while `Pagination` still points to more. `DescribeBackup` and `CreateIndexFromBackup`
+refuse such a backup with the error code `FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`;
+`DeleteBackup` still works. To work with it, upgrade to an SDK that supports an API version that can describe it; don't
+override the `X-Pinecone-Api-Version` header, because this SDK's request and response types are built for one API
+version.
 
 ```go
 backups, err := pc.ListBackups(ctx, nil)
