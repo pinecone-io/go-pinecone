@@ -1198,8 +1198,8 @@ func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest
 // [ReasonResourceIncompatibleWithAPIVersion]; its message says which API version, if any, can act
 // on it. Such an index is listed by [Client.ListIncompatibleIndexes] rather than
 // [Client.ListIndexes]. To work with it, upgrade to an SDK version that supports an API version
-// that can describe it; overriding the X-Pinecone-Api-Version header instead leaves this SDK's
-// types out of step with the responses.
+// that can describe it, when there is one; overriding the X-Pinecone-Api-Version header instead
+// leaves this SDK's types out of step with the responses.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request

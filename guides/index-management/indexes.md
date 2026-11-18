@@ -420,13 +420,13 @@ If an index uses a feature that this SDK's API version can't represent, this SDK
 leaves it out. `ListIncompatibleIndexes` lists those indexes. Each entry's `MinimumAPIVersion` is the earliest generally
 available API version that can describe the index, and every later one can too; `PreviewAPIVersion` is the earliest
 early-access API version that can. Either is `nil` when there's no such version, and when both are, no public API
-version can describe the index yet. `DescribeIndex` and `ConfigureIndex` refuse such an index with the error code
-`FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`, which the SDK names
-`pinecone.ReasonResourceIncompatibleWithAPIVersion`; `PineconeError.Details()` carries the same versions. `DeleteIndex`
-works unless deletion protection is on, which this SDK can't turn off for such an index. To work with it, upgrade to an
-SDK that supports an API version that can describe it. The error message's advice to set the `X-Pinecone-Api-Version`
-header is for direct API calls; don't do that with this SDK (for example through `Headers`), because its request and
-response types are built for one API version and the difference goes unnoticed.
+version can describe the index yet. `DescribeIndex`, `ConfigureIndex`, `CreateCollection`, and `CreateBackup` refuse
+such an index with the error code `FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`, which
+the SDK names `pinecone.ReasonResourceIncompatibleWithAPIVersion`; `PineconeError.Details()` carries the same versions.
+`DeleteIndex` works unless deletion protection is on, which this SDK can't turn off for such an index. To work with it,
+upgrade to an SDK that supports an API version that can describe it, when there is one. The error message's advice to
+set the `X-Pinecone-Api-Version` header is for direct API calls; don't do that with this SDK (for example through
+`Headers`), because its request and response types are built for one API version and the difference goes unnoticed.
 
 ```go
 incompatible, err := pc.ListIncompatibleIndexes(ctx)
