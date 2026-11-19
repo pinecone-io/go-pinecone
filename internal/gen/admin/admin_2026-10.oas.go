@@ -209,7 +209,7 @@ type ErrorResponse struct {
 		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `QUOTA_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `UNIMPLEMENTED`, `INTERNAL`, `UNAVAILABLE`, `DATA_LOSS`, `FORBIDDEN`, or `UNPROCESSABLE_ENTITY`.
 		Code string `json:"code"`
 
-		// Details Machine-readable facts about the error, as a flat object whose values are strings, integers or booleans, never `null`; a key with no value is left out. On API version 2026-10 and later it is set alongside `reason`, and may include the keys documented for that reason; more may be added, so ignore keys you don't recognize. This field is not guaranteed to be present.
+		// Details Machine-readable facts about the error, as an object. Its values are never `null`; a key with no value is left out. On API version 2026-10 and later it is set alongside `reason`, and may include the keys documented for that reason; more may be added, so ignore keys you don't recognize. This field is not guaranteed to be present.
 		Details *map[string]interface{} `json:"details,omitempty"`
 		Message string                  `json:"message"`
 
@@ -442,6 +442,9 @@ type UpdateServiceAccountRequest struct {
 
 // User A user who is a member of the organization.
 type User struct {
+	// Accounts The accounts the user can log in with: one `sso` entry for each account on the organization's SSO connection, and a single `personal` entry if the user has a personal account. Omitted from the response if the organization has no SSO connection.
+	Accounts *[]UserAccount `json:"accounts,omitempty"`
+
 	// Email The user's email address.
 	Email openapi_types.Email `json:"email"`
 
@@ -450,6 +453,19 @@ type User struct {
 
 	// Name The user's display name. Omitted from the response if the user has not set one.
 	Name *string `json:"name,omitempty"`
+}
+
+// UserAccount An account the user can log in with.
+type UserAccount struct {
+	// NameId The SAML NameID that the identity provider sends for this account. Present only when `type` is `sso`.
+	NameId *string `json:"name_id,omitempty"`
+
+	// Type The kind of account.
+	//
+	// Possible values: `personal` or `sso`. `personal` is any account that is
+	// not tied to an SSO connection, such as email/code, Google, or GitHub
+	// login. `sso` is an account on the organization's SSO connection.
+	Type string `json:"type"`
 }
 
 // UserList A paginated list of users in the organization.

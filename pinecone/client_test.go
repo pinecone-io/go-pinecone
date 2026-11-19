@@ -2333,6 +2333,21 @@ func TestPineconeErrorDetailsIsACopy(t *testing.T) {
 	assert.Equal(t, float64(1000), pcErr.Details()["limit_documents"])
 }
 
+func TestPineconeErrorDetailsNestedValuesAreCopied(t *testing.T) {
+	err := handleErrorResponseBody(mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "EXAMPLE", "message": "bad", "details": {"limits": {"documents": 1000}, "fields": ["a", {"b": 1}]}}}`, http.StatusBadRequest), "")
+	var pcErr *PineconeError
+	require.ErrorAs(t, err, &pcErr)
+	want := map[string]any{
+		"limits": map[string]any{"documents": float64(1000)},
+		"fields": []any{"a", map[string]any{"b": float64(1)}},
+	}
+	got := pcErr.Details()
+	require.Equal(t, want, got)
+	got["limits"].(map[string]any)["documents"] = 1
+	got["fields"].([]any)[1].(map[string]any)["b"] = 2
+	assert.Equal(t, want, pcErr.Details())
+}
+
 func TestPineconeErrorDetailsOnNilError(t *testing.T) {
 	var pcErr *PineconeError
 	assert.Nil(t, pcErr.Details())
