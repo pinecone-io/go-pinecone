@@ -2693,6 +2693,7 @@ func (i *InferenceService) DescribeModel(ctx context.Context, modelName string) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode model info response: %w", err)
 	}
+	fillDeprecatedModality(&modelInfo)
 	return &modelInfo, nil
 }
 
@@ -2703,6 +2704,10 @@ type ListModelsParams struct {
 	// VectorType (Optional) is the vector type to filter by: "dense" or "sparse". Setting it implies
 	// Type "embed"; combining it with Type "rerank" returns an error from the API.
 	VectorType *string
+	// Modality (Optional) lists only the models that accept this kind of input, such as "text",
+	// "image" or "pdf": a model matches when its Modalities contain it. It takes one value. A value
+	// the API doesn't recognize returns a 400 [PineconeError].
+	Modality *string
 }
 
 // ListModels lists all available models hosted by Pinecone. You can filter results using [ListModelsParams].
@@ -2710,8 +2715,9 @@ type ListModelsParams struct {
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - in: An optional [ListModelsParams] for filtering by model type and vector type. Pass nil to
-//     list all models.
+//   - in: An optional [ListModelsParams] for filtering by model type, vector type, and input
+//     modality. A model is listed only if it matches every filter you set. Pass nil to list all
+//     models.
 //
 // Returns a pointer to a [ModelInfoList] object or an error.
 //
@@ -2738,6 +2744,7 @@ func (i *InferenceService) ListModels(ctx context.Context, in *ListModelsParams)
 		params = &inference.ListModelsParams{
 			Type:       in.Type,
 			VectorType: in.VectorType,
+			Modality:   in.Modality,
 		}
 	}
 
@@ -2754,7 +2761,31 @@ func (i *InferenceService) ListModels(ctx context.Context, in *ListModelsParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode model info list response: %w", err)
 	}
+	if modelInfoList.Models != nil {
+		for i := range *modelInfoList.Models {
+			fillDeprecatedModality(&(*modelInfoList.Models)[i])
+		}
+	}
 	return &modelInfoList, nil
+}
+
+// fillDeprecatedModality sets the deprecated Modality from Modalities when the response has no
+// modality of its own, as on API version 2026-10.
+func fillDeprecatedModality(model *ModelInfo) {
+	if model.Modality != nil || model.Modalities == nil {
+		return
+	}
+	modalities := *model.Modalities
+	var modality string
+	switch {
+	case slices.Contains(modalities, "text"):
+		modality = "text"
+	case len(modalities) == 1:
+		modality = modalities[0]
+	default:
+		return
+	}
+	model.Modality = &modality
 }
 
 func (c *Client) extractAuthHeader() map[string]string {

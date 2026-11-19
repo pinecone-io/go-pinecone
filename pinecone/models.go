@@ -1363,7 +1363,15 @@ type ModelInfo struct {
 	MaxBatchSize *int32 `json:"max_batch_size,omitempty"`
 	// MaxSequenceLength is the maximum tokens per sequence supported by the model.
 	MaxSequenceLength *int32 `json:"max_sequence_length,omitempty"`
-	// Modality is the modality of the model (e.g. "text").
+	// Modalities are the kinds of input the model accepts, such as "text", "image" or "pdf", in no
+	// particular order. Text-only models, including every reranking model, list ["text"]. More values
+	// may be added. Nil when the API doesn't report it, as before API version 2026-10.
+	Modalities *[]string `json:"modalities,omitempty"`
+	// Modality is the modality of the model, such as "text".
+	//
+	// Deprecated: Use Modalities. API version 2026-10 reports a list of modalities, and the SDK fills
+	// Modality from it: "text" when Modalities contains "text", which is what earlier API versions
+	// report for a model that also accepts other input; otherwise the only entry; otherwise nil.
 	Modality *string `json:"modality,omitempty"`
 	// Model is the name of the model.
 	Model string `json:"model"`
@@ -1838,6 +1846,22 @@ type User struct {
 
 	// (Optional) The user's display name. Nil if the user has not set one.
 	Name *string `json:"name,omitempty"`
+
+	// Accounts are the accounts the user can log in with: one with Type "sso" for each account on
+	// the organization's SSO connection, and one with Type "personal" if the user has a personal
+	// account. Nil when the organization has no SSO connection.
+	Accounts *[]UserAccount `json:"accounts,omitempty"`
+}
+
+// UserAccount is an account a [User] can log in with.
+type UserAccount struct {
+	// Type is the kind of account: "personal" for any account not tied to an SSO connection, such as
+	// email, Google or GitHub login, or "sso" for an account on the organization's SSO connection.
+	Type string `json:"type"`
+
+	// NameId is the SAML NameID the identity provider sends for this account. Set only when Type is
+	// "sso".
+	NameId *string `json:"name_id,omitempty"`
 }
 
 // UserList contains a paginated list of users.

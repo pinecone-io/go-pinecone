@@ -571,6 +571,77 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			}},
 		},
 		{
+			// 2026-10 sends modalities and no modality; the deprecated Modality is filled from it.
+			name:   "DescribeModel decodes modalities and fills the deprecated Modality",
+			status: http.StatusOK,
+			response: `{
+				"model": "example-multimodal-embedding-model",
+				"short_description": "An example multimodal embedding model.",
+				"type": "embed",
+				"modalities": ["image", "text", "pdf"],
+				"supported_parameters": []
+			}`,
+			call: func(t *testing.T, pc *Client) {
+				model, err := pc.Inference.DescribeModel(context.Background(), "example-multimodal-embedding-model")
+				require.NoError(t, err)
+				assert.Equal(t, &[]string{"image", "text", "pdf"}, model.Modalities)
+				require.NotNil(t, model.Modality)
+				assert.Equal(t, "text", *model.Modality)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/models/example-multimodal-embedding-model"}},
+		},
+		{
+			name:   "ListModels sends the modality filter and fills the deprecated Modality on each model",
+			status: http.StatusOK,
+			response: `{"models": [
+				{"model": "text-model", "short_description": "d", "type": "embed", "modalities": ["text"], "supported_parameters": []},
+				{"model": "image-model", "short_description": "d", "type": "embed", "modalities": ["image"], "supported_parameters": []},
+				{"model": "image-pdf-model", "short_description": "d", "type": "embed", "modalities": ["image", "pdf"], "supported_parameters": []},
+				{"model": "legacy-model", "short_description": "d", "type": "embed", "modality": "text", "supported_parameters": []}]}`,
+			call: func(t *testing.T, pc *Client) {
+				list, err := pc.Inference.ListModels(context.Background(), &ListModelsParams{
+					Type:       ptr("embed"),
+					VectorType: ptr("dense"),
+					Modality:   ptr("image"),
+				})
+				require.NoError(t, err)
+				require.NotNil(t, list.Models)
+				models := *list.Models
+				require.Len(t, models, 4)
+				assert.Equal(t, ptr("text"), models[0].Modality)
+				assert.Equal(t, ptr("image"), models[1].Modality)
+				assert.Nil(t, models[2].Modality, "no single modality describes an image and pdf model")
+				assert.Equal(t, &[]string{"image", "pdf"}, models[2].Modalities)
+				assert.Equal(t, ptr("text"), models[3].Modality, "a response's own modality is kept")
+				assert.Nil(t, models[3].Modalities)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/models", query: "modality=image&type=embed&vector_type=dense"}},
+		},
+		{
+			// A v7 call with no Modality sends no modality parameter.
+			name:     "ListModels without Modality sends only the filters that are set",
+			status:   http.StatusOK,
+			response: `{"models": []}`,
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.Inference.ListModels(context.Background(), &ListModelsParams{Type: ptr("rerank")})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/models", query: "type=rerank"}},
+		},
+		{
+			name:     "ListModels returns the 400 for an unknown modality as a PineconeError",
+			status:   http.StatusBadRequest,
+			response: `{"error": {"code": "INVALID_ARGUMENT", "message": "Invalid modality 'video'."}, "status": 400}`,
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.Inference.ListModels(context.Background(), &ListModelsParams{Modality: ptr("video")})
+				var pcErr *PineconeError
+				require.ErrorAs(t, err, &pcErr)
+				assert.Equal(t, http.StatusBadRequest, pcErr.Code)
+				assert.Equal(t, "INVALID_ARGUMENT", pcErr.ErrorCode)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/models", query: "modality=video"}},
+		},
+		{
 			name:   "DescribeModel decodes supported_on",
 			status: http.StatusOK,
 			response: `{

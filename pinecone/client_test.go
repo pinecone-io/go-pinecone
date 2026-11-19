@@ -2325,6 +2325,10 @@ func mockResponse(body string, statusCode int) *http.Response {
 // PineconeError must stay comparable with ==; adding a map or slice field would break callers.
 var _ = PineconeError{} == PineconeError{}
 
+// ModelInfo and User were comparable in v7; adding a field must keep them so.
+var _ = ModelInfo{} == ModelInfo{}
+var _ = User{} == User{}
+
 func TestPineconeErrorDetailsIsACopy(t *testing.T) {
 	err := handleErrorResponseBody(mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "too many", "details": {"limit_documents": 1000}}}`, http.StatusBadRequest), "")
 	var pcErr *PineconeError
