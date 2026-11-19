@@ -335,7 +335,7 @@ type ConfigureIndexRequest struct {
 	// Deployment Deployment update parameters for pod-based indexes. Specify `replicas`, `pod_type`, or both. Deployment type, cloud/region, and environment cannot be changed after creation. Do not include a `deployment_type` field; it is not accepted.
 	Deployment *PatchIndexDeploymentRequest `json:"deployment,omitempty"`
 
-	// ReadCapacity Read capacity changes for an existing managed or BYOC index. Switch to `OnDemand`, or set `Dedicated` and change any subset of `node_type`, `scaling`, and `manual` replicas/shards; fields you omit keep their current value.
+	// ReadCapacity Read capacity changes for an existing managed or BYOC index. Send `mode: OnDemand`, or `mode: Dedicated` with any subset of `node_type`, `shards`, and `scaling` with its matching block; fields you omit keep their current value. Not every change is supported for every index; an unsupported change returns `400`.
 	ReadCapacity *ReadCapacityPatch `json:"read_capacity,omitempty"`
 
 	// Schema Schema updates to apply to an existing index. Only `semantic_text` field parameters, on a legacy integrated index created via create-for-model, can be updated after index creation. The model itself cannot be changed once set; only `write_parameters` and `read_parameters` may be updated if the model stays the same. The `embed` and `sparse_embed` configurations of a `string` field are fixed at creation and cannot be updated.
@@ -421,7 +421,7 @@ type ConvertIndexRequest struct {
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
-	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Schema The fields the index searches over: dense vectors, sparse vectors, and string fields searched by full-text search or by embeddings Pinecone derives from their text.
@@ -545,7 +545,7 @@ type CreateIndexForModelRequest struct {
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
-	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Region The region where you would like your index to be created.
@@ -574,7 +574,7 @@ type CreateIndexFromBackupRequest struct {
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
-	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Tags Custom user tags added to an index, at most 20 per index. Keys must be 80 characters or less and alphanumeric, '_', or '-'. Values must be 120 characters or less and consist of printable ASCII characters or spaces. To unset a key, set the value to be an empty string. `null` in responses when the index has no tags.
@@ -611,7 +611,7 @@ type CreateIndexRequest struct {
 	// Name The name of the index. Must be unique within the project, start and end with an alphanumeric character, and contain only lower case alphanumeric characters or '-'. Generated automatically if not provided.
 	Name *string `json:"name,omitempty"`
 
-	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Schema The fields the index searches over: dense vectors, sparse vectors, and string fields searched by full-text search or by embeddings Pinecone derives from their text.
@@ -761,7 +761,7 @@ type IndexModel struct {
 	// PrivateHost The private endpoint URL of an index.
 	PrivateHost *string `json:"private_host,omitempty"`
 
-	// ReadCapacity Response containing read capacity configuration
+	// ReadCapacity Response containing read capacity configuration. `dedicated` is present when `mode` is `Dedicated`.
 	ReadCapacity *ReadCapacityResponse `json:"read_capacity,omitempty"`
 
 	// Schema The schema of a Pinecone index. The schema defines the typed fields that documents in the index can contain, including vector fields, string fields searched by full-text search or by embeddings, and metadata fields.
@@ -927,34 +927,74 @@ type PodDeployment struct {
 // PodDeploymentDeploymentType Identifies this as a pod-based deployment. Must be `pod`.
 type PodDeploymentDeploymentType string
 
-// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type` and `scaling`.
+// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`.
 type ReadCapacity struct {
 	union json.RawMessage
 }
 
 // ReadCapacityDedicatedConfig Configuration for dedicated read capacity. See [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on how to configure dedicated read capacity.
+//
+// `shards` is a fixed count. Replica bounds for `Auto` scaling are per shard and sit in `auto`. If shard autoscaling is added later, its bounds will go in a new block beside `shards`.
 type ReadCapacityDedicatedConfig struct {
-	// Manual The config to use for manual read capacity scaling.
-	Manual ScalingConfigManual `json:"manual"`
+	// Auto The config to use for automatic replica scaling. Pinecone adds and removes replicas within `min_replicas` and `max_replicas` based on read load. Billed capacity is at most `max_replicas` multiplied by the number of shards. A missing bound or an unknown key returns `422`.
+	Auto *ScalingConfigAuto `json:"auto,omitempty"`
+
+	// Manual The config to use for manual read capacity scaling. The shard count goes in `dedicated.shards`, not here: sending `shards` inside `manual` returns `400`, and any other unknown key returns `422`.
+	Manual *ScalingConfigManual `json:"manual,omitempty"`
 
 	// NodeType The type of machines to use. Available options: `b1` and `t1`. `t1` includes increased processing power and memory.
 	NodeType string `json:"node_type"`
 
-	// Scaling The type of scaling strategy to use.
+	// Scaling The scaling strategy to use. Available options:
+	// - `Manual`: you set the number of replicas per shard in `manual`.
+	// - `Auto`: Pinecone moves the number of replicas per shard between the bounds in `auto`. Your organization must be enabled for replica autoscaling; otherwise the request returns `403`.
+	//
+	// Send `manual` with `Manual`, or `auto` with `Auto`. A missing block, or a block that does not match `scaling`, returns `400`. A value not listed here returns `422`.
 	Scaling string `json:"scaling"`
+
+	// Shards The number of shards to use. Shards determine the storage capacity of an index, with each shard providing 250 GB of storage.
+	Shards int32 `json:"shards"`
 }
 
-// ReadCapacityDedicatedPatchConfig Changes to the dedicated read capacity of an index. Every field is optional; omitted fields keep their current value. `scaling` and `manual` go together and must be sent as a pair: `scaling: Manual` without `manual` is rejected, and a `manual` block without `scaling: Manual` is not accepted by this schema (the service would silently ignore it). An index moving from `OnDemand` to `Dedicated` must supply `node_type`, `scaling`, and `manual`.
+// ReadCapacityDedicatedConfigResponse The dedicated read capacity configuration of an index. `manual` is present when `scaling` is `Manual`, and `auto` when `scaling` is `Auto`.
+type ReadCapacityDedicatedConfigResponse struct {
+	// Auto The replica autoscaling bounds of an index. `status.current_replicas` reports the live count.
+	Auto *ScalingConfigAutoResponse `json:"auto,omitempty"`
+
+	// Manual The fixed replica count of an index with `Manual` scaling. `status.current_replicas` reports the live count.
+	Manual *ScalingConfigManualResponse `json:"manual,omitempty"`
+
+	// NodeType The type of machines in use: `b1` or `t1`. Clients should accept values not listed here.
+	NodeType string `json:"node_type"`
+
+	// Scaling The scaling strategy in use: `Manual` or `Auto`. Clients should accept values not listed here, because new strategies may be added.
+	Scaling string `json:"scaling"`
+
+	// Shards The configured number of shards. `status.current_shards` reports the live count. Always present today; if shard autoscaling is added later, it will be omitted for an index whose shard count is not fixed, and the shard bounds will appear in a new block beside it.
+	Shards *int32 `json:"shards,omitempty"`
+}
+
+// ReadCapacityDedicatedPatchConfig Changes to the dedicated read capacity of an index. Every field is optional; omitted fields keep their current value. Changing only `node_type` or `shards` keeps the current scaling strategy, including `Auto` bounds.
+//
+// `scaling` must be sent with its matching block: `manual` with `Manual`, or `auto` with `Auto`. A block without `scaling`, `scaling` without its block, or a block that does not match `scaling` returns `400`. Unknown keys beside `scaling` are ignored. An index moving from `OnDemand` to `Dedicated` must supply `node_type`, `shards`, `scaling`, and the matching block.
+//
+// If shard autoscaling is added later, its bounds will go in a new block beside `shards`.
 type ReadCapacityDedicatedPatchConfig struct {
-	// Manual Manual scaling changes. Omitted fields keep their current value.
+	// Auto The config to use for automatic replica scaling. Pinecone adds and removes replicas within `min_replicas` and `max_replicas` based on read load. Billed capacity is at most `max_replicas` multiplied by the number of shards. A missing bound or an unknown key returns `422`.
+	Auto *ScalingConfigAuto `json:"auto,omitempty"`
+
+	// Manual Manual scaling changes. Sending this block with `scaling: Manual` sets a fixed replica count and turns replica autoscaling off. The shard count goes in `dedicated.shards`, not here: sending `shards` inside `manual` returns `400`, and any other unknown key returns `422`.
 	Manual *ScalingConfigManualPatch `json:"manual,omitempty"`
 
 	// NodeType The type of machines to use. Available options: `b1` and `t1`.
 	NodeType *string `json:"node_type,omitempty"`
 
-	// Scaling The scaling strategy. Only `Manual` is supported. Required whenever `manual` is set.
+	// Scaling The scaling strategy: `Manual` or `Auto`. Sending `Auto`, to turn autoscaling on or to change its bounds, requires an organization enabled for replica autoscaling; otherwise the request returns `403`. A value not listed here returns `422`.
 	Scaling *string `json:"scaling,omitempty"`
-	union   json.RawMessage
+
+	// Shards The number of shards to use. Changing it keeps the current scaling strategy.
+	Shards *int32 `json:"shards,omitempty"`
+	union  json.RawMessage
 }
 
 // ReadCapacityDedicatedPatchConfig0 defines model for .
@@ -963,9 +1003,16 @@ type ReadCapacityDedicatedPatchConfig0 = interface{}
 // ReadCapacityDedicatedPatchConfig1 defines model for .
 type ReadCapacityDedicatedPatchConfig1 = interface{}
 
+// ReadCapacityDedicatedPatchConfig2 defines model for .
+type ReadCapacityDedicatedPatchConfig2 = interface{}
+
 // ReadCapacityDedicatedPatchSpec defines model for ReadCapacityDedicatedPatchSpec.
 type ReadCapacityDedicatedPatchSpec struct {
-	// Dedicated Changes to the dedicated read capacity of an index. Every field is optional; omitted fields keep their current value. `scaling` and `manual` go together and must be sent as a pair: `scaling: Manual` without `manual` is rejected, and a `manual` block without `scaling: Manual` is not accepted by this schema (the service would silently ignore it). An index moving from `OnDemand` to `Dedicated` must supply `node_type`, `scaling`, and `manual`.
+	// Dedicated Changes to the dedicated read capacity of an index. Every field is optional; omitted fields keep their current value. Changing only `node_type` or `shards` keeps the current scaling strategy, including `Auto` bounds.
+	//
+	// `scaling` must be sent with its matching block: `manual` with `Manual`, or `auto` with `Auto`. A block without `scaling`, `scaling` without its block, or a block that does not match `scaling` returns `400`. Unknown keys beside `scaling` are ignored. An index moving from `OnDemand` to `Dedicated` must supply `node_type`, `shards`, `scaling`, and the matching block.
+	//
+	// If shard autoscaling is added later, its bounds will go in a new block beside `shards`.
 	Dedicated ReadCapacityDedicatedPatchConfig `json:"dedicated"`
 
 	// Mode Must be `Dedicated`.
@@ -975,52 +1022,40 @@ type ReadCapacityDedicatedPatchSpec struct {
 // ReadCapacityDedicatedSpec defines model for ReadCapacityDedicatedSpec.
 type ReadCapacityDedicatedSpec struct {
 	// Dedicated Configuration for dedicated read capacity. See [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on how to configure dedicated read capacity.
+	//
+	// `shards` is a fixed count. Replica bounds for `Auto` scaling are per shard and sit in `auto`. If shard autoscaling is added later, its bounds will go in a new block beside `shards`.
 	Dedicated ReadCapacityDedicatedConfig `json:"dedicated"`
 
-	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, `dedicated.scaling`, and `dedicated.manual` must be specified.
+	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, `dedicated.shards`, `dedicated.scaling`, and the block that matches `scaling` (`dedicated.manual` or `dedicated.auto`) must be specified.
 	Mode string `json:"mode"`
-}
-
-// ReadCapacityDedicatedSpecResponse defines model for ReadCapacityDedicatedSpecResponse.
-type ReadCapacityDedicatedSpecResponse struct {
-	// Dedicated Configuration for dedicated read capacity. See [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on how to configure dedicated read capacity.
-	Dedicated ReadCapacityDedicatedConfig `json:"dedicated"`
-
-	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, and `dedicated.scaling` must be specified.
-	Mode string `json:"mode"`
-
-	// Status The current status of factors affecting the read capacity of a serverless index
-	Status ReadCapacityStatus `json:"status"`
 }
 
 // ReadCapacityOnDemandSpec defines model for ReadCapacityOnDemandSpec.
 type ReadCapacityOnDemandSpec struct {
-	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, `dedicated.scaling`, and `dedicated.manual` must be specified.
+	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, `dedicated.shards`, `dedicated.scaling`, and the block that matches `scaling` (`dedicated.manual` or `dedicated.auto`) must be specified.
 	Mode string `json:"mode"`
 }
 
-// ReadCapacityOnDemandSpecResponse defines model for ReadCapacityOnDemandSpecResponse.
-type ReadCapacityOnDemandSpecResponse struct {
-	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, and `dedicated.scaling` must be specified.
+// ReadCapacityPatch Read capacity changes for an existing managed or BYOC index. Send `mode: OnDemand`, or `mode: Dedicated` with any subset of `node_type`, `shards`, and `scaling` with its matching block; fields you omit keep their current value. Not every change is supported for every index; an unsupported change returns `400`.
+type ReadCapacityPatch struct {
+	union json.RawMessage
+}
+
+// ReadCapacityResponse Response containing read capacity configuration. `dedicated` is present when `mode` is `Dedicated`.
+type ReadCapacityResponse struct {
+	// Dedicated The dedicated read capacity configuration of an index. `manual` is present when `scaling` is `Manual`, and `auto` when `scaling` is `Auto`.
+	Dedicated *ReadCapacityDedicatedConfigResponse `json:"dedicated,omitempty"`
+
+	// Mode The read capacity mode of the index: `OnDemand` or `Dedicated`. Clients should accept values not listed here; a new mode comes with its own block beside `dedicated`.
 	Mode string `json:"mode"`
 
 	// Status The current status of factors affecting the read capacity of a serverless index
 	Status ReadCapacityStatus `json:"status"`
 }
 
-// ReadCapacityPatch Read capacity changes for an existing managed or BYOC index. Switch to `OnDemand`, or set `Dedicated` and change any subset of `node_type`, `scaling`, and `manual` replicas/shards; fields you omit keep their current value.
-type ReadCapacityPatch struct {
-	union json.RawMessage
-}
-
-// ReadCapacityResponse Response containing read capacity configuration
-type ReadCapacityResponse struct {
-	union json.RawMessage
-}
-
 // ReadCapacityStatus The current status of factors affecting the read capacity of a serverless index
 type ReadCapacityStatus struct {
-	// CurrentReplicas The number of replicas. Each replica has dedicated compute resources and data storage. Increasing this number will increase the total throughput of the index. `null` for `OnDemand` indexes and for a `Dedicated` index that has not finished provisioning.
+	// CurrentReplicas The number of replicas per shard. Each replica has dedicated compute resources and data storage. Increasing this number will increase the total throughput of the index. With `Auto` scaling, this is the live count, which moves between `min_replicas` and `max_replicas`. If shards have different replica counts, this is the average across shards, rounded to the nearest whole number. `null` for `OnDemand` indexes and for a `Dedicated` index that has not finished provisioning.
 	CurrentReplicas *int32 `json:"current_replicas"`
 
 	// CurrentShards The number of shards. Each shard has dedicated storage. Increasing shards alleviates index fullness. `null` for `OnDemand` indexes and for a `Dedicated` index that has not finished provisioning.
@@ -1033,9 +1068,13 @@ type ReadCapacityStatus struct {
 	//
 	// Available values:
 	// - `Ready` is the state most of the time
-	// - `Scaling` if the number of replicas or shards has been recently updated by calling the [configure index endpoint](https://docs.pinecone.io/reference/api/2026-07/control-plane/configure_index)
-	// - `Migrating` if the index is being migrated to a new `node_type`
+	// - `Scaling` while a change to existing dedicated read capacity, made by calling the [configure index endpoint](https://docs.pinecone.io/reference/api/2026-10/control-plane/configure_index), is applied. This covers any change to `node_type`, `shards`, `replicas`, the `Auto` bounds, or a switch between `Manual` and `Auto`. Replica autoscaling changes the replica count without leaving `Ready`.
+	// - `Migrating` while the index moves from `OnDemand` to `Dedicated`, including an index created with `Dedicated` read capacity.
 	// - `Error` if there is an error with the read capacity configuration. In that case, see `error_message` for more details.
+	//
+	// While the state is `Scaling` or `Migrating`, a configure request that changes `read_capacity` returns `409`.
+	//
+	// Clients should accept values not listed here.
 	State string `json:"state"`
 }
 
@@ -1168,22 +1207,40 @@ type RestoreJobModel struct {
 	TargetIndexName string `json:"target_index_name"`
 }
 
-// ScalingConfigManual The config to use for manual read capacity scaling.
-type ScalingConfigManual struct {
-	// Replicas The number of replicas to use. Replicas duplicate the compute resources and data of an index, allowing higher query throughput and availability. Setting replicas to 0 disables the index but can be used to reduce costs while usage is paused.
-	Replicas int32 `json:"replicas"`
+// ScalingConfigAuto The config to use for automatic replica scaling. Pinecone adds and removes replicas within `min_replicas` and `max_replicas` based on read load. Billed capacity is at most `max_replicas` multiplied by the number of shards. A missing bound or an unknown key returns `422`.
+type ScalingConfigAuto struct {
+	// MaxReplicas The maximum number of replicas per shard. Autoscaling never scales above this value. Must be greater than or equal to `min_replicas`, otherwise the request returns `400`.
+	MaxReplicas int32 `json:"max_replicas"`
 
-	// Shards The number of shards to use. Shards determine the storage capacity of an index, with each shard providing 250 GB of storage.
-	Shards int32 `json:"shards"`
+	// MinReplicas The minimum number of replicas per shard. Autoscaling never scales below this value. Must be at least 1, otherwise the request returns `400`. To pause an index, use `Manual` scaling with `replicas` set to 0.
+	MinReplicas int32 `json:"min_replicas"`
 }
 
-// ScalingConfigManualPatch Manual scaling changes. Omitted fields keep their current value.
-type ScalingConfigManualPatch struct {
-	// Replicas The number of replicas.
-	Replicas *int32 `json:"replicas,omitempty"`
+// ScalingConfigAutoResponse The replica autoscaling bounds of an index. `status.current_replicas` reports the live count.
+type ScalingConfigAutoResponse struct {
+	// MaxReplicas The maximum number of replicas per shard.
+	MaxReplicas int32 `json:"max_replicas"`
 
-	// Shards The number of shards.
-	Shards *int32 `json:"shards,omitempty"`
+	// MinReplicas The minimum number of replicas per shard.
+	MinReplicas int32 `json:"min_replicas"`
+}
+
+// ScalingConfigManual The config to use for manual read capacity scaling. The shard count goes in `dedicated.shards`, not here: sending `shards` inside `manual` returns `400`, and any other unknown key returns `422`.
+type ScalingConfigManual struct {
+	// Replicas The number of replicas per shard. Replicas duplicate the compute resources and data of an index, allowing higher query throughput and availability. Setting replicas to 0 disables the index but can be used to reduce costs while usage is paused.
+	Replicas int32 `json:"replicas"`
+}
+
+// ScalingConfigManualPatch Manual scaling changes. Sending this block with `scaling: Manual` sets a fixed replica count and turns replica autoscaling off. The shard count goes in `dedicated.shards`, not here: sending `shards` inside `manual` returns `400`, and any other unknown key returns `422`.
+type ScalingConfigManualPatch struct {
+	// Replicas The number of replicas per shard.
+	Replicas int32 `json:"replicas"`
+}
+
+// ScalingConfigManualResponse The fixed replica count of an index with `Manual` scaling. `status.current_replicas` reports the live count.
+type ScalingConfigManualResponse struct {
+	// Replicas The number of replicas per shard.
+	Replicas int32 `json:"replicas"`
 }
 
 // SemanticTextField The embedded text field of a legacy integrated index created via create-for-model, as returned when the index is described. The index's embedding configuration is reported on the field named by its `field_map`. Legacy integrated indexes require the legacy Records API.
@@ -2090,6 +2147,32 @@ func (t *ReadCapacityDedicatedPatchConfig) MergeReadCapacityDedicatedPatchConfig
 	return err
 }
 
+// AsReadCapacityDedicatedPatchConfig2 returns the union data inside the ReadCapacityDedicatedPatchConfig as a ReadCapacityDedicatedPatchConfig2
+func (t ReadCapacityDedicatedPatchConfig) AsReadCapacityDedicatedPatchConfig2() (ReadCapacityDedicatedPatchConfig2, error) {
+	var body ReadCapacityDedicatedPatchConfig2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromReadCapacityDedicatedPatchConfig2 overwrites any union data inside the ReadCapacityDedicatedPatchConfig as the provided ReadCapacityDedicatedPatchConfig2
+func (t *ReadCapacityDedicatedPatchConfig) FromReadCapacityDedicatedPatchConfig2(v ReadCapacityDedicatedPatchConfig2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeReadCapacityDedicatedPatchConfig2 performs a merge with any union data inside the ReadCapacityDedicatedPatchConfig, using the provided ReadCapacityDedicatedPatchConfig2
+func (t *ReadCapacityDedicatedPatchConfig) MergeReadCapacityDedicatedPatchConfig2(v ReadCapacityDedicatedPatchConfig2) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t ReadCapacityDedicatedPatchConfig) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
 	if err != nil {
@@ -2100,6 +2183,13 @@ func (t ReadCapacityDedicatedPatchConfig) MarshalJSON() ([]byte, error) {
 		err = json.Unmarshal(b, &object)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	if t.Auto != nil {
+		object["auto"], err = json.Marshal(t.Auto)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'auto': %w", err)
 		}
 	}
 
@@ -2123,6 +2213,13 @@ func (t ReadCapacityDedicatedPatchConfig) MarshalJSON() ([]byte, error) {
 			return nil, fmt.Errorf("error marshaling 'scaling': %w", err)
 		}
 	}
+
+	if t.Shards != nil {
+		object["shards"], err = json.Marshal(t.Shards)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'shards': %w", err)
+		}
+	}
 	b, err = json.Marshal(object)
 	return b, err
 }
@@ -2136,6 +2233,13 @@ func (t *ReadCapacityDedicatedPatchConfig) UnmarshalJSON(b []byte) error {
 	err = json.Unmarshal(b, &object)
 	if err != nil {
 		return err
+	}
+
+	if raw, found := object["auto"]; found {
+		err = json.Unmarshal(raw, &t.Auto)
+		if err != nil {
+			return fmt.Errorf("error reading 'auto': %w", err)
+		}
 	}
 
 	if raw, found := object["manual"]; found {
@@ -2156,6 +2260,13 @@ func (t *ReadCapacityDedicatedPatchConfig) UnmarshalJSON(b []byte) error {
 		err = json.Unmarshal(raw, &t.Scaling)
 		if err != nil {
 			return fmt.Errorf("error reading 'scaling': %w", err)
+		}
+	}
+
+	if raw, found := object["shards"]; found {
+		err = json.Unmarshal(raw, &t.Shards)
+		if err != nil {
+			return fmt.Errorf("error reading 'shards': %w", err)
 		}
 	}
 
@@ -2247,95 +2358,6 @@ func (t ReadCapacityPatch) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ReadCapacityPatch) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsReadCapacityOnDemandSpecResponse returns the union data inside the ReadCapacityResponse as a ReadCapacityOnDemandSpecResponse
-func (t ReadCapacityResponse) AsReadCapacityOnDemandSpecResponse() (ReadCapacityOnDemandSpecResponse, error) {
-	var body ReadCapacityOnDemandSpecResponse
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromReadCapacityOnDemandSpecResponse overwrites any union data inside the ReadCapacityResponse as the provided ReadCapacityOnDemandSpecResponse
-func (t *ReadCapacityResponse) FromReadCapacityOnDemandSpecResponse(v ReadCapacityOnDemandSpecResponse) error {
-	v.Mode = "OnDemand"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeReadCapacityOnDemandSpecResponse performs a merge with any union data inside the ReadCapacityResponse, using the provided ReadCapacityOnDemandSpecResponse
-func (t *ReadCapacityResponse) MergeReadCapacityOnDemandSpecResponse(v ReadCapacityOnDemandSpecResponse) error {
-	v.Mode = "OnDemand"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsReadCapacityDedicatedSpecResponse returns the union data inside the ReadCapacityResponse as a ReadCapacityDedicatedSpecResponse
-func (t ReadCapacityResponse) AsReadCapacityDedicatedSpecResponse() (ReadCapacityDedicatedSpecResponse, error) {
-	var body ReadCapacityDedicatedSpecResponse
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromReadCapacityDedicatedSpecResponse overwrites any union data inside the ReadCapacityResponse as the provided ReadCapacityDedicatedSpecResponse
-func (t *ReadCapacityResponse) FromReadCapacityDedicatedSpecResponse(v ReadCapacityDedicatedSpecResponse) error {
-	v.Mode = "Dedicated"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeReadCapacityDedicatedSpecResponse performs a merge with any union data inside the ReadCapacityResponse, using the provided ReadCapacityDedicatedSpecResponse
-func (t *ReadCapacityResponse) MergeReadCapacityDedicatedSpecResponse(v ReadCapacityDedicatedSpecResponse) error {
-	v.Mode = "Dedicated"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t ReadCapacityResponse) Discriminator() (string, error) {
-	var discriminator struct {
-		Discriminator string `json:"mode"`
-	}
-	err := json.Unmarshal(t.union, &discriminator)
-	return discriminator.Discriminator, err
-}
-
-func (t ReadCapacityResponse) ValueByDiscriminator() (interface{}, error) {
-	discriminator, err := t.Discriminator()
-	if err != nil {
-		return nil, err
-	}
-	switch discriminator {
-	case "Dedicated":
-		return t.AsReadCapacityDedicatedSpecResponse()
-	case "OnDemand":
-		return t.AsReadCapacityOnDemandSpecResponse()
-	default:
-		return nil, errors.New("unknown discriminator value: " + discriminator)
-	}
-}
-
-func (t ReadCapacityResponse) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *ReadCapacityResponse) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -5600,6 +5622,7 @@ type ConfigureIndexApiResponse struct {
 	JSON400      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
+	JSON409      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -7164,6 +7187,13 @@ func ParseConfigureIndexApiResponse(rsp *http.Response) (*ConfigureIndexApiRespo
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse

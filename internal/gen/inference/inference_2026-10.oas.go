@@ -1066,7 +1066,6 @@ type ListModelsApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelInfoList
-	JSON401      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -1091,7 +1090,6 @@ type GetModelApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelInfo
-	JSON401      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -1257,13 +1255,6 @@ func ParseListModelsApiResponse(rsp *http.Response) (*ListModelsApiResponse, err
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -1303,13 +1294,6 @@ func ParseGetModelApiResponse(rsp *http.Response) (*GetModelApiResponse, error) 
 			return nil, err
 		}
 		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorResponse

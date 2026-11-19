@@ -1391,7 +1391,7 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 				assert.Equal(t, "b1", dedicatedSpec.Dedicated.NodeType)
 				assert.Equal(t, "Manual", dedicatedSpec.Dedicated.Scaling)
 				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Manual.Replicas)
-				assert.Equal(t, int32(3), dedicatedSpec.Dedicated.Manual.Shards)
+				assert.Equal(t, int32(3), dedicatedSpec.Dedicated.Shards)
 			},
 		},
 	}
@@ -1484,8 +1484,9 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 				require.NotNil(t, dedicatedSpec.Dedicated.NodeType)
 				assert.Equal(t, "t1", *dedicatedSpec.Dedicated.NodeType)
 				require.NotNil(t, dedicatedSpec.Dedicated.Manual)
-				assert.Equal(t, int32(2), *dedicatedSpec.Dedicated.Manual.Replicas)
-				assert.Equal(t, int32(3), *dedicatedSpec.Dedicated.Manual.Shards)
+				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Manual.Replicas)
+				require.NotNil(t, dedicatedSpec.Dedicated.Shards)
+				assert.Equal(t, int32(3), *dedicatedSpec.Dedicated.Shards)
 			},
 		},
 		{
@@ -1512,8 +1513,8 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 				require.NoError(t, specErr)
 				assert.Nil(t, dedicatedSpec.Dedicated.NodeType)
 				require.NotNil(t, dedicatedSpec.Dedicated.Manual)
-				assert.Equal(t, int32(4), *dedicatedSpec.Dedicated.Manual.Replicas)
-				assert.Nil(t, dedicatedSpec.Dedicated.Manual.Shards)
+				assert.Equal(t, int32(4), dedicatedSpec.Dedicated.Manual.Replicas)
+				assert.Nil(t, dedicatedSpec.Dedicated.Shards)
 			},
 		},
 		{
@@ -1575,8 +1576,9 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 				require.NotNil(t, dedicatedSpec.Dedicated.NodeType)
 				assert.Equal(t, "t1", *dedicatedSpec.Dedicated.NodeType)
 				require.NotNil(t, dedicatedSpec.Dedicated.Manual)
-				assert.Equal(t, int32(2), *dedicatedSpec.Dedicated.Manual.Replicas)
-				assert.Equal(t, int32(3), *dedicatedSpec.Dedicated.Manual.Shards)
+				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Manual.Replicas)
+				require.NotNil(t, dedicatedSpec.Dedicated.Shards)
+				assert.Equal(t, int32(3), *dedicatedSpec.Dedicated.Shards)
 			},
 		},
 	}
@@ -1596,8 +1598,7 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 
 	// utility funcs for creating inputs from generated code types
 	onDemandInput := func() *db_control.ReadCapacityResponse {
-		var result db_control.ReadCapacityResponse
-		onDemandSpec := db_control.ReadCapacityOnDemandSpecResponse{
+		return &db_control.ReadCapacityResponse{
 			Mode: "OnDemand",
 			Status: db_control.ReadCapacityStatus{
 				State:           "Ready",
@@ -1606,18 +1607,12 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 				ErrorMessage:    nil,
 			},
 		}
-		err := result.FromReadCapacityOnDemandSpecResponse(onDemandSpec)
-		if err != nil {
-			panic(err)
-		}
-		return &result
 	}()
 
 	dedicatedNoScalingInput := func() *db_control.ReadCapacityResponse {
-		var result db_control.ReadCapacityResponse
-		dedicatedSpec := db_control.ReadCapacityDedicatedSpecResponse{
+		return &db_control.ReadCapacityResponse{
 			Mode: "Dedicated",
-			Dedicated: db_control.ReadCapacityDedicatedConfig{
+			Dedicated: &db_control.ReadCapacityDedicatedConfigResponse{
 				NodeType: "t1",
 			},
 			Status: db_control.ReadCapacityStatus{
@@ -1627,23 +1622,17 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 				ErrorMessage:    nil,
 			},
 		}
-		err := result.FromReadCapacityDedicatedSpecResponse(dedicatedSpec)
-		if err != nil {
-			panic(err)
-		}
-		return &result
 	}()
 
 	dedicatedWithScalingInput := func() *db_control.ReadCapacityResponse {
-		var result db_control.ReadCapacityResponse
-		dedicatedSpec := db_control.ReadCapacityDedicatedSpecResponse{
+		return &db_control.ReadCapacityResponse{
 			Mode: "Dedicated",
-			Dedicated: db_control.ReadCapacityDedicatedConfig{
+			Dedicated: &db_control.ReadCapacityDedicatedConfigResponse{
 				NodeType: "b1",
 				Scaling:  "Manual",
-				Manual: db_control.ScalingConfigManual{
+				Shards:   &shards,
+				Manual: &db_control.ScalingConfigManualResponse{
 					Replicas: 2,
-					Shards:   3,
 				},
 			},
 			Status: db_control.ReadCapacityStatus{
@@ -1653,11 +1642,6 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 				ErrorMessage:    &errorMsg,
 			},
 		}
-		err := result.FromReadCapacityDedicatedSpecResponse(dedicatedSpec)
-		if err != nil {
-			panic(err)
-		}
-		return &result
 	}()
 
 	emptyInput := func() *db_control.ReadCapacityResponse {
@@ -1670,14 +1654,14 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 		// Create a malformed ReadCapacityResponse with invalid JSON
 		var result db_control.ReadCapacityResponse
 		// Inject malformed JSON that isn't "unexpected end of JSON input"
-		_ = result.UnmarshalJSON([]byte(`{"mode": "OnDemand", "status": {"state": "Ready"`)) // missing closing braces
+		_ = json.Unmarshal([]byte(`{"mode": "OnDemand", "status": {"state": "Ready"`), &result) // missing closing braces
 		return &result
 	}()
 
 	unknownModeInput := func() *db_control.ReadCapacityResponse {
 		// Create a ReadCapacityResponse with an unknown mode
 		var result db_control.ReadCapacityResponse
-		_ = result.UnmarshalJSON([]byte(`{"mode": "FutureMode", "status": {"state": "Ready"}}`))
+		_ = json.Unmarshal([]byte(`{"mode": "FutureMode", "status": {"state": "Ready"}}`), &result)
 		return &result
 	}()
 

@@ -3078,11 +3078,16 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 	patchConfig := db_control.ReadCapacityDedicatedPatchConfig{
 		NodeType: new.Dedicated.NodeType,
 	}
-	if new.Dedicated.Scaling != nil && new.Dedicated.Scaling.Manual != nil {
-		patchConfig.Scaling = pointerOrNil("Manual")
-		patchConfig.Manual = &db_control.ScalingConfigManualPatch{
-			Replicas: new.Dedicated.Scaling.Manual.Replicas,
-			Shards:   new.Dedicated.Scaling.Manual.Shards,
+	if manual := readCapacityManual(new.Dedicated); manual != nil {
+		// 2026-10 moved shards out of the manual block, and a manual block must carry replicas.
+		// A Manual block with only Shards changes the shard count and keeps the current replicas.
+		patchConfig.Shards = manual.Shards
+		if manual.Replicas != nil {
+			patchConfig.Scaling = pointerOrNil("Manual")
+			patchConfig.Manual = &db_control.ScalingConfigManualPatch{Replicas: *manual.Replicas}
+		} else if manual.Shards == nil {
+			// Sending replicas 0 would pause the index, so refuse rather than guess.
+			return nil, fmt.Errorf("Scaling.Manual must set Replicas or Shards; to keep the current scaling, omit Scaling")
 		}
 	}
 
@@ -3094,6 +3099,14 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 	}
 
 	return &result, nil
+}
+
+// Returns the Manual scaling block of a Dedicated configuration, or nil.
+func readCapacityManual(dedicated *ReadCapacityDedicatedConfig) *ReadCapacityManualScaling {
+	if dedicated == nil || dedicated.Scaling == nil {
+		return nil
+	}
+	return dedicated.Scaling.Manual
 }
 
 // Converts the ReadCapacityParams to db_control.ReadCapacity - used for CreateServerlessIndex,
@@ -3121,7 +3134,7 @@ func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.
 		return &result, nil
 	}
 
-	// Dedicated: the 2026-07 create request requires node type and a manual scaling configuration.
+	// Dedicated: the create request requires node type, shards, and a scaling configuration.
 	if request.Dedicated.NodeType == nil ||
 		request.Dedicated.Scaling == nil ||
 		request.Dedicated.Scaling.Manual == nil ||
@@ -3133,10 +3146,10 @@ func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.
 	dedicatedSpec := db_control.ReadCapacityDedicatedSpec{
 		Dedicated: db_control.ReadCapacityDedicatedConfig{
 			NodeType: *request.Dedicated.NodeType,
+			Shards:   *request.Dedicated.Scaling.Manual.Shards,
 			Scaling:  "Manual",
-			Manual: db_control.ScalingConfigManual{
+			Manual: &db_control.ScalingConfigManual{
 				Replicas: *request.Dedicated.Scaling.Manual.Replicas,
-				Shards:   *request.Dedicated.Scaling.Manual.Shards,
 			},
 		},
 		Mode: "Dedicated",
@@ -3156,60 +3169,40 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 		return nil, nil
 	}
 
-	mode, err := rc.Discriminator()
-	if err != nil {
-		// If we can't determine the mode, return nil rather than failing.
-		// This handles cases like empty responses or unknown modes gracefully.
-		return nil, nil
+	status := ReadCapacityStatus{
+		State:           rc.Status.State,
+		CurrentReplicas: rc.Status.CurrentReplicas,
+		CurrentShards:   rc.Status.CurrentShards,
+		ErrorMessage:    rc.Status.ErrorMessage,
 	}
 
-	// Empty mode string means no configuration present
-	if mode == "" {
-		return nil, nil
-	}
-
-	switch mode {
+	switch rc.Mode {
 	case "OnDemand":
-		onDemandSpec, err := rc.AsReadCapacityOnDemandSpecResponse()
-		if err != nil {
-			return nil, err
-		}
-
 		return &ReadCapacity{
-			OnDemand: &ReadCapacityOnDemand{
-				Status: ReadCapacityStatus{
-					State:           onDemandSpec.Status.State,
-					CurrentReplicas: onDemandSpec.Status.CurrentReplicas,
-					CurrentShards:   onDemandSpec.Status.CurrentShards,
-					ErrorMessage:    onDemandSpec.Status.ErrorMessage,
-				},
-			},
+			OnDemand: &ReadCapacityOnDemand{Status: status},
 		}, nil
 	case "Dedicated":
-		dedicatedSpec, err := rc.AsReadCapacityDedicatedSpecResponse()
-		if err != nil {
-			return nil, err
+		dedicated := &ReadCapacityDedicated{Status: status}
+		config := rc.Dedicated
+		if config == nil {
+			return &ReadCapacity{Dedicated: dedicated}, nil
 		}
 
-		nodeType := dedicatedSpec.Dedicated.NodeType
-		dedicated := &ReadCapacityDedicated{
-			NodeType: &nodeType,
-			Status: ReadCapacityStatus{
-				State:           dedicatedSpec.Status.State,
-				CurrentReplicas: dedicatedSpec.Status.CurrentReplicas,
-				CurrentShards:   dedicatedSpec.Status.CurrentShards,
-				ErrorMessage:    dedicatedSpec.Status.ErrorMessage,
-			},
-		}
+		nodeType := config.NodeType
+		dedicated.NodeType = &nodeType
 
 		// Scaling
-		if strings.EqualFold(dedicatedSpec.Dedicated.Scaling, "manual") {
-			replicas := dedicatedSpec.Dedicated.Manual.Replicas
-			shards := dedicatedSpec.Dedicated.Manual.Shards
+		if strings.EqualFold(config.Scaling, "manual") && config.Manual != nil {
+			replicas := config.Manual.Replicas
+			var shards *int32
+			if config.Shards != nil {
+				s := *config.Shards
+				shards = &s
+			}
 			dedicated.Scaling = &ReadCapacityScaling{
 				Manual: &ReadCapacityManualScaling{
 					Replicas: &replicas,
-					Shards:   &shards,
+					Shards:   shards,
 				},
 			}
 		}
@@ -3218,7 +3211,7 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 			Dedicated: dedicated,
 		}, nil
 	default:
-		// Be permissive: return nil for unknown modes (e.g., future API additions)
+		// Be permissive: return nil for unknown or empty modes (e.g., future API additions)
 		// rather than failing the entire operation
 		return nil, nil
 	}
