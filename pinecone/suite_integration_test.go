@@ -4,13 +4,16 @@ package pinecone
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen/db_control"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -256,15 +259,7 @@ func (ts *integrationTests) TearDownSuite() {
 	}
 
 	if ts.backupId != "" {
-		err = ts.client.DeleteBackup(ctx, ts.backupId)
-		for retry := 1; err != nil && retry <= 4; retry++ {
-			fmt.Printf("Failed to delete backup \"%s\": %v. Retrying... (%d/4)\n", ts.backupId, err, retry)
-			time.Sleep(5 * time.Second)
-			err = ts.client.DeleteBackup(ctx, ts.backupId)
-		}
-		if err != nil {
-			ts.T().Errorf("deleting backup %s: %v", ts.backupId, err)
-		}
+		ts.deleteSuiteBackup(ctx)
 	}
 
 	// Delete test index
@@ -285,6 +280,25 @@ func (ts *integrationTests) TearDownSuite() {
 	}
 
 	fmt.Printf("\n %s setup suite torn down successfully\n", ts.indexType)
+}
+
+func (ts *integrationTests) deleteSuiteBackup(ctx context.Context) {
+	err := ts.client.DeleteBackup(ctx, ts.backupId)
+	for retry := 1; err != nil && retry <= 2; retry++ {
+		fmt.Printf("Failed to delete backup \"%s\": %v. Retrying... (%d/2)\n", ts.backupId, err, retry)
+		time.Sleep(5 * time.Second)
+		err = ts.client.DeleteBackup(ctx, ts.backupId)
+	}
+	var pcErr *PineconeError
+	if err == nil || !errors.As(err, &pcErr) || pcErr.Code < 500 {
+		require.NoError(ts.T(), err, "deleting backup %s", ts.backupId)
+		return
+	}
+	res, err := ts.client.restClient.DeleteBackup(ctx, ts.backupId, &db_control.DeleteBackupParams{XPineconeApiVersion: "2026-07"})
+	require.NoError(ts.T(), err)
+	res.Body.Close()
+	require.Equal(ts.T(), http.StatusAccepted, res.StatusCode, "deleting backup %s with API 2026-07", ts.backupId)
+	logBlocked(ts.T(), "production returns 500 deleting a backup on API 2026-10; deleted it with 2026-07")
 }
 
 // Helper funcs

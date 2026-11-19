@@ -8,14 +8,20 @@ import (
 	"testing"
 )
 
-// blockedSkipPrefix starts every skip that waits on something outside the SDK. CI counts these
-// skips and fails a pull request into main that has any.
-const blockedSkipPrefix = "BLOCKED: "
+// blockedPrefix starts every test log line about something outside the SDK that keeps a check from
+// running or passing. CI counts these lines and fails a pull request into main that has any.
+const blockedPrefix = "BLOCKED: "
 
 // skipBlocked skips t until blocker, a plain-words description of what has to ship first, clears.
 func skipBlocked(t testing.TB, blocker string) {
 	t.Helper()
-	t.Skip(blockedSkipPrefix + blocker)
+	t.Skip(blockedPrefix + blocker)
+}
+
+// logBlocked records blocker without skipping, for a check that ran but had to work around it.
+func logBlocked(t testing.TB, blocker string) {
+	t.Helper()
+	t.Log(blockedPrefix + blocker)
 }
 
 func generateVectors(numOfVectors int, dimension int32, isSparse bool, metadata *Metadata) []*Vector {

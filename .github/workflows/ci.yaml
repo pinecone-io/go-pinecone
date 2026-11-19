@@ -96,8 +96,8 @@ jobs:
           PINECONE_INDEX_URL_SERVERLESS: http://localhost:5081
           PINECONE_DIMENSION: 1536
 
-  # The keyed integration suite against production. Tests that wait on something outside the SDK
-  # skip with skipBlocked; a pull request into main fails while any remain.
+  # The keyed integration suite against production. A check held up by something outside the SDK
+  # logs a "BLOCKED: " line (skipBlocked, logBlocked); a pull request into main fails while any remain.
   live:
     name: Integration (live)
     if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
