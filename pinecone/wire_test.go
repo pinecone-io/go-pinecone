@@ -2045,6 +2045,17 @@ func requireIncompatibleError(t *testing.T, err error, message string, details m
 	assert.Equal(t, ReasonResourceIncompatibleWithAPIVersion, pcErr.Reason)
 	assert.Contains(t, pcErr.Message, message)
 	assert.Equal(t, details, pcErr.Details())
+	typed := pcErr.TypedDetails()
+	require.NotNil(t, typed)
+	assert.Equal(t, details["minimum_api_version"], derefOrNil(typed.MinimumAPIVersion))
+	assert.Equal(t, details["preview_api_version"], derefOrNil(typed.PreviewAPIVersion))
+}
+
+func derefOrNil(s *string) any {
+	if s == nil {
+		return nil
+	}
+	return *s
 }
 
 func requireIncompatibleIndexError(t *testing.T, err error) {
