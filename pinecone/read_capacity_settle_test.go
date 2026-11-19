@@ -29,7 +29,7 @@ func readCapacitySettled(idx *Index) (bool, error) {
 	}
 }
 
-func TestReadCapacitySettled(t *testing.T) {
+func TestReadCapacitySettledUnit(t *testing.T) {
 	dedicated := func(state string, errorMessage *string) *Index {
 		return &Index{ReadCapacity: &ReadCapacity{Dedicated: &ReadCapacityDedicated{
 			Status: ReadCapacityStatus{State: state, ErrorMessage: errorMessage},
