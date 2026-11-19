@@ -73,7 +73,6 @@ Document indexes have these limitations:
 
 - They run only on serverless deployments.
 - You can't change the schema after the index is created.
-- You can't switch them from dedicated read capacity back to on-demand.
 
 ### Configure text processing
 
@@ -287,12 +286,12 @@ be configured, so fix the cause and call `ConfigureIndex` again.
 ## Dedicated read capacity
 
 Serverless and BYOC indexes use on-demand read capacity by default, except in a BYOC environment that supports only
-dedicated read capacity. To provision dedicated read nodes instead, set
-`ReadCapacity` when you create the index. You need to set `NodeType` (`"b1"` or `"t1"`, which has more processing power
-and memory), `Shards`, and a scaling strategy. With manual scaling, you set a fixed number of `Replicas` per shard.
-Dedicated read capacity is billed for as long as the index exists; the examples use the smallest shape. The
-[Dedicated read nodes](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes/overview) overview has more on
-these settings.
+dedicated read capacity. To provision dedicated read nodes instead, set `ReadCapacity` when you create the index. You
+need to set `NodeType` (`"b1"` or `"t1"`, which has more processing power and memory), `Shards`, and a scaling strategy.
+With manual scaling, you set a fixed number of `Replicas` per shard. Dedicated read capacity is billed, so the examples
+use the smallest shape. An index with dedicated read capacity can't switch back to on-demand: `ConfigureIndex` returns a
+`PineconeError` with the error code `INVALID_ARGUMENT`. To pause it, set `Replicas` to 0. The [Dedicated read
+nodes](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes/overview) overview has more on these settings.
 
 ```go
 nodeType := "b1"
@@ -325,9 +324,9 @@ describe response, which fills in the deprecated field for a manually scaled ind
 ### Replica autoscaling
 
 With `Scaling.Auto`, Pinecone moves the number of replicas per shard between `MinReplicas` and `MaxReplicas` as load
-changes. The autoscaler never changes the shard count; change it yourself with `ConfigureIndex`. Your organization
-must be enabled for replica autoscaling; otherwise the request fails with a `PineconeError` whose error code is
-`FORBIDDEN`.
+changes. The autoscaler never changes the shard count; change it yourself with `ConfigureIndex`. Your organization must
+be enabled for replica autoscaling; otherwise the request fails with a `PineconeError` whose error code is `FORBIDDEN`.
+On a plan without dedicated read capacity, any dedicated request fails with `INVALID_ARGUMENT` instead.
 
 Against per-index and per-project read node limits, an index counts as `Shards` × `Replicas` read nodes, or as
 `Shards` × `MaxReplicas` when it autoscales, even while it runs fewer. A request that would go over a limit also fails
@@ -504,11 +503,6 @@ _, err = pc.ConfigureIndex(ctx, "articles", pinecone.ConfigureIndexParams{
 	},
 })
 
-// Switch a vector index to on-demand read capacity. A BYOC environment that supports only dedicated
-// read capacity rejects this.
-_, err = pc.ConfigureIndex(ctx, "docs-example", pinecone.ConfigureIndexParams{
-	ReadCapacity: &pinecone.ReadCapacityParams{OnDemand: &pinecone.ReadCapacityOnDemandConfig{}},
-})
 
 // Update the read parameters of a legacy integrated index's embedding model. The key is the name
 // of the semantic text field in the index's schema, which is the text field from its FieldMap.
