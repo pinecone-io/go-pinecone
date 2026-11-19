@@ -241,15 +241,18 @@ func TestReadCapacityTransitionsIntegration(t *testing.T) {
 
 func TestReadCapacityCreateAutoIntegration(t *testing.T) {
 	pc := newReadCapacityTestClient(t)
-	name := readCapacityTestIndexName("rc-auto")
-	createReadCapacityTestIndex(t, pc, name, autoReadCapacity(1, 2))
-
-	dedicated := describeDedicated(t, pc, name)
-	assert.Equal(t, ptr(int32(1)), dedicated.Shards)
-	assert.Equal(t, ptr(ReadCapacityScalingStrategyAuto), dedicated.ScalingStrategy)
-	require.NotNil(t, dedicated.Scaling)
-	assert.Nil(t, dedicated.Scaling.Manual)
-	assert.Equal(t, &ReadCapacityAutoScaling{MinReplicas: 1, MaxReplicas: 2}, dedicated.Scaling.Auto)
+	dense := DenseVectorField{Dimension: 5, Metric: IndexMetricCosine}
+	rc := autoReadCapacity(1, 2)
+	testIndexCRUD(t, pc, "_values", dense, rc.Dedicated.Scaling.Auto, func(ctx context.Context, name string) (*Index, error) {
+		return pc.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
+			Name:         name,
+			Dimension:    &dense.Dimension,
+			Metric:       &dense.Metric,
+			Cloud:        CloudAWS,
+			Region:       "us-east-1",
+			ReadCapacity: rc,
+		})
+	})
 }
 
 func TestReadCapacityOnDemandToDedicatedIntegration(t *testing.T) {
