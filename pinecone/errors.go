@@ -2,7 +2,6 @@ package pinecone
 
 import (
 	"fmt"
-	"maps"
 )
 
 // PineconeError is the error returned when a Pinecone REST API request (control plane, admin,
@@ -51,13 +50,37 @@ type PineconeError struct {
 const ReasonResourceIncompatibleWithAPIVersion = "RESOURCE_INCOMPATIBLE_WITH_API_VERSION"
 
 // Details returns a copy of the machine-readable facts about the error, keyed as its Reason
-// documents, or nil when the response has none. Values are strings, numbers or booleans; numbers
-// decode as float64, as with encoding/json.
+// documents, or nil when the response has none. Values are decoded as with encoding/json: strings,
+// float64 numbers, booleans, or nested map[string]any and []any values. The API never sends null;
+// a key with no value is left out. Ignore keys you don't recognize, since more may be added.
 func (pe *PineconeError) Details() map[string]any {
 	if pe == nil || pe.details == nil {
 		return nil
 	}
-	return maps.Clone(*pe.details)
+	return deepCopyJSONObject(*pe.details)
+}
+
+func deepCopyJSONObject(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = deepCopyJSONValue(v)
+	}
+	return out
+}
+
+func deepCopyJSONValue(v any) any {
+	switch v := v.(type) {
+	case map[string]any:
+		return deepCopyJSONObject(v)
+	case []any:
+		out := make([]any, len(v))
+		for i, e := range v {
+			out[i] = deepCopyJSONValue(e)
+		}
+		return out
+	default:
+		return v
+	}
 }
 
 // Error returns the formatted Msg.
