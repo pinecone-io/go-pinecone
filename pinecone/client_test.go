@@ -2352,6 +2352,56 @@ func TestPineconeErrorDetailsNestedValuesAreCopied(t *testing.T) {
 	assert.Equal(t, want, pcErr.Details())
 }
 
+func TestPineconeErrorTypedDetails(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want *ErrorDetails
+	}{
+		{
+			name: "incompatible resource with a minimum version",
+			body: `{"status": 412, "error": {"code": "FAILED_PRECONDITION", "reason": "RESOURCE_INCOMPATIBLE_WITH_API_VERSION", "message": "m", "details": {"api_version": "2026-10", "minimum_api_version": "2027-04"}}}`,
+			want: &ErrorDetails{APIVersion: ptr("2026-10"), MinimumAPIVersion: ptr("2027-04")},
+		},
+		{
+			name: "incompatible resource with only a preview version",
+			body: `{"status": 412, "error": {"code": "FAILED_PRECONDITION", "reason": "RESOURCE_INCOMPATIBLE_WITH_API_VERSION", "message": "m", "details": {"api_version": "2026-10", "preview_api_version": "2027-07.alpha"}}}`,
+			want: &ErrorDetails{APIVersion: ptr("2026-10"), PreviewAPIVersion: ptr("2027-07.alpha")},
+		},
+		{
+			name: "too many documents",
+			body: `{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "m", "details": {"limit_documents": 1000, "actual_documents": 1001}}}`,
+			want: &ErrorDetails{LimitDocuments: ptr(1000), ActualDocuments: ptr(1001)},
+		},
+		{
+			name: "embedding rate limit",
+			body: `{"status": 429, "error": {"code": "RESOURCE_EXHAUSTED", "reason": "RATE_LIMIT_EXCEEDED", "message": "m", "details": {"field": "content", "model": "llama-text-embed-v2"}}}`,
+			want: &ErrorDetails{Field: ptr("content"), Model: ptr("llama-text-embed-v2")},
+		},
+		{
+			name: "values of the wrong type and unknown keys are ignored",
+			body: `{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "m", "details": {"limit_documents": 10.5, "actual_documents": "11", "model": 3, "new_key": "x"}}}`,
+			want: &ErrorDetails{},
+		},
+		{
+			name: "no details",
+			body: `{"status": 400, "error": {"code": "INVALID_ARGUMENT", "message": "m"}}`,
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := handleErrorResponseBody(mockResponse(tt.body, http.StatusBadRequest), "")
+			var pcErr *PineconeError
+			require.ErrorAs(t, err, &pcErr)
+			assert.Equal(t, tt.want, pcErr.TypedDetails())
+		})
+	}
+
+	var nilErr *PineconeError
+	assert.Nil(t, nilErr.TypedDetails())
+}
+
 func TestPineconeErrorDetailsOnNilError(t *testing.T) {
 	var pcErr *PineconeError
 	assert.Nil(t, pcErr.Details())
