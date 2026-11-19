@@ -2,6 +2,7 @@ package pinecone
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -473,6 +474,33 @@ func TestToUserUnit(t *testing.T) {
 		assert.Equal(t, "ada@example.com", user.Email, "expected email to be stringified")
 		require.NotNil(t, user.Name)
 		assert.Equal(t, name, *user.Name)
+	})
+
+	t.Run("user with SSO and personal accounts", func(t *testing.T) {
+		var adminUser admin.User
+		require.NoError(t, json.Unmarshal([]byte(`{
+			"id": "`+uuid.New().String()+`",
+			"email": "ada@example.com",
+			"accounts": [{"type": "sso", "name_id": "ada@corp.example"}, {"type": "personal"}]
+		}`), &adminUser))
+
+		user := toUser(adminUser)
+
+		require.NotNil(t, user)
+		assert.Equal(t, &[]UserAccount{
+			{Type: "sso", NameId: ptr("ada@corp.example")},
+			{Type: "personal"},
+		}, user.Accounts)
+	})
+
+	t.Run("user in an organization without SSO", func(t *testing.T) {
+		var adminUser admin.User
+		require.NoError(t, json.Unmarshal([]byte(`{"id": "`+uuid.New().String()+`", "email": "ada@example.com"}`), &adminUser))
+
+		user := toUser(adminUser)
+
+		require.NotNil(t, user)
+		assert.Nil(t, user.Accounts)
 	})
 
 	t.Run("user without display name", func(t *testing.T) {
