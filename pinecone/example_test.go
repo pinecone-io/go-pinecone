@@ -325,3 +325,77 @@ func Example_legacyIntegratedIndex() {
 		fmt.Printf("%s: %f\n", hit.Id, hit.Score)
 	}
 }
+
+// ExampleClient_ConfigureIndex_replicaAutoscaling creates an index with dedicated read capacity
+// that autoscales between 1 and 2 replicas per shard, then widens the bounds. Dedicated read
+// capacity is billed while the index exists, and the organization must be enabled for replica
+// autoscaling.
+func ExampleClient_ConfigureIndex_replicaAutoscaling() {
+	ctx := context.Background()
+
+	pc, err := pinecone.NewClient(pinecone.NewClientParams{})
+	if err != nil {
+		log.Fatalf("Failed to create Client: %v", err)
+	}
+
+	nodeType := "b1"
+	shards := int32(1)
+	dimension := int32(3)
+
+	_, err = pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest{
+		Name:      "autoscaling-example",
+		Cloud:     pinecone.CloudAWS,
+		Region:    "us-east-1",
+		Dimension: &dimension,
+		ReadCapacity: &pinecone.ReadCapacityParams{
+			Dedicated: &pinecone.ReadCapacityDedicatedConfig{
+				NodeType: &nodeType,
+				Shards:   &shards,
+				Scaling: &pinecone.ReadCapacityScaling{
+					Auto: &pinecone.ReadCapacityAutoScaling{MinReplicas: 1, MaxReplicas: 2},
+				},
+			},
+		},
+	})
+	if err != nil {
+		log.Fatalf("Failed to create index: %v", err)
+	}
+
+	for {
+		idx, err := pc.DescribeIndex(ctx, "autoscaling-example")
+		if err != nil {
+			log.Fatalf("Failed to describe index: %v", err)
+		}
+		if rc := idx.ReadCapacity; rc != nil && rc.Dedicated != nil {
+			status := rc.Dedicated.Status
+			if status.State == "Ready" {
+				break
+			}
+			if status.State == "Error" {
+				message := "no error message"
+				if status.ErrorMessage != nil {
+					message = *status.ErrorMessage
+				}
+				log.Fatalf("Read capacity error: %s", message)
+			}
+		}
+		time.Sleep(30 * time.Second)
+	}
+
+	idx, err := pc.ConfigureIndex(ctx, "autoscaling-example", pinecone.ConfigureIndexParams{
+		ReadCapacity: &pinecone.ReadCapacityParams{
+			Dedicated: &pinecone.ReadCapacityDedicatedConfig{
+				Scaling: &pinecone.ReadCapacityScaling{
+					Auto: &pinecone.ReadCapacityAutoScaling{MinReplicas: 1, MaxReplicas: 3},
+				},
+			},
+		},
+	})
+	if err != nil {
+		log.Fatalf("Failed to configure index: %v", err)
+	}
+	if rc := idx.ReadCapacity; rc != nil && rc.Dedicated != nil && rc.Dedicated.Scaling != nil && rc.Dedicated.Scaling.Auto != nil {
+		auto := rc.Dedicated.Scaling.Auto
+		fmt.Printf("autoscaling between %d and %d replicas per shard\n", auto.MinReplicas, auto.MaxReplicas)
+	}
+}

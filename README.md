@@ -14,7 +14,7 @@ The Pinecone Go SDK is the official Go client for [Pinecone Database](https://ww
 - **Admin API**: Manage projects, organizations, API keys, service accounts, role bindings, invites, and users.
 - **Retries**: Optional automatic retries with exponential backoff.
 
-The SDK targets Pinecone API version `2026-07`, covering the control plane, data plane, Inference, and Admin APIs. For
+The SDK targets Pinecone API version `2026-10`, covering the control plane, data plane, Inference, and Admin APIs. For
 the API reference, see [Pinecone API](https://docs.pinecone.io/reference/api/introduction).
 
 ## Documentation
@@ -23,6 +23,9 @@ the API reference, see [Pinecone API](https://docs.pinecone.io/reference/api/int
 - [API reference](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v7/pinecone) for the latest release, or
   [for `main`](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v7@main/pinecone)
 - [Pinecone documentation](https://docs.pinecone.io/)
+
+If you're upgrading from v7, see the [v8 migration guide](./guides/migration/v8.md). v8 moves to API version
+`2026-10`, which adds replica autoscaling for dedicated read capacity; for most code, only the import path changes.
 
 If you're upgrading from v6 or earlier, see the [v7 migration guide](./guides/migration/v7.md). v7 moves to API
 version `2026-07`, which adds document indexes and removes the ability to create pod-based indexes.
@@ -278,6 +281,7 @@ Indexes created with `CreateIndexForModel` are legacy integrated indexes, which 
   - [Legacy integrated indexes](./guides/inference/integrated-embedding.md): indexes created with
     `CreateIndexForModel`, and the legacy Records API
 - [Admin API](./guides/admin.md)
+- [v8 migration guide](./guides/migration/v8.md)
 - [v7 migration guide](./guides/migration/v7.md)
 
 ## Support

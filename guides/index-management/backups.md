@@ -90,8 +90,11 @@ for _, b := range backups.IncompatibleBackups {
 ## Restore a backup into a new index
 
 Wait for a backup's `Status` to be `"Ready"` before you restore it. `CreateIndexFromBackup` creates a new index in the
-backup's project and starts a restore job. The new index keeps the source index's configuration. You can set its
-`Tags`, `DeletionProtection`, `ReadCapacity`, and `Deployment`.
+backup's project and starts a restore job. The new index keeps the source index's configuration, except read capacity:
+it's on-demand unless you set `ReadCapacity`. You can set its `Tags`, `DeletionProtection`, `ReadCapacity`, and
+`Deployment`. Dedicated read capacity needs enough shards to hold the backup's data; if it has too few, the request
+usually fails with the error code `INVALID_ARGUMENT` and a message that names the minimum number of shards. Older
+backups without size information aren't checked.
 
 ```go
 tags := pinecone.IndexTags{"restored_on": time.Now().Format("2006-01-02")}
@@ -112,10 +115,11 @@ if err != nil {
 fmt.Printf("Restore job status: %s\n", job.Status)
 ```
 
-A restore job's `Status` is `"Pending"`, `"Completed"`, `"Failed"`, or `"Cancelled"`. `PercentComplete` is reported only
-as 100, once the job completes. To list the project's restore jobs, use `ListRestoreJobs`. Like `ListBackups`, it
-reports a restore job this SDK can't describe in `IncompatibleRestoreJobs` instead of `Data`, and `DescribeRestoreJob`
-refuses such a job with the error code `FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`.
+A restore job's `Status` is `"Pending"`, `"Completed"`, `"Failed"`, or `"Cancelled"`. The restore is finished when it's
+`"Completed"`. `PercentComplete` is reported only as 100, once the job completes. To list the project's restore jobs,
+use `ListRestoreJobs`. Like `ListBackups`, it reports a restore job this SDK can't describe in `IncompatibleRestoreJobs`
+instead of `Data`, and `DescribeRestoreJob` refuses such a job with the error code `FAILED_PRECONDITION` and the reason
+`RESOURCE_INCOMPATIBLE_WITH_API_VERSION`.
 
 ### Restore into another region
 

@@ -28,7 +28,7 @@ Three-plane design, each with its own client struct:
 - `admin_client.go` — `AdminClient`: Admin operations (projects, orgs, API keys, role bindings, service accounts, invites, users)
 - `index_connection.go` — `IndexConnection`: Data Plane. Vector and namespace operations over gRPC; document, record (integrated embedding), and bulk import operations over REST
 - `models.go` — All shared types, constants, and enums (`IndexMetric`, `Cloud`, `IndexStatus`, etc.)
-- `schema_conversion.go` — Converts between public `IndexSchema` types and the generated `2026-07` schema types; derives the deprecated `Index` fields (`Metric`, `Dimension`, `Spec`, ...)
+- `schema_conversion.go` — Converts between public `IndexSchema` types and the generated `2026-10` schema types; derives the deprecated `Index` fields (`Metric`, `Dimension`, `Spec`, ...)
 - `validation.go` — Client-side request validation (limits such as `TopK`, ID length, non-empty filters)
 - `retry.go` — `RetryPolicy` and retry handling for REST and gRPC
 - `admin_token.go` — OAuth token refresh for `AdminClient`
@@ -46,7 +46,7 @@ Three-plane design, each with its own client struct:
 - `internal/utils/` — Internal utility functions
 
 **Code Generation:**
-Generated code under `internal/gen/` is produced by `codegen/build-clients.sh` from API specs in `codegen/apis/` (a private git submodule). `just gen` regenerates from the `codegen/apis` commit pinned by this repository, so it's reproducible. To pick up newer specs, run `just gen --update-pin`, which checks out the `apis` repo's latest `main` first; commit the updated `codegen/apis` pointer along with the regenerated code. The current API version is `2026-07`.
+Generated code under `internal/gen/` is produced by `codegen/build-clients.sh` from API specs in `codegen/apis/` (a private git submodule). `just gen` regenerates from the `codegen/apis` commit pinned by this repository, so it's reproducible. To pick up newer specs, run `just gen --update-pin`, which checks out the `apis` repo's latest `main` first; commit the updated `codegen/apis` pointer along with the regenerated code. The current API version is `2026-10`.
 
 ## Build & Test Commands
 
@@ -134,7 +134,7 @@ go mod tidy         # clean unused dependencies and update go.sum
 ## Documentation
 
 - `README.md` — overview and quickstarts. The quickstarts are mirrored as package examples in `pinecone/example_test.go`; keep the two in sync.
-- `guides/` — detailed usage guides (index management, data operations, inference, admin) and `guides/migration/v7.md`.
+- `guides/` — detailed usage guides (index management, data operations, inference, admin) and the migration guides `guides/migration/v8.md` and `guides/migration/v7.md`.
 - Guides and GoDoc follow the Pinecone docs terminology: the Documents API, Vectors API, and legacy Records API; "an index that stores dense/sparse vectors" rather than "dense/sparse/hybrid index"; metadata is part of a record, not "attached to a vector".
 - "Integrated embedding" (singular, the capability, like "full-text search") means a `StringField` that sets `Embed` or `SparseEmbed` on a document index. Say "document indexes support fields with integrated embedding". Keep the plural "embeddings" for the vectors themselves.
 - An index created with `CreateIndexForModel` is a "legacy integrated index", and "legacy integrated indexes require the legacy Records API" (`UpsertRecords`, `SearchRecords`). Tag Records API docs and headings "(legacy Records API)", and point new work at a document index with integrated embedding. Server error messages quoted in docs keep their original wording.

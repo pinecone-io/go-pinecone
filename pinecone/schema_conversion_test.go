@@ -615,7 +615,7 @@ func TestToDbDeploymentRequestUnit(t *testing.T) {
 
 	t.Run("pod is rejected", func(t *testing.T) {
 		_, err := toDbDeploymentRequest(&IndexDeployment{Pod: &PodDeployment{Environment: "us-east1-gcp", PodType: "p1.x1"}})
-		require.ErrorContains(t, err, "creating pod-based indexes is not supported by Pinecone API version 2026-07")
+		require.ErrorContains(t, err, "creating pod-based indexes is not supported by Pinecone API versions 2026-07 and later")
 	})
 
 	t.Run("no deployment type set", func(t *testing.T) {
@@ -657,7 +657,7 @@ func TestToDbRestoreDeploymentRequestUnit(t *testing.T) {
 
 	t.Run("pod is rejected", func(t *testing.T) {
 		_, err := toDbRestoreDeploymentRequest(&IndexDeployment{Pod: &PodDeployment{Environment: "us-east1-gcp", PodType: "p1.x1"}})
-		require.ErrorContains(t, err, "creating pod-based indexes is not supported by Pinecone API version 2026-07")
+		require.ErrorContains(t, err, "creating pod-based indexes is not supported by Pinecone API versions 2026-07 and later")
 	})
 
 	t.Run("no deployment type set", func(t *testing.T) {

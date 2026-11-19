@@ -80,7 +80,9 @@ const (
 type IndexStatus struct {
 	// Ready reports whether the index can serve requests. It is true when State is
 	// IndexStatusStateReady or IndexStatusStateDisabled, and while an existing index is being upgraded;
-	// it is false while the index is scaling. Check State to tell a disabled index from a ready one.
+	// it is false while a pod-based index is scaling. A dedicated read capacity change doesn't make it
+	// false; see ReadCapacity.Dedicated.Status for that. Check State to tell a disabled index from a
+	// ready one.
 	Ready bool `json:"ready"`
 	// State is the current [IndexStatusState] of the index.
 	State IndexStatusState `json:"state"`
@@ -107,8 +109,8 @@ type IndexEmbed struct {
 	// Metric is the distance metric used by the embedding model. If VectorType is "sparse", the
 	// metric must be "dotproduct". If VectorType is "dense", the metric defaults to "cosine".
 	Metric *IndexMetric `json:"metric,omitempty"`
-	// VectorType is always nil: Pinecone API version 2026-07 doesn't report it. A nil Dimension
-	// means the model produces sparse vectors.
+	// VectorType is always nil: Pinecone API versions 2026-07 and later don't report it. A nil
+	// Dimension means the model produces sparse vectors.
 	VectorType *string `json:"vector_type,omitempty"`
 	// FieldMap identifies the name of the text field from your document model that is embedded.
 	FieldMap *map[string]interface{} `json:"field_map,omitempty"`
@@ -392,7 +394,7 @@ type IndexDeployment struct {
 	// Managed is set for a serverless index. See [ManagedDeployment].
 	Managed *ManagedDeployment `json:"managed,omitempty"`
 	// Pod is set for a pod-based index. See [PodDeployment]. Pod-based indexes can't be created
-	// on API version 2026-07, but existing ones are still reported.
+	// on API versions 2026-07 and later, but existing ones are still reported.
 	Pod *PodDeployment `json:"pod,omitempty"`
 	// Byoc is set for a BYOC index. See [ByocDeployment].
 	Byoc *ByocDeployment `json:"byoc,omitempty"`
@@ -561,7 +563,7 @@ type PodSpec struct {
 	ShardCount int32 `json:"shard_count"`
 	// SourceCollection is the name of the [Collection] used as a source for the index.
 	SourceCollection *string `json:"source_collection,omitempty"`
-	// MetadataConfig is always nil: Pinecone API version 2026-07 doesn't report it. Metadata
+	// MetadataConfig is always nil: Pinecone API versions 2026-07 and later don't report it. Metadata
 	// fields configured for filtering are reported in Index.Schema.
 	MetadataConfig *PodSpecMetadataConfig `json:"metadata_config,omitempty"`
 }
@@ -572,7 +574,7 @@ type ServerlessSpec struct {
 	Cloud Cloud `json:"cloud"`
 	// Region is the region where the index is hosted.
 	Region string `json:"region"`
-	// Schema is always nil: Pinecone API version 2026-07 doesn't report it. Metadata
+	// Schema is always nil: Pinecone API versions 2026-07 and later don't report it. Metadata
 	// fields configured for filtering are reported in Index.Schema.
 	Schema *MetadataSchema `json:"schema,omitempty"`
 	// SourceCollection is the name of the [Collection] used as a source for the index.
@@ -585,7 +587,7 @@ type ServerlessSpec struct {
 type BYOCSpec struct {
 	// Environment is the environment where the index is hosted.
 	Environment string `json:"environment"`
-	// Schema is always nil: Pinecone API version 2026-07 doesn't report it. Metadata
+	// Schema is always nil: Pinecone API versions 2026-07 and later don't report it. Metadata
 	// fields configured for filtering are reported in Index.Schema.
 	Schema *MetadataSchema `json:"schema,omitempty"`
 	// ReadCapacity is the [ReadCapacity] configuration of the index.
@@ -594,7 +596,8 @@ type BYOCSpec struct {
 
 // IncompatibleIndex is an index that exists in the project but uses features this SDK's API
 // version can't represent, so [Client.ListIndexes] leaves it out. List these with
-// [Client.ListIncompatibleIndexes].
+// [Client.ListIncompatibleIndexes]. It carries only the fields below; for example, whether
+// deletion protection is on isn't reported.
 type IncompatibleIndex struct {
 	// Name is the name of the index.
 	Name string `json:"name"`
@@ -634,10 +637,11 @@ type ReadCapacityDedicated struct {
 	// NodeType is the type of machines in use.
 	NodeType *string `json:"node_type"`
 	// Shards is the configured number of shards. Shards determine the storage capacity of an
-	// index, with each shard providing 250 GB of storage. The shard count is fixed under every
-	// scaling strategy.
+	// index, with each shard providing 250 GB of storage. Autoscaling never changes it; change it
+	// with [Client.ConfigureIndex].
 	Shards *int32 `json:"shards,omitempty"`
-	// ScalingStrategy is the [ReadCapacityScalingStrategy] the API reports.
+	// ScalingStrategy is the [ReadCapacityScalingStrategy] the API reports, or nil when it reports
+	// none.
 	ScalingStrategy *ReadCapacityScalingStrategy `json:"scaling_strategy,omitempty"`
 	// Scaling is the [ReadCapacityScaling] configuration for the strategy in ScalingStrategy. It's
 	// nil when this version of the SDK doesn't know the strategy, or when the API reports a
@@ -670,7 +674,10 @@ type ReadCapacityScaling struct {
 	Manual *ReadCapacityManualScaling `json:"manual,omitempty"`
 	// Auto is the replica autoscaling configuration: Pinecone moves the number of replicas per
 	// shard between MinReplicas and MaxReplicas as load changes. On requests, the organization
-	// must be enabled for replica autoscaling; otherwise the request fails with a [PineconeError].
+	// must be enabled for replica autoscaling; otherwise the request fails with a [PineconeError]
+	// whose error code is FORBIDDEN. A request over a read node limit fails with the same error
+	// code. On a plan without dedicated read capacity, the request fails with INVALID_ARGUMENT
+	// instead.
 	Auto *ReadCapacityAutoScaling `json:"auto,omitempty"`
 }
 
@@ -678,7 +685,7 @@ type ReadCapacityScaling struct {
 type ReadCapacityManualScaling struct {
 	// Replicas is the number of replicas per shard. Replicas duplicate the compute resources and
 	// data of an index, allowing higher query throughput and availability. Setting replicas to 0
-	// disables the index but can be used to reduce costs while usage is paused.
+	// pauses the index, which can reduce costs while it isn't in use.
 	Replicas *int32 `json:"replicas"`
 	// Shards is the number of shards to use. On describe, it's set for indexes using manual
 	// scaling. On requests, it's sent as [ReadCapacityDedicatedConfig].Shards when that field is
@@ -693,23 +700,27 @@ type ReadCapacityManualScaling struct {
 
 // ReadCapacityAutoScaling represents replica autoscaling configuration. Both bounds are per shard
 // and required: unlike [ReadCapacityManualScaling].Replicas, you can't change one bound alone.
-// MinReplicas must be at least 1, and MaxReplicas at least MinReplicas.
+// MinReplicas must be at least 1, and MaxReplicas at least MinReplicas; the API rejects other values.
+// To pause an autoscaled index, switch it to [ReadCapacityManualScaling] with Replicas set to 0.
 type ReadCapacityAutoScaling struct {
 	// MinReplicas is the lowest number of replicas per shard that Pinecone scales down to.
 	MinReplicas int32 `json:"min_replicas"`
-	// MaxReplicas is the highest number of replicas per shard that Pinecone scales up to. Quota
-	// counts the maximum.
+	// MaxReplicas is the highest number of replicas per shard that Pinecone scales up to. Read node
+	// limits count the index at Shards × MaxReplicas.
 	MaxReplicas int32 `json:"max_replicas"`
 }
 
 // ReadCapacityStatus represents the current status of factors affecting the read capacity of a serverless index.
 type ReadCapacityStatus struct {
-	// State is the overall status state: "Ready", "Scaling", "Migrating", or "Error".
+	// State is the overall status state: "Ready", "Scaling", "Migrating", or "Error". The API may
+	// add states, so don't assume this list is exhaustive. When it's "Error", ErrorMessage, if set, says why.
 	State string `json:"state"`
 	// CurrentReplicas is the current number of replicas per shard. For an autoscaled index, it's
-	// the live count the autoscaler has reached.
+	// the live count the autoscaler has reached; autoscaling changes it without leaving "Ready". It's
+	// nil for OnDemand and until a Dedicated index finishes provisioning.
 	CurrentReplicas *int32 `json:"current_replicas,omitempty"`
-	// CurrentShards is the current number of shards.
+	// CurrentShards is the current number of shards. It's nil for OnDemand and until a Dedicated
+	// index finishes provisioning.
 	CurrentShards *int32 `json:"current_shards,omitempty"`
 	// ErrorMessage describes any issues with the read capacity configuration.
 	ErrorMessage *string `json:"error_message,omitempty"`

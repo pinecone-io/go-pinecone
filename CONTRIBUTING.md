@@ -20,6 +20,8 @@ PINECONE_CLIENT_SECRET=...
 
 `PINECONE_CLIENT_ID` and `PINECONE_CLIENT_SECRET` are a service account's credentials, used by the Admin API tests. To skip a suite, set `PINECONE_SKIP_ADMIN=true` or `PINECONE_SKIP_SERVERLESS=true`.
 
+The dedicated read capacity tests (`TestReadCapacity*`) create billed capacity, so they run only when `PINECONE_TEST_DRN_AUTOSCALING` is set, for an organization enabled for replica autoscaling. They run outside `RunSuites` and honor `PINECONE_CONTROLLER_HOST`, so you can point them at a non-production control plane with `-run TestReadCapacity`. See the top of `pinecone/read_capacity_integration_test.go`.
+
 If `PINECONE_API_KEY` is available in your environment, the `Client` struct can be created with `NewClient` without any additional configuration parameters. Alternatively, you can pass `ApiKey` as a configuration directly through `NewClientParams`.
 
 ### API Definitions submodule
@@ -95,7 +97,7 @@ func TestRunSuites(t *testing.T) {
 }
 ```
 
-In `RunSuites` we create a serverless index and run two suites: an `integrationTests` suite against that index, and an `adminIntegrationTests` suite for the Admin API. There's no pod-based suite, because API version `2026-07` can't create pod-based indexes.
+In `RunSuites` we create a serverless index and run two suites: an `integrationTests` suite against that index, and an `adminIntegrationTests` suite for the Admin API. There's no pod-based suite, because API versions `2026-07` and later can't create pod-based indexes.
 
 Integration tests are defined as methods on the `integrationTests` (or `adminIntegrationTests`) struct, in a `*_integration_test.go` file:
 
