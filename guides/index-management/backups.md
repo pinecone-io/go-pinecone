@@ -93,7 +93,8 @@ Wait for a backup's `Status` to be `"Ready"` before you restore it. `CreateIndex
 backup's project and starts a restore job. The new index keeps the source index's configuration, except read capacity:
 it's on-demand unless you set `ReadCapacity`. You can set its `Tags`, `DeletionProtection`, `ReadCapacity`, and
 `Deployment`. Dedicated read capacity needs enough shards to hold the backup's data; if it has too few, the request
-fails with the error code `INVALID_ARGUMENT` and a message that names the minimum number of shards.
+usually fails with the error code `INVALID_ARGUMENT` and a message that names the minimum number of shards. Older
+backups without size information aren't checked.
 
 ```go
 tags := pinecone.IndexTags{"restored_on": time.Now().Format("2006-01-02")}

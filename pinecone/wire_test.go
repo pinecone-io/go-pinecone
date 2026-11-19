@@ -983,7 +983,9 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			},
 		},
 		{
-			name:     "ConfigureIndex moves an autoscaled index back to OnDemand",
+			// The SDK sends OnDemand as given; the API refuses it for an index with Dedicated read
+			// capacity (400 INVALID_ARGUMENT), which the SDK doesn't pre-judge.
+			name:     "ConfigureIndex sends OnDemand for an autoscaled index as given",
 			status:   http.StatusOK,
 			response: indexModelFixture{name: "autoscaling-index", readCapacity: autoscaledReadCapacityJSON}.JSON(),
 			call: func(t *testing.T, pc *Client) {
