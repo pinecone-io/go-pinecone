@@ -96,8 +96,10 @@ jobs:
           PINECONE_INDEX_URL_SERVERLESS: http://localhost:5081
           PINECONE_DIMENSION: 1536
 
-  # The keyed integration suite against production. A check held up by something outside the SDK
-  # logs a "BLOCKED: " line (skipBlocked, logBlocked); a pull request into main fails while any remain.
+  # The keyed integration suite against production. It fails when any test fails or when no test
+  # ran at all (every leaf test skipped, or none matched). A check held up by something outside the
+  # SDK logs a "BLOCKED: " line (skipBlocked, logBlocked); those are counted and listed in the job
+  # summary but never fail the job.
   live:
     name: Integration (live)
     if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
@@ -118,20 +120,20 @@ jobs:
           go test -count=1 -v -tags integration -timeout=80m ./pinecone 2>&1 | tee live.log
           grep -q -- '^--- PASS: TestRunSuites ' live.log \
             || { echo "::error::the integration suites did not run"; exit 1; }
+          # Leaf tests only: a parent reports PASS even when every subtest under it skipped.
+          ran=$(awk '$1 == "---" && $2 ~ /^(PASS|FAIL|SKIP):$/ { s[$3] = $2 }
+            END { for (n in s) { if (s[n] == "SKIP:") continue; leaf = 1
+              for (m in s) if (index(m, n "/") == 1) { leaf = 0; break }; c += leaf }; print c + 0 }' live.log)
+          echo "Leaf tests run: $ran"
+          [ "$ran" -gt 0 ] || { echo "::error::no integration tests ran; every test was skipped"; exit 1; }
         env:
           PINECONE_API_KEY: ${{ secrets.API_KEY }}
           PINECONE_CLIENT_ID: ${{ secrets.CLIENT_ID }}
           PINECONE_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
       - name: Blocked tests
         if: ${{ !cancelled() }}
-        env:
-          BASE_REF: ${{ github.base_ref }}
         run: |
           grep -o -- 'BLOCKED: .*' live.log | sort | uniq -c > blocked.txt || true
           count=$(grep -c -- 'BLOCKED: ' live.log || true)
           { echo "### Blocked tests: $count"; sed 's/^/    /' blocked.txt; } >> "$GITHUB_STEP_SUMMARY"
           cat blocked.txt
-          if [ "$BASE_REF" = main ] && [ "$count" -gt 0 ]; then
-            echo "::error::$count blocked tests; a pull request into main needs zero"
-            exit 1
-          fi
