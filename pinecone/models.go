@@ -80,7 +80,9 @@ const (
 type IndexStatus struct {
 	// Ready reports whether the index can serve requests. It is true when State is
 	// IndexStatusStateReady or IndexStatusStateDisabled, and while an existing index is being upgraded;
-	// it is false while the index is scaling. Check State to tell a disabled index from a ready one.
+	// it is false while a pod-based index is scaling. A dedicated read capacity change doesn't make it
+	// false; see ReadCapacity.Dedicated.Status for that. Check State to tell a disabled index from a
+	// ready one.
 	Ready bool `json:"ready"`
 	// State is the current [IndexStatusState] of the index.
 	State IndexStatusState `json:"state"`
@@ -107,8 +109,8 @@ type IndexEmbed struct {
 	// Metric is the distance metric used by the embedding model. If VectorType is "sparse", the
 	// metric must be "dotproduct". If VectorType is "dense", the metric defaults to "cosine".
 	Metric *IndexMetric `json:"metric,omitempty"`
-	// VectorType is always nil: Pinecone API version 2026-07 doesn't report it. A nil Dimension
-	// means the model produces sparse vectors.
+	// VectorType is always nil: Pinecone API versions 2026-07 and later don't report it. A nil
+	// Dimension means the model produces sparse vectors.
 	VectorType *string `json:"vector_type,omitempty"`
 	// FieldMap identifies the name of the text field from your document model that is embedded.
 	FieldMap *map[string]interface{} `json:"field_map,omitempty"`
@@ -392,7 +394,7 @@ type IndexDeployment struct {
 	// Managed is set for a serverless index. See [ManagedDeployment].
 	Managed *ManagedDeployment `json:"managed,omitempty"`
 	// Pod is set for a pod-based index. See [PodDeployment]. Pod-based indexes can't be created
-	// on API version 2026-07, but existing ones are still reported.
+	// on API versions 2026-07 and later, but existing ones are still reported.
 	Pod *PodDeployment `json:"pod,omitempty"`
 	// Byoc is set for a BYOC index. See [ByocDeployment].
 	Byoc *ByocDeployment `json:"byoc,omitempty"`
@@ -502,6 +504,28 @@ type Collection struct {
 	Environment string `json:"environment"`
 }
 
+// IncompatibleCollection is a collection that exists in the project but uses features this SDK's
+// API version can't represent, so [Client.ListCollections] leaves it out. List these with
+// [Client.ListIncompatibleCollections].
+type IncompatibleCollection struct {
+	// Name is the name of the collection.
+	Name string `json:"name"`
+	// MinimumAPIVersion is the earliest generally available API version that can describe the
+	// collection, such as "2027-04", in the form the X-Pinecone-Api-Version header uses. Every later
+	// generally available API version can also describe it. It's nil when no generally available API
+	// version can describe the collection yet; PreviewAPIVersion may still be set. Use the two version
+	// fields, not Message, to act on the entry.
+	MinimumAPIVersion *string `json:"minimum_api_version"`
+	// PreviewAPIVersion is the earliest early-access API version that can describe the collection,
+	// such as "2027-07.alpha", in the form the X-Pinecone-Api-Version header uses. It's nil when no
+	// early-access API version can. It's set independently of MinimumAPIVersion, and both may be set.
+	// When both are nil, no public API version can describe the collection yet.
+	PreviewAPIVersion *string `json:"preview_api_version"`
+	// Message explains in plain words why the collection can't be described and what to do. Its
+	// wording may change.
+	Message string `json:"message"`
+}
+
 // CollectionStatus is the status of a Pinecone [Collection].
 type CollectionStatus string
 
@@ -539,7 +563,7 @@ type PodSpec struct {
 	ShardCount int32 `json:"shard_count"`
 	// SourceCollection is the name of the [Collection] used as a source for the index.
 	SourceCollection *string `json:"source_collection,omitempty"`
-	// MetadataConfig is always nil: Pinecone API version 2026-07 doesn't report it. Metadata
+	// MetadataConfig is always nil: Pinecone API versions 2026-07 and later don't report it. Metadata
 	// fields configured for filtering are reported in Index.Schema.
 	MetadataConfig *PodSpecMetadataConfig `json:"metadata_config,omitempty"`
 }
@@ -550,7 +574,7 @@ type ServerlessSpec struct {
 	Cloud Cloud `json:"cloud"`
 	// Region is the region where the index is hosted.
 	Region string `json:"region"`
-	// Schema is always nil: Pinecone API version 2026-07 doesn't report it. Metadata
+	// Schema is always nil: Pinecone API versions 2026-07 and later don't report it. Metadata
 	// fields configured for filtering are reported in Index.Schema.
 	Schema *MetadataSchema `json:"schema,omitempty"`
 	// SourceCollection is the name of the [Collection] used as a source for the index.
@@ -563,11 +587,34 @@ type ServerlessSpec struct {
 type BYOCSpec struct {
 	// Environment is the environment where the index is hosted.
 	Environment string `json:"environment"`
-	// Schema is always nil: Pinecone API version 2026-07 doesn't report it. Metadata
+	// Schema is always nil: Pinecone API versions 2026-07 and later don't report it. Metadata
 	// fields configured for filtering are reported in Index.Schema.
 	Schema *MetadataSchema `json:"schema,omitempty"`
 	// ReadCapacity is the [ReadCapacity] configuration of the index.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
+}
+
+// IncompatibleIndex is an index that exists in the project but uses features this SDK's API
+// version can't represent, so [Client.ListIndexes] leaves it out. List these with
+// [Client.ListIncompatibleIndexes]. It carries only the fields below; for example, whether
+// deletion protection is on isn't reported.
+type IncompatibleIndex struct {
+	// Name is the name of the index.
+	Name string `json:"name"`
+	// MinimumAPIVersion is the earliest generally available API version that can describe the index,
+	// such as "2027-04", in the form the X-Pinecone-Api-Version header uses. Every later generally
+	// available API version can also describe it. It's nil when no generally available API version can
+	// describe the index yet; PreviewAPIVersion may still be set. Use the two version fields, not
+	// Message, to act on the entry.
+	MinimumAPIVersion *string `json:"minimum_api_version"`
+	// PreviewAPIVersion is the earliest early-access API version that can describe the index, such as
+	// "2027-07.alpha", in the form the X-Pinecone-Api-Version header uses. It's nil when no
+	// early-access API version can. It's set independently of MinimumAPIVersion, and both may be set.
+	// When both are nil, no public API version can describe the index yet.
+	PreviewAPIVersion *string `json:"preview_api_version"`
+	// Message explains in plain words why the index can't be described and what to do. Its wording
+	// may change.
+	Message string `json:"message"`
 }
 
 // ReadCapacity represents the read capacity configuration returned from the API.
@@ -590,10 +637,11 @@ type ReadCapacityDedicated struct {
 	// NodeType is the type of machines in use.
 	NodeType *string `json:"node_type"`
 	// Shards is the configured number of shards. Shards determine the storage capacity of an
-	// index, with each shard providing 250 GB of storage. The shard count is fixed under every
-	// scaling strategy.
+	// index, with each shard providing 250 GB of storage. Autoscaling never changes it; change it
+	// with [Client.ConfigureIndex].
 	Shards *int32 `json:"shards,omitempty"`
-	// ScalingStrategy is the [ReadCapacityScalingStrategy] the API reports.
+	// ScalingStrategy is the [ReadCapacityScalingStrategy] the API reports, or nil when it reports
+	// none.
 	ScalingStrategy *ReadCapacityScalingStrategy `json:"scaling_strategy,omitempty"`
 	// Scaling is the [ReadCapacityScaling] configuration for the strategy in ScalingStrategy. It's
 	// nil when this version of the SDK doesn't know the strategy, or when the API reports a
@@ -626,7 +674,10 @@ type ReadCapacityScaling struct {
 	Manual *ReadCapacityManualScaling `json:"manual,omitempty"`
 	// Auto is the replica autoscaling configuration: Pinecone moves the number of replicas per
 	// shard between MinReplicas and MaxReplicas as load changes. On requests, the organization
-	// must be enabled for replica autoscaling; otherwise the request fails with a [PineconeError].
+	// must be enabled for replica autoscaling; otherwise the request fails with a [PineconeError]
+	// whose error code is FORBIDDEN. A request over a read node limit fails with the same error
+	// code. On a plan without dedicated read capacity, the request fails with INVALID_ARGUMENT
+	// instead.
 	Auto *ReadCapacityAutoScaling `json:"auto,omitempty"`
 }
 
@@ -634,7 +685,7 @@ type ReadCapacityScaling struct {
 type ReadCapacityManualScaling struct {
 	// Replicas is the number of replicas per shard. Replicas duplicate the compute resources and
 	// data of an index, allowing higher query throughput and availability. Setting replicas to 0
-	// disables the index but can be used to reduce costs while usage is paused.
+	// pauses the index, which can reduce costs while it isn't in use.
 	Replicas *int32 `json:"replicas"`
 	// Shards is the number of shards to use. On describe, it's set for indexes using manual
 	// scaling. On requests, it's sent as [ReadCapacityDedicatedConfig].Shards when that field is
@@ -649,23 +700,27 @@ type ReadCapacityManualScaling struct {
 
 // ReadCapacityAutoScaling represents replica autoscaling configuration. Both bounds are per shard
 // and required: unlike [ReadCapacityManualScaling].Replicas, you can't change one bound alone.
-// MinReplicas must be at least 1, and MaxReplicas at least MinReplicas.
+// MinReplicas must be at least 1, and MaxReplicas at least MinReplicas; the API rejects other values.
+// To pause an autoscaled index, switch it to [ReadCapacityManualScaling] with Replicas set to 0.
 type ReadCapacityAutoScaling struct {
 	// MinReplicas is the lowest number of replicas per shard that Pinecone scales down to.
 	MinReplicas int32 `json:"min_replicas"`
-	// MaxReplicas is the highest number of replicas per shard that Pinecone scales up to. Quota
-	// counts the maximum.
+	// MaxReplicas is the highest number of replicas per shard that Pinecone scales up to. Read node
+	// limits count the index at Shards × MaxReplicas.
 	MaxReplicas int32 `json:"max_replicas"`
 }
 
 // ReadCapacityStatus represents the current status of factors affecting the read capacity of a serverless index.
 type ReadCapacityStatus struct {
-	// State is the overall status state: "Ready", "Scaling", "Migrating", or "Error".
+	// State is the overall status state: "Ready", "Scaling", "Migrating", or "Error". The API may
+	// add states, so don't assume this list is exhaustive. When it's "Error", ErrorMessage, if set, says why.
 	State string `json:"state"`
 	// CurrentReplicas is the current number of replicas per shard. For an autoscaled index, it's
-	// the live count the autoscaler has reached.
+	// the live count the autoscaler has reached; autoscaling changes it without leaving "Ready". It's
+	// nil for OnDemand and until a Dedicated index finishes provisioning.
 	CurrentReplicas *int32 `json:"current_replicas,omitempty"`
-	// CurrentShards is the current number of shards.
+	// CurrentShards is the current number of shards. It's nil for OnDemand and until a Dedicated
+	// index finishes provisioning.
 	CurrentShards *int32 `json:"current_shards,omitempty"`
 	// ErrorMessage describes any issues with the read capacity configuration.
 	ErrorMessage *string `json:"error_message,omitempty"`
@@ -1310,7 +1365,15 @@ type ModelInfo struct {
 	MaxBatchSize *int32 `json:"max_batch_size,omitempty"`
 	// MaxSequenceLength is the maximum tokens per sequence supported by the model.
 	MaxSequenceLength *int32 `json:"max_sequence_length,omitempty"`
-	// Modality is the modality of the model (e.g. "text").
+	// Modalities are the kinds of input the model accepts, such as "text", "image" or "pdf", in no
+	// particular order. Text-only models, including every reranking model, list ["text"]. More values
+	// may be added. Nil when the API doesn't report it, as before API version 2026-10.
+	Modalities *[]string `json:"modalities,omitempty"`
+	// Modality is the modality of the model, such as "text".
+	//
+	// Deprecated: Use Modalities. API version 2026-10 reports a list of modalities, and the SDK fills
+	// Modality from it: "text" when Modalities contains "text", which is what earlier API versions
+	// report for a model that also accepts other input; otherwise the only entry; otherwise nil.
 	Modality *string `json:"modality,omitempty"`
 	// Model is the name of the model.
 	Model string `json:"model"`
@@ -1455,6 +1518,35 @@ type BackupList struct {
 	// Pagination holds the token for fetching the next page of results. It is nil when there are
 	// no more results; otherwise pass Pagination.Next as the next request's PaginationToken.
 	Pagination *Pagination `json:"pagination,omitempty"`
+	// IncompatibleBackups lists the backups on this page that this SDK's API version can't
+	// describe, so they're left out of Data. Each counts toward Limit like a backup in Data, so a
+	// page can hold fewer than Limit backups in Data while Pagination still points to more. It is
+	// empty when every backup can be described.
+	IncompatibleBackups []*IncompatibleBackup `json:"incompatible_backups,omitempty"`
+}
+
+// IncompatibleBackup is a backup that exists in the project but uses features this SDK's API
+// version can't represent, so [Client.ListBackups] reports it in [BackupList].IncompatibleBackups
+// instead of Data. [Client.DescribeBackup] and [Client.CreateIndexFromBackup] refuse it with a
+// [PineconeError] whose error code is FAILED_PRECONDITION and whose Reason is
+// [ReasonResourceIncompatibleWithAPIVersion]; [Client.DeleteBackup] still works.
+type IncompatibleBackup struct {
+	// BackupId is the unique identifier of the backup.
+	BackupId string `json:"backup_id"`
+	// MinimumAPIVersion is the earliest generally available API version that can describe the backup,
+	// such as "2027-04", in the form the X-Pinecone-Api-Version header uses. Every later generally
+	// available API version can also describe it. It's nil when no generally available API version can
+	// describe the backup yet; PreviewAPIVersion may still be set. Use the two version fields, not
+	// Message, to act on the entry.
+	MinimumAPIVersion *string `json:"minimum_api_version"`
+	// PreviewAPIVersion is the earliest early-access API version that can describe the backup, such as
+	// "2027-07.alpha", in the form the X-Pinecone-Api-Version header uses. It's nil when no
+	// early-access API version can. It's set independently of MinimumAPIVersion, and both may be set.
+	// When both are nil, no public API version can describe the backup yet.
+	PreviewAPIVersion *string `json:"preview_api_version"`
+	// Message explains in plain words why the backup can't be described and what to do. Its
+	// wording may change.
+	Message string `json:"message"`
 }
 
 // RestoreJob describes the status of a restore job.
@@ -1485,6 +1577,34 @@ type RestoreJobList struct {
 	// Pagination holds the token for fetching the next page of results. It is nil when there are
 	// no more results; otherwise pass Pagination.Next as the next request's PaginationToken.
 	Pagination *Pagination `json:"pagination,omitempty"`
+	// IncompatibleRestoreJobs lists the restore jobs on this page that this SDK's API version
+	// can't describe, so they're left out of Data. Each counts toward Limit like a restore job in
+	// Data, so a page can hold fewer than Limit restore jobs in Data while Pagination still points
+	// to more. It is empty when every restore job can be described.
+	IncompatibleRestoreJobs []*IncompatibleRestoreJob `json:"incompatible_restore_jobs,omitempty"`
+}
+
+// IncompatibleRestoreJob is a restore job that uses features this SDK's API version can't
+// represent, so [Client.ListRestoreJobs] reports it in [RestoreJobList].IncompatibleRestoreJobs
+// instead of Data. [Client.DescribeRestoreJob] refuses it with a [PineconeError] whose error code
+// is FAILED_PRECONDITION and whose Reason is [ReasonResourceIncompatibleWithAPIVersion].
+type IncompatibleRestoreJob struct {
+	// RestoreJobId is the unique identifier of the restore job.
+	RestoreJobId string `json:"restore_job_id"`
+	// MinimumAPIVersion is the earliest generally available API version that can describe the restore
+	// job, such as "2027-04", in the form the X-Pinecone-Api-Version header uses. Every later
+	// generally available API version can also describe it. It's nil when no generally available API
+	// version can describe the restore job yet; PreviewAPIVersion may still be set. Use the two
+	// version fields, not Message, to act on the entry.
+	MinimumAPIVersion *string `json:"minimum_api_version"`
+	// PreviewAPIVersion is the earliest early-access API version that can describe the restore job,
+	// such as "2027-07.alpha", in the form the X-Pinecone-Api-Version header uses. It's nil when no
+	// early-access API version can. It's set independently of MinimumAPIVersion, and both may be set.
+	// When both are nil, no public API version can describe the restore job yet.
+	PreviewAPIVersion *string `json:"preview_api_version"`
+	// Message explains in plain words why the restore job can't be described and what to do. Its
+	// wording may change.
+	Message string `json:"message"`
 }
 
 // Project represents the details of a project.
@@ -1728,6 +1848,22 @@ type User struct {
 
 	// (Optional) The user's display name. Nil if the user has not set one.
 	Name *string `json:"name,omitempty"`
+
+	// Accounts are the accounts the user can log in with: one with Type "sso" for each account on
+	// the organization's SSO connection, and one with Type "personal" if the user has a personal
+	// account. Nil when the organization has no SSO connection.
+	Accounts *[]UserAccount `json:"accounts,omitempty"`
+}
+
+// UserAccount is an account a [User] can log in with.
+type UserAccount struct {
+	// Type is the kind of account: "personal" for any account not tied to an SSO connection, such as
+	// email, Google or GitHub login, or "sso" for an account on the organization's SSO connection.
+	Type string `json:"type"`
+
+	// NameId is the SAML NameID the identity provider sends for this account. Set only when Type is
+	// "sso".
+	NameId *string `json:"name_id,omitempty"`
 }
 
 // UserList contains a paginated list of users.

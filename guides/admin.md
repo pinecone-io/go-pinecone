@@ -31,7 +31,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
+	"github.com/pinecone-io/go-pinecone/v8/pinecone"
 )
 
 func main() {
@@ -256,6 +256,9 @@ err = adminClient.User.Delete(ctx, user.Id)
 ```
 
 The `Email` filter is case-insensitive. Use a user's `Id` as the `PrincipalId` when you create role bindings for them.
+When the organization has an SSO connection, a user's `Accounts` lists the accounts they can log in with: one with
+`Type` `"sso"` for each account on that connection, with its SAML `NameId`, and one with `Type` `"personal"` if they
+also have a personal account. `Accounts` is nil when the organization has no SSO connection.
 `Delete` removes the user from the organization and revokes their role bindings. It doesn't delete their Pinecone
 account.
 

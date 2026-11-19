@@ -88,8 +88,10 @@ for _, ranked := range res.Data {
 
 ## Hosted models
 
-`ListModels` lists the models hosted by Pinecone. You can filter by `Type` (`"embed"` or `"rerank"`) and, for
-embedding models, by `VectorType` (`"dense"` or `"sparse"`).
+`ListModels` lists the models hosted by Pinecone. You can filter by `Type` (`"embed"` or `"rerank"`), by `VectorType`
+(`"dense"` or `"sparse"`, which lists only embedding models), and by `Modality`, a kind of input the model accepts
+(`"text"`, `"image"`, or `"pdf"`). A model is listed only if it matches every filter you set. Each model's `Modalities`
+lists the kinds of input it accepts; text-only models list `["text"]`.
 
 ```go
 embed := "embed"
@@ -100,6 +102,17 @@ if err != nil {
 }
 for _, model := range *models.Models {
 	fmt.Println(model.Model)
+}
+
+image := "image"
+imageModels, err := pc.Inference.ListModels(ctx, &pinecone.ListModelsParams{Modality: &image})
+if err != nil {
+	log.Fatalf("Failed to list models: %v", err)
+}
+for _, model := range *imageModels.Models {
+	if model.Modalities != nil {
+		fmt.Println(model.Model, *model.Modalities)
+	}
 }
 ```
 

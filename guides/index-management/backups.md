@@ -62,11 +62,39 @@ err = pc.DeleteBackup(ctx, backupId)
 To list every backup in the project, leave out `IndexName`. To also list backups of deleted indexes that had that name,
 set `IncludeDeleted`, which requires `IndexName`.
 
+If a backup uses a feature that this SDK's API version can't represent, this SDK can't describe it, so `ListBackups`
+reports it in `IncompatibleBackups` instead of `Data`, with its `BackupId`. Each entry's `MinimumAPIVersion` is the
+earliest generally available API version that can describe the backup, and every later one can too; `PreviewAPIVersion`
+is the earliest early-access API version that can. Either is `nil` when there's no such version, and when both are, no
+public API version can describe the backup yet. Each incompatible backup counts toward `Limit`, so a page can hold fewer
+than `Limit` backups in `Data` while `Pagination` still points to more. `DescribeBackup` and `CreateIndexFromBackup`
+refuse such a backup with the error code `FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`;
+`DeleteBackup` still works. To work with it, upgrade to an SDK that supports an API version that can describe it, when
+there is one; don't override the `X-Pinecone-Api-Version` header, because this SDK's request and response types are
+built for one API version.
+
+```go
+backups, err := pc.ListBackups(ctx, nil)
+if err != nil {
+	log.Fatalf("Failed to list backups: %v", err)
+}
+for _, b := range backups.IncompatibleBackups {
+	if b.MinimumAPIVersion != nil {
+		fmt.Printf("%s (use API version %s or later)\n", b.BackupId, *b.MinimumAPIVersion)
+	} else {
+		fmt.Printf("%s: %s\n", b.BackupId, b.Message)
+	}
+}
+```
+
 ## Restore a backup into a new index
 
 Wait for a backup's `Status` to be `"Ready"` before you restore it. `CreateIndexFromBackup` creates a new index in the
-backup's project and starts a restore job. The new index keeps the source index's configuration. You can set its
-`Tags`, `DeletionProtection`, `ReadCapacity`, and `Deployment`.
+backup's project and starts a restore job. The new index keeps the source index's configuration, except read capacity:
+it's on-demand unless you set `ReadCapacity`. You can set its `Tags`, `DeletionProtection`, `ReadCapacity`, and
+`Deployment`. Dedicated read capacity needs enough shards to hold the backup's data; if it has too few, the request
+usually fails with the error code `INVALID_ARGUMENT` and a message that names the minimum number of shards. Older
+backups without size information aren't checked.
 
 ```go
 tags := pinecone.IndexTags{"restored_on": time.Now().Format("2006-01-02")}
@@ -87,8 +115,11 @@ if err != nil {
 fmt.Printf("Restore job status: %s\n", job.Status)
 ```
 
-A restore job's `Status` is `"Pending"`, `"Completed"`, `"Failed"`, or `"Cancelled"`. `PercentComplete` is reported
-only as 100, once the job completes. To list the project's restore jobs, use `ListRestoreJobs`.
+A restore job's `Status` is `"Pending"`, `"Completed"`, `"Failed"`, or `"Cancelled"`. The restore is finished when it's
+`"Completed"`. `PercentComplete` is reported only as 100, once the job completes. To list the project's restore jobs,
+use `ListRestoreJobs`. Like `ListBackups`, it reports a restore job this SDK can't describe in `IncompatibleRestoreJobs`
+instead of `Data`, and `DescribeRestoreJob` refuses such a job with the error code `FAILED_PRECONDITION` and the reason
+`RESOURCE_INCOMPATIBLE_WITH_API_VERSION`.
 
 ### Restore into another region
 

@@ -97,6 +97,9 @@ type BackupList struct {
 	// Data List of backup objects
 	Data *[]BackupModel `json:"data,omitempty"`
 
+	// IncompatibleBackups Backups that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `data`. Entries are paginated with the items, so a page's `data` may hold fewer than `limit` items, or none, while `pagination.next` is set. The array is empty when there are none.
+	IncompatibleBackups []IncompatibleBackup `json:"incompatible_backups"`
+
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
 }
@@ -202,6 +205,9 @@ type BackupScheduleHistoryList struct {
 	// Data Backups from this schedule for the current page.
 	Data []BackupScheduleHistoryItem `json:"data"`
 
+	// IncompatibleBackups Backups from this schedule that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `data`. Entries are paginated with the items, so a page's `data` may hold fewer than `limit` items, or none, while `pagination.next` is set. The array is empty when there are none.
+	IncompatibleBackups []IncompatibleBackup `json:"incompatible_backups"`
+
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
 }
@@ -210,6 +216,9 @@ type BackupScheduleHistoryList struct {
 type BackupScheduleList struct {
 	// Data Backup schedules returned for this page.
 	Data []BackupScheduleResponse `json:"data"`
+
+	// IncompatibleBackupSchedules Backup schedules that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `data`. Entries are paginated with the items, so a page's `data` may hold fewer than `limit` items, or none, while `pagination.next` is set. The array is empty when there are none.
+	IncompatibleBackupSchedules []IncompatibleBackupSchedule `json:"incompatible_backup_schedules"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
@@ -294,6 +303,9 @@ type ByocDeploymentDeploymentType string
 type CollectionList struct {
 	// Collections List of collections in the project
 	Collections *[]CollectionModel `json:"collections,omitempty"`
+
+	// IncompatibleCollections Collections that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `collections`. The array is empty when there are none.
+	IncompatibleCollections []IncompatibleCollection `json:"incompatible_collections"`
 }
 
 // CollectionModel The CollectionModel describes the configuration and status of a Pinecone collection.
@@ -335,7 +347,7 @@ type ConfigureIndexRequest struct {
 	// Deployment Deployment update parameters for pod-based indexes. Specify `replicas`, `pod_type`, or both. Deployment type, cloud/region, and environment cannot be changed after creation. Do not include a `deployment_type` field; it is not accepted.
 	Deployment *PatchIndexDeploymentRequest `json:"deployment,omitempty"`
 
-	// ReadCapacity Read capacity changes for an existing managed or BYOC index. Send `mode: OnDemand`, or `mode: Dedicated` with any subset of `node_type`, `shards`, and `scaling` with its matching block; fields you omit keep their current value. Not every change is supported for every index; an unsupported change returns `400`.
+	// ReadCapacity Read capacity changes for an existing managed or BYOC index. Send `mode: OnDemand`, or `mode: Dedicated` with any subset of `node_type`, `shards`, and `scaling` with its matching block; fields you omit keep their current value. Not every change is supported for every index; an unsupported change returns `400`. A key other than `mode` and `dedicated` is rejected with an error that names it.
 	ReadCapacity *ReadCapacityPatch `json:"read_capacity,omitempty"`
 
 	// Schema Schema updates to apply to an existing index. Only `semantic_text` field parameters, on a legacy integrated index created via create-for-model, can be updated after index creation. The model itself cannot be changed once set; only `write_parameters` and `read_parameters` may be updated if the model stays the same. The `embed` and `sparse_embed` configurations of a `string` field are fixed at creation and cannot be updated.
@@ -359,6 +371,9 @@ type ConversionErrorMode struct {
 type ConversionJobList struct {
 	// Data The conversion jobs on this page, newest first.
 	Data []ConversionJobModel `json:"data"`
+
+	// IncompatibleConversionJobs Conversion jobs that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `data`. Entries are paginated with the items, so a page's `data` may hold fewer than `limit` items, or none, while `pagination.next` is set. The array is empty when there are none.
+	IncompatibleConversionJobs []IncompatibleConversionJob `json:"incompatible_conversion_jobs"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
@@ -421,7 +436,7 @@ type ConvertIndexRequest struct {
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
-	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`. A key other than `mode` and `dedicated` is rejected with an error that names it.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Schema The fields the index searches over: dense vectors, sparse vectors, and string fields searched by full-text search or by embeddings Pinecone derives from their text.
@@ -545,7 +560,7 @@ type CreateIndexForModelRequest struct {
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
-	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`. A key other than `mode` and `dedicated` is rejected with an error that names it.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Region The region where you would like your index to be created.
@@ -574,7 +589,7 @@ type CreateIndexFromBackupRequest struct {
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
-	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`. A key other than `mode` and `dedicated` is rejected with an error that names it.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Tags Custom user tags added to an index, at most 20 per index. Keys must be 80 characters or less and alphanumeric, '_', or '-'. Values must be 120 characters or less and consist of printable ASCII characters or spaces. To unset a key, set the value to be an empty string. `null` in responses when the index has no tags.
@@ -611,7 +626,7 @@ type CreateIndexRequest struct {
 	// Name The name of the index. Must be unique within the project, start and end with an alphanumeric character, and contain only lower case alphanumeric characters or '-'. Generated automatically if not provided.
 	Name *string `json:"name,omitempty"`
 
-	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`. A key other than `mode` and `dedicated` is rejected with an error that names it.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Schema The fields the index searches over: dense vectors, sparse vectors, and string fields searched by full-text search or by embeddings Pinecone derives from their text.
@@ -686,11 +701,20 @@ type ErrorResponse struct {
 		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `INTERNAL`, `FORBIDDEN`, `PAYMENT_REQUIRED`, `SERVICE_UNAVAILABLE`, `PAYLOAD_TOO_LARGE`, or `UNPROCESSABLE_ENTITY`.
 		Code string `json:"code"`
 
-		// Details Additional information about the error. This field is not guaranteed to be present.
+		// Details Machine-readable facts about the error, as an object. Its values are never `null`; a key with no value is left out. On API version 2026-10 and later it is set alongside `reason`, and may include the keys documented for that reason; more may be added, so ignore keys you don't recognize. This field is not guaranteed to be present. Keys the current reasons set:
+		// - `api_version`: the API version of the request.
+		// - `minimum_api_version`: the earliest generally available API version that can act on the resource, in the form used by the `X-Pinecone-Api-Version` header. Every later generally available API version can too. Left out when no generally available API version can.
+		// - `preview_api_version`: the earliest early-access API version that can act on the resource, in the same form. Left out when no early-access API version can. Set independently of `minimum_api_version`; both may be set.
 		Details *map[string]interface{} `json:"details,omitempty"`
 
 		// Message A human-readable description of the error
 		Message string `json:"message"`
+
+		// Reason The exact cause of the error, when the error names one. Only some errors set it, and only on API version 2026-10 and later. Each reason belongs to one `code`, keeps its name and meaning within an API version, and documents the `details` keys it sets. New reasons may be added: treat a value you don't recognize as if `reason` were absent, and act on `code`.
+		//
+		// Possible values:
+		// - `RESOURCE_INCOMPATIBLE_WITH_API_VERSION` (`FAILED_PRECONDITION`): the resource uses features this API version can't represent. Retrying with the same API version fails; use a version from `details.minimum_api_version` or `details.preview_api_version`. When neither is set, no public API version can act on the resource yet. `details`: `api_version`, `minimum_api_version`, `preview_api_version`.
+		Reason *string `json:"reason,omitempty"`
 	} `json:"error"`
 
 	// Status The HTTP status code of the error.
@@ -712,6 +736,96 @@ type FloatField struct {
 // FloatFieldType Identifies this as a float field. Must be `float`.
 type FloatFieldType string
 
+// IncompatibleBackup A backup that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the API versions that can describe it and a message explaining what to do. Using this API version to describe it or create an index from it returns `412 FAILED_PRECONDITION`. Later releases may add fields to this object, such as other API versions that can describe the resource; ignore fields you don't recognize.
+type IncompatibleBackup struct {
+	// BackupId Identifies the backup in other requests, such as describing it with the API version in `minimum_api_version` or `preview_api_version`.
+	BackupId string `json:"backup_id"`
+
+	// Message A human-readable explanation of why this API version can't describe the backup and what to do about it. The wording may change; use `minimum_api_version` and `preview_api_version` to act on the entry programmatically.
+	Message string `json:"message"`
+
+	// MinimumApiVersion The earliest generally available API version that can describe this backup, in the form used by the `X-Pinecone-Api-Version` header. Every later generally available API version can also describe it. `null` when no generally available API version can describe it yet; `preview_api_version` may still be set.
+	MinimumApiVersion *string `json:"minimum_api_version"`
+
+	// PreviewApiVersion The earliest early-access API version that can describe this backup, in the form used by the `X-Pinecone-Api-Version` header. `null` when no early-access API version can. It is set independently of `minimum_api_version`, and both may be set. When both are `null`, no public API version can describe the backup yet.
+	PreviewApiVersion *string `json:"preview_api_version"`
+}
+
+// IncompatibleBackupSchedule A backup schedule that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the API versions that can describe it and a message explaining what to do. Using this API version to describe or update it returns `412 FAILED_PRECONDITION`. Later releases may add fields to this object, such as other API versions that can describe the resource; ignore fields you don't recognize.
+type IncompatibleBackupSchedule struct {
+	// Message A human-readable explanation of why this API version can't describe the backup schedule and what to do about it. The wording may change; use `minimum_api_version` and `preview_api_version` to act on the entry programmatically.
+	Message string `json:"message"`
+
+	// MinimumApiVersion The earliest generally available API version that can describe this backup schedule, in the form used by the `X-Pinecone-Api-Version` header. Every later generally available API version can also describe it. `null` when no generally available API version can describe it yet; `preview_api_version` may still be set.
+	MinimumApiVersion *string `json:"minimum_api_version"`
+
+	// PreviewApiVersion The earliest early-access API version that can describe this backup schedule, in the form used by the `X-Pinecone-Api-Version` header. `null` when no early-access API version can. It is set independently of `minimum_api_version`, and both may be set. When both are `null`, no public API version can describe the backup schedule yet.
+	PreviewApiVersion *string `json:"preview_api_version"`
+
+	// ScheduleId Identifies the schedule in other requests, such as describing it with the API version in `minimum_api_version` or `preview_api_version`.
+	ScheduleId string `json:"schedule_id"`
+}
+
+// IncompatibleCollection A collection that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the API versions that can describe it and a message explaining what to do. Using this API version to describe it returns `412 FAILED_PRECONDITION`. Later releases may add fields to this object, such as other API versions that can describe the resource; ignore fields you don't recognize.
+type IncompatibleCollection struct {
+	// Message A human-readable explanation of why this API version can't describe the collection and what to do about it. The wording may change; use `minimum_api_version` and `preview_api_version` to act on the entry programmatically.
+	Message string `json:"message"`
+
+	// MinimumApiVersion The earliest generally available API version that can describe this collection, in the form used by the `X-Pinecone-Api-Version` header. Every later generally available API version can also describe it. `null` when no generally available API version can describe it yet; `preview_api_version` may still be set.
+	MinimumApiVersion *string `json:"minimum_api_version"`
+
+	// Name Identifies the collection in other requests, such as describing it with the API version in `minimum_api_version` or `preview_api_version`.
+	Name string `json:"name"`
+
+	// PreviewApiVersion The earliest early-access API version that can describe this collection, in the form used by the `X-Pinecone-Api-Version` header. `null` when no early-access API version can. It is set independently of `minimum_api_version`, and both may be set. When both are `null`, no public API version can describe the collection yet.
+	PreviewApiVersion *string `json:"preview_api_version"`
+}
+
+// IncompatibleConversionJob A conversion job that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the API versions that can describe it and a message explaining what to do. Using this API version to describe or cancel it returns `412 FAILED_PRECONDITION`. Later releases may add fields to this object, such as other API versions that can describe the resource; ignore fields you don't recognize.
+type IncompatibleConversionJob struct {
+	// ConversionJobId Identifies the job in other requests, such as describing it with the API version in `minimum_api_version` or `preview_api_version`.
+	ConversionJobId string `json:"conversion_job_id"`
+
+	// Message A human-readable explanation of why this API version can't describe the conversion job and what to do about it. The wording may change; use `minimum_api_version` and `preview_api_version` to act on the entry programmatically.
+	Message string `json:"message"`
+
+	// MinimumApiVersion The earliest generally available API version that can describe this conversion job, in the form used by the `X-Pinecone-Api-Version` header. Every later generally available API version can also describe it. `null` when no generally available API version can describe it yet; `preview_api_version` may still be set.
+	MinimumApiVersion *string `json:"minimum_api_version"`
+
+	// PreviewApiVersion The earliest early-access API version that can describe this conversion job, in the form used by the `X-Pinecone-Api-Version` header. `null` when no early-access API version can. It is set independently of `minimum_api_version`, and both may be set. When both are `null`, no public API version can describe the conversion job yet.
+	PreviewApiVersion *string `json:"preview_api_version"`
+}
+
+// IncompatibleIndex An index that exists in the project but uses features this API version can't represent. Only its name is shown, with the API versions that can describe it and a message explaining what to do. Using this API version to describe, configure or convert the index, to back it up or schedule its backups, or to create a collection from it returns `412 FAILED_PRECONDITION`. Later releases may add fields to this object, such as other API versions that can describe the resource; ignore fields you don't recognize.
+type IncompatibleIndex struct {
+	// Message A human-readable explanation of why this API version can't describe the index and what to do about it. The wording may change; use `minimum_api_version` and `preview_api_version` to act on the entry programmatically.
+	Message string `json:"message"`
+
+	// MinimumApiVersion The earliest generally available API version that can describe this index, in the form used by the `X-Pinecone-Api-Version` header. Every later generally available API version can also describe it. `null` when no generally available API version can describe it yet; `preview_api_version` may still be set.
+	MinimumApiVersion *string `json:"minimum_api_version"`
+
+	// Name Identifies the index in other requests, such as describing it with the API version in `minimum_api_version` or `preview_api_version`.
+	Name string `json:"name"`
+
+	// PreviewApiVersion The earliest early-access API version that can describe this index, in the form used by the `X-Pinecone-Api-Version` header. `null` when no early-access API version can. It is set independently of `minimum_api_version`, and both may be set. When both are `null`, no public API version can describe the index yet.
+	PreviewApiVersion *string `json:"preview_api_version"`
+}
+
+// IncompatibleRestoreJob A restore job that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the API versions that can describe it and a message explaining what to do. Using this API version to describe it returns `412 FAILED_PRECONDITION`. Later releases may add fields to this object, such as other API versions that can describe the resource; ignore fields you don't recognize.
+type IncompatibleRestoreJob struct {
+	// Message A human-readable explanation of why this API version can't describe the restore job and what to do about it. The wording may change; use `minimum_api_version` and `preview_api_version` to act on the entry programmatically.
+	Message string `json:"message"`
+
+	// MinimumApiVersion The earliest generally available API version that can describe this restore job, in the form used by the `X-Pinecone-Api-Version` header. Every later generally available API version can also describe it. `null` when no generally available API version can describe it yet; `preview_api_version` may still be set.
+	MinimumApiVersion *string `json:"minimum_api_version"`
+
+	// PreviewApiVersion The earliest early-access API version that can describe this restore job, in the form used by the `X-Pinecone-Api-Version` header. `null` when no early-access API version can. It is set independently of `minimum_api_version`, and both may be set. When both are `null`, no public API version can describe the restore job yet.
+	PreviewApiVersion *string `json:"preview_api_version"`
+
+	// RestoreJobId Identifies the job in other requests, such as describing it with the API version in `minimum_api_version` or `preview_api_version`.
+	RestoreJobId string `json:"restore_job_id"`
+}
+
 // IndexDeployment The deployment configuration of a Pinecone index. The `deployment_type` field indicates which infrastructure model the index uses.
 //
 // - `pod`: Dedicated pod-based infrastructure. Suitable for workloads that require predictable performance.
@@ -731,6 +845,9 @@ type IndexDeploymentRequest struct {
 
 // IndexList The list of indexes that exist in the project.
 type IndexList struct {
+	// IncompatibleIndexes Indexes in the project that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `indexes`. The array is empty when there are none.
+	IncompatibleIndexes []IncompatibleIndex `json:"incompatible_indexes"`
+
 	// Indexes List of indexes in the project
 	Indexes *[]IndexModel `json:"indexes,omitempty"`
 }
@@ -927,19 +1044,19 @@ type PodDeployment struct {
 // PodDeploymentDeploymentType Identifies this as a pod-based deployment. Must be `pod`.
 type PodDeploymentDeploymentType string
 
-// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`.
+// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`. A key other than `mode` and `dedicated` is rejected with an error that names it.
 type ReadCapacity struct {
 	union json.RawMessage
 }
 
 // ReadCapacityDedicatedConfig Configuration for dedicated read capacity. See [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on how to configure dedicated read capacity.
 //
-// `shards` is a fixed count. Replica bounds for `Auto` scaling are per shard and sit in `auto`. If shard autoscaling is added later, its bounds will go in a new block beside `shards`.
+// `shards` is a fixed count. Replica bounds for `Auto` scaling are per shard and sit in `auto`. A key not listed here, such as `replicas` beside `scaling`, is rejected with an error that names it. If shard autoscaling is added later, its bounds may go in a new block beside `shards`.
 type ReadCapacityDedicatedConfig struct {
-	// Auto The config to use for automatic replica scaling. Pinecone adds and removes replicas within `min_replicas` and `max_replicas` based on read load. Billed capacity is at most `max_replicas` multiplied by the number of shards. A missing bound or an unknown key returns `422`.
+	// Auto The config to use for automatic replica scaling. Pinecone adds and removes replicas within `min_replicas` and `max_replicas` based on read load. A missing bound, or `shards` or any other unknown key inside `auto`, is rejected with an error that names the field.
 	Auto *ScalingConfigAuto `json:"auto,omitempty"`
 
-	// Manual The config to use for manual read capacity scaling. The shard count goes in `dedicated.shards`, not here: sending `shards` inside `manual` returns `400`, and any other unknown key returns `422`.
+	// Manual The config to use for manual read capacity scaling. The shard count goes in `dedicated.shards`, not here: sending `shards` or any other key besides `replicas` inside `manual`, or leaving out `replicas`, is rejected with an error that names the field.
 	Manual *ScalingConfigManual `json:"manual,omitempty"`
 
 	// NodeType The type of machines to use. Available options: `b1` and `t1`. `t1` includes increased processing power and memory.
@@ -949,10 +1066,10 @@ type ReadCapacityDedicatedConfig struct {
 	// - `Manual`: you set the number of replicas per shard in `manual`.
 	// - `Auto`: Pinecone moves the number of replicas per shard between the bounds in `auto`. Your organization must be enabled for replica autoscaling; otherwise the request returns `403`.
 	//
-	// Send `manual` with `Manual`, or `auto` with `Auto`. A missing block, or a block that does not match `scaling`, returns `400`. A value not listed here returns `422`.
+	// Send `manual` with `Manual`, or `auto` with `Auto`. A missing block, or a block that does not match `scaling`, is rejected.
 	Scaling string `json:"scaling"`
 
-	// Shards The number of shards to use. Shards determine the storage capacity of an index, with each shard providing 250 GB of storage.
+	// Shards The number of shards to use. Shards determine the storage capacity of an index.
 	Shards int32 `json:"shards"`
 }
 
@@ -970,49 +1087,39 @@ type ReadCapacityDedicatedConfigResponse struct {
 	// Scaling The scaling strategy in use: `Manual` or `Auto`. Clients should accept values not listed here, because new strategies may be added.
 	Scaling string `json:"scaling"`
 
-	// Shards The configured number of shards. `status.current_shards` reports the live count. Always present today; if shard autoscaling is added later, it will be omitted for an index whose shard count is not fixed, and the shard bounds will appear in a new block beside it.
+	// Shards The configured number of shards. `status.current_shards` reports the live count. Always present today; if shard autoscaling is added later, it may be omitted for an index whose shard count is not fixed, with the shard bounds in a new block beside it. Treat it as optional.
 	Shards *int32 `json:"shards,omitempty"`
 }
 
 // ReadCapacityDedicatedPatchConfig Changes to the dedicated read capacity of an index. Every field is optional; omitted fields keep their current value. Changing only `node_type` or `shards` keeps the current scaling strategy, including `Auto` bounds.
 //
-// `scaling` must be sent with its matching block: `manual` with `Manual`, or `auto` with `Auto`. A block without `scaling`, `scaling` without its block, or a block that does not match `scaling` returns `400`. Unknown keys beside `scaling` are ignored. An index moving from `OnDemand` to `Dedicated` must supply `node_type`, `shards`, `scaling`, and the matching block.
+// `scaling` must be sent with its matching block: `manual` with `Manual`, or `auto` with `Auto`. A block without `scaling`, `scaling` without its block, or a block that does not match `scaling` is rejected, as is a key not listed here, such as `replicas` beside `scaling`, with an error that names it. An index moving from `OnDemand` to `Dedicated` must supply `node_type`, `shards`, `scaling`, and the matching block.
 //
-// If shard autoscaling is added later, its bounds will go in a new block beside `shards`.
+// If shard autoscaling is added later, its bounds may go in a new block beside `shards`.
 type ReadCapacityDedicatedPatchConfig struct {
-	// Auto The config to use for automatic replica scaling. Pinecone adds and removes replicas within `min_replicas` and `max_replicas` based on read load. Billed capacity is at most `max_replicas` multiplied by the number of shards. A missing bound or an unknown key returns `422`.
+	// Auto The config to use for automatic replica scaling. Pinecone adds and removes replicas within `min_replicas` and `max_replicas` based on read load. A missing bound, or `shards` or any other unknown key inside `auto`, is rejected with an error that names the field.
 	Auto *ScalingConfigAuto `json:"auto,omitempty"`
 
-	// Manual Manual scaling changes. Sending this block with `scaling: Manual` sets a fixed replica count and turns replica autoscaling off. The shard count goes in `dedicated.shards`, not here: sending `shards` inside `manual` returns `400`, and any other unknown key returns `422`.
+	// Manual Manual scaling changes. Sending this block with `scaling: Manual` sets a fixed replica count and turns replica autoscaling off. The shard count goes in `dedicated.shards`, not here: sending `shards` or any other key besides `replicas` inside `manual`, or leaving out `replicas`, is rejected with an error that names the field.
 	Manual *ScalingConfigManualPatch `json:"manual,omitempty"`
 
 	// NodeType The type of machines to use. Available options: `b1` and `t1`.
 	NodeType *string `json:"node_type,omitempty"`
 
-	// Scaling The scaling strategy: `Manual` or `Auto`. Sending `Auto`, to turn autoscaling on or to change its bounds, requires an organization enabled for replica autoscaling; otherwise the request returns `403`. A value not listed here returns `422`.
+	// Scaling The scaling strategy: `Manual` or `Auto`. Sending `Auto`, to turn autoscaling on or to change its bounds, requires an organization enabled for replica autoscaling; otherwise the request returns `403`.
 	Scaling *string `json:"scaling,omitempty"`
 
 	// Shards The number of shards to use. Changing it keeps the current scaling strategy.
 	Shards *int32 `json:"shards,omitempty"`
-	union  json.RawMessage
 }
-
-// ReadCapacityDedicatedPatchConfig0 defines model for .
-type ReadCapacityDedicatedPatchConfig0 = interface{}
-
-// ReadCapacityDedicatedPatchConfig1 defines model for .
-type ReadCapacityDedicatedPatchConfig1 = interface{}
-
-// ReadCapacityDedicatedPatchConfig2 defines model for .
-type ReadCapacityDedicatedPatchConfig2 = interface{}
 
 // ReadCapacityDedicatedPatchSpec defines model for ReadCapacityDedicatedPatchSpec.
 type ReadCapacityDedicatedPatchSpec struct {
 	// Dedicated Changes to the dedicated read capacity of an index. Every field is optional; omitted fields keep their current value. Changing only `node_type` or `shards` keeps the current scaling strategy, including `Auto` bounds.
 	//
-	// `scaling` must be sent with its matching block: `manual` with `Manual`, or `auto` with `Auto`. A block without `scaling`, `scaling` without its block, or a block that does not match `scaling` returns `400`. Unknown keys beside `scaling` are ignored. An index moving from `OnDemand` to `Dedicated` must supply `node_type`, `shards`, `scaling`, and the matching block.
+	// `scaling` must be sent with its matching block: `manual` with `Manual`, or `auto` with `Auto`. A block without `scaling`, `scaling` without its block, or a block that does not match `scaling` is rejected, as is a key not listed here, such as `replicas` beside `scaling`, with an error that names it. An index moving from `OnDemand` to `Dedicated` must supply `node_type`, `shards`, `scaling`, and the matching block.
 	//
-	// If shard autoscaling is added later, its bounds will go in a new block beside `shards`.
+	// If shard autoscaling is added later, its bounds may go in a new block beside `shards`.
 	Dedicated ReadCapacityDedicatedPatchConfig `json:"dedicated"`
 
 	// Mode Must be `Dedicated`.
@@ -1023,7 +1130,7 @@ type ReadCapacityDedicatedPatchSpec struct {
 type ReadCapacityDedicatedSpec struct {
 	// Dedicated Configuration for dedicated read capacity. See [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on how to configure dedicated read capacity.
 	//
-	// `shards` is a fixed count. Replica bounds for `Auto` scaling are per shard and sit in `auto`. If shard autoscaling is added later, its bounds will go in a new block beside `shards`.
+	// `shards` is a fixed count. Replica bounds for `Auto` scaling are per shard and sit in `auto`. A key not listed here, such as `replicas` beside `scaling`, is rejected with an error that names it. If shard autoscaling is added later, its bounds may go in a new block beside `shards`.
 	Dedicated ReadCapacityDedicatedConfig `json:"dedicated"`
 
 	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, `dedicated.shards`, `dedicated.scaling`, and the block that matches `scaling` (`dedicated.manual` or `dedicated.auto`) must be specified.
@@ -1036,7 +1143,7 @@ type ReadCapacityOnDemandSpec struct {
 	Mode string `json:"mode"`
 }
 
-// ReadCapacityPatch Read capacity changes for an existing managed or BYOC index. Send `mode: OnDemand`, or `mode: Dedicated` with any subset of `node_type`, `shards`, and `scaling` with its matching block; fields you omit keep their current value. Not every change is supported for every index; an unsupported change returns `400`.
+// ReadCapacityPatch Read capacity changes for an existing managed or BYOC index. Send `mode: OnDemand`, or `mode: Dedicated` with any subset of `node_type`, `shards`, and `scaling` with its matching block; fields you omit keep their current value. Not every change is supported for every index; an unsupported change returns `400`. A key other than `mode` and `dedicated` is rejected with an error that names it.
 type ReadCapacityPatch struct {
 	union json.RawMessage
 }
@@ -1046,7 +1153,7 @@ type ReadCapacityResponse struct {
 	// Dedicated The dedicated read capacity configuration of an index. `manual` is present when `scaling` is `Manual`, and `auto` when `scaling` is `Auto`.
 	Dedicated *ReadCapacityDedicatedConfigResponse `json:"dedicated,omitempty"`
 
-	// Mode The read capacity mode of the index: `OnDemand` or `Dedicated`. Clients should accept values not listed here; a new mode comes with its own block beside `dedicated`.
+	// Mode The read capacity mode of the index: `OnDemand` or `Dedicated`. Clients should accept values not listed here; a new mode may come with its own block beside `dedicated`.
 	Mode string `json:"mode"`
 
 	// Status The current status of factors affecting the read capacity of a serverless index
@@ -1055,7 +1162,7 @@ type ReadCapacityResponse struct {
 
 // ReadCapacityStatus The current status of factors affecting the read capacity of a serverless index
 type ReadCapacityStatus struct {
-	// CurrentReplicas The number of replicas per shard. Each replica has dedicated compute resources and data storage. Increasing this number will increase the total throughput of the index. With `Auto` scaling, this is the live count, which moves between `min_replicas` and `max_replicas`. If shards have different replica counts, this is the average across shards, rounded to the nearest whole number. `null` for `OnDemand` indexes and for a `Dedicated` index that has not finished provisioning.
+	// CurrentReplicas The number of replicas per shard. Each replica has dedicated compute resources and data storage. Increasing this number will increase the total throughput of the index. With `Auto` scaling, this is the live count, which moves between `min_replicas` and `max_replicas`. If shards have different replica counts, this is the average across shards, rounded, and at least 1 while any replica is active. `null` for `OnDemand` indexes and for a `Dedicated` index that has not finished provisioning.
 	CurrentReplicas *int32 `json:"current_replicas"`
 
 	// CurrentShards The number of shards. Each shard has dedicated storage. Increasing shards alleviates index fullness. `null` for `OnDemand` indexes and for a `Dedicated` index that has not finished provisioning.
@@ -1174,6 +1281,9 @@ type RestoreJobList struct {
 	// Data List of restore job objects
 	Data []RestoreJobModel `json:"data"`
 
+	// IncompatibleRestoreJobs Restore jobs that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `data`. Entries are paginated with the items, so a page's `data` may hold fewer than `limit` items, or none, while `pagination.next` is set. The array is empty when there are none.
+	IncompatibleRestoreJobs []IncompatibleRestoreJob `json:"incompatible_restore_jobs"`
+
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
 }
@@ -1207,12 +1317,12 @@ type RestoreJobModel struct {
 	TargetIndexName string `json:"target_index_name"`
 }
 
-// ScalingConfigAuto The config to use for automatic replica scaling. Pinecone adds and removes replicas within `min_replicas` and `max_replicas` based on read load. Billed capacity is at most `max_replicas` multiplied by the number of shards. A missing bound or an unknown key returns `422`.
+// ScalingConfigAuto The config to use for automatic replica scaling. Pinecone adds and removes replicas within `min_replicas` and `max_replicas` based on read load. A missing bound, or `shards` or any other unknown key inside `auto`, is rejected with an error that names the field.
 type ScalingConfigAuto struct {
-	// MaxReplicas The maximum number of replicas per shard. Autoscaling never scales above this value. Must be greater than or equal to `min_replicas`, otherwise the request returns `400`.
+	// MaxReplicas The maximum number of replicas per shard. Autoscaling never scales above this value. Must be greater than or equal to `min_replicas`.
 	MaxReplicas int32 `json:"max_replicas"`
 
-	// MinReplicas The minimum number of replicas per shard. Autoscaling never scales below this value. Must be at least 1, otherwise the request returns `400`. To pause an index, use `Manual` scaling with `replicas` set to 0.
+	// MinReplicas The minimum number of replicas per shard. Autoscaling never scales below this value. Must be at least 1. To pause an index, use `Manual` scaling with `replicas` set to 0.
 	MinReplicas int32 `json:"min_replicas"`
 }
 
@@ -1225,13 +1335,13 @@ type ScalingConfigAutoResponse struct {
 	MinReplicas int32 `json:"min_replicas"`
 }
 
-// ScalingConfigManual The config to use for manual read capacity scaling. The shard count goes in `dedicated.shards`, not here: sending `shards` inside `manual` returns `400`, and any other unknown key returns `422`.
+// ScalingConfigManual The config to use for manual read capacity scaling. The shard count goes in `dedicated.shards`, not here: sending `shards` or any other key besides `replicas` inside `manual`, or leaving out `replicas`, is rejected with an error that names the field.
 type ScalingConfigManual struct {
 	// Replicas The number of replicas per shard. Replicas duplicate the compute resources and data of an index, allowing higher query throughput and availability. Setting replicas to 0 disables the index but can be used to reduce costs while usage is paused.
 	Replicas int32 `json:"replicas"`
 }
 
-// ScalingConfigManualPatch Manual scaling changes. Sending this block with `scaling: Manual` sets a fixed replica count and turns replica autoscaling off. The shard count goes in `dedicated.shards`, not here: sending `shards` inside `manual` returns `400`, and any other unknown key returns `422`.
+// ScalingConfigManualPatch Manual scaling changes. Sending this block with `scaling: Manual` sets a fixed replica count and turns replica autoscaling off. The shard count goes in `dedicated.shards`, not here: sending `shards` or any other key besides `replicas` inside `manual`, or leaving out `replicas`, is rejected with an error that names the field.
 type ScalingConfigManualPatch struct {
 	// Replicas The number of replicas per shard.
 	Replicas int32 `json:"replicas"`
@@ -2092,184 +2202,6 @@ func (t ReadCapacity) MarshalJSON() ([]byte, error) {
 
 func (t *ReadCapacity) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsReadCapacityDedicatedPatchConfig0 returns the union data inside the ReadCapacityDedicatedPatchConfig as a ReadCapacityDedicatedPatchConfig0
-func (t ReadCapacityDedicatedPatchConfig) AsReadCapacityDedicatedPatchConfig0() (ReadCapacityDedicatedPatchConfig0, error) {
-	var body ReadCapacityDedicatedPatchConfig0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromReadCapacityDedicatedPatchConfig0 overwrites any union data inside the ReadCapacityDedicatedPatchConfig as the provided ReadCapacityDedicatedPatchConfig0
-func (t *ReadCapacityDedicatedPatchConfig) FromReadCapacityDedicatedPatchConfig0(v ReadCapacityDedicatedPatchConfig0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeReadCapacityDedicatedPatchConfig0 performs a merge with any union data inside the ReadCapacityDedicatedPatchConfig, using the provided ReadCapacityDedicatedPatchConfig0
-func (t *ReadCapacityDedicatedPatchConfig) MergeReadCapacityDedicatedPatchConfig0(v ReadCapacityDedicatedPatchConfig0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsReadCapacityDedicatedPatchConfig1 returns the union data inside the ReadCapacityDedicatedPatchConfig as a ReadCapacityDedicatedPatchConfig1
-func (t ReadCapacityDedicatedPatchConfig) AsReadCapacityDedicatedPatchConfig1() (ReadCapacityDedicatedPatchConfig1, error) {
-	var body ReadCapacityDedicatedPatchConfig1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromReadCapacityDedicatedPatchConfig1 overwrites any union data inside the ReadCapacityDedicatedPatchConfig as the provided ReadCapacityDedicatedPatchConfig1
-func (t *ReadCapacityDedicatedPatchConfig) FromReadCapacityDedicatedPatchConfig1(v ReadCapacityDedicatedPatchConfig1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeReadCapacityDedicatedPatchConfig1 performs a merge with any union data inside the ReadCapacityDedicatedPatchConfig, using the provided ReadCapacityDedicatedPatchConfig1
-func (t *ReadCapacityDedicatedPatchConfig) MergeReadCapacityDedicatedPatchConfig1(v ReadCapacityDedicatedPatchConfig1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsReadCapacityDedicatedPatchConfig2 returns the union data inside the ReadCapacityDedicatedPatchConfig as a ReadCapacityDedicatedPatchConfig2
-func (t ReadCapacityDedicatedPatchConfig) AsReadCapacityDedicatedPatchConfig2() (ReadCapacityDedicatedPatchConfig2, error) {
-	var body ReadCapacityDedicatedPatchConfig2
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromReadCapacityDedicatedPatchConfig2 overwrites any union data inside the ReadCapacityDedicatedPatchConfig as the provided ReadCapacityDedicatedPatchConfig2
-func (t *ReadCapacityDedicatedPatchConfig) FromReadCapacityDedicatedPatchConfig2(v ReadCapacityDedicatedPatchConfig2) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeReadCapacityDedicatedPatchConfig2 performs a merge with any union data inside the ReadCapacityDedicatedPatchConfig, using the provided ReadCapacityDedicatedPatchConfig2
-func (t *ReadCapacityDedicatedPatchConfig) MergeReadCapacityDedicatedPatchConfig2(v ReadCapacityDedicatedPatchConfig2) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t ReadCapacityDedicatedPatchConfig) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	object := make(map[string]json.RawMessage)
-	if t.union != nil {
-		err = json.Unmarshal(b, &object)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if t.Auto != nil {
-		object["auto"], err = json.Marshal(t.Auto)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'auto': %w", err)
-		}
-	}
-
-	if t.Manual != nil {
-		object["manual"], err = json.Marshal(t.Manual)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'manual': %w", err)
-		}
-	}
-
-	if t.NodeType != nil {
-		object["node_type"], err = json.Marshal(t.NodeType)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'node_type': %w", err)
-		}
-	}
-
-	if t.Scaling != nil {
-		object["scaling"], err = json.Marshal(t.Scaling)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'scaling': %w", err)
-		}
-	}
-
-	if t.Shards != nil {
-		object["shards"], err = json.Marshal(t.Shards)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'shards': %w", err)
-		}
-	}
-	b, err = json.Marshal(object)
-	return b, err
-}
-
-func (t *ReadCapacityDedicatedPatchConfig) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	if err != nil {
-		return err
-	}
-	object := make(map[string]json.RawMessage)
-	err = json.Unmarshal(b, &object)
-	if err != nil {
-		return err
-	}
-
-	if raw, found := object["auto"]; found {
-		err = json.Unmarshal(raw, &t.Auto)
-		if err != nil {
-			return fmt.Errorf("error reading 'auto': %w", err)
-		}
-	}
-
-	if raw, found := object["manual"]; found {
-		err = json.Unmarshal(raw, &t.Manual)
-		if err != nil {
-			return fmt.Errorf("error reading 'manual': %w", err)
-		}
-	}
-
-	if raw, found := object["node_type"]; found {
-		err = json.Unmarshal(raw, &t.NodeType)
-		if err != nil {
-			return fmt.Errorf("error reading 'node_type': %w", err)
-		}
-	}
-
-	if raw, found := object["scaling"]; found {
-		err = json.Unmarshal(raw, &t.Scaling)
-		if err != nil {
-			return fmt.Errorf("error reading 'scaling': %w", err)
-		}
-	}
-
-	if raw, found := object["shards"]; found {
-		err = json.Unmarshal(raw, &t.Shards)
-		if err != nil {
-			return fmt.Errorf("error reading 'shards': %w", err)
-		}
-	}
-
 	return err
 }
 
@@ -5137,6 +5069,7 @@ type DescribeBackupScheduleApiResponse struct {
 	JSON200      *BackupScheduleResponse
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5164,6 +5097,7 @@ type UpdateBackupScheduleApiResponse struct {
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5264,6 +5198,7 @@ type DescribeBackupApiResponse struct {
 	JSON200      *BackupModel
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5344,6 +5279,7 @@ type CreateCollectionApiResponse struct {
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5392,6 +5328,7 @@ type DescribeCollectionApiResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *CollectionModel
 	JSON404      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5442,6 +5379,7 @@ type DescribeConversionJobApiResponse struct {
 	JSON200      *ConversionJobModel
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5467,6 +5405,7 @@ type CancelConversionJobApiResponse struct {
 	JSON200      *ConversionJobModel
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5596,6 +5535,7 @@ type DescribeIndexApiResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *IndexModel
 	JSON404      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5623,6 +5563,7 @@ type ConfigureIndexApiResponse struct {
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5677,6 +5618,7 @@ type CreateBackupScheduleApiResponse struct {
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5728,6 +5670,7 @@ type CreateBackupApiResponse struct {
 	JSON200      *BackupModel
 	JSON400      *ErrorResponse
 	JSON403      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5807,6 +5750,7 @@ type DescribeRestoreJobApiResponse struct {
 	JSON200      *RestoreJobModel
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
+	JSON412      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -6225,6 +6169,13 @@ func ParseDescribeBackupScheduleApiResponse(rsp *http.Response) (*DescribeBackup
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6285,6 +6236,13 @@ func ParseUpdateBackupScheduleApiResponse(rsp *http.Response) (*UpdateBackupSche
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
@@ -6474,6 +6432,13 @@ func ParseDescribeBackupApiResponse(rsp *http.Response) (*DescribeBackupApiRespo
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6650,6 +6615,13 @@ func ParseCreateCollectionApiResponse(rsp *http.Response) (*CreateCollectionApiR
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6729,6 +6701,13 @@ func ParseDescribeCollectionApiResponse(rsp *http.Response) (*DescribeCollection
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
@@ -6824,6 +6803,13 @@ func ParseDescribeConversionJobApiResponse(rsp *http.Response) (*DescribeConvers
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6870,6 +6856,13 @@ func ParseCancelConversionJobApiResponse(rsp *http.Response) (*CancelConversionJ
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
@@ -7134,6 +7127,13 @@ func ParseDescribeIndexApiResponse(rsp *http.Response) (*DescribeIndexApiRespons
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -7194,6 +7194,13 @@ func ParseConfigureIndexApiResponse(rsp *http.Response) (*ConfigureIndexApiRespo
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
@@ -7317,6 +7324,13 @@ func ParseCreateBackupScheduleApiResponse(rsp *http.Response) (*CreateBackupSche
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -7417,6 +7431,13 @@ func ParseCreateBackupApiResponse(rsp *http.Response) (*CreateBackupApiResponse,
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
@@ -7586,6 +7607,13 @@ func ParseDescribeRestoreJobApiResponse(rsp *http.Response) (*DescribeRestoreJob
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 412:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON412 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse

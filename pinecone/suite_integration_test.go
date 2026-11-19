@@ -4,6 +4,7 @@ package pinecone
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -255,6 +256,10 @@ func (ts *integrationTests) TearDownSuite() {
 		time.Sleep(3 * time.Second)
 	}
 
+	if ts.backupId != "" {
+		ts.deleteSuiteBackup(ctx)
+	}
+
 	// Delete test index
 	err = ts.client.DeleteIndex(ctx, ts.idxName)
 
@@ -272,15 +277,23 @@ func (ts *integrationTests) TearDownSuite() {
 		fmt.Printf("Failed to delete index \"%s\" after 4 retries: %v\n", ts.idxName, err)
 	}
 
-	// Delete backup
-	if ts.backupId != "" {
-		err = ts.client.DeleteBackup(ctx, ts.backupId)
-		if err != nil {
-			fmt.Printf("Failed to delete backup \"%s\": %v\n", ts.backupId, err)
-		}
-	}
-
 	fmt.Printf("\n %s setup suite torn down successfully\n", ts.indexType)
+}
+
+func (ts *integrationTests) deleteSuiteBackup(ctx context.Context) {
+	err := ts.client.DeleteBackup(ctx, ts.backupId)
+	for retry := 1; err != nil && retry <= 2; retry++ {
+		fmt.Printf("Failed to delete backup \"%s\": %v. Retrying... (%d/2)\n", ts.backupId, err, retry)
+		time.Sleep(5 * time.Second)
+		err = ts.client.DeleteBackup(ctx, ts.backupId)
+	}
+	var pcErr *PineconeError
+	if err == nil || !errors.As(err, &pcErr) || pcErr.Code < 500 {
+		assert.NoError(ts.T(), err, "deleting backup %s", ts.backupId)
+		return
+	}
+	fmt.Printf("Backup \"%s\" left behind: %v\n", ts.backupId, err)
+	logBlocked(ts.T(), "production returns 500 deleting the suite's backup, so it's left behind")
 }
 
 // Helper funcs

@@ -13,10 +13,10 @@ import (
 
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
-	"github.com/pinecone-io/go-pinecone/v7/internal/gen"
-	"github.com/pinecone-io/go-pinecone/v7/internal/gen/admin"
-	"github.com/pinecone-io/go-pinecone/v7/internal/provider"
-	"github.com/pinecone-io/go-pinecone/v7/internal/useragent"
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen"
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen/admin"
+	"github.com/pinecone-io/go-pinecone/v8/internal/provider"
+	"github.com/pinecone-io/go-pinecone/v8/internal/useragent"
 )
 
 // AdminClient provides access to Pinecone's administrative APIs, which supports
@@ -2165,10 +2165,19 @@ func toInviteList(inviteList admin.InviteList) *InviteList {
 }
 
 func toUser(user admin.User) *User {
+	var accounts *[]UserAccount
+	if user.Accounts != nil {
+		list := make([]UserAccount, len(*user.Accounts))
+		for i, account := range *user.Accounts {
+			list[i] = UserAccount{Type: account.Type, NameId: account.NameId}
+		}
+		accounts = &list
+	}
 	return &User{
-		Id:    user.Id.String(),
-		Email: string(user.Email),
-		Name:  user.Name,
+		Id:       user.Id.String(),
+		Email:    string(user.Email),
+		Name:     user.Name,
+		Accounts: accounts,
 	}
 }
 

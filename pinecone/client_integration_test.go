@@ -32,10 +32,7 @@ func (ts *integrationTests) TestListIndexes() {
 		lastErr = err
 		time.Sleep(3 * time.Second)
 	}
-	// A correct GET /indexes request persistently 503s under 2026-07 when the project contains
-	// legacy indexes the new list serializer cannot render (the same request succeeds in a clean
-	// project). Skip rather than fail on this known backend gap.
-	ts.T().Skipf("ListIndexes persistently returned 503 under 2026-07 (known backend gap for projects with legacy indexes): %v", lastErr)
+	require.NoError(ts.T(), lastErr, "ListIndexes returned 503 on every attempt")
 }
 
 func (ts *integrationTests) TestCreateServerlessIndexDense() {
@@ -246,7 +243,8 @@ func (ts *integrationTests) TestDescribeEmbedModel() {
 	require.Equal(ts.T(), modelName, model.Model, "Expected model name to match")
 	require.Equal(ts.T(), model.ShortDescription, "A high-performance dense embedding model trained on a mixture of multilingual datasets. It works well on messy data and short queries expected to return medium-length passages of text (1-2 paragraphs)")
 	require.Equal(ts.T(), "dense", *model.VectorType, "Expected model vector type to be 'dense'")
-	require.Equal(ts.T(), "text", *model.Modality, "Expected model modality to be 'text'")
+	require.Equal(ts.T(), &[]string{"text"}, model.Modalities, "Expected model modalities to be [text]")
+	require.Equal(ts.T(), "text", *model.Modality, "Expected the deprecated Modality to be 'text'")
 	require.Equal(ts.T(), int32(1024), *model.DefaultDimension, "Expected model default dimension to be 1024")
 	require.Equal(ts.T(), int32(507), *model.MaxSequenceLength, "Expected model max sequence length to be 507")
 	require.Equal(ts.T(), int32(96), *model.MaxBatchSize, "Expected model max batch size to be 96")
@@ -280,7 +278,8 @@ func (ts *integrationTests) TestDescribeRerankModel() {
 	require.Equal(ts.T(), "rerank", model.Type, "Expected model type to be 'rerank'")
 	require.Equal(ts.T(), modelName, model.Model, "Expected model name to match")
 	require.Equal(ts.T(), model.ShortDescription, "A state of the art reranking model that out-performs competitors on widely accepted benchmarks. It can handle chunks up to 512 tokens (1-2 paragraphs)")
-	require.Equal(ts.T(), "text", *model.Modality, "Expected model modality to be 'text'")
+	require.Equal(ts.T(), &[]string{"text"}, model.Modalities, "Expected model modalities to be [text]")
+	require.Equal(ts.T(), "text", *model.Modality, "Expected the deprecated Modality to be 'text'")
 	require.Equal(ts.T(), int32(512), *model.MaxSequenceLength, "Expected model max sequence length to be 512")
 	require.Equal(ts.T(), int32(100), *model.MaxBatchSize, "Expected model max batch size to be 100")
 	require.Equal(ts.T(), "Pinecone", *model.ProviderName, "Expected model provider name to be 'Pinecone'")

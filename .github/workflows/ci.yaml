@@ -6,17 +6,10 @@ on:
 permissions:
   contents: read
 
-# Live Pinecone switch for the releases/2026-10 line. The production control plane doesn't serve
-# API version 2026-10 yet, so the keyed integration suite would only send production requests that
-# are known to fail. While this is "false", build-and-test runs vet and unit tests instead of the
-# keyed suite. Set it back to "true" once production serves 2026-10.
-env:
-  RUN_LIVE_PINECONE_TESTS: "false"
-
 jobs:
   # Key-free mocked critical-path smoke gate (connect -> upsert -> query).
   # Runs on every PR with NO PINECONE_API_KEY to prove the request/response
-  # plumbing works without a real backend. Keyed suites stay in `build` below.
+  # plumbing works without a real backend.
   smoke-mocked:
     name: Smoke (mocked, no key)
     runs-on: ubuntu-latest
@@ -92,17 +85,7 @@ jobs:
       - name: Install dependencies
         run: |
           go get ./pinecone
-      - name: Run tests
-        if: env.RUN_LIVE_PINECONE_TESTS == 'true'
-        run: go test -count=1 -v -tags integration ./pinecone
-        env:
-          PINECONE_API_KEY: ${{ secrets.API_KEY }}
-          PINECONE_CLIENT_ID: ${{ secrets.CLIENT_ID }}
-          PINECONE_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
-      # Stands in for "Run tests" while live tests are off: vet still type-checks the integration
-      # tests, and the unit tests run without credentials.
-      - name: Vet and run unit tests (live Pinecone tests off)
-        if: env.RUN_LIVE_PINECONE_TESTS != 'true'
+      - name: Vet and run unit tests
         run: |
           go vet -tags integration,localServer,smoke ./...
           go test -count=1 -v ./pinecone
@@ -112,3 +95,43 @@ jobs:
           PINECONE_INDEX_URL_POD: http://localhost:5082
           PINECONE_INDEX_URL_SERVERLESS: http://localhost:5081
           PINECONE_DIMENSION: 1536
+
+  # The keyed integration suite against production. A check held up by something outside the SDK
+  # logs a "BLOCKED: " line (skipBlocked, logBlocked); a pull request into main fails while any remain.
+  live:
+    name: Integration (live)
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: live-pinecone
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+      - name: Run integration tests
+        run: |
+          set -o pipefail
+          go test -count=1 -v -tags integration -timeout=80m ./pinecone 2>&1 | tee live.log
+          grep -q -- '^--- PASS: TestRunSuites ' live.log \
+            || { echo "::error::the integration suites did not run"; exit 1; }
+        env:
+          PINECONE_API_KEY: ${{ secrets.API_KEY }}
+          PINECONE_CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          PINECONE_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+      - name: Blocked tests
+        if: ${{ !cancelled() }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          grep -o -- 'BLOCKED: .*' live.log | sort | uniq -c > blocked.txt || true
+          count=$(grep -c -- 'BLOCKED: ' live.log || true)
+          { echo "### Blocked tests: $count"; sed 's/^/    /' blocked.txt; } >> "$GITHUB_STEP_SUMMARY"
+          cat blocked.txt
+          if [ "$BASE_REF" = main ] && [ "$count" -gt 0 ]; then
+            echo "::error::$count blocked tests; a pull request into main needs zero"
+            exit 1
+          fi
