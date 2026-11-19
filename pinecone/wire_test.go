@@ -804,6 +804,133 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			}},
 		},
 		{
+			name:     "CreateIndexForModel with replica autoscaling",
+			status:   http.StatusCreated,
+			response: indexModelFixture{name: "model-index", readCapacity: autoscaledReadCapacityJSON}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				idx, err := pc.CreateIndexForModel(context.Background(), &CreateIndexForModelRequest{
+					Name:   "model-index",
+					Cloud:  CloudAWS,
+					Region: "us-east-1",
+					Embed: CreateIndexForModelEmbed{
+						Model:    "llama-text-embed-v2",
+						FieldMap: map[string]interface{}{"text": "chunk_text"},
+					},
+					ReadCapacity: &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{
+						NodeType: ptr("b1"),
+						Shards:   ptr(int32(2)),
+						Scaling:  &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8}},
+					}},
+				})
+				require.NoError(t, err)
+				require.NotNil(t, idx.ReadCapacity)
+				require.NotNil(t, idx.ReadCapacity.Dedicated)
+				assert.Equal(t, &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8}, idx.ReadCapacity.Dedicated.Scaling.Auto)
+			},
+			want: []wantRequest{{
+				method: http.MethodPost,
+				path:   "/indexes/create-for-model",
+				body: `{
+					"name": "model-index",
+					"cloud": "aws",
+					"region": "us-east-1",
+					"deletion_protection": "disabled",
+					"embed": {"model": "llama-text-embed-v2", "field_map": {"text": "chunk_text"}},
+					"read_capacity": {"mode": "Dedicated", "dedicated": {
+						"node_type": "b1",
+						"shards": 2,
+						"scaling": "Auto",
+						"auto": {"min_replicas": 2, "max_replicas": 8}
+					}},
+					"tags": null
+				}`,
+			}},
+		},
+		{
+			name:     "ListIndexes reports each index's read capacity and live status",
+			status:   http.StatusOK,
+			response: `{"indexes": [` + indexModelFixture{name: "autoscaling-index", readCapacity: autoscaledReadCapacityJSON}.JSON() + `], "incompatible_indexes": []}`,
+			call: func(t *testing.T, pc *Client) {
+				indexes, err := pc.ListIndexes(context.Background())
+				require.NoError(t, err)
+				require.Len(t, indexes, 1)
+				dedicated := indexes[0].ReadCapacity.Dedicated
+				require.NotNil(t, dedicated)
+				assert.Equal(t, ReadCapacityScalingStrategyAuto, *dedicated.ScalingStrategy)
+				assert.Equal(t, &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8}, dedicated.Scaling.Auto)
+				assert.Equal(t, ReadCapacityStatus{State: "Ready", CurrentReplicas: ptr(int32(5)), CurrentShards: ptr(int32(2))}, dedicated.Status)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/indexes"}},
+		},
+		{
+			name:   "DescribeIndex reports a read capacity Error state with its message",
+			status: http.StatusOK,
+			response: indexModelFixture{name: "dedicated-index", readCapacity: `{"mode": "Dedicated",
+				"dedicated": {"node_type": "b1", "shards": 1, "scaling": "Manual", "manual": {"replicas": 2}},
+				"status": {"state": "Error", "current_replicas": null, "current_shards": null, "error_message": "Read node quota exceeded"}}`}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				idx, err := pc.DescribeIndex(context.Background(), "dedicated-index")
+				require.NoError(t, err)
+				assert.Equal(t, ReadCapacityStatus{State: "Error", ErrorMessage: ptr("Read node quota exceeded")}, idx.ReadCapacity.Dedicated.Status)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/indexes/dedicated-index"}},
+		},
+		{
+			name:     "DescribeIndex reports an index migrating from OnDemand to Dedicated",
+			status:   http.StatusOK,
+			response: indexModelFixture{name: "dedicated-index", readCapacity: `{"mode": "Dedicated", "dedicated": {"node_type": "t1", "shards": 1, "scaling": "Manual", "manual": {"replicas": 1}}, "status": {"state": "Migrating", "current_replicas": null, "current_shards": null}}`}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				idx, err := pc.DescribeIndex(context.Background(), "dedicated-index")
+				require.NoError(t, err)
+				dedicated := idx.ReadCapacity.Dedicated
+				assert.Equal(t, "Migrating", dedicated.Status.State)
+				assert.Nil(t, dedicated.Status.CurrentReplicas)
+				assert.Equal(t, ptr("t1"), dedicated.NodeType)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/indexes/dedicated-index"}},
+		},
+		{
+			// Replicas 0 pauses a manually scaled index; the zero must reach the wire.
+			name:     "ConfigureIndex pauses a manually scaled index with zero replicas",
+			status:   http.StatusOK,
+			response: indexModelFixture{name: "dedicated-index", readCapacity: dedicatedManualReadCapacityJSON}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.ConfigureIndex(context.Background(), "dedicated-index", ConfigureIndexParams{
+					ReadCapacity: &ReadCapacityParams{Dedicated: &ReadCapacityDedicatedConfig{
+						Scaling: &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(0))}},
+					}},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes/dedicated-index"},
+				{
+					method: http.MethodPatch,
+					path:   "/indexes/dedicated-index",
+					body:   `{"read_capacity": {"mode": "Dedicated", "dedicated": {"scaling": "Manual", "manual": {"replicas": 0}}}, "tags": null}`,
+				},
+			},
+		},
+		{
+			name:     "ConfigureIndex moves an autoscaled index back to OnDemand",
+			status:   http.StatusOK,
+			response: indexModelFixture{name: "autoscaling-index", readCapacity: autoscaledReadCapacityJSON}.JSON(),
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.ConfigureIndex(context.Background(), "autoscaling-index", ConfigureIndexParams{
+					ReadCapacity: &ReadCapacityParams{OnDemand: &ReadCapacityOnDemandConfig{}},
+				})
+				require.NoError(t, err)
+			},
+			want: []wantRequest{
+				{method: http.MethodGet, path: "/indexes/autoscaling-index"},
+				{
+					method: http.MethodPatch,
+					path:   "/indexes/autoscaling-index",
+					body:   `{"read_capacity": {"mode": "OnDemand"}, "tags": null}`,
+				},
+			},
+		},
+		{
 			name:     "ConfigureIndex turns on replica autoscaling",
 			status:   http.StatusOK,
 			response: indexModelFixture{name: "dedicated-index", readCapacity: dedicatedManualReadCapacityJSON}.JSON(),
@@ -1918,6 +2045,17 @@ func requireIncompatibleError(t *testing.T, err error, message string, details m
 	assert.Equal(t, ReasonResourceIncompatibleWithAPIVersion, pcErr.Reason)
 	assert.Contains(t, pcErr.Message, message)
 	assert.Equal(t, details, pcErr.Details())
+	typed := pcErr.TypedDetails()
+	require.NotNil(t, typed)
+	assert.Equal(t, details["minimum_api_version"], derefOrNil(typed.MinimumAPIVersion))
+	assert.Equal(t, details["preview_api_version"], derefOrNil(typed.PreviewAPIVersion))
+}
+
+func derefOrNil(s *string) any {
+	if s == nil {
+		return nil
+	}
+	return *s
 }
 
 func requireIncompatibleIndexError(t *testing.T, err error) {

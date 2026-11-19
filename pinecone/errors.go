@@ -2,6 +2,7 @@ package pinecone
 
 import (
 	"fmt"
+	"math"
 )
 
 // PineconeError is the error returned when a Pinecone REST API request (control plane, admin,
@@ -46,8 +47,98 @@ type PineconeError struct {
 // there's no such version; when both are left out, no public API version can act on the resource
 // yet. The resource's entry in [Client.ListIncompatibleIndexes],
 // [Client.ListIncompatibleCollections], [BackupList].IncompatibleBackups, or
-// [RestoreJobList].IncompatibleRestoreJobs carries the same versions.
+// [RestoreJobList].IncompatibleRestoreJobs carries the same versions. [PineconeError.TypedDetails]
+// reads the details keys as typed fields.
 const ReasonResourceIncompatibleWithAPIVersion = "RESOURCE_INCOMPATIBLE_WITH_API_VERSION"
+
+// Reasons the 2026-10 API documents for [PineconeError.Reason]. New reasons may be added: treat a
+// value you don't recognize as if Reason were empty, and act on ErrorCode.
+const (
+	// ReasonTooManyDocuments is the Reason, with the error code INVALID_ARGUMENT, when a documents
+	// request has more documents than the operation takes. [ErrorDetails].LimitDocuments and
+	// ActualDocuments give the limit and the count sent.
+	ReasonTooManyDocuments = "TOO_MANY_DOCUMENTS"
+	// ReasonRateLimitExceeded is the Reason, with the error code RESOURCE_EXHAUSTED, when a
+	// per-second or per-minute limit was hit. The same request can succeed after backing off. Today
+	// embedding limits set it, with [ErrorDetails].Field and Model.
+	ReasonRateLimitExceeded = "RATE_LIMIT_EXCEEDED"
+	// ReasonMonthlyLimitExceeded is the Reason, with the error code RESOURCE_EXHAUSTED, when a limit
+	// for the current month was hit. Retrying fails until the limit resets or the plan changes. Today
+	// embedding limits set it, with [ErrorDetails].Field and Model.
+	ReasonMonthlyLimitExceeded = "MONTHLY_LIMIT_EXCEEDED"
+)
+
+// ErrorDetails is a typed view of the keys the API documents for [PineconeError.Details]. Each
+// field is nil when its key is absent or its value isn't of the documented type. Which keys are set
+// depends on the Reason.
+type ErrorDetails struct {
+	// APIVersion is "api_version", the API version of the request. Set with
+	// [ReasonResourceIncompatibleWithAPIVersion].
+	APIVersion *string
+	// MinimumAPIVersion is "minimum_api_version", the earliest generally available API version
+	// that can act on the resource; every later one can too. Set with
+	// [ReasonResourceIncompatibleWithAPIVersion] when there is such a version.
+	MinimumAPIVersion *string
+	// PreviewAPIVersion is "preview_api_version", the earliest early-access API version that can
+	// act on the resource. Set with [ReasonResourceIncompatibleWithAPIVersion] when there is such a
+	// version.
+	PreviewAPIVersion *string
+	// LimitDocuments is "limit_documents", the most documents one request takes. Set with
+	// [ReasonTooManyDocuments].
+	LimitDocuments *int
+	// ActualDocuments is "actual_documents", how many documents the request sent. Set with
+	// [ReasonTooManyDocuments].
+	ActualDocuments *int
+	// Field is "field", the name of the field being embedded. Set with [ReasonRateLimitExceeded]
+	// and [ReasonMonthlyLimitExceeded] for embedding limits.
+	Field *string
+	// Model is "model", the name of the embedding model. Set with [ReasonRateLimitExceeded] and
+	// [ReasonMonthlyLimitExceeded] for embedding limits.
+	Model *string
+}
+
+// TypedDetails returns the documented keys of [PineconeError.Details] as an [ErrorDetails], or nil
+// when the response has no details. Use Details for keys ErrorDetails doesn't name.
+//
+// Example:
+//
+//	var pcErr *pinecone.PineconeError
+//	if errors.As(err, &pcErr) && pcErr.Reason == pinecone.ReasonResourceIncompatibleWithAPIVersion {
+//		if d := pcErr.TypedDetails(); d != nil && d.MinimumAPIVersion != nil {
+//			fmt.Println("use API version", *d.MinimumAPIVersion, "or later")
+//		}
+//	}
+func (pe *PineconeError) TypedDetails() *ErrorDetails {
+	if pe == nil || pe.details == nil {
+		return nil
+	}
+	d := *pe.details
+	return &ErrorDetails{
+		APIVersion:        detailString(d, "api_version"),
+		MinimumAPIVersion: detailString(d, "minimum_api_version"),
+		PreviewAPIVersion: detailString(d, "preview_api_version"),
+		LimitDocuments:    detailInt(d, "limit_documents"),
+		ActualDocuments:   detailInt(d, "actual_documents"),
+		Field:             detailString(d, "field"),
+		Model:             detailString(d, "model"),
+	}
+}
+
+func detailString(d map[string]any, key string) *string {
+	if v, ok := d[key].(string); ok {
+		return &v
+	}
+	return nil
+}
+
+func detailInt(d map[string]any, key string) *int {
+	v, ok := d[key].(float64)
+	if !ok || v != math.Trunc(v) || math.Abs(v) > 1<<53 {
+		return nil
+	}
+	i := int(v)
+	return &i
+}
 
 // Details returns a copy of the machine-readable facts about the error, keyed as its Reason
 // documents, or nil when the response has none. Values are decoded as with encoding/json: strings,
