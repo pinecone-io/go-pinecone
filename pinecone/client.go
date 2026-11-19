@@ -4,6 +4,7 @@
 package pinecone
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -610,20 +611,30 @@ type CreateServerlessIndexRequest struct {
 // with [Client.ConfigureIndex]. Set exactly one of Dedicated or OnDemand. When nil, a new index uses
 // OnDemand read capacity. Both modes are supported for serverless and BYOC indexes.
 type ReadCapacityParams struct {
-	// Dedicated selects Dedicated read capacity mode. Requires NodeType and Scaling configuration.
+	// Dedicated selects Dedicated read capacity mode. See [ReadCapacityDedicatedConfig] for the
+	// fields required when creating an index and when changing one with [Client.ConfigureIndex].
 	Dedicated *ReadCapacityDedicatedConfig `json:"dedicated,omitempty"`
 	// OnDemand selects OnDemand read capacity mode. No configuration is required.
 	OnDemand *ReadCapacityOnDemandConfig `json:"on_demand,omitempty"`
 }
 
 // ReadCapacityDedicatedConfig represents Dedicated read capacity configuration for indexes.
-// When creating a Dedicated index or converting an existing OnDemand index to Dedicated, you must specify NodeType, Scaling.Manual.Replicas,
-// and Scaling.Manual.Shards.
+// When creating a Dedicated index or converting an existing OnDemand index to Dedicated, you must
+// specify NodeType, Shards, and a Scaling strategy: Scaling.Manual with Replicas, or Scaling.Auto.
+//
+// With [Client.ConfigureIndex], every field is optional and omitted fields keep their current
+// value. Changing only NodeType or Shards keeps the current scaling strategy, including the bounds
+// of an autoscaled index.
 type ReadCapacityDedicatedConfig struct {
 	// NodeType is the type of machines to use. Available options: "b1" and "t1". "t1" includes
 	// increased processing power and memory.
 	NodeType *string `json:"node_type"`
-	// Scaling is the scaling strategy configuration. Currently supports manual scaling.
+	// Shards is the number of shards to use. Shards determine the storage capacity of an index,
+	// with each shard providing 250 GB of storage. When set, it wins over the deprecated
+	// Scaling.Manual.Shards.
+	Shards *int32 `json:"shards,omitempty"`
+	// Scaling is the scaling strategy: a fixed number of replicas per shard (Manual), or replica
+	// autoscaling between bounds (Auto). Set at most one of Manual and Auto.
 	Scaling *ReadCapacityScaling `json:"scaling,omitempty"`
 }
 
@@ -996,8 +1007,8 @@ type CreateBYOCIndexRequest struct {
 	// "disabled" for the index. When "enabled", the index cannot be deleted. Defaults to "disabled".
 	DeletionProtection *DeletionProtection
 	// ReadCapacity (Optional) is the read capacity configuration for the index. Defaults to
-	// OnDemand when nil. To use Dedicated read capacity, set NodeType, Scaling.Manual.Replicas, and
-	// Scaling.Manual.Shards.
+	// OnDemand when nil. To use Dedicated read capacity, set NodeType, Shards, and a Scaling
+	// strategy.
 	ReadCapacity *ReadCapacityParams
 	// Schema is not supported; setting it returns an error. Metadata fields are indexed
 	// automatically when you upsert data.
@@ -1266,8 +1277,9 @@ type ConfigureIndexParams struct {
 	Embed *ConfigureIndexEmbed
 	// ReadCapacity (Optional) is the [ReadCapacityParams] to apply to a serverless or BYOC index;
 	// setting it on a pod-based index returns an error. Converting an OnDemand index to Dedicated
-	// requires NodeType, Scaling.Manual.Replicas, and Scaling.Manual.Shards. Fields omitted from a
-	// Dedicated configuration keep their current values.
+	// requires NodeType, Shards, and a Scaling strategy. Fields omitted from a Dedicated
+	// configuration keep their current values. Set Scaling.Auto to turn on replica autoscaling or
+	// change its bounds, and Scaling.Manual to switch back to a fixed replica count.
 	ReadCapacity *ReadCapacityParams
 	// Schema (Optional) is the [ConfigureIndexSchema] updating the read or write parameters of the
 	// embedding model of a legacy integrated index.
@@ -2871,11 +2883,15 @@ func handleErrorResponseBody(response *http.Response, errMsgPrefix string) error
 }
 
 func formatError(errMap errorResponseMap) error {
-	jsonString, err := json.Marshal(errMap)
-	if err != nil {
+	// json.Marshal would escape <, > and & as \u003c, \u003e and \u0026, which makes server
+	// messages such as "max_replicas must be >= min_replicas" hard to read.
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(errMap); err != nil {
 		return err
 	}
-	baseError := errors.New(string(jsonString))
+	baseError := errors.New(strings.TrimSuffix(buf.String(), "\n"))
 
 	return &PineconeError{Code: errMap.StatusCode, Msg: baseError}
 }
@@ -3063,31 +3079,40 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 		return &result, nil
 	}
 
-	// nil / OnDemand -> Dedicated
-	// When converting from OnDemand to Dedicated, NodeType, Replicas, and Shards are required
-	if old == nil || old.OnDemand != nil {
-		if new.Dedicated.NodeType == nil ||
-			new.Dedicated.Scaling == nil ||
-			new.Dedicated.Scaling.Manual == nil ||
-			new.Dedicated.Scaling.Manual.Replicas == nil ||
-			new.Dedicated.Scaling.Manual.Shards == nil {
-			return nil, fmt.Errorf("Dedicated read capacity must be configured with a node type, scaling strategy, and manual scaling configuration")
-		}
+	if err := validateReadCapacityScaling(new.Dedicated.Scaling); err != nil {
+		return nil, err
 	}
+	// An empty Manual block would send replicas 0 and pause the index.
+	if manual := scalingManual(new.Dedicated.Scaling); manual != nil && manual.Replicas == nil && manual.Shards == nil {
+		return nil, errEmptyManualScalingPatch
+	}
+	shards := readCapacityShards(new.Dedicated)
 
 	patchConfig := db_control.ReadCapacityDedicatedPatchConfig{
 		NodeType: new.Dedicated.NodeType,
+		Shards:   shards,
 	}
-	if manual := readCapacityManual(new.Dedicated); manual != nil {
-		// 2026-10 moved shards out of the manual block, and a manual block must carry replicas.
-		// A Manual block with only Shards changes the shard count and keeps the current replicas.
-		patchConfig.Shards = manual.Shards
-		if manual.Replicas != nil {
+	// A Manual block without Replicas only carried the deprecated Shards, so it changes the shard
+	// count and keeps the current scaling strategy.
+	if scaling := new.Dedicated.Scaling; scaling != nil {
+		switch {
+		case scaling.Auto != nil:
+			patchConfig.Scaling = pointerOrNil("Auto")
+			patchConfig.Auto = &db_control.ScalingConfigAuto{
+				MinReplicas: scaling.Auto.MinReplicas,
+				MaxReplicas: scaling.Auto.MaxReplicas,
+			}
+		case scaling.Manual != nil && scaling.Manual.Replicas != nil:
 			patchConfig.Scaling = pointerOrNil("Manual")
-			patchConfig.Manual = &db_control.ScalingConfigManualPatch{Replicas: *manual.Replicas}
-		} else if manual.Shards == nil {
-			// Sending replicas 0 would pause the index, so refuse rather than guess.
-			return nil, fmt.Errorf("Scaling.Manual must set Replicas or Shards; to keep the current scaling, omit Scaling")
+			patchConfig.Manual = &db_control.ScalingConfigManualPatch{Replicas: *scaling.Manual.Replicas}
+		}
+	}
+
+	// OnDemand -> Dedicated. When describe has no read capacity the SDK understands (omitted, or
+	// an unlisted mode), it can't tell whether this is a conversion, so the API judges the patch.
+	if old != nil && old.OnDemand != nil {
+		if patchConfig.NodeType == nil || patchConfig.Shards == nil || patchConfig.Scaling == nil {
+			return nil, errDedicatedReadCapacityIncomplete
 		}
 	}
 
@@ -3101,12 +3126,36 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 	return &result, nil
 }
 
-// Returns the Manual scaling block of a Dedicated configuration, or nil.
-func readCapacityManual(dedicated *ReadCapacityDedicatedConfig) *ReadCapacityManualScaling {
-	if dedicated == nil || dedicated.Scaling == nil {
+var errDedicatedReadCapacityIncomplete = errors.New("Dedicated read capacity must be configured with a node type, shards, and a scaling strategy (Scaling.Manual with Replicas, or Scaling.Auto)")
+
+var errEmptyManualScalingPatch = errors.New("Scaling.Manual must set Replicas; to change only the shard count, set Dedicated.Shards, and to keep the current scaling, omit Scaling")
+
+// Rejects Manual and Auto together, which can't become one scaling value. Ranges are left to the
+// API.
+func validateReadCapacityScaling(scaling *ReadCapacityScaling) error {
+	if scaling != nil && scaling.Manual != nil && scaling.Auto != nil {
+		return fmt.Errorf("both Scaling.Manual and Scaling.Auto are set; set only one")
+	}
+	return nil
+}
+
+func scalingManual(scaling *ReadCapacityScaling) *ReadCapacityManualScaling {
+	if scaling == nil {
 		return nil
 	}
-	return dedicated.Scaling.Manual
+	return scaling.Manual
+}
+
+// Returns the shard count to send as dedicated.shards: Dedicated.Shards when set, which wins over
+// the deprecated Scaling.Manual.Shards, and otherwise the deprecated value.
+func readCapacityShards(dedicated *ReadCapacityDedicatedConfig) *int32 {
+	if dedicated.Shards != nil {
+		return dedicated.Shards
+	}
+	if manual := scalingManual(dedicated.Scaling); manual != nil {
+		return manual.Shards
+	}
+	return nil
 }
 
 // Converts the ReadCapacityParams to db_control.ReadCapacity - used for CreateServerlessIndex,
@@ -3134,25 +3183,37 @@ func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.
 		return &result, nil
 	}
 
-	// Dedicated: the create request requires node type, shards, and a scaling configuration.
-	if request.Dedicated.NodeType == nil ||
-		request.Dedicated.Scaling == nil ||
-		request.Dedicated.Scaling.Manual == nil ||
-		request.Dedicated.Scaling.Manual.Replicas == nil ||
-		request.Dedicated.Scaling.Manual.Shards == nil {
-		return nil, fmt.Errorf("Dedicated read capacity must be configured with a node type, scaling strategy, and manual scaling configuration")
+	// Dedicated: the create request requires node type, shards, and a scaling strategy.
+	dedicated := request.Dedicated
+	if err := validateReadCapacityScaling(dedicated.Scaling); err != nil {
+		return nil, err
+	}
+	shards := readCapacityShards(dedicated)
+	if dedicated.NodeType == nil || shards == nil || dedicated.Scaling == nil {
+		return nil, errDedicatedReadCapacityIncomplete
+	}
+
+	config := db_control.ReadCapacityDedicatedConfig{
+		NodeType: *dedicated.NodeType,
+		Shards:   *shards,
+	}
+	switch {
+	case dedicated.Scaling.Auto != nil:
+		config.Scaling = "Auto"
+		config.Auto = &db_control.ScalingConfigAuto{
+			MinReplicas: dedicated.Scaling.Auto.MinReplicas,
+			MaxReplicas: dedicated.Scaling.Auto.MaxReplicas,
+		}
+	case dedicated.Scaling.Manual != nil && dedicated.Scaling.Manual.Replicas != nil:
+		config.Scaling = "Manual"
+		config.Manual = &db_control.ScalingConfigManual{Replicas: *dedicated.Scaling.Manual.Replicas}
+	default:
+		return nil, errDedicatedReadCapacityIncomplete
 	}
 
 	dedicatedSpec := db_control.ReadCapacityDedicatedSpec{
-		Dedicated: db_control.ReadCapacityDedicatedConfig{
-			NodeType: *request.Dedicated.NodeType,
-			Shards:   *request.Dedicated.Scaling.Manual.Shards,
-			Scaling:  "Manual",
-			Manual: &db_control.ScalingConfigManual{
-				Replicas: *request.Dedicated.Scaling.Manual.Replicas,
-			},
-		},
-		Mode: "Dedicated",
+		Dedicated: config,
+		Mode:      "Dedicated",
 	}
 	if err := result.FromReadCapacityDedicatedSpec(dedicatedSpec); err != nil {
 		return nil, err
@@ -3190,9 +3251,20 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 
 		nodeType := config.NodeType
 		dedicated.NodeType = &nodeType
+		dedicated.ScalingStrategy = pointerOrNil(ReadCapacityScalingStrategy(config.Scaling))
+		for _, known := range []ReadCapacityScalingStrategy{ReadCapacityScalingStrategyManual, ReadCapacityScalingStrategyAuto} {
+			if strings.EqualFold(config.Scaling, string(known)) {
+				dedicated.ScalingStrategy = &known
+			}
+		}
+		if config.Shards != nil {
+			s := *config.Shards
+			dedicated.Shards = &s
+		}
 
-		// Scaling
-		if strings.EqualFold(config.Scaling, "manual") && config.Manual != nil {
+		// Scaling stays nil for a strategy this SDK doesn't know.
+		switch {
+		case strings.EqualFold(config.Scaling, "manual") && config.Manual != nil:
 			replicas := config.Manual.Replicas
 			var shards *int32
 			if config.Shards != nil {
@@ -3203,6 +3275,13 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 				Manual: &ReadCapacityManualScaling{
 					Replicas: &replicas,
 					Shards:   shards,
+				},
+			}
+		case strings.EqualFold(config.Scaling, "auto") && config.Auto != nil:
+			dedicated.Scaling = &ReadCapacityScaling{
+				Auto: &ReadCapacityAutoScaling{
+					MinReplicas: config.Auto.MinReplicas,
+					MaxReplicas: config.Auto.MaxReplicas,
 				},
 			}
 		}
