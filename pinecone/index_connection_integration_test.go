@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"testing"
 
 	"github.com/pinecone-io/go-pinecone/v8/internal/utils"
 	"google.golang.org/grpc"
@@ -751,18 +752,24 @@ func (ts *integrationTests) TestIntegratedEmbeddingDocuments() {
 	require.ErrorAs(ts.T(), err, &pcErr)
 	assert.Equal(ts.T(), http.StatusBadRequest, pcErr.Code)
 
-	tooMany := make([]Document, 97)
-	for i := range tooMany {
-		tooMany[i] = Document{"_id": fmt.Sprintf("doc-%d", i), "body": "x", "summary": "x"}
-	}
-	_, err = idxConn.UpsertDocuments(ctx, &UpsertDocumentsRequest{Documents: tooMany})
-	require.ErrorAs(ts.T(), err, &pcErr)
-	assert.Equal(ts.T(), "INVALID_ARGUMENT", pcErr.ErrorCode, "%v", pcErr.Msg)
-	assert.Equal(ts.T(), ReasonTooManyDocuments, pcErr.Reason, "%v", pcErr.Msg)
-	if details := pcErr.TypedDetails(); assert.NotNil(ts.T(), details) {
-		assert.Equal(ts.T(), ptr(96), details.LimitDocuments)
-		assert.Equal(ts.T(), ptr(97), details.ActualDocuments)
-	}
+	ts.T().Run("too many documents reason", func(t *testing.T) {
+		tooMany := make([]Document, 97)
+		for i := range tooMany {
+			tooMany[i] = Document{"_id": fmt.Sprintf("doc-%d", i), "body": "x", "summary": "x"}
+		}
+		_, err := idxConn.UpsertDocuments(ctx, &UpsertDocumentsRequest{Documents: tooMany})
+		var pcErr *PineconeError
+		require.ErrorAs(t, err, &pcErr)
+		assert.Equal(t, "INVALID_ARGUMENT", pcErr.ErrorCode, "%v", pcErr.Msg)
+		if pcErr.Reason == "" {
+			skipBlocked(t, "production doesn't send reason TOO_MANY_DOCUMENTS for an oversized document upsert yet")
+		}
+		assert.Equal(t, ReasonTooManyDocuments, pcErr.Reason, "%v", pcErr.Msg)
+		if details := pcErr.TypedDetails(); assert.NotNil(t, details) {
+			assert.Equal(t, ptr(96), details.LimitDocuments)
+			assert.Equal(t, ptr(97), details.ActualDocuments)
+		}
+	})
 }
 
 func (ts *integrationTests) TestDescribeNamespace() {
