@@ -1238,6 +1238,12 @@ func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest
 //		    fmt.Println(desc)
 //	    }
 func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, error) {
+	return c.describeIndex(ctx, idxName, "failed to describe index: ")
+}
+
+// describeIndex describes an index, prefixing an API error message with errMsgPrefix so that a
+// caller such as ConfigureIndex reports the failure as its own operation.
+func (c *Client) describeIndex(ctx context.Context, idxName string, errMsgPrefix string) (*Index, error) {
 	res, err := c.restClient.DescribeIndex(ctx, idxName, &db_control.DescribeIndexParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
@@ -1245,7 +1251,7 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return nil, handleErrorResponseBody(res, "failed to describe index: ")
+		return nil, handleErrorResponseBody(res, errMsgPrefix)
 	}
 
 	return decodeIndex(res.Body)
@@ -1495,7 +1501,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	deletionProtection := pointerOrNil(in.DeletionProtection)
 
 	// Describe index in order to evaluate the deployment type to validate type-specific parameters.
-	idxDesc, err := c.DescribeIndex(ctx, name)
+	idxDesc, err := c.describeIndex(ctx, name, "failed to configure index: ")
 	if err != nil {
 		return nil, err
 	}
