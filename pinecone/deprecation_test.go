@@ -12,7 +12,7 @@ import (
 
 // Tools such as staticcheck (SA1019) and gopls flag uses of a field only when its doc comment has a
 // paragraph that starts with "Deprecated: ".
-func TestReadCapacityManualShardsIsMarkedDeprecated(t *testing.T) {
+func TestReadCapacityManualShardsIsMarkedDeprecatedUnit(t *testing.T) {
 	file, err := parser.ParseFile(token.NewFileSet(), "models.go", nil, parser.ParseComments)
 	require.NoError(t, err)
 
