@@ -6,10 +6,6 @@ on:
 permissions:
   contents: read
 
-# Explicit switch for the bounded production CRUD suite.
-env:
-  RUN_LIVE_PINECONE_TESTS: "true"
-
 jobs:
   # Key-free mocked critical-path smoke gate (connect -> upsert -> query).
   # Runs on every PR with NO PINECONE_API_KEY to prove the request/response
@@ -100,12 +96,15 @@ jobs:
           PINECONE_INDEX_URL_SERVERLESS: http://localhost:5081
           PINECONE_DIMENSION: 1536
 
-  live-index-crud:
-    name: Index CRUD (2026-10, live)
+  # The keyed integration suite against production. Tests that wait on something outside the SDK
+  # skip with skipBlocked; a pull request into main fails while any remain.
+  live:
+    name: Integration (live)
     if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     concurrency:
-      group: live-pinecone-index-crud
+      group: live-pinecone
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
@@ -113,12 +112,26 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: "1.26.x"
-      - name: Run production index CRUD tests
-        if: env.RUN_LIVE_PINECONE_TESTS == 'true'
-        # The broader integration and dedicated read capacity suites are run manually.
+      - name: Run integration tests
         run: |
           set -o pipefail
-          go test -count=1 -v -tags integration -timeout=5m -run '^TestIndexCRUDIntegration$' ./pinecone | tee index-crud.log
-          grep -q -- '^--- PASS: TestIndexCRUDIntegration ' index-crud.log
+          go test -count=1 -v -tags integration -timeout=80m ./pinecone 2>&1 | tee live.log
+          grep -q -- '^--- PASS: TestRunSuites ' live.log \
+            || { echo "::error::the integration suites did not run"; exit 1; }
         env:
           PINECONE_API_KEY: ${{ secrets.API_KEY }}
+          PINECONE_CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          PINECONE_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+      - name: Blocked tests
+        if: ${{ !cancelled() }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          grep -o -- 'BLOCKED: .*' live.log | sort | uniq -c > blocked.txt || true
+          count=$(grep -c -- 'BLOCKED: ' live.log || true)
+          { echo "### Blocked tests: $count"; sed 's/^/    /' blocked.txt; } >> "$GITHUB_STEP_SUMMARY"
+          cat blocked.txt
+          if [ "$BASE_REF" = main ] && [ "$count" -gt 0 ]; then
+            echo "::error::$count blocked tests; a pull request into main needs zero"
+            exit 1
+          fi

@@ -32,10 +32,7 @@ func (ts *integrationTests) TestListIndexes() {
 		lastErr = err
 		time.Sleep(3 * time.Second)
 	}
-	// A correct GET /indexes request persistently 503s under 2026-07 when the project contains
-	// legacy indexes the new list serializer cannot render (the same request succeeds in a clean
-	// project). Skip rather than fail on this known backend gap.
-	ts.T().Skipf("ListIndexes persistently returned 503 under 2026-07 (known backend gap for projects with legacy indexes): %v", lastErr)
+	require.NoError(ts.T(), lastErr, "ListIndexes returned 503 on every attempt")
 }
 
 func (ts *integrationTests) TestCreateServerlessIndexDense() {

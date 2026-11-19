@@ -22,9 +22,9 @@ import (
 //
 //	go test -count=1 -v -tags integration -run 'TestReadCapacity' ./pinecone
 //
-// Dedicated read capacity is billed and replica autoscaling is enabled per organization, so the
-// tests run only when PINECONE_TEST_DRN_AUTOSCALING is set. They use the smallest shape: node type
-// b1, 1 shard, 1-2 replicas.
+// Dedicated read capacity is billed, so the tests use the smallest shape: node type b1, 1 shard, 1-2
+// replicas, and delete every index they create. Replica autoscaling is enabled per organization;
+// set PINECONE_SKIP_READ_CAPACITY=true to skip these tests for an organization without it.
 //
 // A change to dedicated read capacity takes effect asynchronously, and the API refuses the next
 // change until it settles. By default the tests poll describe until the read capacity state is
@@ -39,8 +39,8 @@ const (
 
 func newReadCapacityTestClient(t *testing.T) *Client {
 	t.Helper()
-	if os.Getenv("PINECONE_TEST_DRN_AUTOSCALING") == "" {
-		t.Skip("set PINECONE_TEST_DRN_AUTOSCALING to run the dedicated read capacity tests (billed, organization-gated)")
+	if os.Getenv("PINECONE_SKIP_READ_CAPACITY") == "true" {
+		t.Skip("PINECONE_SKIP_READ_CAPACITY is set")
 	}
 	apiKey := os.Getenv("PINECONE_API_KEY")
 	require.NotEmpty(t, apiKey, "PINECONE_API_KEY env variable not set")
@@ -283,12 +283,12 @@ func TestReadCapacityConfigureWhileBusyIntegration(t *testing.T) {
 	requireAPIError(t, err, "ABORTED")
 }
 
-// Run against an organization without replica autoscaling: set
-// PINECONE_TEST_DRN_AUTOSCALING_DISABLED as well as PINECONE_TEST_DRN_AUTOSCALING.
+// Needs an API key for an organization without replica autoscaling: set
+// PINECONE_TEST_DRN_AUTOSCALING_DISABLED=true and PINECONE_API_KEY to that key.
 func TestReadCapacityAutoNotEnabledIntegration(t *testing.T) {
 	pc := newReadCapacityTestClient(t)
-	if os.Getenv("PINECONE_TEST_DRN_AUTOSCALING_DISABLED") == "" {
-		t.Skip("set PINECONE_TEST_DRN_AUTOSCALING_DISABLED for an organization without replica autoscaling")
+	if os.Getenv("PINECONE_TEST_DRN_AUTOSCALING_DISABLED") != "true" {
+		skipBlocked(t, "CI has no API key for an organization without replica autoscaling")
 	}
 	name := readCapacityTestIndexName("rc-auto-off")
 	_, err := pc.CreateServerlessIndex(context.Background(), &CreateServerlessIndexRequest{

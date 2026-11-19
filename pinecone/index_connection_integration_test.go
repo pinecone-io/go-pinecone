@@ -750,6 +750,19 @@ func (ts *integrationTests) TestIntegratedEmbeddingDocuments() {
 	var pcErr *PineconeError
 	require.ErrorAs(ts.T(), err, &pcErr)
 	assert.Equal(ts.T(), http.StatusBadRequest, pcErr.Code)
+
+	tooMany := make([]Document, 97)
+	for i := range tooMany {
+		tooMany[i] = Document{"_id": fmt.Sprintf("doc-%d", i), "body": "x", "summary": "x"}
+	}
+	_, err = idxConn.UpsertDocuments(ctx, &UpsertDocumentsRequest{Documents: tooMany})
+	require.ErrorAs(ts.T(), err, &pcErr)
+	assert.Equal(ts.T(), "INVALID_ARGUMENT", pcErr.ErrorCode, "%v", pcErr.Msg)
+	assert.Equal(ts.T(), ReasonTooManyDocuments, pcErr.Reason, "%v", pcErr.Msg)
+	if details := pcErr.TypedDetails(); assert.NotNil(ts.T(), details) {
+		assert.Equal(ts.T(), ptr(96), details.LimitDocuments)
+		assert.Equal(ts.T(), ptr(97), details.ActualDocuments)
+	}
 }
 
 func (ts *integrationTests) TestDescribeNamespace() {

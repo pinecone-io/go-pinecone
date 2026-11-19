@@ -5,7 +5,18 @@ package pinecone
 import (
 	"fmt"
 	"math/rand"
+	"testing"
 )
+
+// blockedSkipPrefix starts every skip that waits on something outside the SDK. CI counts these
+// skips and fails a pull request into main that has any.
+const blockedSkipPrefix = "BLOCKED: "
+
+// skipBlocked skips t until blocker, a plain-words description of what has to ship first, clears.
+func skipBlocked(t testing.TB, blocker string) {
+	t.Helper()
+	t.Skip(blockedSkipPrefix + blocker)
+}
 
 func generateVectors(numOfVectors int, dimension int32, isSparse bool, metadata *Metadata) []*Vector {
 	vectors := make([]*Vector, numOfVectors)
