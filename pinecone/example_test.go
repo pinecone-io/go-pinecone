@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
+	"github.com/pinecone-io/go-pinecone/v8/pinecone"
 )
 
 // The examples in this file have no Output comment, so go test compiles them but never runs

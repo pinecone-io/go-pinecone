@@ -2,7 +2,7 @@
 
 **Project:** Pinecone Go SDK — Vector database client for AI applications
 **Go:** 1.26+
-**Module:** `github.com/pinecone-io/go-pinecone/v7`
+**Module:** `github.com/pinecone-io/go-pinecone/v8`
 
 ## Project Overview
 
@@ -97,7 +97,7 @@ PINECONE_CLIENT_SECRET=...
 
 **Documentation:**
 ```bash
-just docs   # godoc server at http://localhost:6060/pkg/github.com/pinecone-io/go-pinecone/v7/pinecone/
+just docs   # godoc server at http://localhost:6060/pkg/github.com/pinecone-io/go-pinecone/v8/pinecone/
 ```
 
 **Code generation:**
