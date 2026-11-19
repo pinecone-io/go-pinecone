@@ -120,11 +120,17 @@ jobs:
           go test -count=1 -v -tags integration -timeout=80m ./pinecone 2>&1 | tee live.log
           grep -q -- '^--- PASS: TestRunSuites ' live.log \
             || { echo "::error::the integration suites did not run"; exit 1; }
-          # Leaf tests only: a parent reports PASS even when every subtest under it skipped.
-          ran=$(awk '$1 == "---" && $2 ~ /^(PASS|FAIL|SKIP):$/ { s[$3] = $2 }
-            END { for (n in s) { if (s[n] == "SKIP:") continue; leaf = 1
+          # Count leaf tests under the integration-tagged top-level tests; the untagged unit tests in
+          # the package also run here and must not count. A parent reports PASS even when every
+          # subtest under it skipped, so only leaves count.
+          tops=$(grep -l '^//go:build.*integration' pinecone/*_test.go \
+            | xargs grep -hoE '^func Test[A-Za-z0-9_]+' | sed 's/^func //' | tr '\n' ' ')
+          ran=$(awk -v tops="$tops" 'BEGIN { split(tops, t, " "); for (i in t) top[t[i]] = 1 }
+            $1 == "---" && $2 ~ /^(PASS|FAIL|SKIP):$/ { s[$3] = $2 }
+            END { for (n in s) { if (s[n] == "SKIP:") continue; r = n; sub(/\/.*/, "", r)
+              if (!(r in top)) continue; leaf = 1
               for (m in s) if (index(m, n "/") == 1) { leaf = 0; break }; c += leaf }; print c + 0 }' live.log)
-          echo "Leaf tests run: $ran"
+          echo "Integration leaf tests run: $ran"
           [ "$ran" -gt 0 ] || { echo "::error::no integration tests ran; every test was skipped"; exit 1; }
         env:
           PINECONE_API_KEY: ${{ secrets.API_KEY }}
