@@ -7,13 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pinecone-io/go-pinecone/v8/internal/gen/db_control"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -294,11 +292,8 @@ func (ts *integrationTests) deleteSuiteBackup(ctx context.Context) {
 		require.NoError(ts.T(), err, "deleting backup %s", ts.backupId)
 		return
 	}
-	res, err := ts.client.restClient.DeleteBackup(ctx, ts.backupId, &db_control.DeleteBackupParams{XPineconeApiVersion: "2026-07"})
-	require.NoError(ts.T(), err)
-	res.Body.Close()
-	require.Equal(ts.T(), http.StatusAccepted, res.StatusCode, "deleting backup %s with API 2026-07", ts.backupId)
-	logBlocked(ts.T(), "production returns 500 deleting a backup on API 2026-10; deleted it with 2026-07")
+	fmt.Printf("Backup \"%s\" left behind: %v\n", ts.backupId, err)
+	logBlocked(ts.T(), "production returns 500 deleting the suite's backup, so it's left behind")
 }
 
 // Helper funcs
