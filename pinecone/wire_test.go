@@ -1338,15 +1338,33 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			want: []wantRequest{{method: http.MethodPost, path: "/indexes/docs-v2/backups", body: `{}`}},
 		},
 		{
-			// ConfigureIndex describes the index first, so the refusal arrives before any PATCH.
+			// ConfigureIndex describes the index first, so the refusal arrives before any PATCH. The
+			// error still reads as a configure failure.
 			name:     "ConfigureIndex of an incompatible index returns the 412 as a PineconeError",
 			status:   http.StatusPreconditionFailed,
 			response: incompatibleIndex412JSON,
 			call: func(t *testing.T, pc *Client) {
 				_, err := pc.ConfigureIndex(context.Background(), "docs-v2", ConfigureIndexParams{Tags: IndexTags{"team": "search"}})
 				requireIncompatibleIndexError(t, err)
+				var pcErr *PineconeError
+				require.ErrorAs(t, err, &pcErr)
+				assert.Equal(t, "failed to configure index: "+incompatibleIndexMessage, pcErr.Message)
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/indexes/docs-v2"}},
+		},
+		{
+			name:     "ConfigureIndex of a missing index reports a configure failure",
+			status:   http.StatusNotFound,
+			response: `{"status": 404, "error": {"code": "NOT_FOUND", "message": "Resource missing-index not found"}}`,
+			call: func(t *testing.T, pc *Client) {
+				_, err := pc.ConfigureIndex(context.Background(), "missing-index", ConfigureIndexParams{DeletionProtection: DeletionProtectionDisabled})
+				var pcErr *PineconeError
+				require.ErrorAs(t, err, &pcErr)
+				assert.Equal(t, http.StatusNotFound, pcErr.Code)
+				assert.Equal(t, "NOT_FOUND", pcErr.ErrorCode)
+				assert.Equal(t, "failed to configure index: Resource missing-index not found", pcErr.Message)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/indexes/missing-index"}},
 		},
 		{
 			name:   "ListCollections and ListIncompatibleCollections with a mixed list",
