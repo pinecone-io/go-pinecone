@@ -347,7 +347,7 @@ type ConfigureIndexRequest struct {
 	// Deployment Deployment update parameters for pod-based indexes. Specify `replicas`, `pod_type`, or both. Deployment type, cloud/region, and environment cannot be changed after creation. Do not include a `deployment_type` field; it is not accepted.
 	Deployment *PatchIndexDeploymentRequest `json:"deployment,omitempty"`
 
-	// ReadCapacity Read capacity changes for an existing managed or BYOC index. Send `mode: OnDemand`, or `mode: Dedicated` with any subset of `node_type`, `shards`, and `scaling` with its matching block; fields you omit keep their current value. Not every change is supported for every index; an unsupported change returns `400`.
+	// ReadCapacity Read capacity changes for an existing managed or BYOC index. Send `mode: OnDemand`, or `mode: Dedicated` with any subset of `node_type`, `shards`, and `scaling` with its matching block; fields you omit keep their current value. Not every change is supported for every index; an unsupported change returns `400`. A key other than `mode` and `dedicated` is rejected with an error that names it.
 	ReadCapacity *ReadCapacityPatch `json:"read_capacity,omitempty"`
 
 	// Schema Schema updates to apply to an existing index. Only `semantic_text` field parameters, on a legacy integrated index created via create-for-model, can be updated after index creation. The model itself cannot be changed once set; only `write_parameters` and `read_parameters` may be updated if the model stays the same. The `embed` and `sparse_embed` configurations of a `string` field are fixed at creation and cannot be updated.
@@ -436,7 +436,7 @@ type ConvertIndexRequest struct {
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
-	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`. A key other than `mode` and `dedicated` is rejected with an error that names it.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Schema The fields the index searches over: dense vectors, sparse vectors, and string fields searched by full-text search or by embeddings Pinecone derives from their text.
@@ -560,7 +560,7 @@ type CreateIndexForModelRequest struct {
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
-	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`. A key other than `mode` and `dedicated` is rejected with an error that names it.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Region The region where you would like your index to be created.
@@ -589,7 +589,7 @@ type CreateIndexFromBackupRequest struct {
 	// Name The name of the index. Resource name must be 1-45 characters long, start and end with an alphanumeric character, and consist only of lower case alphanumeric characters or '-'.
 	Name string `json:"name"`
 
-	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`. A key other than `mode` and `dedicated` is rejected with an error that names it.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Tags Custom user tags added to an index, at most 20 per index. Keys must be 80 characters or less and alphanumeric, '_', or '-'. Values must be 120 characters or less and consist of printable ASCII characters or spaces. To unset a key, set the value to be an empty string. `null` in responses when the index has no tags.
@@ -626,7 +626,7 @@ type CreateIndexRequest struct {
 	// Name The name of the index. Must be unique within the project, start and end with an alphanumeric character, and contain only lower case alphanumeric characters or '-'. Generated automatically if not provided.
 	Name *string `json:"name,omitempty"`
 
-	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`.
+	// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`. A key other than `mode` and `dedicated` is rejected with an error that names it.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
 
 	// Schema The fields the index searches over: dense vectors, sparse vectors, and string fields searched by full-text search or by embeddings Pinecone derives from their text.
@@ -701,7 +701,7 @@ type ErrorResponse struct {
 		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `INTERNAL`, `FORBIDDEN`, `PAYMENT_REQUIRED`, `SERVICE_UNAVAILABLE`, `PAYLOAD_TOO_LARGE`, or `UNPROCESSABLE_ENTITY`.
 		Code string `json:"code"`
 
-		// Details Machine-readable facts about the error, as a flat object whose values are strings, integers or booleans, never `null`; a key with no value is left out. On API version 2026-10 and later it is set alongside `reason`, and may include the keys documented for that reason; more may be added, so ignore keys you don't recognize. This field is not guaranteed to be present. Keys the current reasons set:
+		// Details Machine-readable facts about the error, as an object. Its values are never `null`; a key with no value is left out. On API version 2026-10 and later it is set alongside `reason`, and may include the keys documented for that reason; more may be added, so ignore keys you don't recognize. This field is not guaranteed to be present. Keys the current reasons set:
 		// - `api_version`: the API version of the request.
 		// - `minimum_api_version`: the earliest generally available API version that can act on the resource, in the form used by the `X-Pinecone-Api-Version` header. Every later generally available API version can too. Left out when no generally available API version can.
 		// - `preview_api_version`: the earliest early-access API version that can act on the resource, in the same form. Left out when no early-access API version can. Set independently of `minimum_api_version`; both may be set.
@@ -1044,16 +1044,16 @@ type PodDeployment struct {
 // PodDeploymentDeploymentType Identifies this as a pod-based deployment. Must be `pod`.
 type PodDeploymentDeploymentType string
 
-// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`.
+// ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`. A key other than `mode` and `dedicated` is rejected with an error that names it.
 type ReadCapacity struct {
 	union json.RawMessage
 }
 
 // ReadCapacityDedicatedConfig Configuration for dedicated read capacity. See [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on how to configure dedicated read capacity.
 //
-// `shards` is a fixed count. Replica bounds for `Auto` scaling are per shard and sit in `auto`. If shard autoscaling is added later, its bounds may go in a new block beside `shards`.
+// `shards` is a fixed count. Replica bounds for `Auto` scaling are per shard and sit in `auto`. A key not listed here, such as `replicas` beside `scaling`, is rejected with an error that names it. If shard autoscaling is added later, its bounds may go in a new block beside `shards`.
 type ReadCapacityDedicatedConfig struct {
-	// Auto The config to use for automatic replica scaling. Pinecone adds and removes replicas within `min_replicas` and `max_replicas` based on read load. Billed capacity is at most `max_replicas` multiplied by the number of shards. A missing bound, or `shards` or any other unknown key inside `auto`, is rejected with an error that names the field.
+	// Auto The config to use for automatic replica scaling. Pinecone adds and removes replicas within `min_replicas` and `max_replicas` based on read load. A missing bound, or `shards` or any other unknown key inside `auto`, is rejected with an error that names the field.
 	Auto *ScalingConfigAuto `json:"auto,omitempty"`
 
 	// Manual The config to use for manual read capacity scaling. The shard count goes in `dedicated.shards`, not here: sending `shards` or any other key besides `replicas` inside `manual`, or leaving out `replicas`, is rejected with an error that names the field.
@@ -1069,7 +1069,7 @@ type ReadCapacityDedicatedConfig struct {
 	// Send `manual` with `Manual`, or `auto` with `Auto`. A missing block, or a block that does not match `scaling`, is rejected.
 	Scaling string `json:"scaling"`
 
-	// Shards The number of shards to use. Shards determine the storage capacity of an index, with each shard providing 250 GB of storage.
+	// Shards The number of shards to use. Shards determine the storage capacity of an index.
 	Shards int32 `json:"shards"`
 }
 
@@ -1093,11 +1093,11 @@ type ReadCapacityDedicatedConfigResponse struct {
 
 // ReadCapacityDedicatedPatchConfig Changes to the dedicated read capacity of an index. Every field is optional; omitted fields keep their current value. Changing only `node_type` or `shards` keeps the current scaling strategy, including `Auto` bounds.
 //
-// `scaling` must be sent with its matching block: `manual` with `Manual`, or `auto` with `Auto`. A block without `scaling`, `scaling` without its block, or a block that does not match `scaling` is rejected. An index moving from `OnDemand` to `Dedicated` must supply `node_type`, `shards`, `scaling`, and the matching block.
+// `scaling` must be sent with its matching block: `manual` with `Manual`, or `auto` with `Auto`. A block without `scaling`, `scaling` without its block, or a block that does not match `scaling` is rejected, as is a key not listed here, such as `replicas` beside `scaling`, with an error that names it. An index moving from `OnDemand` to `Dedicated` must supply `node_type`, `shards`, `scaling`, and the matching block.
 //
 // If shard autoscaling is added later, its bounds may go in a new block beside `shards`.
 type ReadCapacityDedicatedPatchConfig struct {
-	// Auto The config to use for automatic replica scaling. Pinecone adds and removes replicas within `min_replicas` and `max_replicas` based on read load. Billed capacity is at most `max_replicas` multiplied by the number of shards. A missing bound, or `shards` or any other unknown key inside `auto`, is rejected with an error that names the field.
+	// Auto The config to use for automatic replica scaling. Pinecone adds and removes replicas within `min_replicas` and `max_replicas` based on read load. A missing bound, or `shards` or any other unknown key inside `auto`, is rejected with an error that names the field.
 	Auto *ScalingConfigAuto `json:"auto,omitempty"`
 
 	// Manual Manual scaling changes. Sending this block with `scaling: Manual` sets a fixed replica count and turns replica autoscaling off. The shard count goes in `dedicated.shards`, not here: sending `shards` or any other key besides `replicas` inside `manual`, or leaving out `replicas`, is rejected with an error that names the field.
@@ -1117,7 +1117,7 @@ type ReadCapacityDedicatedPatchConfig struct {
 type ReadCapacityDedicatedPatchSpec struct {
 	// Dedicated Changes to the dedicated read capacity of an index. Every field is optional; omitted fields keep their current value. Changing only `node_type` or `shards` keeps the current scaling strategy, including `Auto` bounds.
 	//
-	// `scaling` must be sent with its matching block: `manual` with `Manual`, or `auto` with `Auto`. A block without `scaling`, `scaling` without its block, or a block that does not match `scaling` is rejected. An index moving from `OnDemand` to `Dedicated` must supply `node_type`, `shards`, `scaling`, and the matching block.
+	// `scaling` must be sent with its matching block: `manual` with `Manual`, or `auto` with `Auto`. A block without `scaling`, `scaling` without its block, or a block that does not match `scaling` is rejected, as is a key not listed here, such as `replicas` beside `scaling`, with an error that names it. An index moving from `OnDemand` to `Dedicated` must supply `node_type`, `shards`, `scaling`, and the matching block.
 	//
 	// If shard autoscaling is added later, its bounds may go in a new block beside `shards`.
 	Dedicated ReadCapacityDedicatedPatchConfig `json:"dedicated"`
@@ -1130,7 +1130,7 @@ type ReadCapacityDedicatedPatchSpec struct {
 type ReadCapacityDedicatedSpec struct {
 	// Dedicated Configuration for dedicated read capacity. See [this guide](https://docs.pinecone.io/guides/index-data/dedicated-read-nodes) for more details on how to configure dedicated read capacity.
 	//
-	// `shards` is a fixed count. Replica bounds for `Auto` scaling are per shard and sit in `auto`. If shard autoscaling is added later, its bounds may go in a new block beside `shards`.
+	// `shards` is a fixed count. Replica bounds for `Auto` scaling are per shard and sit in `auto`. A key not listed here, such as `replicas` beside `scaling`, is rejected with an error that names it. If shard autoscaling is added later, its bounds may go in a new block beside `shards`.
 	Dedicated ReadCapacityDedicatedConfig `json:"dedicated"`
 
 	// Mode The mode of the index. Possible values: `OnDemand` or `Dedicated`. Defaults to `OnDemand`. If set to `Dedicated`, `dedicated.node_type`, `dedicated.shards`, `dedicated.scaling`, and the block that matches `scaling` (`dedicated.manual` or `dedicated.auto`) must be specified.
@@ -1143,7 +1143,7 @@ type ReadCapacityOnDemandSpec struct {
 	Mode string `json:"mode"`
 }
 
-// ReadCapacityPatch Read capacity changes for an existing managed or BYOC index. Send `mode: OnDemand`, or `mode: Dedicated` with any subset of `node_type`, `shards`, and `scaling` with its matching block; fields you omit keep their current value. Not every change is supported for every index; an unsupported change returns `400`.
+// ReadCapacityPatch Read capacity changes for an existing managed or BYOC index. Send `mode: OnDemand`, or `mode: Dedicated` with any subset of `node_type`, `shards`, and `scaling` with its matching block; fields you omit keep their current value. Not every change is supported for every index; an unsupported change returns `400`. A key other than `mode` and `dedicated` is rejected with an error that names it.
 type ReadCapacityPatch struct {
 	union json.RawMessage
 }
@@ -1317,7 +1317,7 @@ type RestoreJobModel struct {
 	TargetIndexName string `json:"target_index_name"`
 }
 
-// ScalingConfigAuto The config to use for automatic replica scaling. Pinecone adds and removes replicas within `min_replicas` and `max_replicas` based on read load. Billed capacity is at most `max_replicas` multiplied by the number of shards. A missing bound, or `shards` or any other unknown key inside `auto`, is rejected with an error that names the field.
+// ScalingConfigAuto The config to use for automatic replica scaling. Pinecone adds and removes replicas within `min_replicas` and `max_replicas` based on read load. A missing bound, or `shards` or any other unknown key inside `auto`, is rejected with an error that names the field.
 type ScalingConfigAuto struct {
 	// MaxReplicas The maximum number of replicas per shard. Autoscaling never scales above this value. Must be greater than or equal to `min_replicas`.
 	MaxReplicas int32 `json:"max_replicas"`
