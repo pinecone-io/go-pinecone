@@ -80,11 +80,14 @@ type ErrorResponse struct {
 		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `QUOTA_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `UNIMPLEMENTED`, `INTERNAL`, `UNAVAILABLE`, `DATA_LOSS`, or `FORBIDDEN`.
 		Code string `json:"code"`
 
-		// Details Additional information about the error. This field is not guaranteed to be present.
+		// Details Machine-readable facts about the error, as an object. Its values are never `null`; a key with no value is left out. On API version 2026-10 and later it is set alongside `reason`, and may include the keys documented for that reason; more may be added, so ignore keys you don't recognize. This field is not guaranteed to be present.
 		Details *map[string]interface{} `json:"details,omitempty"`
 
 		// Message A human-readable error message describing the error.
 		Message string `json:"message"`
+
+		// Reason The exact cause of the error, when the error names one. Only some errors set it, and only on API version 2026-10 and later; no error in this API sets one yet. Each reason belongs to one `code`, keeps its name and meaning within an API version, and documents the `details` keys it sets. New reasons may be added: treat a value you don't recognize as if `reason` were absent, and act on `code`.
+		Reason *string `json:"reason,omitempty"`
 	} `json:"error"`
 
 	// Status The HTTP status code of the error.
@@ -102,8 +105,10 @@ type ModelInfo struct {
 	// MaxSequenceLength The maximum tokens per sequence supported by the model.
 	MaxSequenceLength *int32 `json:"max_sequence_length,omitempty"`
 
-	// Modality The modality of the model (e.g. 'text').
-	Modality *string `json:"modality,omitempty"`
+	// Modalities The kinds of input the model accepts, in no particular order. Text-only models list `["text"]`.
+	//
+	// Possible values: `text`, `image`, or `pdf`. Clients should accept values not listed here, because more may be added.
+	Modalities []string `json:"modalities"`
 
 	// Model The name of the model.
 	Model string `json:"model"`
@@ -291,11 +296,14 @@ type EmbedParams struct {
 
 // ListModelsParams defines parameters for ListModels.
 type ListModelsParams struct {
-	// Type Filter models by type ('embed' or 'rerank').
+	// Type Filter models by type ('embed' or 'rerank'). More values may be added.
 	Type *string `form:"type,omitempty" json:"type,omitempty"`
 
-	// VectorType Filter embedding models by vector type ('dense' or 'sparse'). Only relevant when `type=embed`.
+	// VectorType Filter embedding models by vector type ('dense' or 'sparse'). Setting it lists only embedding models; combining it with `type=rerank` returns a `400`.
 	VectorType *string `form:"vector_type,omitempty" json:"vector_type,omitempty"`
+
+	// Modality Filter models by a kind of input they accept. A model matches when its `modalities` list contains this value. Takes a single value. Combines with the other filters; a model is listed only if it matches all of them.
+	Modality *string `form:"modality,omitempty" json:"modality,omitempty"`
 
 	// XPineconeApiVersion Required date-based version header
 	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
@@ -853,6 +861,22 @@ func NewListModelsRequest(server string, params *ListModelsParams) (*http.Reques
 
 		}
 
+		if params.Modality != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "modality", runtime.ParamLocationQuery, *params.Modality); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
@@ -1066,6 +1090,7 @@ type ListModelsApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelInfoList
+	JSON400      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -1254,6 +1279,13 @@ func ParseListModelsApiResponse(rsp *http.Response) (*ListModelsApiResponse, err
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorResponse

@@ -448,18 +448,60 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 		statusCode   int
 		prefix       string
 		errorOutput  string
+		errorCode    string
+		message      string
+		reason       string
+		details      map[string]any
 	}{
 		{
 			name:         "test ErrorResponse body",
 			responseBody: mockResponse(`{"error": { "code": "INVALID_ARGUMENT", "message": "test error message"}, "status": 400}`, http.StatusBadRequest),
 			statusCode:   http.StatusBadRequest,
 			errorOutput:  `{"status_code":400,"body":"{\"error\": { \"code\": \"INVALID_ARGUMENT\", \"message\": \"test error message\"}, \"status\": 400}","error_code":"INVALID_ARGUMENT","message":"test error message"}`,
+			errorCode:    "INVALID_ARGUMENT",
+			message:      "test error message",
+		}, {
+			name:         "test ErrorResponse body with prefix",
+			responseBody: mockResponse(`{"error": {"code": "ABORTED", "message": "busy"}, "status": 409}`, http.StatusConflict),
+			statusCode:   http.StatusConflict,
+			prefix:       "failed to configure index: ",
+			errorOutput:  `{"status_code":409,"body":"{\"error\": {\"code\": \"ABORTED\", \"message\": \"busy\"}, \"status\": 409}","error_code":"ABORTED","message":"failed to configure index: busy"}`,
+			errorCode:    "ABORTED",
+			message:      "failed to configure index: busy",
+		}, {
+			name:         "test ErrorResponse body with reason and details",
+			responseBody: mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "too many", "details": {"limit_documents": 1000, "actual_documents": 1001, "retryable": false, "unit": "documents"}}}`, http.StatusBadRequest),
+			statusCode:   http.StatusBadRequest,
+			prefix:       "failed to upsert documents: ",
+			errorOutput:  `{"status_code":400,"body":"{\"status\": 400, \"error\": {\"code\": \"INVALID_ARGUMENT\", \"reason\": \"TOO_MANY_DOCUMENTS\", \"message\": \"too many\", \"details\": {\"limit_documents\": 1000, \"actual_documents\": 1001, \"retryable\": false, \"unit\": \"documents\"}}}","error_code":"INVALID_ARGUMENT","reason":"TOO_MANY_DOCUMENTS","message":"failed to upsert documents: too many","details":"&map[actual_documents:1001 limit_documents:1000 retryable:false unit:documents]"}`,
+			errorCode:    "INVALID_ARGUMENT",
+			message:      "failed to upsert documents: too many",
+			reason:       "TOO_MANY_DOCUMENTS",
+			details:      map[string]any{"limit_documents": float64(1000), "actual_documents": float64(1001), "retryable": false, "unit": "documents"},
 		}, {
 			name:         "server message with <, > and & is not HTML-escaped",
 			responseBody: mockResponse(`{"error": {"code": "INVALID_ARGUMENT", "message": "max_replicas must be >= min_replicas & < 10"}, "status": 400}`, http.StatusBadRequest),
 			statusCode:   http.StatusBadRequest,
 			prefix:       "failed to create index: ",
 			errorOutput:  `{"status_code":400,"body":"{\"error\": {\"code\": \"INVALID_ARGUMENT\", \"message\": \"max_replicas must be >= min_replicas & < 10\"}, \"status\": 400}","error_code":"INVALID_ARGUMENT","message":"failed to create index: max_replicas must be >= min_replicas & < 10"}`,
+			errorCode:    "INVALID_ARGUMENT",
+			message:      "failed to create index: max_replicas must be >= min_replicas & < 10",
+		}, {
+			name:         "ErrorResponse body without a top-level status",
+			responseBody: mockResponse(`{"error": {"code": "FAILED_PRECONDITION", "message": "index is incompatible with this API version"}}`, http.StatusPreconditionFailed),
+			statusCode:   http.StatusPreconditionFailed,
+			prefix:       "failed to describe index: ",
+			errorOutput:  `{"status_code":412,"body":"{\"error\": {\"code\": \"FAILED_PRECONDITION\", \"message\": \"index is incompatible with this API version\"}}","error_code":"FAILED_PRECONDITION","message":"failed to describe index: index is incompatible with this API version"}`,
+			errorCode:    "FAILED_PRECONDITION",
+			message:      "failed to describe index: index is incompatible with this API version",
+		}, {
+			name:         "ErrorResponse body with details but no reason",
+			responseBody: mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "message": "bad", "details": {"field": "top_k"}}}`, http.StatusBadRequest),
+			statusCode:   http.StatusBadRequest,
+			errorOutput:  `{"status_code":400,"body":"{\"status\": 400, \"error\": {\"code\": \"INVALID_ARGUMENT\", \"message\": \"bad\", \"details\": {\"field\": \"top_k\"}}}","error_code":"INVALID_ARGUMENT","message":"bad","details":"&map[field:top_k]"}`,
+			errorCode:    "INVALID_ARGUMENT",
+			message:      "bad",
+			details:      map[string]any{"field": "top_k"},
 		}, {
 			name:         "test JSON body",
 			responseBody: mockResponse(`{"message": "test error message", "extraCode": 665}`, http.StatusBadRequest),
@@ -483,6 +525,13 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := handleErrorResponseBody(tt.responseBody, tt.prefix)
 			assert.Equal(t, err.Error(), tt.errorOutput, "Expected error to be '%s', but got '%s'", tt.errorOutput, err.Error())
+			var pcErr *PineconeError
+			require.ErrorAs(t, err, &pcErr)
+			assert.Equal(t, tt.statusCode, pcErr.Code)
+			assert.Equal(t, tt.errorCode, pcErr.ErrorCode)
+			assert.Equal(t, tt.message, pcErr.Message)
+			assert.Equal(t, tt.reason, pcErr.Reason)
+			assert.Equal(t, tt.details, pcErr.Details())
 
 		})
 	}
@@ -2271,4 +2320,85 @@ func mockResponse(body string, statusCode int) *http.Response {
 		Body:       io.NopCloser(strings.NewReader(body)),
 		Header:     make(http.Header),
 	}
+}
+
+// PineconeError must stay comparable with ==; adding a map or slice field would break callers.
+var _ = PineconeError{} == PineconeError{}
+
+func TestPineconeErrorDetailsIsACopy(t *testing.T) {
+	err := handleErrorResponseBody(mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "too many", "details": {"limit_documents": 1000}}}`, http.StatusBadRequest), "")
+	var pcErr *PineconeError
+	require.ErrorAs(t, err, &pcErr)
+	pcErr.Details()["limit_documents"] = 1
+	assert.Equal(t, float64(1000), pcErr.Details()["limit_documents"])
+}
+
+func TestPineconeErrorDetailsNestedValuesAreCopied(t *testing.T) {
+	err := handleErrorResponseBody(mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "EXAMPLE", "message": "bad", "details": {"limits": {"documents": 1000}, "fields": ["a", {"b": 1}]}}}`, http.StatusBadRequest), "")
+	var pcErr *PineconeError
+	require.ErrorAs(t, err, &pcErr)
+	want := map[string]any{
+		"limits": map[string]any{"documents": float64(1000)},
+		"fields": []any{"a", map[string]any{"b": float64(1)}},
+	}
+	got := pcErr.Details()
+	require.Equal(t, want, got)
+	got["limits"].(map[string]any)["documents"] = 1
+	got["fields"].([]any)[1].(map[string]any)["b"] = 2
+	assert.Equal(t, want, pcErr.Details())
+}
+
+func TestPineconeErrorTypedDetails(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want *ErrorDetails
+	}{
+		{
+			name: "incompatible resource with a minimum version",
+			body: `{"status": 412, "error": {"code": "FAILED_PRECONDITION", "reason": "RESOURCE_INCOMPATIBLE_WITH_API_VERSION", "message": "m", "details": {"api_version": "2026-10", "minimum_api_version": "2027-04"}}}`,
+			want: &ErrorDetails{APIVersion: ptr("2026-10"), MinimumAPIVersion: ptr("2027-04")},
+		},
+		{
+			name: "incompatible resource with only a preview version",
+			body: `{"status": 412, "error": {"code": "FAILED_PRECONDITION", "reason": "RESOURCE_INCOMPATIBLE_WITH_API_VERSION", "message": "m", "details": {"api_version": "2026-10", "preview_api_version": "2027-07.alpha"}}}`,
+			want: &ErrorDetails{APIVersion: ptr("2026-10"), PreviewAPIVersion: ptr("2027-07.alpha")},
+		},
+		{
+			name: "too many documents",
+			body: `{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "m", "details": {"limit_documents": 1000, "actual_documents": 1001}}}`,
+			want: &ErrorDetails{LimitDocuments: ptr(1000), ActualDocuments: ptr(1001)},
+		},
+		{
+			name: "embedding rate limit",
+			body: `{"status": 429, "error": {"code": "RESOURCE_EXHAUSTED", "reason": "RATE_LIMIT_EXCEEDED", "message": "m", "details": {"field": "content", "model": "llama-text-embed-v2"}}}`,
+			want: &ErrorDetails{Field: ptr("content"), Model: ptr("llama-text-embed-v2")},
+		},
+		{
+			name: "values of the wrong type and unknown keys are ignored",
+			body: `{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "m", "details": {"limit_documents": 10.5, "actual_documents": "11", "model": 3, "new_key": "x"}}}`,
+			want: &ErrorDetails{},
+		},
+		{
+			name: "no details",
+			body: `{"status": 400, "error": {"code": "INVALID_ARGUMENT", "message": "m"}}`,
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := handleErrorResponseBody(mockResponse(tt.body, http.StatusBadRequest), "")
+			var pcErr *PineconeError
+			require.ErrorAs(t, err, &pcErr)
+			assert.Equal(t, tt.want, pcErr.TypedDetails())
+		})
+	}
+
+	var nilErr *PineconeError
+	assert.Nil(t, nilErr.TypedDetails())
+}
+
+func TestPineconeErrorDetailsOnNilError(t *testing.T) {
+	var pcErr *PineconeError
+	assert.Nil(t, pcErr.Details())
 }

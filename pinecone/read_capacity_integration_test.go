@@ -4,7 +4,6 @@ package pinecone
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -143,11 +142,7 @@ func requireAPIError(t *testing.T, err error, errorCode string) {
 	assert.GreaterOrEqual(t, pcErr.Code, 400, "status")
 	assert.Less(t, pcErr.Code, 500, "status")
 	if errorCode != "" {
-		var msg struct {
-			ErrorCode string `json:"error_code"`
-		}
-		require.NoError(t, json.Unmarshal([]byte(pcErr.Msg.Error()), &msg))
-		assert.Equal(t, errorCode, msg.ErrorCode, "error code in %s", pcErr.Msg)
+		assert.Equal(t, errorCode, pcErr.ErrorCode, "error code in %s", pcErr.Msg)
 	}
 }
 

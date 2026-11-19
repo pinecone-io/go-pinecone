@@ -502,6 +502,28 @@ type Collection struct {
 	Environment string `json:"environment"`
 }
 
+// IncompatibleCollection is a collection that exists in the project but uses features this SDK's
+// API version can't represent, so [Client.ListCollections] leaves it out. List these with
+// [Client.ListIncompatibleCollections].
+type IncompatibleCollection struct {
+	// Name is the name of the collection.
+	Name string `json:"name"`
+	// MinimumAPIVersion is the earliest generally available API version that can describe the
+	// collection, such as "2027-04", in the form the X-Pinecone-Api-Version header uses. Every later
+	// generally available API version can also describe it. It's nil when no generally available API
+	// version can describe the collection yet; PreviewAPIVersion may still be set. Use the two version
+	// fields, not Message, to act on the entry.
+	MinimumAPIVersion *string `json:"minimum_api_version"`
+	// PreviewAPIVersion is the earliest early-access API version that can describe the collection,
+	// such as "2027-07.alpha", in the form the X-Pinecone-Api-Version header uses. It's nil when no
+	// early-access API version can. It's set independently of MinimumAPIVersion, and both may be set.
+	// When both are nil, no public API version can describe the collection yet.
+	PreviewAPIVersion *string `json:"preview_api_version"`
+	// Message explains in plain words why the collection can't be described and what to do. Its
+	// wording may change.
+	Message string `json:"message"`
+}
+
 // CollectionStatus is the status of a Pinecone [Collection].
 type CollectionStatus string
 
@@ -568,6 +590,28 @@ type BYOCSpec struct {
 	Schema *MetadataSchema `json:"schema,omitempty"`
 	// ReadCapacity is the [ReadCapacity] configuration of the index.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
+}
+
+// IncompatibleIndex is an index that exists in the project but uses features this SDK's API
+// version can't represent, so [Client.ListIndexes] leaves it out. List these with
+// [Client.ListIncompatibleIndexes].
+type IncompatibleIndex struct {
+	// Name is the name of the index.
+	Name string `json:"name"`
+	// MinimumAPIVersion is the earliest generally available API version that can describe the index,
+	// such as "2027-04", in the form the X-Pinecone-Api-Version header uses. Every later generally
+	// available API version can also describe it. It's nil when no generally available API version can
+	// describe the index yet; PreviewAPIVersion may still be set. Use the two version fields, not
+	// Message, to act on the entry.
+	MinimumAPIVersion *string `json:"minimum_api_version"`
+	// PreviewAPIVersion is the earliest early-access API version that can describe the index, such as
+	// "2027-07.alpha", in the form the X-Pinecone-Api-Version header uses. It's nil when no
+	// early-access API version can. It's set independently of MinimumAPIVersion, and both may be set.
+	// When both are nil, no public API version can describe the index yet.
+	PreviewAPIVersion *string `json:"preview_api_version"`
+	// Message explains in plain words why the index can't be described and what to do. Its wording
+	// may change.
+	Message string `json:"message"`
 }
 
 // ReadCapacity represents the read capacity configuration returned from the API.
@@ -1455,6 +1499,35 @@ type BackupList struct {
 	// Pagination holds the token for fetching the next page of results. It is nil when there are
 	// no more results; otherwise pass Pagination.Next as the next request's PaginationToken.
 	Pagination *Pagination `json:"pagination,omitempty"`
+	// IncompatibleBackups lists the backups on this page that this SDK's API version can't
+	// describe, so they're left out of Data. Each counts toward Limit like a backup in Data, so a
+	// page can hold fewer than Limit backups in Data while Pagination still points to more. It is
+	// empty when every backup can be described.
+	IncompatibleBackups []*IncompatibleBackup `json:"incompatible_backups,omitempty"`
+}
+
+// IncompatibleBackup is a backup that exists in the project but uses features this SDK's API
+// version can't represent, so [Client.ListBackups] reports it in [BackupList].IncompatibleBackups
+// instead of Data. [Client.DescribeBackup] and [Client.CreateIndexFromBackup] refuse it with a
+// [PineconeError] whose error code is FAILED_PRECONDITION and whose Reason is
+// [ReasonResourceIncompatibleWithAPIVersion]; [Client.DeleteBackup] still works.
+type IncompatibleBackup struct {
+	// BackupId is the unique identifier of the backup.
+	BackupId string `json:"backup_id"`
+	// MinimumAPIVersion is the earliest generally available API version that can describe the backup,
+	// such as "2027-04", in the form the X-Pinecone-Api-Version header uses. Every later generally
+	// available API version can also describe it. It's nil when no generally available API version can
+	// describe the backup yet; PreviewAPIVersion may still be set. Use the two version fields, not
+	// Message, to act on the entry.
+	MinimumAPIVersion *string `json:"minimum_api_version"`
+	// PreviewAPIVersion is the earliest early-access API version that can describe the backup, such as
+	// "2027-07.alpha", in the form the X-Pinecone-Api-Version header uses. It's nil when no
+	// early-access API version can. It's set independently of MinimumAPIVersion, and both may be set.
+	// When both are nil, no public API version can describe the backup yet.
+	PreviewAPIVersion *string `json:"preview_api_version"`
+	// Message explains in plain words why the backup can't be described and what to do. Its
+	// wording may change.
+	Message string `json:"message"`
 }
 
 // RestoreJob describes the status of a restore job.
@@ -1485,6 +1558,34 @@ type RestoreJobList struct {
 	// Pagination holds the token for fetching the next page of results. It is nil when there are
 	// no more results; otherwise pass Pagination.Next as the next request's PaginationToken.
 	Pagination *Pagination `json:"pagination,omitempty"`
+	// IncompatibleRestoreJobs lists the restore jobs on this page that this SDK's API version
+	// can't describe, so they're left out of Data. Each counts toward Limit like a restore job in
+	// Data, so a page can hold fewer than Limit restore jobs in Data while Pagination still points
+	// to more. It is empty when every restore job can be described.
+	IncompatibleRestoreJobs []*IncompatibleRestoreJob `json:"incompatible_restore_jobs,omitempty"`
+}
+
+// IncompatibleRestoreJob is a restore job that uses features this SDK's API version can't
+// represent, so [Client.ListRestoreJobs] reports it in [RestoreJobList].IncompatibleRestoreJobs
+// instead of Data. [Client.DescribeRestoreJob] refuses it with a [PineconeError] whose error code
+// is FAILED_PRECONDITION and whose Reason is [ReasonResourceIncompatibleWithAPIVersion].
+type IncompatibleRestoreJob struct {
+	// RestoreJobId is the unique identifier of the restore job.
+	RestoreJobId string `json:"restore_job_id"`
+	// MinimumAPIVersion is the earliest generally available API version that can describe the restore
+	// job, such as "2027-04", in the form the X-Pinecone-Api-Version header uses. Every later
+	// generally available API version can also describe it. It's nil when no generally available API
+	// version can describe the restore job yet; PreviewAPIVersion may still be set. Use the two
+	// version fields, not Message, to act on the entry.
+	MinimumAPIVersion *string `json:"minimum_api_version"`
+	// PreviewAPIVersion is the earliest early-access API version that can describe the restore job,
+	// such as "2027-07.alpha", in the form the X-Pinecone-Api-Version header uses. It's nil when no
+	// early-access API version can. It's set independently of MinimumAPIVersion, and both may be set.
+	// When both are nil, no public API version can describe the restore job yet.
+	PreviewAPIVersion *string `json:"preview_api_version"`
+	// Message explains in plain words why the restore job can't be described and what to do. Its
+	// wording may change.
+	Message string `json:"message"`
 }
 
 // Project represents the details of a project.
