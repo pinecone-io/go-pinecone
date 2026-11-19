@@ -2329,7 +2329,7 @@ var _ = PineconeError{} == PineconeError{}
 var _ = ModelInfo{} == ModelInfo{}
 var _ = User{} == User{}
 
-func TestPineconeErrorDetailsIsACopy(t *testing.T) {
+func TestPineconeErrorDetailsIsACopyUnit(t *testing.T) {
 	err := handleErrorResponseBody(mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "too many", "details": {"limit_documents": 1000}}}`, http.StatusBadRequest), "")
 	var pcErr *PineconeError
 	require.ErrorAs(t, err, &pcErr)
@@ -2337,7 +2337,7 @@ func TestPineconeErrorDetailsIsACopy(t *testing.T) {
 	assert.Equal(t, float64(1000), pcErr.Details()["limit_documents"])
 }
 
-func TestPineconeErrorDetailsNestedValuesAreCopied(t *testing.T) {
+func TestPineconeErrorDetailsNestedValuesAreCopiedUnit(t *testing.T) {
 	err := handleErrorResponseBody(mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "EXAMPLE", "message": "bad", "details": {"limits": {"documents": 1000}, "fields": ["a", {"b": 1}]}}}`, http.StatusBadRequest), "")
 	var pcErr *PineconeError
 	require.ErrorAs(t, err, &pcErr)
@@ -2352,7 +2352,7 @@ func TestPineconeErrorDetailsNestedValuesAreCopied(t *testing.T) {
 	assert.Equal(t, want, pcErr.Details())
 }
 
-func TestPineconeErrorTypedDetails(t *testing.T) {
+func TestPineconeErrorTypedDetailsUnit(t *testing.T) {
 	tests := []struct {
 		name string
 		body string
@@ -2402,7 +2402,7 @@ func TestPineconeErrorTypedDetails(t *testing.T) {
 	assert.Nil(t, nilErr.TypedDetails())
 }
 
-func TestPineconeErrorDetailsOnNilError(t *testing.T) {
+func TestPineconeErrorDetailsOnNilErrorUnit(t *testing.T) {
 	var pcErr *PineconeError
 	assert.Nil(t, pcErr.Details())
 }
