@@ -289,7 +289,7 @@ func (ts *integrationTests) deleteSuiteBackup(ctx context.Context) {
 	}
 	var pcErr *PineconeError
 	if err == nil || !errors.As(err, &pcErr) || pcErr.Code < 500 {
-		require.NoError(ts.T(), err, "deleting backup %s", ts.backupId)
+		assert.NoError(ts.T(), err, "deleting backup %s", ts.backupId)
 		return
 	}
 	fmt.Printf("Backup \"%s\" left behind: %v\n", ts.backupId, err)
