@@ -271,7 +271,7 @@ type ErrorResponse struct {
 		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `INTERNAL`, `FORBIDDEN`, `PAYMENT_REQUIRED`, `SERVICE_UNAVAILABLE`, or `PAYLOAD_TOO_LARGE`.
 		Code string `json:"code"`
 
-		// Details Machine-readable facts about the error, as a flat object whose values are strings, integers or booleans, never `null`; a key with no value is left out. On API version 2026-10 and later it is set alongside `reason`, and may include the keys listed for that reason; more may be added, so ignore keys you don't recognize. This field is not guaranteed to be present. Keys the current reasons set:
+		// Details Machine-readable facts about the error, as an object. Its values are never `null`; a key with no value is left out. On API version 2026-10 and later it is set alongside `reason`, and may include the keys documented for that reason; more may be added, so ignore keys you don't recognize. This field is not guaranteed to be present. Keys the current reasons set:
 		// - `limit_documents`, `actual_documents`: the most documents one request takes, and how many the request sent.
 		// - `field`: the name of the field being embedded.
 		// - `model`: the name of the embedding model.
