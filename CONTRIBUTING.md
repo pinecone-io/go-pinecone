@@ -20,7 +20,7 @@ PINECONE_CLIENT_SECRET=...
 
 `PINECONE_CLIENT_ID` and `PINECONE_CLIENT_SECRET` are a service account's credentials, used by the Admin API tests. To skip a suite, set `PINECONE_SKIP_ADMIN=true` or `PINECONE_SKIP_SERVERLESS=true`.
 
-The dedicated read capacity tests (`TestReadCapacity*`) create billed capacity, so they run only when `PINECONE_TEST_DRN_AUTOSCALING` is set, for an organization enabled for replica autoscaling. They run outside `RunSuites` and honor `PINECONE_CONTROLLER_HOST`, so you can point them at a non-production control plane with `-run TestReadCapacity`. See the top of `pinecone/read_capacity_integration_test.go`.
+The dedicated read capacity tests (`TestReadCapacity*`) create billed capacity on the smallest shape and need an organization enabled for replica autoscaling; set `PINECONE_SKIP_READ_CAPACITY=true` to skip them. They run outside `RunSuites` and honor `PINECONE_CONTROLLER_HOST`, so you can point them at a non-production control plane with `-run TestReadCapacity`. See the top of `pinecone/read_capacity_integration_test.go`.
 
 If `PINECONE_API_KEY` is available in your environment, the `Client` struct can be created with `NewClient` without any additional configuration parameters. Alternatively, you can pass `ApiKey` as a configuration directly through `NewClientParams`.
 
