@@ -1,4 +1,4 @@
-api_version := "2026-07"
+api_version := "2026-10"
 
 default:
     @just --list
@@ -38,5 +38,5 @@ gen *args:
   ./codegen/build-clients.sh {{api_version}} {{args}}
 
 docs:
-  @echo "Serving docs at http://localhost:6060/pkg/github.com/pinecone-io/go-pinecone/v7/pinecone/"
+  @echo "Serving docs at http://localhost:6060/pkg/github.com/pinecone-io/go-pinecone/v8/pinecone/"
   @godoc -http=:6060 >/dev/null

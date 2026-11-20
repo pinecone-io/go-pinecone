@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	db_control "github.com/pinecone-io/go-pinecone/v7/internal/gen/db_control"
+	db_control "github.com/pinecone-io/go-pinecone/v8/internal/gen/db_control"
 )
 
 // Reserved schema field names the vector operations address vector data by. A schema whose fields
@@ -99,7 +99,7 @@ func toDbCreateIndexSchema(schema IndexSchema) (db_control.CreateIndexSchema, er
 }
 
 // toDbDeploymentRequest converts a public IndexDeployment into the generated create-request
-// deployment union. Managed and BYOC are the only deployment types the 2026-07 create request
+// deployment union. Managed and BYOC are the only deployment types the create request
 // accepts; the backend rejects pod creation on this API version.
 func toDbDeploymentRequest(deployment *IndexDeployment) (*db_control.IndexDeploymentRequest, error) {
 	if deployment == nil {
@@ -130,7 +130,7 @@ func toDbDeploymentRequest(deployment *IndexDeployment) (*db_control.IndexDeploy
 			return nil, err
 		}
 	case deployment.Pod != nil:
-		return nil, fmt.Errorf("creating pod-based indexes is not supported by Pinecone API version 2026-07; use a Managed or Byoc deployment instead. Existing pod-based indexes can still be used and scaled")
+		return nil, fmt.Errorf("creating pod-based indexes is not supported by Pinecone API versions 2026-07 and later; use a Managed or Byoc deployment instead. Existing pod-based indexes can still be used and scaled")
 	}
 	return &request, nil
 }
@@ -154,10 +154,30 @@ func toDbRestoreDeploymentRequest(deployment *IndexDeployment) (*db_control.Rest
 	return &restore, nil
 }
 
+// schemaFieldTargets maps each schema field type this SDK knows to a function that sets the matching
+// pointer on an IndexSchemaField and returns it as the decode target. The empty type is a legacy
+// metadata field, which carries only "filterable" and no "type".
+var schemaFieldTargets = map[string]func(*IndexSchemaField) any{
+	"dense_vector":  func(f *IndexSchemaField) any { f.DenseVector = &DenseVectorField{}; return f.DenseVector },
+	"sparse_vector": func(f *IndexSchemaField) any { f.SparseVector = &SparseVectorField{}; return f.SparseVector },
+	"semantic_text": func(f *IndexSchemaField) any { f.SemanticText = &SemanticTextField{}; return f.SemanticText },
+	"string":        func(f *IndexSchemaField) any { f.String = &StringField{}; return f.String },
+	"string_list":   func(f *IndexSchemaField) any { f.StringList = &StringListField{}; return f.StringList },
+	"boolean":       func(f *IndexSchemaField) any { f.Boolean = &BooleanField{}; return f.Boolean },
+	"float":         func(f *IndexSchemaField) any { f.Float = &FloatField{}; return f.Float },
+	"integer":       func(f *IndexSchemaField) any { f.Integer = &IntegerField{}; return f.Integer },
+	"":              func(f *IndexSchemaField) any { f.LegacyMetadata = &LegacyMetadataField{}; return f.LegacyMetadata },
+}
+
+// knownDeploymentTypes are the deployment types toIndexDeployment converts.
+var knownDeploymentTypes = map[string]bool{"managed": true, "pod": true, "byoc": true}
+
 // toIndexSchema converts the generated response schema into the public IndexSchema. Each field is
-// decoded straight into the matching public type, whose JSON tags mirror the wire names. Fields with
-// an unknown type are skipped rather than failing the whole response, so the SDK keeps working when
-// the API introduces new field types.
+// re-encoded and decoded straight into the matching public type, whose JSON tags mirror the wire
+// names. Fields with an unknown type are skipped rather than failing the whole response, so the SDK
+// keeps working when the API introduces new field types. The API reports the dimension of a
+// semantic_text field whose model produces sparse vectors as 0 (or null on some older indexes); both
+// become a nil Dimension.
 func toIndexSchema(schema *db_control.IndexSchema) *IndexSchema {
 	if schema == nil {
 		return nil
@@ -165,121 +185,205 @@ func toIndexSchema(schema *db_control.IndexSchema) *IndexSchema {
 
 	fields := make(map[string]IndexSchemaField, len(schema.Fields))
 	for name, field := range schema.Fields {
-		raw, err := field.MarshalJSON()
-		if err != nil {
+		newTarget, ok := schemaFieldTargets[derefOrDefault(field.Type, "")]
+		if !ok {
 			continue
 		}
-		var tagged struct {
-			Type string `json:"type"`
-		}
-		if err := json.Unmarshal(raw, &tagged); err != nil {
+		raw, err := json.Marshal(field)
+		if err != nil {
 			continue
 		}
 
 		var publicField IndexSchemaField
-		var target any
-		switch tagged.Type {
-		case "dense_vector":
-			publicField.DenseVector = &DenseVectorField{}
-			target = publicField.DenseVector
-		case "sparse_vector":
-			publicField.SparseVector = &SparseVectorField{}
-			target = publicField.SparseVector
-		case "semantic_text":
-			publicField.SemanticText = &SemanticTextField{}
-			target = publicField.SemanticText
-		case "string":
-			publicField.String = &StringField{}
-			target = publicField.String
-		case "string_list":
-			publicField.StringList = &StringListField{}
-			target = publicField.StringList
-		case "boolean":
-			publicField.Boolean = &BooleanField{}
-			target = publicField.Boolean
-		case "float":
-			publicField.Float = &FloatField{}
-			target = publicField.Float
-		case "integer":
-			publicField.Integer = &IntegerField{}
-			target = publicField.Integer
-		case "":
-			// No "type" tag: a legacy metadata field carrying only "filterable".
-			publicField.LegacyMetadata = &LegacyMetadataField{}
-			target = publicField.LegacyMetadata
-		default:
+		if err := json.Unmarshal(raw, newTarget(&publicField)); err != nil {
 			continue
 		}
-
-		if err := json.Unmarshal(raw, target); err != nil {
-			continue
+		if semantic := publicField.SemanticText; semantic != nil && semantic.Dimension != nil && *semantic.Dimension == 0 {
+			semantic.Dimension = nil
 		}
 		fields[name] = publicField
 	}
 	return &IndexSchema{Fields: fields}
 }
 
-// toIndexDeployment converts the generated response deployment union into the public IndexDeployment.
-// A deployment of an unknown type, or one that can't be decoded, is reported as nil rather than
-// failing the whole response, matching how toIndexSchema treats fields it can't read.
-func toIndexDeployment(deployment db_control.IndexDeployment) *IndexDeployment {
-	discriminator, err := deployment.Discriminator()
-	if err != nil {
-		return nil
-	}
+// indexModel decodes a generated IndexModel after dropping the parts of an open object the
+// generated struct can't hold; see dropUnknownSchemaFields and reduceUnknownDeployment.
+type indexModel struct {
+	db_control.IndexModel
+}
 
-	switch discriminator {
-	case "managed":
-		managed, err := deployment.AsManagedDeployment()
-		if err != nil {
-			return nil
+// UnmarshalJSON implements json.Unmarshaler.
+func (m *indexModel) UnmarshalJSON(data []byte) error {
+	data = rewriteObjectKeys(data, map[string]func(json.RawMessage) json.RawMessage{
+		"schema":     dropUnknownSchemaFields,
+		"deployment": reduceUnknownDeployment,
+	})
+	return json.Unmarshal(data, &m.IndexModel)
+}
+
+// backupModel decodes a generated BackupModel after dropping schema fields the generated struct
+// can't hold; see dropUnknownSchemaFields.
+type backupModel struct {
+	db_control.BackupModel
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (m *backupModel) UnmarshalJSON(data []byte) error {
+	data = rewriteObjectKeys(data, map[string]func(json.RawMessage) json.RawMessage{
+		"schema": dropUnknownSchemaFields,
+	})
+	return json.Unmarshal(data, &m.BackupModel)
+}
+
+// rewriteObjectKeys applies a rewrite to each listed key of a JSON object and returns the re-encoded
+// object. Anything that isn't a JSON object, or has none of the keys, is returned unchanged for the
+// generated decode to accept or reject.
+func rewriteObjectKeys(data []byte, rewrites map[string]func(json.RawMessage) json.RawMessage) []byte {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(data, &object); err != nil || object == nil {
+		return data
+	}
+	changed := false
+	for key, rewrite := range rewrites {
+		if value, ok := object[key]; ok {
+			object[key] = rewrite(value)
+			changed = true
 		}
+	}
+	if !changed {
+		return data
+	}
+	rewritten, err := json.Marshal(object)
+	if err != nil {
+		return data
+	}
+	return rewritten
+}
+
+// dropUnknownSchemaFields removes the schema fields whose "type" this SDK doesn't know, including a
+// "type" that isn't a string. The generated IndexSchemaField holds every type's properties in one
+// struct with fixed Go types, so a new field type that reuses a property name with another JSON
+// shape would otherwise fail the whole response before toIndexSchema could skip it.
+func dropUnknownSchemaFields(schema json.RawMessage) json.RawMessage {
+	return rewriteObjectKeys(schema, map[string]func(json.RawMessage) json.RawMessage{
+		"fields": func(raw json.RawMessage) json.RawMessage {
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &fields); err != nil || fields == nil {
+				return raw
+			}
+			for name, field := range fields {
+				var props map[string]json.RawMessage
+				if err := json.Unmarshal(field, &props); err != nil || props == nil {
+					continue
+				}
+				var fieldType string
+				if typeValue, ok := props["type"]; ok {
+					if err := json.Unmarshal(typeValue, &fieldType); err != nil {
+						delete(fields, name)
+						continue
+					}
+				}
+				if _, known := schemaFieldTargets[fieldType]; !known {
+					delete(fields, name)
+				}
+			}
+			rewritten, err := json.Marshal(fields)
+			if err != nil {
+				return raw
+			}
+			return rewritten
+		},
+	})
+}
+
+// reduceUnknownDeployment reduces a deployment whose "deployment_type" this SDK doesn't know to that
+// type alone, for the same reason as dropUnknownSchemaFields. toIndexDeployment reports it as nil.
+func reduceUnknownDeployment(deployment json.RawMessage) json.RawMessage {
+	var props map[string]json.RawMessage
+	if err := json.Unmarshal(deployment, &props); err != nil || props == nil {
+		return deployment
+	}
+	var deploymentType string
+	if err := json.Unmarshal(props["deployment_type"], &deploymentType); err == nil && knownDeploymentTypes[deploymentType] {
+		return deployment
+	}
+	return json.RawMessage(`{"deployment_type": ""}`)
+}
+
+// toIndexDeployment converts the generated response deployment into the public IndexDeployment. A
+// deployment of an unknown type is reported as nil rather than failing the whole response, matching
+// how toIndexSchema treats fields it can't read.
+func toIndexDeployment(deployment db_control.IndexDeployment) *IndexDeployment {
+	switch deployment.DeploymentType {
+	case "managed":
 		return &IndexDeployment{Managed: &ManagedDeployment{
-			Cloud:       Cloud(managed.Cloud),
-			Region:      managed.Region,
-			Environment: managed.Environment,
+			Cloud:       Cloud(derefOrDefault(deployment.Cloud, "")),
+			Region:      derefOrDefault(deployment.Region, ""),
+			Environment: deployment.Environment,
 		}}
 	case "pod":
-		pod, err := deployment.AsPodDeployment()
-		if err != nil {
-			return nil
-		}
 		return &IndexDeployment{Pod: &PodDeployment{
-			Environment: pod.Environment,
-			PodType:     pod.PodType,
-			Replicas:    pod.Replicas,
-			Shards:      pod.Shards,
+			Environment: derefOrDefault(deployment.Environment, ""),
+			PodType:     derefOrDefault(deployment.PodType, ""),
+			Replicas:    deployment.Replicas,
+			Shards:      deployment.Shards,
 		}}
 	case "byoc":
-		byoc, err := deployment.AsByocDeployment()
-		if err != nil {
-			return nil
-		}
-		return &IndexDeployment{Byoc: &ByocDeployment{Environment: byoc.Environment}}
+		return &IndexDeployment{Byoc: &ByocDeployment{Environment: derefOrDefault(deployment.Environment, "")}}
 	default:
 		return nil
 	}
 }
 
-// denseFieldForCompat picks the dense vector field the deprecated Dimension/Metric/VectorType
-// accessors resolve to: the reserved "_values" field when present, otherwise a sole dense field.
-func denseFieldForCompat(schema *IndexSchema) *DenseVectorField {
-	if schema == nil {
+// denseSlot is the dimension and metric of an index's dense vector slot.
+type denseSlot struct {
+	dimension *int32
+	metric    *IndexMetric
+}
+
+// denseSlotOf returns the dense slot a field occupies: a dense vector field, or a string field with
+// dense integrated embedding (Embed). It returns nil for any other field.
+func denseSlotOf(field IndexSchemaField) *denseSlot {
+	switch {
+	case field.DenseVector != nil:
+		dimension, metric := field.DenseVector.Dimension, field.DenseVector.Metric
+		return &denseSlot{dimension: &dimension, metric: &metric}
+	case field.String != nil && field.String.Embed != nil:
+		slot := &denseSlot{}
+		if field.String.Embed.Dimension != nil {
+			dimension := *field.String.Embed.Dimension
+			slot.dimension = &dimension
+		}
+		if field.String.Embed.Metric != nil {
+			metric := *field.String.Embed.Metric
+			slot.metric = &metric
+		}
+		return slot
+	default:
 		return nil
 	}
-	if field, ok := schema.Fields[reservedDenseFieldName]; ok && field.DenseVector != nil {
-		return field.DenseVector
+}
+
+// denseSlotForCompat picks the dense slot the deprecated Dimension/Metric/VectorType accessors
+// resolve to: the reserved "_values" field when present, otherwise the sole field occupying the
+// dense slot. found reports whether any field occupies the dense slot, even when slot is nil because
+// several do.
+func denseSlotForCompat(schema *IndexSchema) (slot *denseSlot, found bool) {
+	if schema == nil {
+		return nil, false
 	}
-	var found *DenseVectorField
+	if field, ok := schema.Fields[reservedDenseFieldName]; ok && field.DenseVector != nil {
+		return denseSlotOf(field), true
+	}
 	for _, field := range schema.Fields {
-		if field.DenseVector != nil {
-			if found != nil {
-				return nil // ambiguous: more than one dense field, no single compat answer
+		if candidate := denseSlotOf(field); candidate != nil {
+			if found {
+				return nil, true // ambiguous: more than one dense field, no single compat answer
 			}
-			found = field.DenseVector
+			slot, found = candidate, true
 		}
 	}
-	return found
+	return slot, found
 }
 
 // semanticTextFieldForCompat returns the name and config of the schema's semantic_text field, if any.
@@ -296,13 +400,14 @@ func semanticTextFieldForCompat(schema *IndexSchema) (string, *SemanticTextField
 	return "", nil
 }
 
-// hasSparseField reports whether the schema declares any sparse vector field.
-func hasSparseField(schema *IndexSchema) bool {
+// hasSparseSlot reports whether any field occupies the sparse slot: a sparse vector field, or a
+// string field with sparse integrated embedding (SparseEmbed).
+func hasSparseSlot(schema *IndexSchema) bool {
 	if schema == nil {
 		return false
 	}
 	for _, field := range schema.Fields {
-		if field.SparseVector != nil {
+		if field.SparseVector != nil || (field.String != nil && field.String.SparseEmbed != nil) {
 			return true
 		}
 	}
@@ -310,12 +415,14 @@ func hasSparseField(schema *IndexSchema) bool {
 }
 
 // applyIndexCompatFields populates the deprecated computed fields (Metric, VectorType, Dimension,
-// Spec, Embed) on an Index from its 2026-07 Schema and Deployment.
+// Spec, Embed) on an Index from its Schema and Deployment.
 //
-// Vector-type resolution: indexes that store dense vectors always report both "_values" and
-// "_sparse_values" regardless of how they were created, so a dense field wins over a sparse one.
-// A sparse-only schema resolves to "sparse" with the implied "dotproduct" metric. A full-text-search
-// index with no vector field leaves all three unset.
+// Vector-type resolution: an index has one dense slot (a dense vector field, or a string field with
+// Embed) and one sparse slot (a sparse vector field, or a string field with SparseEmbed). Indexes
+// that store dense vectors always report both "_values" and "_sparse_values" regardless of how they
+// were created, so the dense slot wins over the sparse one. A schema with only a sparse slot
+// resolves to "sparse" with the implied "dotproduct" metric. A full-text-search index with no vector
+// field, or a schema with several dense fields, leaves all three unset.
 func applyIndexCompatFields(index *Index) {
 	semanticName, semantic := semanticTextFieldForCompat(index.Schema)
 	if semantic != nil {
@@ -329,15 +436,17 @@ func applyIndexCompatFields(index *Index) {
 		}
 	}
 
-	if dense := denseFieldForCompat(index.Schema); dense != nil {
+	dense, hasDense := denseSlotForCompat(index.Schema)
+	if dense != nil {
 		index.VectorType = "dense"
-		dimension := dense.Dimension
-		index.Dimension = &dimension
-		index.Metric = dense.Metric
-	} else if hasSparseField(index.Schema) {
+		index.Dimension = dense.dimension
+		if dense.metric != nil {
+			index.Metric = *dense.metric
+		}
+	} else if !hasDense && hasSparseSlot(index.Schema) {
 		index.VectorType = "sparse"
 		index.Metric = IndexMetricDotproduct
-	} else if semantic != nil {
+	} else if !hasDense && semantic != nil {
 		index.Dimension = semantic.Dimension
 		if semantic.Metric != nil {
 			index.Metric = *semantic.Metric

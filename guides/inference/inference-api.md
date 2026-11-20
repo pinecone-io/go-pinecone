@@ -16,7 +16,9 @@ The examples below assume a `Client` named `pc`. For how to create one, see
 
 `Embed` generates vector embeddings for text. Set `"input_type"` to `"passage"` for text you store and to `"query"` for
 search queries. A request can contain up to 96 inputs, and `multilingual-e5-large` accepts up to 507 tokens per input.
-Set `"truncate"` to `"END"` to truncate longer inputs instead of returning an error.
+Set `"truncate"` to `"END"` to truncate longer inputs instead of returning an error. Parameters are model-specific:
+`DescribeModel` reports the keys a model accepts, their allowed values, and their defaults in `SupportedParameters`
+(see [Hosted models](#hosted-models)).
 
 ```go
 docs, err := pc.Inference.Embed(ctx, &pinecone.EmbedRequest{
@@ -48,9 +50,12 @@ query, err := pc.Inference.Embed(ctx, &pinecone.EmbedRequest{
 if err != nil {
 	log.Fatalf("Failed to embed query: %v", err)
 }
+fmt.Printf("Query: %d dimensions\n", len(query.Data[0].DenseEmbedding.Values))
 ```
 
-Each `Embedding` has a `DenseEmbedding` or a `SparseEmbedding`, depending on the model.
+Each `Embedding` has a `DenseEmbedding` or a `SparseEmbedding`, depending on its vector type. If the API returns a kind
+of embedding the SDK doesn't recognize, `Embed` still returns the response: `VectorType` names the kind, and those
+embeddings have neither field set.
 
 ## Rerank documents
 
@@ -88,8 +93,10 @@ for _, ranked := range res.Data {
 
 ## Hosted models
 
-`ListModels` lists the models hosted by Pinecone. You can filter by `Type` (`"embed"` or `"rerank"`) and, for
-embedding models, by `VectorType` (`"dense"` or `"sparse"`).
+`ListModels` lists the models hosted by Pinecone. You can filter by `Type` (`"embed"` or `"rerank"`), by `VectorType`
+(`"dense"` or `"sparse"`, which lists only embedding models), and by `Modality`, a kind of input the model accepts
+(`"text"`, `"image"`, or `"pdf"`). A model is listed only if it matches every filter you set. Each model's `Modalities`
+lists the kinds of input it accepts; text-only models list `["text"]`.
 
 ```go
 embed := "embed"
@@ -100,6 +107,17 @@ if err != nil {
 }
 for _, model := range *models.Models {
 	fmt.Println(model.Model)
+}
+
+image := "image"
+imageModels, err := pc.Inference.ListModels(ctx, &pinecone.ListModelsParams{Modality: &image})
+if err != nil {
+	log.Fatalf("Failed to list models: %v", err)
+}
+for _, model := range *imageModels.Models {
+	if model.Modalities != nil {
+		fmt.Println(model.Model, *model.Modalities)
+	}
 }
 ```
 
@@ -112,6 +130,12 @@ if err != nil {
 }
 fmt.Printf("%+v\n", model)
 ```
+
+`SupportedParameters` lists the parameters a model accepts in `EmbedRequest.Parameters` or `RerankRequest.Parameters`,
+with each one's allowed values or range and its default. A `SupportedParameterValue` sets `StringValue`, `IntValue`,
+`FloatValue`, or `BoolValue` to match the JSON value. A JSON null sets none of them. An array, an object, or an integer
+outside the `int32` range is kept as JSON text in `RawValue`; for such an integer, `FloatValue` holds the nearest
+`float32` as well. A `ModelInfo` encodes back to the same JSON with `encoding/json`.
 
 `SupportedOn` lists the APIs and index types a model works with: `"standalone_inference"` (the Inference API's
 `Embed` and `Rerank`), `"integrated_index"` (a legacy integrated index created with `CreateIndexForModel`), and

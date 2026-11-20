@@ -89,6 +89,8 @@ for _, hit := range res.Result.Hits {
 }
 ```
 
+`res.Namespace` is the namespace that served the search.
+
 `SearchRecordsQuery` also accepts a metadata `Filter`. Instead of `Inputs`, you can search by a stored record's `Id` or
 by a `Vector`.
 
@@ -116,6 +118,9 @@ res, err := idxConnection.SearchRecords(ctx, &pinecone.SearchRecordsRequest{
 })
 if err != nil {
 	log.Fatalf("Failed to search records: %v", err)
+}
+for _, hit := range res.Result.Hits {
+	fmt.Printf("%s (%.3f): %v\n", hit.Id, hit.Score, hit.Fields["chunk_text"])
 }
 ```
 

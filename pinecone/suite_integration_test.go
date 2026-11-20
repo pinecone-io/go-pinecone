@@ -4,6 +4,7 @@ package pinecone
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -27,8 +28,6 @@ func RunSuites(t *testing.T) {
 	clientId, clientIdPresent := os.LookupEnv("PINECONE_CLIENT_ID")
 	clientSecret, clientSecretPresent := os.LookupEnv("PINECONE_CLIENT_SECRET")
 	assert.True(t, apiKeyPresent, "PINECONE_API_KEY env variable not set")
-	assert.True(t, clientIdPresent, "PINECONE_CLIENT_ID env variable not set")
-	assert.True(t, clientSecretPresent, "PINECONE_CLIENT_SECRET env variable not set")
 
 	// Check if we're skipping suites via environment variables
 	skipAdminSuite, skipAdminSuitePresent := os.LookupEnv("PINECONE_SKIP_ADMIN")
@@ -42,6 +41,10 @@ func RunSuites(t *testing.T) {
 	if skipServerlessSuitePresent && skipServerlessSuite == "true" {
 		skipServerless = true
 	}
+	if !skipAdmin {
+		assert.True(t, clientIdPresent, "PINECONE_CLIENT_ID env variable not set")
+		assert.True(t, clientSecretPresent, "PINECONE_CLIENT_SECRET env variable not set")
+	}
 
 	sourceTag := "pinecone_test_go_sdk"
 	client, err := NewClient(NewClientParams{ApiKey: apiKey, SourceTag: sourceTag})
@@ -49,12 +52,15 @@ func RunSuites(t *testing.T) {
 	require.NoError(t, err)
 	indexTags := IndexTags{"test1": "test-tag-1", "test2": "test-tag-2"}
 
-	adminClient, err := NewAdminClient(NewAdminClientParams{
-		ClientId:     clientId,
-		ClientSecret: clientSecret,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, adminClient, "AdminClient should not be nil after creation")
+	var adminClient *AdminClient
+	if !skipAdmin {
+		adminClient, err = NewAdminClient(NewAdminClientParams{
+			ClientId:     clientId,
+			ClientSecret: clientSecret,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, adminClient, "AdminClient should not be nil after creation")
+	}
 
 	// Metadata schemas are no longer declared at index creation under 2026-07;
 	// metadata fields are indexed automatically at upsert.
@@ -250,6 +256,10 @@ func (ts *integrationTests) TearDownSuite() {
 		time.Sleep(3 * time.Second)
 	}
 
+	if ts.backupId != "" {
+		ts.deleteSuiteBackup(ctx)
+	}
+
 	// Delete test index
 	err = ts.client.DeleteIndex(ctx, ts.idxName)
 
@@ -267,15 +277,23 @@ func (ts *integrationTests) TearDownSuite() {
 		fmt.Printf("Failed to delete index \"%s\" after 4 retries: %v\n", ts.idxName, err)
 	}
 
-	// Delete backup
-	if ts.backupId != "" {
-		err = ts.client.DeleteBackup(ctx, ts.backupId)
-		if err != nil {
-			fmt.Printf("Failed to delete backup \"%s\": %v\n", ts.backupId, err)
-		}
-	}
-
 	fmt.Printf("\n %s setup suite torn down successfully\n", ts.indexType)
+}
+
+func (ts *integrationTests) deleteSuiteBackup(ctx context.Context) {
+	err := ts.client.DeleteBackup(ctx, ts.backupId)
+	for retry := 1; err != nil && retry <= 2; retry++ {
+		fmt.Printf("Failed to delete backup \"%s\": %v. Retrying... (%d/2)\n", ts.backupId, err, retry)
+		time.Sleep(5 * time.Second)
+		err = ts.client.DeleteBackup(ctx, ts.backupId)
+	}
+	var pcErr *PineconeError
+	if err == nil || !errors.As(err, &pcErr) || pcErr.Code < 500 {
+		assert.NoError(ts.T(), err, "deleting backup %s", ts.backupId)
+		return
+	}
+	fmt.Printf("Backup \"%s\" left behind: %v\n", ts.backupId, err)
+	logBlocked(ts.T(), "production returns 500 deleting the suite's backup, so it's left behind")
 }
 
 // Helper funcs

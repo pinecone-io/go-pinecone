@@ -7,15 +7,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
-	"net/url"
 	"strings"
+	"time"
 
-	"github.com/pinecone-io/go-pinecone/v7/internal/gen"
-	db_data_grpc "github.com/pinecone-io/go-pinecone/v7/internal/gen/db_data/grpc"
-	db_data_rest "github.com/pinecone-io/go-pinecone/v7/internal/gen/db_data/rest"
-	"github.com/pinecone-io/go-pinecone/v7/internal/useragent"
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen"
+	db_data_grpc "github.com/pinecone-io/go-pinecone/v8/internal/gen/db_data/grpc"
+	db_data_rest "github.com/pinecone-io/go-pinecone/v8/internal/gen/db_data/rest"
+	"github.com/pinecone-io/go-pinecone/v8/internal/useragent"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -703,18 +702,11 @@ func (idx *IndexConnection) FetchVectorsByMetadata(ctx context.Context, in *Fetc
 		vectors[id] = toVector(vector)
 	}
 
-	var pagination *Pagination
-	if res.Pagination != nil {
-		pagination = &Pagination{
-			Next: res.Pagination.Next,
-		}
-	}
-
 	return &FetchVectorsByMetadataResponse{
 		Vectors:    vectors,
 		Usage:      toUsage(res.Usage),
 		Namespace:  res.Namespace,
-		Pagination: pagination,
+		Pagination: toPaginationGrpc(res.Pagination),
 	}, nil
 }
 
@@ -1174,7 +1166,8 @@ func (idx *IndexConnection) UpsertRecords(ctx context.Context, records []*Integr
 		}
 	}
 
-	res, err := idx.restClient.UpsertRecordsNamespaceWithBody(ctx, resolveNamespace(idx.namespace), &db_data_rest.UpsertRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, "application/x-ndjson", &buffer)
+	namespace, editors := restNamespace(idx.namespace)
+	res, err := idx.restClient.UpsertRecordsNamespaceWithBody(ctx, namespace, &db_data_rest.UpsertRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, "application/x-ndjson", &buffer, editors...)
 	if err != nil {
 		return fmt.Errorf("failed to upsert records: %w", err)
 	}
@@ -1365,7 +1358,8 @@ func (idx *IndexConnection) SearchRecords(ctx context.Context, in *SearchRecords
 		}
 	}
 
-	res, err := (*idx.restClient).SearchRecordsNamespace(idx.akCtx(ctx), resolveNamespace(idx.namespace), &db_data_rest.SearchRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, req)
+	namespace, editors := restNamespace(idx.namespace)
+	res, err := (*idx.restClient).SearchRecordsNamespace(idx.akCtx(ctx), namespace, &db_data_rest.SearchRecordsNamespaceParams{XPineconeApiVersion: gen.PineconeApiVersion}, req, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1780,7 +1774,7 @@ func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integra
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
 //   - id: The id of the import operation. This is returned when you call [IndexConnection.StartImport], or can be retrieved
-//     through the [IndexConnection.ListImports] method.
+//     through the [IndexConnection.ListImports] method. It must not be empty.
 //
 // Example:
 //
@@ -1810,6 +1804,9 @@ func (idx *IndexConnection) StartImport(ctx context.Context, uri string, integra
 //	    }
 //	    fmt.Printf("Import ID: %s, Status: %s", importDesc.Id, importDesc.Status)
 func (idx *IndexConnection) DescribeImport(ctx context.Context, id string) (*Import, error) {
+	if id == "" {
+		return nil, fmt.Errorf("must specify an id to describe an import")
+	}
 	res, err := (*idx.restClient).DescribeBulkImport(idx.akCtx(ctx), id, &db_data_rest.DescribeBulkImportParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
@@ -1928,7 +1925,7 @@ func (idx *IndexConnection) ListImports(ctx context.Context, in *ListImportsRequ
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime,
 //     allowing for the request to be canceled or to timeout according to the context's deadline.
-//   - id: The id of the [Import] operation to cancel.
+//   - id: The id of the [Import] operation to cancel. It must not be empty.
 //
 // Example:
 //
@@ -1958,6 +1955,9 @@ func (idx *IndexConnection) ListImports(ctx context.Context, in *ListImportsRequ
 //			log.Fatalf("Failed to cancel import: %s", "your-import-id")
 //	    }
 func (idx *IndexConnection) CancelImport(ctx context.Context, id string) error {
+	if id == "" {
+		return fmt.Errorf("must specify an id to cancel an import")
+	}
 	res, err := (*idx.restClient).CancelBulkImport(idx.akCtx(ctx), id, &db_data_rest.CancelBulkImportParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return err
@@ -2021,6 +2021,9 @@ type CreateNamespaceParams struct {
 func (idx *IndexConnection) CreateNamespace(ctx context.Context, in *CreateNamespaceParams) (*NamespaceDescription, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*CreateNamespaceParams) cannot be nil")
+	}
+	if in.Name == "" {
+		return nil, fmt.Errorf("must specify a Name to create a namespace")
 	}
 	req := db_data_grpc.CreateNamespaceRequest{
 		Name:   in.Name,
@@ -2086,7 +2089,7 @@ func (idx *IndexConnection) DescribeNamespace(ctx context.Context, namespace str
 type ListNamespacesResponse struct {
 	// Namespaces are the [NamespaceDescription] objects returned.
 	Namespaces []*NamespaceDescription
-	// Pagination is the [Pagination] object for paginating results.
+	// Pagination holds the token for the next page, or is nil when there are no more results.
 	Pagination *Pagination
 	// TotalCount is the total number of namespaces in the index matching the prefix.
 	TotalCount int32
@@ -2333,15 +2336,22 @@ func toUsage(u *db_data_grpc.Usage) *Usage {
 	}
 }
 
-func toPaginationTokenGrpc(p *db_data_grpc.Pagination) *string {
+func toPaginationGrpc(p *db_data_grpc.Pagination) *Pagination {
 	if p == nil {
+		return nil
+	}
+	return paginationFromNext(p.Next)
+}
+
+func toPaginationTokenGrpc(p *db_data_grpc.Pagination) *string {
+	if p == nil || p.Next == "" {
 		return nil
 	}
 	return &p.Next
 }
 
 func toPaginationTokenRest(p *db_data_rest.Pagination) *string {
-	if p == nil {
+	if p == nil || p.Next == "" {
 		return nil
 	}
 	return &p.Next
@@ -2352,17 +2362,29 @@ func toImport(importModel *db_data_rest.ImportModel) *Import {
 		return nil
 	}
 
-	createdAt := importModel.CreatedAt
+	var createdAt *time.Time
+	if !importModel.CreatedAt.IsZero() {
+		createdAt = &importModel.CreatedAt
+	}
+
+	var validationResult *ImportValidationResult
+	if importModel.ValidationResult != nil {
+		validationResult = &ImportValidationResult{
+			ImportSuccesses: importModel.ValidationResult.ImportSuccesses,
+			ImportErrors:    importModel.ValidationResult.ImportErrors,
+		}
+	}
 
 	return &Import{
-		Id:              importModel.Id,
-		Uri:             importModel.Uri,
-		Status:          ImportStatus(importModel.Status),
-		CreatedAt:       &createdAt,
-		FinishedAt:      importModel.FinishedAt,
-		Error:           importModel.Error,
-		PercentComplete: importModel.PercentComplete,
-		RecordsImported: importModel.RecordsImported,
+		Id:               importModel.Id,
+		Uri:              importModel.Uri,
+		Status:           ImportStatus(importModel.Status),
+		CreatedAt:        createdAt,
+		FinishedAt:       importModel.FinishedAt,
+		Error:            importModel.Error,
+		PercentComplete:  importModel.PercentComplete,
+		RecordsImported:  importModel.RecordsImported,
+		ValidationResult: validationResult,
 	}
 }
 
@@ -2410,6 +2432,7 @@ func toSearchRecordsResponse(searchRecordsResponse *db_data_rest.SearchRecordsRe
 	}
 
 	return &SearchRecordsResponse{
+		Namespace: searchRecordsResponse.Namespace,
 		Result: struct {
 			Hits []Hit "json:\"hits\""
 		}{Hits: hits},
@@ -2431,16 +2454,9 @@ func toListNamespacesResponse(listNamespacesResponse *db_data_grpc.ListNamespace
 	for i, ns := range listNamespacesResponse.Namespaces {
 		namespaces[i] = toNamespaceDescription(ns)
 	}
-	var pagination *Pagination
-	if listNamespacesResponse.Pagination != nil {
-		pagination = &Pagination{
-			Next: listNamespacesResponse.Pagination.Next,
-		}
-	}
-
 	return &ListNamespacesResponse{
 		Namespaces: namespaces,
-		Pagination: pagination,
+		Pagination: toPaginationGrpc(listNamespacesResponse.Pagination),
 		TotalCount: derefOrDefault(listNamespacesResponse.TotalCount, 0),
 	}
 }
@@ -2493,28 +2509,12 @@ func sparseValToGrpc(sv *SparseValues) *db_data_grpc.SparseValues {
 	}
 }
 
+// normalizeHost returns the gRPC target for an index host, without its "http://" or "https://"
+// scheme (matched in any case) or a trailing slash, and whether to use TLS. Only "http://" selects
+// plaintext.
 func normalizeHost(host string) (string, bool) {
-	// default to secure unless http is specified
-	isSecure := true
-
-	parsedHost, err := url.Parse(host)
-	if err != nil {
-		log.Default().Printf("Failed to parse host %s: %v", host, err)
-		return host, isSecure
-	}
-
-	if parsedHost.Scheme == "http" {
-		isSecure = false
-	}
-
-	// the gRPC client is not expecting a scheme so we strip that out
-	if parsedHost.Scheme == "https" {
-		host = strings.TrimPrefix(host, "https://")
-	} else if parsedHost.Scheme == "http" {
-		host = strings.TrimPrefix(host, "http://")
-	}
-
-	return host, isSecure
+	scheme, target := splitHTTPScheme(host)
+	return strings.TrimSuffix(target, "/"), scheme != "http"
 }
 
 // Converts MetadataSchema to db_data_grpc.MetadataSchema defined in the generated gRPC API
@@ -2562,16 +2562,38 @@ func resolveNamespace(ns string) string {
 	return ns
 }
 
+// dotSegmentPlaceholder stands in for a "." or ".." namespace while the generated REST client builds
+// the request URL. It contains no character that path escaping changes.
+const dotSegmentPlaceholder = "__pinecone_dot_segment__"
+
+// restNamespace returns the namespace path parameter for a REST data-plane call, plus the request
+// editors the call needs to send it. URL resolution (RFC 3986) removes a "." or ".." path segment,
+// so those names are sent percent-encoded ("%2E", "%2E%2E"): the generated client builds the path
+// around a placeholder and the returned editor swaps in the encoded name.
+func restNamespace(ns string) (string, []db_data_rest.RequestEditorFn) {
+	ns = resolveNamespace(ns)
+	if ns != "." && ns != ".." {
+		return ns, nil
+	}
+	encoded := strings.Repeat("%2E", len(ns))
+	return dotSegmentPlaceholder, []db_data_rest.RequestEditorFn{func(_ context.Context, req *http.Request) error {
+		req.URL.RawPath = strings.Replace(req.URL.EscapedPath(), dotSegmentPlaceholder, encoded, 1)
+		req.URL.Path = strings.Replace(req.URL.Path, dotSegmentPlaceholder, ns, 1)
+		return nil
+	}}
+}
+
 // documentsRequest issues a Documents API request against the connection's namespace, checks the
 // expected success status, and decodes the response body into out.
 func (idx *IndexConnection) documentsRequest(ctx context.Context, operation string, body map[string]interface{}, expectedStatus int, out interface{},
-	call func(ctx context.Context, namespace string, contentType string, body io.Reader) (*http.Response, error)) error {
+	call func(ctx context.Context, namespace string, contentType string, body io.Reader, editors ...db_data_rest.RequestEditorFn) (*http.Response, error)) error {
 	encoded, err := json.Marshal(body)
 	if err != nil {
 		return fmt.Errorf("failed to encode %s request: %w", operation, err)
 	}
 
-	res, err := call(ctx, resolveNamespace(idx.namespace), "application/json", bytes.NewReader(encoded))
+	namespace, editors := restNamespace(idx.namespace)
+	res, err := call(ctx, namespace, "application/json", bytes.NewReader(encoded), editors...)
 	if err != nil {
 		return fmt.Errorf("failed to %s: %w", operation, err)
 	}
@@ -2626,8 +2648,8 @@ func (idx *IndexConnection) UpsertDocuments(ctx context.Context, in *UpsertDocum
 
 	var response UpsertDocumentsResponse
 	err := idx.documentsRequest(ctx, "upsert documents", map[string]interface{}{"documents": in.Documents}, http.StatusAccepted, &response,
-		func(ctx context.Context, namespace string, contentType string, body io.Reader) (*http.Response, error) {
-			return idx.restClient.UpsertDocumentsWithBody(ctx, namespace, &db_data_rest.UpsertDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body)
+		func(ctx context.Context, namespace string, contentType string, body io.Reader, editors ...db_data_rest.RequestEditorFn) (*http.Response, error) {
+			return idx.restClient.UpsertDocumentsWithBody(ctx, namespace, &db_data_rest.UpsertDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body, editors...)
 		})
 	if err != nil {
 		return nil, err
@@ -2689,8 +2711,8 @@ func (idx *IndexConnection) SearchDocuments(ctx context.Context, in *SearchDocum
 
 	var response SearchDocumentsResponse
 	err := idx.documentsRequest(ctx, "search documents", body, http.StatusOK, &response,
-		func(ctx context.Context, namespace string, contentType string, body io.Reader) (*http.Response, error) {
-			return idx.restClient.SearchDocumentsWithBody(ctx, namespace, &db_data_rest.SearchDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body)
+		func(ctx context.Context, namespace string, contentType string, body io.Reader, editors ...db_data_rest.RequestEditorFn) (*http.Response, error) {
+			return idx.restClient.SearchDocumentsWithBody(ctx, namespace, &db_data_rest.SearchDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body, editors...)
 		})
 	if err != nil {
 		return nil, err
@@ -2742,12 +2764,13 @@ func (idx *IndexConnection) FetchDocuments(ctx context.Context, in *FetchDocumen
 
 	var response FetchDocumentsResponse
 	err := idx.documentsRequest(ctx, "fetch documents", body, http.StatusOK, &response,
-		func(ctx context.Context, namespace string, contentType string, body io.Reader) (*http.Response, error) {
-			return idx.restClient.FetchDocumentsWithBody(ctx, namespace, &db_data_rest.FetchDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body)
+		func(ctx context.Context, namespace string, contentType string, body io.Reader, editors ...db_data_rest.RequestEditorFn) (*http.Response, error) {
+			return idx.restClient.FetchDocumentsWithBody(ctx, namespace, &db_data_rest.FetchDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body, editors...)
 		})
 	if err != nil {
 		return nil, err
 	}
+	response.Pagination = normalizePagination(response.Pagination)
 	return &response, nil
 }
 
@@ -2794,8 +2817,8 @@ func (idx *IndexConnection) DeleteDocuments(ctx context.Context, in *DeleteDocum
 
 	var response DeleteDocumentsResponse
 	err := idx.documentsRequest(ctx, "delete documents", body, http.StatusAccepted, &response,
-		func(ctx context.Context, namespace string, contentType string, body io.Reader) (*http.Response, error) {
-			return idx.restClient.DeleteDocumentsWithBody(ctx, namespace, &db_data_rest.DeleteDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body)
+		func(ctx context.Context, namespace string, contentType string, body io.Reader, editors ...db_data_rest.RequestEditorFn) (*http.Response, error) {
+			return idx.restClient.DeleteDocumentsWithBody(ctx, namespace, &db_data_rest.DeleteDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body, editors...)
 		})
 	if err != nil {
 		return nil, err
@@ -2860,8 +2883,8 @@ func (idx *IndexConnection) UpdateDocuments(ctx context.Context, in *UpdateDocum
 
 	var response UpdateDocumentsResponse
 	err := idx.documentsRequest(ctx, "update documents", body, http.StatusAccepted, &response,
-		func(ctx context.Context, namespace string, contentType string, body io.Reader) (*http.Response, error) {
-			return idx.restClient.UpdateDocumentsWithBody(ctx, namespace, &db_data_rest.UpdateDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body)
+		func(ctx context.Context, namespace string, contentType string, body io.Reader, editors ...db_data_rest.RequestEditorFn) (*http.Response, error) {
+			return idx.restClient.UpdateDocumentsWithBody(ctx, namespace, &db_data_rest.UpdateDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body, editors...)
 		})
 	if err != nil {
 		return nil, err
@@ -2894,11 +2917,12 @@ func (idx *IndexConnection) ListDocuments(ctx context.Context, in *ListDocuments
 
 	var response ListDocumentsResponse
 	err := idx.documentsRequest(ctx, "list documents", body, http.StatusOK, &response,
-		func(ctx context.Context, namespace string, contentType string, body io.Reader) (*http.Response, error) {
-			return idx.restClient.ListDocumentsWithBody(ctx, namespace, &db_data_rest.ListDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body)
+		func(ctx context.Context, namespace string, contentType string, body io.Reader, editors ...db_data_rest.RequestEditorFn) (*http.Response, error) {
+			return idx.restClient.ListDocumentsWithBody(ctx, namespace, &db_data_rest.ListDocumentsParams{XPineconeApiVersion: gen.PineconeApiVersion}, contentType, body, editors...)
 		})
 	if err != nil {
 		return nil, err
 	}
+	response.Pagination = normalizePagination(response.Pagination)
 	return &response, nil
 }

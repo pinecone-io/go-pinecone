@@ -1,8 +1,9 @@
 # Collections
 
 [A collection is a static copy of an index](https://docs.pinecone.io/guides/indexes/understanding-collections).
-Collections are available only for pod-based indexes. Pinecone API version `2026-07` can't create pod-based indexes or
-create an index from a collection, so collections are mainly useful for keeping copies of existing pod-based indexes.
+Collections are available only for pod-based indexes. Pinecone API versions `2026-07` and later can't create pod-based
+indexes or create an index from a collection, so collections are mainly useful for keeping copies of existing pod-based
+indexes.
 A collection can't be moved to a different project. For serverless indexes, use [backups](./backups.md) instead.
 
 The examples below assume a `Client` named `pc`. For how to create one, see
@@ -32,6 +33,30 @@ if err != nil {
 }
 for _, collection := range collections {
 	fmt.Printf("- %s\n", collection.Name)
+}
+```
+
+If a collection uses a feature that this SDK's API version can't represent, this SDK can't describe it, so
+`ListCollections` leaves it out. `ListIncompatibleCollections` lists those collections. Each entry's `MinimumAPIVersion`
+is the earliest generally available API version that can describe the collection, and every later one can too;
+`PreviewAPIVersion` is the earliest early-access API version that can. Either is `nil` when there's no such version, and
+when both are, no public API version can describe the collection yet. `DescribeCollection` refuses such a collection
+with the error code `FAILED_PRECONDITION` and the reason `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`; `DeleteCollection`
+still works. To work with it, upgrade to an SDK that supports an API version that can describe it, when there is one;
+don't override the `X-Pinecone-Api-Version` header, because this SDK's request and response types are built for one API
+version.
+
+```go
+incompatible, err := pc.ListIncompatibleCollections(ctx)
+if err != nil {
+	log.Fatalf("Failed to list collections: %v", err)
+}
+for _, collection := range incompatible {
+	if collection.MinimumAPIVersion != nil {
+		fmt.Printf("- %s (use API version %s or later)\n", collection.Name, *collection.MinimumAPIVersion)
+	} else {
+		fmt.Printf("- %s: %s\n", collection.Name, collection.Message)
+	}
 }
 ```
 

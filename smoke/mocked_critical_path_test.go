@@ -42,8 +42,8 @@ import (
 	"testing"
 	"time"
 
-	db_data_grpc "github.com/pinecone-io/go-pinecone/v7/internal/gen/db_data/grpc"
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
+	db_data_grpc "github.com/pinecone-io/go-pinecone/v8/internal/gen/db_data/grpc"
+	"github.com/pinecone-io/go-pinecone/v8/pinecone"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"

@@ -142,6 +142,10 @@ res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
 	},
 	IncludeFields: []string{"*"},
 })
+if err != nil {
+	log.Fatalf("Failed to search documents: %v", err)
+}
+fmt.Printf("Found %d documents\n", len(res.Matches))
 ```
 
 For the full syntax, see [Query syntax](https://docs.pinecone.io/guides/search/full-text-search/query-syntax).
@@ -158,6 +162,9 @@ _, err := idxConnection.UpsertDocuments(ctx, &pinecone.UpsertDocumentsRequest{
 		{"_id": "doc-1", "your_vector": []float32{0.1, 0.2, 0.3}, "genre": "drama"},
 	},
 })
+if err != nil {
+	log.Fatalf("Failed to upsert documents: %v", err)
+}
 
 queryVector := []float32{0.1, 0.2, 0.3}
 
@@ -167,6 +174,10 @@ res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
 		{Type: "dense_vector", Fields: []string{"your_vector"}, Values: &queryVector},
 	},
 })
+if err != nil {
+	log.Fatalf("Failed to search documents: %v", err)
+}
+fmt.Printf("Found %d documents\n", len(res.Matches))
 ```
 
 For a sparse vector field, set `Type` to `"sparse_vector"` and pass `SparseValues`:
@@ -185,6 +196,10 @@ res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
 		},
 	},
 })
+if err != nil {
+	log.Fatalf("Failed to search documents: %v", err)
+}
+fmt.Printf("Found %d documents\n", len(res.Matches))
 ```
 
 ### Filter search results
@@ -205,6 +220,10 @@ res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
 		"year": map[string]interface{}{"$gte": 2022},
 	},
 })
+if err != nil {
+	log.Fatalf("Failed to search documents: %v", err)
+}
+fmt.Printf("Found %d documents\n", len(res.Matches))
 ```
 
 Filters on search and fetch requests also accept three text-match operators on full-text-search fields:
@@ -232,6 +251,10 @@ res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
 		},
 	},
 })
+if err != nil {
+	log.Fatalf("Failed to search documents: %v", err)
+}
+fmt.Printf("Found %d documents\n", len(res.Matches))
 ```
 
 Filtered updates and deletes don't accept text-match operators. To update or delete documents by their text, search or
@@ -390,6 +413,7 @@ res, err := factChecks.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
 if err != nil {
 	log.Fatalf("Failed to search documents: %v", err)
 }
+fmt.Printf("Found %d documents\n", len(res.Matches))
 ```
 
 ### Stored text
@@ -427,6 +451,28 @@ text storage on, for more search flexibility later. Like the rest of the schema,
 
 An upsert or update request against a document index with integrated embedding carries at most 96 documents, rather than the
 usual 1,000. Split larger writes into requests of 96 documents or fewer.
+
+On API version `2026-10`, these errors name their cause in `PineconeError.Reason`, and `TypedDetails()` reads the facts
+that come with it:
+
+- `pinecone.ReasonTooManyDocuments` (`INVALID_ARGUMENT`): the request has more documents than the operation takes.
+  `LimitDocuments` and `ActualDocuments` give the limit and the count you sent.
+- `pinecone.ReasonRateLimitExceeded` (`RESOURCE_EXHAUSTED`): an embedding rate limit was hit. Retry after backing off.
+- `pinecone.ReasonMonthlyLimitExceeded` (`RESOURCE_EXHAUSTED`): the monthly embedding limit was hit. Retrying fails until
+  the limit resets or the plan changes.
+
+The two embedding limits set `Field` and `Model`. Other errors may not set a reason, so branch on `ErrorCode` when
+`Reason` is empty or one you don't recognize.
+
+```go
+_, err := idxConnection.UpsertDocuments(ctx, &pinecone.UpsertDocumentsRequest{Documents: documents})
+var pcErr *pinecone.PineconeError
+if errors.As(err, &pcErr) && pcErr.Reason == pinecone.ReasonTooManyDocuments {
+	if d := pcErr.TypedDetails(); d != nil && d.LimitDocuments != nil {
+		fmt.Printf("send at most %d documents per request\n", *d.LimitDocuments)
+	}
+}
+```
 
 ## Fetch documents
 

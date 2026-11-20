@@ -80,11 +80,14 @@ type ErrorResponse struct {
 		// Possible values: `OK`, `UNKNOWN`, `INVALID_ARGUMENT`, `DEADLINE_EXCEEDED`, `QUOTA_EXCEEDED`, `NOT_FOUND`, `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAUTHENTICATED`, `RESOURCE_EXHAUSTED`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE`, `UNIMPLEMENTED`, `INTERNAL`, `UNAVAILABLE`, `DATA_LOSS`, or `FORBIDDEN`.
 		Code string `json:"code"`
 
-		// Details Additional information about the error. This field is not guaranteed to be present.
+		// Details Machine-readable facts about the error, as an object. Its values are never `null`; a key with no value is left out. On API version 2026-10 and later it is set alongside `reason`, and may include the keys documented for that reason; more may be added, so ignore keys you don't recognize. This field is not guaranteed to be present.
 		Details *map[string]interface{} `json:"details,omitempty"`
 
 		// Message A human-readable error message describing the error.
 		Message string `json:"message"`
+
+		// Reason The exact cause of the error, when the error names one. Only some errors set it, and only on API version 2026-10 and later; no error in this API sets one yet. Each reason belongs to one `code`, keeps its name and meaning within an API version, and documents the `details` keys it sets. New reasons may be added: treat a value you don't recognize as if `reason` were absent, and act on `code`.
+		Reason *string `json:"reason,omitempty"`
 	} `json:"error"`
 
 	// Status The HTTP status code of the error.
@@ -102,8 +105,10 @@ type ModelInfo struct {
 	// MaxSequenceLength The maximum tokens per sequence supported by the model.
 	MaxSequenceLength *int32 `json:"max_sequence_length,omitempty"`
 
-	// Modality The modality of the model (e.g. 'text').
-	Modality *string `json:"modality,omitempty"`
+	// Modalities The kinds of input the model accepts, in no particular order. Text-only models list `["text"]`.
+	//
+	// Possible values: `text`, `image`, or `pdf`. Clients should accept values not listed here, because more may be added.
+	Modalities []string `json:"modalities"`
 
 	// Model The name of the model.
 	Model string `json:"model"`
@@ -153,11 +158,11 @@ type ModelInfoSupportedMetrics = []ModelInfoMetric
 
 // ModelInfoSupportedParameter Describes a parameter supported by the model, including parameter value constraints.
 type ModelInfoSupportedParameter struct {
-	// AllowedValues The allowed parameter values when the type is 'one_of'.
-	AllowedValues *[]ModelInfoSupportedParameter_AllowedValues_Item `json:"allowed_values,omitempty"`
+	// AllowedValues The allowed parameter values when the type is 'one_of'. Each value is a string or an integer.
+	AllowedValues *[]interface{} `json:"allowed_values,omitempty"`
 
-	// Default The default value for the parameter when a parameter is optional.
-	Default *ModelInfoSupportedParameter_Default `json:"default,omitempty"`
+	// Default The default value for the parameter when a parameter is optional. A string, integer, number, or boolean.
+	Default *interface{} `json:"default,omitempty"`
 
 	// Max The maximum allowed value (inclusive) when the type is 'numeric_range'.
 	Max *float32 `json:"max,omitempty"`
@@ -182,34 +187,6 @@ type ModelInfoSupportedParameter struct {
 
 	// ValueType The type of value the parameter accepts, e.g. 'string', 'integer', 'float', or 'boolean'.
 	ValueType string `json:"value_type"`
-}
-
-// ModelInfoSupportedParameterAllowedValues0 defines model for .
-type ModelInfoSupportedParameterAllowedValues0 = string
-
-// ModelInfoSupportedParameterAllowedValues1 defines model for .
-type ModelInfoSupportedParameterAllowedValues1 = int
-
-// ModelInfoSupportedParameter_AllowedValues_Item defines model for ModelInfoSupportedParameter.allowed_values.Item.
-type ModelInfoSupportedParameter_AllowedValues_Item struct {
-	union json.RawMessage
-}
-
-// ModelInfoSupportedParameterDefault0 defines model for .
-type ModelInfoSupportedParameterDefault0 = string
-
-// ModelInfoSupportedParameterDefault1 defines model for .
-type ModelInfoSupportedParameterDefault1 = int32
-
-// ModelInfoSupportedParameterDefault2 defines model for .
-type ModelInfoSupportedParameterDefault2 = float32
-
-// ModelInfoSupportedParameterDefault3 defines model for .
-type ModelInfoSupportedParameterDefault3 = bool
-
-// ModelInfoSupportedParameter_Default The default value for the parameter when a parameter is optional.
-type ModelInfoSupportedParameter_Default struct {
-	union json.RawMessage
 }
 
 // RankedDocument A ranked document with a relevance score and an index position.
@@ -291,11 +268,14 @@ type EmbedParams struct {
 
 // ListModelsParams defines parameters for ListModels.
 type ListModelsParams struct {
-	// Type Filter models by type ('embed' or 'rerank').
+	// Type Filter models by type ('embed' or 'rerank'). More values may be added.
 	Type *string `form:"type,omitempty" json:"type,omitempty"`
 
-	// VectorType Filter embedding models by vector type ('dense' or 'sparse'). Only relevant when `type=embed`.
+	// VectorType Filter embedding models by vector type ('dense' or 'sparse'). Setting it lists only embedding models; combining it with `type=rerank` returns a `400`.
 	VectorType *string `form:"vector_type,omitempty" json:"vector_type,omitempty"`
+
+	// Modality Filter models by a kind of input they accept. A model matches when its `modalities` list contains this value. Takes a single value. Combines with the other filters; a model is listed only if it matches all of them.
+	Modality *string `form:"modality,omitempty" json:"modality,omitempty"`
 
 	// XPineconeApiVersion Required date-based version header
 	XPineconeApiVersion string `json:"X-Pinecone-Api-Version"`
@@ -404,182 +384,6 @@ func (t Embedding) MarshalJSON() ([]byte, error) {
 }
 
 func (t *Embedding) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsModelInfoSupportedParameterAllowedValues0 returns the union data inside the ModelInfoSupportedParameter_AllowedValues_Item as a ModelInfoSupportedParameterAllowedValues0
-func (t ModelInfoSupportedParameter_AllowedValues_Item) AsModelInfoSupportedParameterAllowedValues0() (ModelInfoSupportedParameterAllowedValues0, error) {
-	var body ModelInfoSupportedParameterAllowedValues0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromModelInfoSupportedParameterAllowedValues0 overwrites any union data inside the ModelInfoSupportedParameter_AllowedValues_Item as the provided ModelInfoSupportedParameterAllowedValues0
-func (t *ModelInfoSupportedParameter_AllowedValues_Item) FromModelInfoSupportedParameterAllowedValues0(v ModelInfoSupportedParameterAllowedValues0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeModelInfoSupportedParameterAllowedValues0 performs a merge with any union data inside the ModelInfoSupportedParameter_AllowedValues_Item, using the provided ModelInfoSupportedParameterAllowedValues0
-func (t *ModelInfoSupportedParameter_AllowedValues_Item) MergeModelInfoSupportedParameterAllowedValues0(v ModelInfoSupportedParameterAllowedValues0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsModelInfoSupportedParameterAllowedValues1 returns the union data inside the ModelInfoSupportedParameter_AllowedValues_Item as a ModelInfoSupportedParameterAllowedValues1
-func (t ModelInfoSupportedParameter_AllowedValues_Item) AsModelInfoSupportedParameterAllowedValues1() (ModelInfoSupportedParameterAllowedValues1, error) {
-	var body ModelInfoSupportedParameterAllowedValues1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromModelInfoSupportedParameterAllowedValues1 overwrites any union data inside the ModelInfoSupportedParameter_AllowedValues_Item as the provided ModelInfoSupportedParameterAllowedValues1
-func (t *ModelInfoSupportedParameter_AllowedValues_Item) FromModelInfoSupportedParameterAllowedValues1(v ModelInfoSupportedParameterAllowedValues1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeModelInfoSupportedParameterAllowedValues1 performs a merge with any union data inside the ModelInfoSupportedParameter_AllowedValues_Item, using the provided ModelInfoSupportedParameterAllowedValues1
-func (t *ModelInfoSupportedParameter_AllowedValues_Item) MergeModelInfoSupportedParameterAllowedValues1(v ModelInfoSupportedParameterAllowedValues1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t ModelInfoSupportedParameter_AllowedValues_Item) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *ModelInfoSupportedParameter_AllowedValues_Item) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsModelInfoSupportedParameterDefault0 returns the union data inside the ModelInfoSupportedParameter_Default as a ModelInfoSupportedParameterDefault0
-func (t ModelInfoSupportedParameter_Default) AsModelInfoSupportedParameterDefault0() (ModelInfoSupportedParameterDefault0, error) {
-	var body ModelInfoSupportedParameterDefault0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromModelInfoSupportedParameterDefault0 overwrites any union data inside the ModelInfoSupportedParameter_Default as the provided ModelInfoSupportedParameterDefault0
-func (t *ModelInfoSupportedParameter_Default) FromModelInfoSupportedParameterDefault0(v ModelInfoSupportedParameterDefault0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeModelInfoSupportedParameterDefault0 performs a merge with any union data inside the ModelInfoSupportedParameter_Default, using the provided ModelInfoSupportedParameterDefault0
-func (t *ModelInfoSupportedParameter_Default) MergeModelInfoSupportedParameterDefault0(v ModelInfoSupportedParameterDefault0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsModelInfoSupportedParameterDefault1 returns the union data inside the ModelInfoSupportedParameter_Default as a ModelInfoSupportedParameterDefault1
-func (t ModelInfoSupportedParameter_Default) AsModelInfoSupportedParameterDefault1() (ModelInfoSupportedParameterDefault1, error) {
-	var body ModelInfoSupportedParameterDefault1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromModelInfoSupportedParameterDefault1 overwrites any union data inside the ModelInfoSupportedParameter_Default as the provided ModelInfoSupportedParameterDefault1
-func (t *ModelInfoSupportedParameter_Default) FromModelInfoSupportedParameterDefault1(v ModelInfoSupportedParameterDefault1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeModelInfoSupportedParameterDefault1 performs a merge with any union data inside the ModelInfoSupportedParameter_Default, using the provided ModelInfoSupportedParameterDefault1
-func (t *ModelInfoSupportedParameter_Default) MergeModelInfoSupportedParameterDefault1(v ModelInfoSupportedParameterDefault1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsModelInfoSupportedParameterDefault2 returns the union data inside the ModelInfoSupportedParameter_Default as a ModelInfoSupportedParameterDefault2
-func (t ModelInfoSupportedParameter_Default) AsModelInfoSupportedParameterDefault2() (ModelInfoSupportedParameterDefault2, error) {
-	var body ModelInfoSupportedParameterDefault2
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromModelInfoSupportedParameterDefault2 overwrites any union data inside the ModelInfoSupportedParameter_Default as the provided ModelInfoSupportedParameterDefault2
-func (t *ModelInfoSupportedParameter_Default) FromModelInfoSupportedParameterDefault2(v ModelInfoSupportedParameterDefault2) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeModelInfoSupportedParameterDefault2 performs a merge with any union data inside the ModelInfoSupportedParameter_Default, using the provided ModelInfoSupportedParameterDefault2
-func (t *ModelInfoSupportedParameter_Default) MergeModelInfoSupportedParameterDefault2(v ModelInfoSupportedParameterDefault2) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsModelInfoSupportedParameterDefault3 returns the union data inside the ModelInfoSupportedParameter_Default as a ModelInfoSupportedParameterDefault3
-func (t ModelInfoSupportedParameter_Default) AsModelInfoSupportedParameterDefault3() (ModelInfoSupportedParameterDefault3, error) {
-	var body ModelInfoSupportedParameterDefault3
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromModelInfoSupportedParameterDefault3 overwrites any union data inside the ModelInfoSupportedParameter_Default as the provided ModelInfoSupportedParameterDefault3
-func (t *ModelInfoSupportedParameter_Default) FromModelInfoSupportedParameterDefault3(v ModelInfoSupportedParameterDefault3) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeModelInfoSupportedParameterDefault3 performs a merge with any union data inside the ModelInfoSupportedParameter_Default, using the provided ModelInfoSupportedParameterDefault3
-func (t *ModelInfoSupportedParameter_Default) MergeModelInfoSupportedParameterDefault3(v ModelInfoSupportedParameterDefault3) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t ModelInfoSupportedParameter_Default) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *ModelInfoSupportedParameter_Default) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -853,6 +657,22 @@ func NewListModelsRequest(server string, params *ListModelsParams) (*http.Reques
 
 		}
 
+		if params.Modality != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "modality", runtime.ParamLocationQuery, *params.Modality); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
@@ -1066,7 +886,7 @@ type ListModelsApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelInfoList
-	JSON401      *ErrorResponse
+	JSON400      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -1091,7 +911,6 @@ type GetModelApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelInfo
-	JSON401      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -1257,12 +1076,12 @@ func ParseListModelsApiResponse(rsp *http.Response) (*ListModelsApiResponse, err
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON401 = &dest
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorResponse
@@ -1303,13 +1122,6 @@ func ParseGetModelApiResponse(rsp *http.Response) (*GetModelApiResponse, error) 
 			return nil, err
 		}
 		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest ErrorResponse

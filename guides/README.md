@@ -1,7 +1,7 @@
 # Pinecone Go SDK guides
 
 These guides cover the Pinecone Go SDK in more detail than the top-level [README](../README.md). For the full API
-reference, see [pkg.go.dev](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v7/pinecone).
+reference, see [pkg.go.dev](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v8/pinecone).
 
 ## Getting started
 
@@ -35,4 +35,5 @@ reference, see [pkg.go.dev](https://pkg.go.dev/github.com/pinecone-io/go-pinecon
 
 ## Upgrading
 
+- [v8 migration guide](./migration/v8.md): changes for Pinecone API version `2026-10`
 - [v7 migration guide](./migration/v7.md): changes for Pinecone API version `2026-07`

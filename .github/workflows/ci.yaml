@@ -9,7 +9,7 @@ permissions:
 jobs:
   # Key-free mocked critical-path smoke gate (connect -> upsert -> query).
   # Runs on every PR with NO PINECONE_API_KEY to prove the request/response
-  # plumbing works without a real backend. Keyed suites stay in `build` below.
+  # plumbing works without a real backend.
   smoke-mocked:
     name: Smoke (mocked, no key)
     runs-on: ubuntu-latest
@@ -85,15 +85,61 @@ jobs:
       - name: Install dependencies
         run: |
           go get ./pinecone
-      - name: Run tests
-        run: go test -count=1 -v -tags integration ./pinecone
-        env:
-          PINECONE_API_KEY: ${{ secrets.API_KEY }}
-          PINECONE_CLIENT_ID: ${{ secrets.CLIENT_ID }}
-          PINECONE_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+      - name: Vet and run unit tests
+        run: |
+          go vet -tags integration,localServer,smoke ./...
+          go test -count=1 -v ./pinecone
       - name: Run local integration tests
         run: go test -count=1 -v ./pinecone -run TestRunLocalIntegrationSuite -tags=localServer -timeout=20m
         env:
           PINECONE_INDEX_URL_POD: http://localhost:5082
           PINECONE_INDEX_URL_SERVERLESS: http://localhost:5081
           PINECONE_DIMENSION: 1536
+
+  # The keyed integration suite against production. It fails when any test fails or when no test
+  # ran at all (every leaf test skipped, or none matched). A check held up by something outside the
+  # SDK logs a "BLOCKED: " line (skipBlocked, logBlocked); those are counted and listed in the job
+  # summary but never fail the job.
+  live:
+    name: Integration (live)
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: live-pinecone
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+      - name: Run integration tests
+        run: |
+          set -o pipefail
+          go test -count=1 -v -tags integration -timeout=80m ./pinecone 2>&1 | tee live.log
+          grep -q -- '^--- PASS: TestRunSuites ' live.log \
+            || { echo "::error::the integration suites did not run"; exit 1; }
+          # Count leaf tests under the integration-tagged top-level tests; the untagged unit tests in
+          # the package also run here and must not count. A parent reports PASS even when every
+          # subtest under it skipped, so only leaves count.
+          tops=$(grep -l '^//go:build.*integration' pinecone/*_test.go \
+            | xargs grep -hoE '^func Test[A-Za-z0-9_]+' | sed 's/^func //' | tr '\n' ' ')
+          ran=$(awk -v tops="$tops" 'BEGIN { split(tops, t, " "); for (i in t) top[t[i]] = 1 }
+            $1 == "---" && $2 ~ /^(PASS|FAIL|SKIP):$/ { s[$3] = $2 }
+            END { for (n in s) { if (s[n] == "SKIP:") continue; r = n; sub(/\/.*/, "", r)
+              if (!(r in top)) continue; leaf = 1
+              for (m in s) if (index(m, n "/") == 1) { leaf = 0; break }; c += leaf }; print c + 0 }' live.log)
+          echo "Integration leaf tests run: $ran"
+          [ "$ran" -gt 0 ] || { echo "::error::no integration tests ran; every test was skipped"; exit 1; }
+        env:
+          PINECONE_API_KEY: ${{ secrets.API_KEY }}
+          PINECONE_CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          PINECONE_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+      - name: Blocked tests
+        if: ${{ !cancelled() }}
+        run: |
+          grep -o -- 'BLOCKED: .*' live.log | sort | uniq -c > blocked.txt || true
+          count=$(grep -c -- 'BLOCKED: ' live.log || true)
+          { echo "### Blocked tests: $count"; sed 's/^/    /' blocked.txt; } >> "$GITHUB_STEP_SUMMARY"
+          cat blocked.txt

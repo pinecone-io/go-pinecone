@@ -1,8 +1,11 @@
 package pinecone
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -80,7 +83,9 @@ const (
 type IndexStatus struct {
 	// Ready reports whether the index can serve requests. It is true when State is
 	// IndexStatusStateReady or IndexStatusStateDisabled, and while an existing index is being upgraded;
-	// it is false while the index is scaling. Check State to tell a disabled index from a ready one.
+	// it is false while a pod-based index is scaling. A dedicated read capacity change doesn't make it
+	// false; see ReadCapacity.Dedicated.Status for that. Check State to tell a disabled index from a
+	// ready one.
 	Ready bool `json:"ready"`
 	// State is the current [IndexStatusState] of the index.
 	State IndexStatusState `json:"state"`
@@ -107,8 +112,8 @@ type IndexEmbed struct {
 	// Metric is the distance metric used by the embedding model. If VectorType is "sparse", the
 	// metric must be "dotproduct". If VectorType is "dense", the metric defaults to "cosine".
 	Metric *IndexMetric `json:"metric,omitempty"`
-	// VectorType is always nil: Pinecone API version 2026-07 doesn't report it. A nil Dimension
-	// means the model produces sparse vectors.
+	// VectorType is always nil: Pinecone API versions 2026-07 and later don't report it. A nil
+	// Dimension means the model produces sparse vectors.
 	VectorType *string `json:"vector_type,omitempty"`
 	// FieldMap identifies the name of the text field from your document model that is embedded.
 	FieldMap *map[string]interface{} `json:"field_map,omitempty"`
@@ -131,12 +136,14 @@ type IndexTags map[string]string
 // the reserved field names "_values" (dense) and "_sparse_values" (sparse). Metadata fields
 // configured for filtering on older indexes are reported as [LegacyMetadataField] entries.
 type IndexSchema struct {
-	// Fields maps each field name to its [IndexSchemaField] configuration.
+	// Fields maps each field name to its [IndexSchemaField] configuration. Fields of a type this SDK
+	// version doesn't know are left out.
 	Fields map[string]IndexSchemaField `json:"fields"`
 }
 
 // IndexSchemaField is the configuration of a single field in an [IndexSchema]. Exactly one of the
-// pointer fields is non-nil, identifying the field's type.
+// pointer fields is non-nil, identifying the field's type. A response field whose type this SDK
+// version doesn't know has no IndexSchemaField: it is left out of [IndexSchema].Fields.
 type IndexSchemaField struct {
 	// DenseVector is set when the field is a [DenseVectorField].
 	DenseVector *DenseVectorField `json:"dense_vector,omitempty"`
@@ -392,7 +399,7 @@ type IndexDeployment struct {
 	// Managed is set for a serverless index. See [ManagedDeployment].
 	Managed *ManagedDeployment `json:"managed,omitempty"`
 	// Pod is set for a pod-based index. See [PodDeployment]. Pod-based indexes can't be created
-	// on API version 2026-07, but existing ones are still reported.
+	// on API versions 2026-07 and later, but existing ones are still reported.
 	Pod *PodDeployment `json:"pod,omitempty"`
 	// Byoc is set for a BYOC index. See [ByocDeployment].
 	Byoc *ByocDeployment `json:"byoc,omitempty"`
@@ -441,7 +448,8 @@ type Index struct {
 	Host string `json:"host"`
 	// Schema is the [IndexSchema] of the index, defining its typed fields.
 	Schema *IndexSchema `json:"schema,omitempty"`
-	// Deployment is the [IndexDeployment] of the index (managed, pod, or BYOC).
+	// Deployment is the [IndexDeployment] of the index (managed, pod, or BYOC). Nil when the index's
+	// deployment type is one this SDK version doesn't know.
 	Deployment *IndexDeployment `json:"deployment,omitempty"`
 	// ReadCapacity is the [ReadCapacity] configuration of the index, if any.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
@@ -460,19 +468,28 @@ type Index struct {
 	// Tags are the custom [IndexTags] added to the index.
 	Tags *IndexTags `json:"tags,omitempty"`
 
-	// Metric is the distance metric of the index's dense vector field.
+	// Metric is the distance metric of the index's dense vectors: the Metric of its [DenseVectorField],
+	// or of the Embed config of a [StringField] with dense integrated embedding. It is "dotproduct" for
+	// an index that stores only sparse vectors.
 	//
-	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] in Schema instead.
+	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] or the
+	// [StringField] Embed config in Schema instead.
 	Metric IndexMetric `json:"metric"`
-	// VectorType is the index's vector type, "dense" or "sparse".
+	// VectorType is the index's vector type: "dense" when a [DenseVectorField] or a [StringField] with
+	// Embed holds its dense vectors, "sparse" when it stores only sparse vectors (a [SparseVectorField]
+	// or a [StringField] with SparseEmbed), and empty for an index with no vector field.
 	//
 	// Deprecated: Derived from Schema for backward compatibility. Use the vector fields in Schema instead.
 	VectorType string `json:"vector_type"`
-	// Dimension is the dimension of the index's dense vector field.
+	// Dimension is the dimension of the index's dense vectors: the Dimension of its
+	// [DenseVectorField], or of the Embed config of a [StringField] with dense integrated embedding.
+	// Nil for an index that stores only sparse vectors.
 	//
-	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] in Schema instead.
+	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] or the
+	// [StringField] Embed config in Schema instead.
 	Dimension *int32 `json:"dimension,omitempty"`
-	// Spec is the index's [IndexSpec]: a [PodSpec], [ServerlessSpec], or [BYOCSpec].
+	// Spec is the index's [IndexSpec]: a [PodSpec], [ServerlessSpec], or [BYOCSpec]. Nil when
+	// Deployment is nil.
 	//
 	// Deprecated: Derived from Deployment for backward compatibility. Use Deployment instead.
 	Spec *IndexSpec `json:"spec,omitempty"`
@@ -500,6 +517,28 @@ type Collection struct {
 	VectorCount int32 `json:"vector_count"`
 	// Environment is the environment where the collection is hosted.
 	Environment string `json:"environment"`
+}
+
+// IncompatibleCollection is a collection that exists in the project but uses features this SDK's
+// API version can't represent, so [Client.ListCollections] leaves it out. List these with
+// [Client.ListIncompatibleCollections].
+type IncompatibleCollection struct {
+	// Name is the name of the collection.
+	Name string `json:"name"`
+	// MinimumAPIVersion is the earliest generally available API version that can describe the
+	// collection, such as "2027-04", in the form the X-Pinecone-Api-Version header uses. Every later
+	// generally available API version can also describe it. It's nil when no generally available API
+	// version can describe the collection yet; PreviewAPIVersion may still be set. Use the two version
+	// fields, not Message, to act on the entry.
+	MinimumAPIVersion *string `json:"minimum_api_version"`
+	// PreviewAPIVersion is the earliest early-access API version that can describe the collection,
+	// such as "2027-07.alpha", in the form the X-Pinecone-Api-Version header uses. It's nil when no
+	// early-access API version can. It's set independently of MinimumAPIVersion, and both may be set.
+	// When both are nil, no public API version can describe the collection yet.
+	PreviewAPIVersion *string `json:"preview_api_version"`
+	// Message explains in plain words why the collection can't be described and what to do. Its
+	// wording may change.
+	Message string `json:"message"`
 }
 
 // CollectionStatus is the status of a Pinecone [Collection].
@@ -539,7 +578,7 @@ type PodSpec struct {
 	ShardCount int32 `json:"shard_count"`
 	// SourceCollection is the name of the [Collection] used as a source for the index.
 	SourceCollection *string `json:"source_collection,omitempty"`
-	// MetadataConfig is always nil: Pinecone API version 2026-07 doesn't report it. Metadata
+	// MetadataConfig is always nil: Pinecone API versions 2026-07 and later don't report it. Metadata
 	// fields configured for filtering are reported in Index.Schema.
 	MetadataConfig *PodSpecMetadataConfig `json:"metadata_config,omitempty"`
 }
@@ -550,7 +589,7 @@ type ServerlessSpec struct {
 	Cloud Cloud `json:"cloud"`
 	// Region is the region where the index is hosted.
 	Region string `json:"region"`
-	// Schema is always nil: Pinecone API version 2026-07 doesn't report it. Metadata
+	// Schema is always nil: Pinecone API versions 2026-07 and later don't report it. Metadata
 	// fields configured for filtering are reported in Index.Schema.
 	Schema *MetadataSchema `json:"schema,omitempty"`
 	// SourceCollection is the name of the [Collection] used as a source for the index.
@@ -563,11 +602,34 @@ type ServerlessSpec struct {
 type BYOCSpec struct {
 	// Environment is the environment where the index is hosted.
 	Environment string `json:"environment"`
-	// Schema is always nil: Pinecone API version 2026-07 doesn't report it. Metadata
+	// Schema is always nil: Pinecone API versions 2026-07 and later don't report it. Metadata
 	// fields configured for filtering are reported in Index.Schema.
 	Schema *MetadataSchema `json:"schema,omitempty"`
 	// ReadCapacity is the [ReadCapacity] configuration of the index.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
+}
+
+// IncompatibleIndex is an index that exists in the project but uses features this SDK's API
+// version can't represent, so [Client.ListIndexes] leaves it out. List these with
+// [Client.ListIncompatibleIndexes]. It carries only the fields below; for example, whether
+// deletion protection is on isn't reported.
+type IncompatibleIndex struct {
+	// Name is the name of the index.
+	Name string `json:"name"`
+	// MinimumAPIVersion is the earliest generally available API version that can describe the index,
+	// such as "2027-04", in the form the X-Pinecone-Api-Version header uses. Every later generally
+	// available API version can also describe it. It's nil when no generally available API version can
+	// describe the index yet; PreviewAPIVersion may still be set. Use the two version fields, not
+	// Message, to act on the entry.
+	MinimumAPIVersion *string `json:"minimum_api_version"`
+	// PreviewAPIVersion is the earliest early-access API version that can describe the index, such as
+	// "2027-07.alpha", in the form the X-Pinecone-Api-Version header uses. It's nil when no
+	// early-access API version can. It's set independently of MinimumAPIVersion, and both may be set.
+	// When both are nil, no public API version can describe the index yet.
+	PreviewAPIVersion *string `json:"preview_api_version"`
+	// Message explains in plain words why the index can't be described and what to do. Its wording
+	// may change.
+	Message string `json:"message"`
 }
 
 // ReadCapacity represents the read capacity configuration returned from the API.
@@ -589,36 +651,95 @@ type ReadCapacityOnDemand struct {
 type ReadCapacityDedicated struct {
 	// NodeType is the type of machines in use.
 	NodeType *string `json:"node_type"`
-	// Scaling is the [ReadCapacityScaling] strategy configuration.
+	// Shards is the configured number of shards. Shards determine the storage capacity of an
+	// index, with each shard providing 250 GB of storage. Autoscaling never changes it; change it
+	// with [Client.ConfigureIndex].
+	Shards *int32 `json:"shards,omitempty"`
+	// ScalingStrategy is the [ReadCapacityScalingStrategy] the API reports, or nil when it reports
+	// none.
+	ScalingStrategy *ReadCapacityScalingStrategy `json:"scaling_strategy,omitempty"`
+	// Scaling is the [ReadCapacityScaling] configuration for the strategy in ScalingStrategy. It's
+	// nil when this version of the SDK doesn't know the strategy, or when the API reports a
+	// strategy without its configuration. Otherwise exactly one of Scaling.Manual and Scaling.Auto
+	// is set: an autoscaled index has a nil Scaling.Manual.
 	Scaling *ReadCapacityScaling `json:"scaling,omitempty"`
-	// Status is the current status of the read capacity configuration.
+	// Status is the current status of the read capacity configuration. For an autoscaled index,
+	// Status.CurrentReplicas is the live replica count per shard.
 	Status ReadCapacityStatus `json:"status"`
 }
 
-// ReadCapacityScaling represents the scaling configuration for dedicated read capacity.
+// ReadCapacityScalingStrategy is the scaling strategy of dedicated read capacity, as reported in
+// ReadCapacityDedicated.ScalingStrategy. The API may add strategies, so don't assume the constants
+// below are exhaustive.
+type ReadCapacityScalingStrategy string
+
+const (
+	// ReadCapacityScalingStrategyManual means a fixed number of replicas per shard.
+	ReadCapacityScalingStrategyManual ReadCapacityScalingStrategy = "Manual"
+	// ReadCapacityScalingStrategyAuto means Pinecone moves the number of replicas per shard between
+	// the bounds in ReadCapacityScaling.Auto.
+	ReadCapacityScalingStrategyAuto ReadCapacityScalingStrategy = "Auto"
+)
+
+// ReadCapacityScaling represents the scaling strategy for dedicated read capacity. On describe,
+// exactly one of Manual or Auto is set. On requests, set at most one; setting neither is the same
+// as omitting Scaling.
 type ReadCapacityScaling struct {
-	// Manual is the manual scaling configuration, with fixed replicas and shards.
+	// Manual is the manual scaling configuration, with a fixed number of replicas per shard.
 	Manual *ReadCapacityManualScaling `json:"manual,omitempty"`
+	// Auto is the replica autoscaling configuration: Pinecone moves the number of replicas per
+	// shard between MinReplicas and MaxReplicas as load changes. On requests, the organization
+	// must be enabled for replica autoscaling; otherwise the request fails with a [PineconeError]
+	// whose error code is FORBIDDEN. A request over a read node limit fails with the same error
+	// code. On a plan without dedicated read capacity, the request fails with INVALID_ARGUMENT
+	// instead.
+	Auto *ReadCapacityAutoScaling `json:"auto,omitempty"`
 }
 
 // ReadCapacityManualScaling represents manual scaling configuration.
 type ReadCapacityManualScaling struct {
-	// Replicas is the number of replicas to use. Replicas duplicate the compute resources and data
-	// of an index, allowing higher query throughput and availability. Setting replicas to 0
-	// disables the index but can be used to reduce costs while usage is paused.
+	// Replicas is the number of replicas per shard. Replicas duplicate the compute resources and
+	// data of an index, allowing higher query throughput and availability. Setting replicas to 0
+	// pauses the index, which can reduce costs while it isn't in use.
 	Replicas *int32 `json:"replicas"`
-	// Shards is the number of shards to use. Shards determine the storage capacity of an index,
-	// with each shard providing 250 GB of storage.
+	// Shards is the number of shards to use. On describe, it's set for indexes using manual
+	// scaling. On requests, it's sent as [ReadCapacityDedicatedConfig].Shards when that field is
+	// nil. When both are set, [ReadCapacityDedicatedConfig].Shards wins and this value is ignored,
+	// so a Scaling block copied from describe doesn't undo a shard change.
+	//
+	// Deprecated: Use [ReadCapacityDedicatedConfig].Shards on requests and
+	// [ReadCapacityDedicated].Shards on responses. Pinecone API version 2026-10 moved shards out
+	// of the manual scaling configuration.
 	Shards *int32 `json:"shards"`
 }
 
-// ReadCapacityStatus represents the current status of factors affecting the read capacity of a serverless index.
+// ReadCapacityAutoScaling represents replica autoscaling configuration. Both bounds are per shard
+// and required: unlike [ReadCapacityManualScaling].Replicas, you can't change one bound alone.
+// MinReplicas must be at least 1, and MaxReplicas at least MinReplicas; the API rejects other values.
+// To pause an autoscaled index, switch it to [ReadCapacityManualScaling] with Replicas set to 0.
+type ReadCapacityAutoScaling struct {
+	// MinReplicas is the lowest number of replicas per shard that Pinecone scales down to.
+	MinReplicas int32 `json:"min_replicas"`
+	// MaxReplicas is the highest number of replicas per shard that Pinecone scales up to. Read node
+	// limits count the index at Shards × MaxReplicas.
+	MaxReplicas int32 `json:"max_replicas"`
+}
+
+// ReadCapacityStatus represents the current status of factors affecting the read capacity of a serverless or
+// BYOC index.
 type ReadCapacityStatus struct {
-	// State is the overall status state: "Ready", "Scaling", "Migrating", or "Error".
+	// State is the overall status state: "Ready", "Scaling", "Migrating", or "Error". The API may
+	// add states, so don't assume this list is exhaustive. When it's "Error", ErrorMessage, if set, says why.
+	// It stays "Error" until [Client.ConfigureIndex] requests a configuration different from the one
+	// the index reports, which is the one that failed; a request that repeats it leaves State as is.
 	State string `json:"state"`
-	// CurrentReplicas is the current number of replicas.
+	// CurrentReplicas is the current number of replicas per shard. For an autoscaled index, it's
+	// the live count the autoscaler has reached; autoscaling changes it without leaving "Ready". The
+	// API reports no target count, so "Ready" doesn't mean the count has stopped changing. It's nil
+	// for OnDemand and until a Dedicated index finishes provisioning.
 	CurrentReplicas *int32 `json:"current_replicas,omitempty"`
-	// CurrentShards is the current number of shards.
+	// CurrentShards is the current number of shards. It's nil for OnDemand and until a Dedicated
+	// index finishes provisioning.
 	CurrentShards *int32 `json:"current_shards,omitempty"`
 	// ErrorMessage describes any issues with the read capacity configuration.
 	ErrorMessage *string `json:"error_message,omitempty"`
@@ -780,7 +901,9 @@ func NewMetadata(m map[string]interface{}) (*Metadata, error) {
 }
 
 // Embedding represents the embedding of a single input which is returned after [generating embeddings].
-// [Embedding] is a tagged union which can have either a [SparseEmbedding] or a [DenseEmbedding].
+// [Embedding] is a tagged union which can have either a [SparseEmbedding] or a [DenseEmbedding],
+// chosen by the embedding's own vector type. An embedding of a kind this SDK doesn't recognize has
+// neither set; the response's Model, VectorType, and Usage are still returned.
 //
 // [generating embeddings]: https://docs.pinecone.io/reference/api/latest/inference/generate-vectors
 type Embedding struct {
@@ -806,11 +929,13 @@ type SparseEmbedding struct {
 	SparseValues []float32 `json:"sparse_values"`
 	// SparseIndices are the embedding indices, one for each entry in SparseValues.
 	SparseIndices []int64 `json:"sparse_indices"`
-	// SparseTokens are the normalized tokens used to create the sparse embedding, if requested.
+	// SparseTokens are the normalized tokens used to create the sparse embedding. Set when the
+	// request's [EmbedParameters] has "return_tokens": true.
 	SparseTokens *[]string `json:"sparse_tokens,omitempty"`
 }
 
-// Pagination represents the pagination information for a list of resources.
+// Pagination represents the pagination information for a list of resources. A response's
+// Pagination is nil when there are no more pages, so a non-nil Pagination always has a Next token.
 type Pagination struct {
 	// Next is the token to pass to retrieve the next page of results.
 	Next string `json:"next"`
@@ -861,6 +986,17 @@ type Import struct {
 	FinishedAt *time.Time `json:"finished_at,omitempty"`
 	// Error is the error message associated with the failure, if the import failed.
 	Error *string `json:"error,omitempty"`
+	// ValidationResult is the result of the validation run performed on the import data. It is nil
+	// until validation has run.
+	ValidationResult *ImportValidationResult `json:"validation_result,omitempty"`
+}
+
+// ImportValidationResult reports the result of the validation run performed on an [Import]'s data.
+type ImportValidationResult struct {
+	// ImportSuccesses is the number of records that passed validation.
+	ImportSuccesses *int64 `json:"import_successes,omitempty"`
+	// ImportErrors is the number of records that failed validation.
+	ImportErrors *int64 `json:"import_errors,omitempty"`
 }
 
 // IntegratedRecord is a record to upsert into a legacy integrated index via
@@ -1062,7 +1198,7 @@ type FetchDocumentsResponse struct {
 	Documents map[string]Document `json:"documents"`
 	// Namespace is the namespace the documents were fetched from.
 	Namespace string `json:"namespace"`
-	// Pagination holds the token for the next page of a fetch by Filter, if more results remain.
+	// Pagination holds the token for the next page of a fetch by Filter, or is nil when there are no more results.
 	Pagination *Pagination `json:"pagination,omitempty"`
 	// Usage is the [DocumentUsage] consumed by the fetch.
 	Usage DocumentUsage `json:"usage"`
@@ -1142,7 +1278,7 @@ type ListDocumentsResponse struct {
 	Documents []ListedDocument `json:"documents"`
 	// Namespace is the namespace the documents were listed from.
 	Namespace string `json:"namespace"`
-	// Pagination holds the token for the next page, if more results remain.
+	// Pagination holds the token for the next page, or is nil when there are no more results.
 	Pagination *Pagination `json:"pagination,omitempty"`
 	// Usage is the [DocumentUsage] consumed by the list operation.
 	Usage DocumentUsage `json:"usage"`
@@ -1224,6 +1360,9 @@ type SearchRecordsResponse struct {
 	} `json:"result"`
 	// Usage is the [SearchUsage] consumed by the search operation.
 	Usage SearchUsage `json:"usage"`
+	// Namespace is the namespace that served the search: the connection's namespace, or the
+	// alias's target namespace when the connection names a namespace alias.
+	Namespace string `json:"namespace"`
 }
 
 // SearchRecordsVector represents the vector data used in a search request.
@@ -1263,7 +1402,15 @@ type ModelInfo struct {
 	MaxBatchSize *int32 `json:"max_batch_size,omitempty"`
 	// MaxSequenceLength is the maximum tokens per sequence supported by the model.
 	MaxSequenceLength *int32 `json:"max_sequence_length,omitempty"`
-	// Modality is the modality of the model (e.g. "text").
+	// Modalities are the kinds of input the model accepts, such as "text", "image" or "pdf", in no
+	// particular order. Text-only models, including every reranking model, list ["text"]. More values
+	// may be added. Nil when the API doesn't report it, as before API version 2026-10.
+	Modalities *[]string `json:"modalities,omitempty"`
+	// Modality is the modality of the model, such as "text".
+	//
+	// Deprecated: Use Modalities. API version 2026-10 reports a list of modalities, and the SDK fills
+	// Modality from it: "text" when Modalities contains "text", which is what earlier API versions
+	// report for a model that also accepts other input; otherwise the only entry; otherwise nil.
 	Modality *string `json:"modality,omitempty"`
 	// Model is the name of the model.
 	Model string `json:"model"`
@@ -1292,9 +1439,11 @@ type ModelInfo struct {
 
 // SupportedParameter describes a parameter supported by the model, including parameter value constraints.
 type SupportedParameter struct {
-	// AllowedValues are the allowed parameter values when Type is "one_of".
+	// AllowedValues are the allowed parameter values when Type is "one_of". The API can send any
+	// JSON value here; see [SupportedParameterValue] for how each is represented.
 	AllowedValues *[]SupportedParameterValue `json:"allowed_values,omitempty"`
-	// Default is the default value for the parameter when the parameter is optional.
+	// Default is the default value for the parameter when the parameter is optional. It's nil when
+	// the API sends no default or null.
 	Default *SupportedParameterValue `json:"default,omitempty"`
 	// Max is the maximum allowed value (inclusive) when Type is "numeric_range".
 	Max *float32 `json:"max,omitempty"`
@@ -1314,44 +1463,95 @@ type SupportedParameter struct {
 }
 
 // SupportedParameterValue is a tagged union type representing the value of a [SupportedParameter].
+// At most one of StringValue, IntValue, FloatValue, and BoolValue is set, and none is set for a
+// JSON null.
 type SupportedParameterValue struct {
 	// StringValue is set if the parameter accepts strings.
 	StringValue *string
 	// IntValue is set if the parameter accepts integers.
 	IntValue *int32
-	// FloatValue is set if the parameter accepts floating point numbers.
+	// FloatValue is set if the parameter accepts floating point numbers. It's also set, to the
+	// nearest float32, for an integer outside the int32 range; RawValue then holds the exact value.
 	FloatValue *float32
 	// BoolValue is set if the parameter accepts true/false input.
 	BoolValue *bool
+	// RawValue holds the value's JSON text when no other field can hold it exactly: an array, an
+	// object, an integer outside the int32 range, or a number outside the float32 range. It's nil
+	// otherwise.
+	RawValue json.RawMessage
 }
 
-// UnmarshalJSON decodes a JSON string, number, or boolean into the matching field of
-// [SupportedParameterValue]. It returns an error for any other JSON type.
+// UnmarshalJSON decodes any JSON value into [SupportedParameterValue]. A string, boolean, or number
+// sets the matching field, null sets no field, and an array or object is kept in RawValue.
 func (spv *SupportedParameterValue) UnmarshalJSON(data []byte) error {
-	var s string
-	if err := json.Unmarshal(data, &s); err == nil {
+	data = bytes.TrimSpace(data)
+	*spv = SupportedParameterValue{}
+	if len(data) == 0 {
+		return fmt.Errorf("unsupported type for SupportedParameterValue: empty input")
+	}
+
+	switch data[0] {
+	case 'n':
+		return nil
+	case '"':
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return err
+		}
 		spv.StringValue = &s
 		return nil
-	}
-
-	var i int32
-	if err := json.Unmarshal(data, &i); err == nil {
-		spv.IntValue = &i
-		return nil
-	}
-
-	var f float32
-	if err := json.Unmarshal(data, &f); err == nil {
-		spv.FloatValue = &f
-		return nil
-	}
-
-	var b bool
-	if err := json.Unmarshal(data, &b); err == nil {
+	case 't', 'f':
+		var b bool
+		if err := json.Unmarshal(data, &b); err != nil {
+			return err
+		}
 		spv.BoolValue = &b
 		return nil
+	case '[', '{':
+		spv.RawValue = append(json.RawMessage(nil), data...)
+		return nil
 	}
-	return fmt.Errorf("unsupported type for SupportedParameterValue: %s", data)
+
+	var number json.Number
+	if err := json.Unmarshal(data, &number); err != nil {
+		return fmt.Errorf("unsupported type for SupportedParameterValue: %s", data)
+	}
+	text := number.String()
+	if !strings.ContainsAny(text, ".eE") {
+		if i, err := strconv.ParseInt(text, 10, 32); err == nil {
+			i32 := int32(i)
+			spv.IntValue = &i32
+			return nil
+		}
+		spv.RawValue = append(json.RawMessage(nil), data...)
+	}
+	f, err := strconv.ParseFloat(text, 32)
+	if err != nil {
+		spv.RawValue = append(json.RawMessage(nil), data...)
+		return nil
+	}
+	f32 := float32(f)
+	spv.FloatValue = &f32
+	return nil
+}
+
+// MarshalJSON encodes the [SupportedParameterValue] as the plain JSON value it was decoded from:
+// RawValue when set, otherwise the field that is set, or null when none is.
+func (spv SupportedParameterValue) MarshalJSON() ([]byte, error) {
+	switch {
+	case spv.RawValue != nil:
+		return spv.RawValue, nil
+	case spv.StringValue != nil:
+		return json.Marshal(*spv.StringValue)
+	case spv.IntValue != nil:
+		return json.Marshal(*spv.IntValue)
+	case spv.FloatValue != nil:
+		return json.Marshal(*spv.FloatValue)
+	case spv.BoolValue != nil:
+		return json.Marshal(*spv.BoolValue)
+	default:
+		return []byte("null"), nil
+	}
 }
 
 // Backup describes the configuration and status of a Pinecone backup.
@@ -1391,13 +1591,17 @@ type Backup struct {
 	// Tags are the custom user [IndexTags] of the backup.
 	Tags *IndexTags `json:"tags,omitempty"`
 
-	// Dimension is the dimension of the source index's dense vector field.
+	// Dimension is the dimension of the source index's dense vectors: the Dimension of its
+	// [DenseVectorField], or of the Embed config of a [StringField] with dense integrated embedding.
 	//
-	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] in Schema instead.
+	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] or the
+	// [StringField] Embed config in Schema instead.
 	Dimension *int32 `json:"dimension,omitempty"`
-	// Metric is the distance metric of the source index's dense vector field.
+	// Metric is the distance metric of the source index's dense vectors: the Metric of its
+	// [DenseVectorField], or of the Embed config of a [StringField] with dense integrated embedding.
 	//
-	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] in Schema instead.
+	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] or the
+	// [StringField] Embed config in Schema instead.
 	Metric *IndexMetric `json:"metric,omitempty"`
 }
 
@@ -1408,6 +1612,35 @@ type BackupList struct {
 	// Pagination holds the token for fetching the next page of results. It is nil when there are
 	// no more results; otherwise pass Pagination.Next as the next request's PaginationToken.
 	Pagination *Pagination `json:"pagination,omitempty"`
+	// IncompatibleData lists the backups on this page that this SDK's API version can't
+	// describe, so they're left out of Data. Each counts toward Limit like a backup in Data, so a
+	// page can hold fewer than Limit backups in Data while Pagination still points to more. It is
+	// empty when every backup can be described.
+	IncompatibleData []*IncompatibleBackup `json:"incompatible_data,omitempty"`
+}
+
+// IncompatibleBackup is a backup that exists in the project but uses features this SDK's API
+// version can't represent, so [Client.ListBackups] reports it in [BackupList].IncompatibleData
+// instead of Data. [Client.DescribeBackup] and [Client.CreateIndexFromBackup] refuse it with a
+// [PineconeError] whose error code is FAILED_PRECONDITION and whose Reason is
+// [ReasonResourceIncompatibleWithAPIVersion]; [Client.DeleteBackup] still works.
+type IncompatibleBackup struct {
+	// BackupId is the unique identifier of the backup.
+	BackupId string `json:"backup_id"`
+	// MinimumAPIVersion is the earliest generally available API version that can describe the backup,
+	// such as "2027-04", in the form the X-Pinecone-Api-Version header uses. Every later generally
+	// available API version can also describe it. It's nil when no generally available API version can
+	// describe the backup yet; PreviewAPIVersion may still be set. Use the two version fields, not
+	// Message, to act on the entry.
+	MinimumAPIVersion *string `json:"minimum_api_version"`
+	// PreviewAPIVersion is the earliest early-access API version that can describe the backup, such as
+	// "2027-07.alpha", in the form the X-Pinecone-Api-Version header uses. It's nil when no
+	// early-access API version can. It's set independently of MinimumAPIVersion, and both may be set.
+	// When both are nil, no public API version can describe the backup yet.
+	PreviewAPIVersion *string `json:"preview_api_version"`
+	// Message explains in plain words why the backup can't be described and what to do. Its
+	// wording may change.
+	Message string `json:"message"`
 }
 
 // RestoreJob describes the status of a restore job.
@@ -1438,6 +1671,34 @@ type RestoreJobList struct {
 	// Pagination holds the token for fetching the next page of results. It is nil when there are
 	// no more results; otherwise pass Pagination.Next as the next request's PaginationToken.
 	Pagination *Pagination `json:"pagination,omitempty"`
+	// IncompatibleData lists the restore jobs on this page that this SDK's API version
+	// can't describe, so they're left out of Data. Each counts toward Limit like a restore job in
+	// Data, so a page can hold fewer than Limit restore jobs in Data while Pagination still points
+	// to more. It is empty when every restore job can be described.
+	IncompatibleData []*IncompatibleRestoreJob `json:"incompatible_data,omitempty"`
+}
+
+// IncompatibleRestoreJob is a restore job that uses features this SDK's API version can't
+// represent, so [Client.ListRestoreJobs] reports it in [RestoreJobList].IncompatibleData
+// instead of Data. [Client.DescribeRestoreJob] refuses it with a [PineconeError] whose error code
+// is FAILED_PRECONDITION and whose Reason is [ReasonResourceIncompatibleWithAPIVersion].
+type IncompatibleRestoreJob struct {
+	// RestoreJobId is the unique identifier of the restore job.
+	RestoreJobId string `json:"restore_job_id"`
+	// MinimumAPIVersion is the earliest generally available API version that can describe the restore
+	// job, such as "2027-04", in the form the X-Pinecone-Api-Version header uses. Every later
+	// generally available API version can also describe it. It's nil when no generally available API
+	// version can describe the restore job yet; PreviewAPIVersion may still be set. Use the two
+	// version fields, not Message, to act on the entry.
+	MinimumAPIVersion *string `json:"minimum_api_version"`
+	// PreviewAPIVersion is the earliest early-access API version that can describe the restore job,
+	// such as "2027-07.alpha", in the form the X-Pinecone-Api-Version header uses. It's nil when no
+	// early-access API version can. It's set independently of MinimumAPIVersion, and both may be set.
+	// When both are nil, no public API version can describe the restore job yet.
+	PreviewAPIVersion *string `json:"preview_api_version"`
+	// Message explains in plain words why the restore job can't be described and what to do. Its
+	// wording may change.
+	Message string `json:"message"`
 }
 
 // Project represents the details of a project.
@@ -1681,6 +1942,22 @@ type User struct {
 
 	// (Optional) The user's display name. Nil if the user has not set one.
 	Name *string `json:"name,omitempty"`
+
+	// Accounts are the accounts the user can log in with: one with Type "sso" for each account on
+	// the organization's SSO connection, and one with Type "personal" if the user has a personal
+	// account. Nil when the organization has no SSO connection.
+	Accounts *[]UserAccount `json:"accounts,omitempty"`
+}
+
+// UserAccount is an account a [User] can log in with.
+type UserAccount struct {
+	// Type is the kind of account: "personal" for any account not tied to an SSO connection, such as
+	// email, Google or GitHub login, or "sso" for an account on the organization's SSO connection.
+	Type string `json:"type"`
+
+	// NameId is the SAML NameID the identity provider sends for this account. Set only when Type is
+	// "sso".
+	NameId *string `json:"name_id,omitempty"`
 }
 
 // UserList contains a paginated list of users.

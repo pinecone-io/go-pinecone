@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	db_data_grpc "github.com/pinecone-io/go-pinecone/v7/internal/gen/db_data/grpc"
+	db_data_grpc "github.com/pinecone-io/go-pinecone/v8/internal/gen/db_data/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -785,6 +785,46 @@ func TestNormalizeHostUnit(t *testing.T) {
 			host:             "https://this-is-my-host.io:33445",
 			expectedHost:     "this-is-my-host.io:33445",
 			expectedIsSecure: true,
+		}, {
+			name:             "http:// selects plaintext",
+			host:             "http://localhost:5081",
+			expectedHost:     "localhost:5081",
+			expectedIsSecure: false,
+		}, {
+			name:             "uppercase HTTP:// selects plaintext and is removed",
+			host:             "HTTP://localhost:5081",
+			expectedHost:     "localhost:5081",
+			expectedIsSecure: false,
+		}, {
+			name:             "mixed-case Https:// is removed",
+			host:             "Https://this-is-my-host.io",
+			expectedHost:     "this-is-my-host.io",
+			expectedIsSecure: true,
+		}, {
+			name:             "host without a scheme is secure",
+			host:             "this-is-my-host.io",
+			expectedHost:     "this-is-my-host.io",
+			expectedIsSecure: true,
+		}, {
+			name:             "localhost:port without a scheme is secure and unchanged",
+			host:             "localhost:5081",
+			expectedHost:     "localhost:5081",
+			expectedIsSecure: true,
+		}, {
+			name:             "IP:port without a scheme is secure and unchanged",
+			host:             "127.0.0.1:5081",
+			expectedHost:     "127.0.0.1:5081",
+			expectedIsSecure: true,
+		}, {
+			name:             "trailing slash is removed",
+			host:             "https://this-is-my-host.io/",
+			expectedHost:     "this-is-my-host.io",
+			expectedIsSecure: true,
+		}, {
+			name:             "trailing slash is removed from a plaintext host",
+			host:             "http://localhost:5081/",
+			expectedHost:     "localhost:5081",
+			expectedIsSecure: false,
 		},
 	}
 
@@ -798,7 +838,6 @@ func TestNormalizeHostUnit(t *testing.T) {
 }
 
 func TestToPaginationTokenGrpcUnit(t *testing.T) {
-	tokenForNilCase := ""
 	tokenForPositiveCase := "next-token"
 
 	tests := []struct {
@@ -807,9 +846,9 @@ func TestToPaginationTokenGrpcUnit(t *testing.T) {
 		expected *string
 	}{
 		{
-			name:     "Pass empty token, expect empty string to be returned",
+			name:     "Pass empty token, expect nil because there are no more pages",
 			token:    &db_data_grpc.Pagination{},
-			expected: &tokenForNilCase,
+			expected: nil,
 		},
 		{
 			name: "Pass token",
@@ -1144,6 +1183,29 @@ func (c *namespaceCapturingClient) DescribeNamespace(ctx context.Context, in *db
 func (c *namespaceCapturingClient) DeleteNamespace(ctx context.Context, in *db_data_grpc.DeleteNamespaceRequest, opts ...grpc.CallOption) (*db_data_grpc.DeleteResponse, error) {
 	c.namespaces = append(c.namespaces, in.Namespace)
 	return &db_data_grpc.DeleteResponse{}, nil
+}
+
+func (c *namespaceCapturingClient) CreateNamespace(ctx context.Context, in *db_data_grpc.CreateNamespaceRequest, opts ...grpc.CallOption) (*db_data_grpc.NamespaceDescription, error) {
+	c.namespaces = append(c.namespaces, in.Name)
+	return &db_data_grpc.NamespaceDescription{Name: in.Name}, nil
+}
+
+func TestCreateNamespaceValidationUnit(t *testing.T) {
+	fake := &namespaceCapturingClient{}
+	var client db_data_grpc.VectorServiceClient = fake
+	idxConn := &IndexConnection{grpcClient: &client}
+	ctx := context.Background()
+
+	_, err := idxConn.CreateNamespace(ctx, &CreateNamespaceParams{})
+	require.ErrorContains(t, err, "Name")
+	assert.Empty(t, fake.namespaces, "an empty Name is rejected before sending")
+
+	_, err = idxConn.CreateNamespace(ctx, &CreateNamespaceParams{
+		Name:   "movies",
+		Schema: &MetadataSchema{Fields: map[string]MetadataSchemaField{"genre": {Filterable: true}}},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"movies"}, fake.namespaces)
 }
 
 func TestNamespaceOperationsResolveDefaultNamespaceUnit(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/pinecone-io/go-pinecone/v7/internal/gen/db_control"
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen/db_control"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -46,6 +46,22 @@ func TestToIndexSchemaUnit(t *testing.T) {
 				Metric:          ptr(IndexMetricCosine),
 				ReadParameters:  &map[string]interface{}{"input_type": "query"},
 				WriteParameters: &map[string]interface{}{"input_type": "passage"},
+			}},
+		},
+		{
+			name:  "semantic text with a sparse model and a zero dimension",
+			field: `{"type": "semantic_text", "model": "pinecone-sparse-english-v0", "dimension": 0, "metric": "dotproduct"}`,
+			expected: IndexSchemaField{SemanticText: &SemanticTextField{
+				Model:  "pinecone-sparse-english-v0",
+				Metric: ptr(IndexMetricDotproduct),
+			}},
+		},
+		{
+			name:  "semantic text with a sparse model and a null dimension",
+			field: `{"type": "semantic_text", "model": "pinecone-sparse-english-v0", "dimension": null, "metric": "dotproduct"}`,
+			expected: IndexSchemaField{SemanticText: &SemanticTextField{
+				Model:  "pinecone-sparse-english-v0",
+				Metric: ptr(IndexMetricDotproduct),
 			}},
 		},
 		{
@@ -615,7 +631,7 @@ func TestToDbDeploymentRequestUnit(t *testing.T) {
 
 	t.Run("pod is rejected", func(t *testing.T) {
 		_, err := toDbDeploymentRequest(&IndexDeployment{Pod: &PodDeployment{Environment: "us-east1-gcp", PodType: "p1.x1"}})
-		require.ErrorContains(t, err, "creating pod-based indexes is not supported by Pinecone API version 2026-07")
+		require.ErrorContains(t, err, "creating pod-based indexes is not supported by Pinecone API versions 2026-07 and later")
 	})
 
 	t.Run("no deployment type set", func(t *testing.T) {
@@ -657,7 +673,7 @@ func TestToDbRestoreDeploymentRequestUnit(t *testing.T) {
 
 	t.Run("pod is rejected", func(t *testing.T) {
 		_, err := toDbRestoreDeploymentRequest(&IndexDeployment{Pod: &PodDeployment{Environment: "us-east1-gcp", PodType: "p1.x1"}})
-		require.ErrorContains(t, err, "creating pod-based indexes is not supported by Pinecone API version 2026-07")
+		require.ErrorContains(t, err, "creating pod-based indexes is not supported by Pinecone API versions 2026-07 and later")
 	})
 
 	t.Run("no deployment type set", func(t *testing.T) {
@@ -702,9 +718,9 @@ func TestToIndexDeploymentUnit(t *testing.T) {
 			expected:   nil,
 		},
 		{
-			name:       "malformed deployment is skipped",
-			deployment: `{"deployment_type": "managed", "cloud": 123, "region": "us-east-1"}`,
-			expected:   nil,
+			name:       "unknown properties are ignored",
+			deployment: `{"deployment_type": "managed", "cloud": "aws", "region": "us-east-1", "zone": "use1-az1"}`,
+			expected:   &IndexDeployment{Managed: &ManagedDeployment{Cloud: CloudAWS, Region: "us-east-1"}},
 		},
 	}
 
@@ -724,6 +740,11 @@ func TestApplyIndexCompatFieldsUnit(t *testing.T) {
 	}
 	sparse := IndexSchemaField{SparseVector: &SparseVectorField{}}
 	fullTextSearch := IndexSchemaField{String: &StringField{FullTextSearch: &FullTextSearchConfig{Language: ptr("en")}}}
+	embedConfig := &EmbedConfig{Model: ptr("llama-text-embed-v2"), Dimension: ptr(int32(1024)), Metric: ptr(IndexMetricCosine)}
+	sparseEmbedConfig := &SparseEmbedConfig{Model: ptr("pinecone-sparse-english-v0")}
+	embed := IndexSchemaField{String: &StringField{Embed: embedConfig}}
+	sparseEmbed := IndexSchemaField{String: &StringField{SparseEmbed: sparseEmbedConfig}}
+	embedAndSparseEmbed := IndexSchemaField{String: &StringField{Embed: embedConfig, SparseEmbed: sparseEmbedConfig}}
 
 	vectorTests := []struct {
 		name               string
@@ -764,14 +785,63 @@ func TestApplyIndexCompatFieldsUnit(t *testing.T) {
 			fields: map[string]IndexSchemaField{"a": dense(3, IndexMetricCosine), "b": dense(8, IndexMetricCosine)},
 		},
 		{
+			name:   "several named dense fields and a sparse field leave the fields unset",
+			fields: map[string]IndexSchemaField{"a": dense(3, IndexMetricCosine), "b": dense(8, IndexMetricCosine), "terms": sparse},
+		},
+		{
 			name:   "full-text-search index with no vector field",
 			fields: map[string]IndexSchemaField{"title": fullTextSearch},
-		}, {
-			name: "integrated embedding fields don't populate the deprecated fields",
-			fields: map[string]IndexSchemaField{"body": {String: &StringField{
-				Embed:       &EmbedConfig{Model: ptr("llama-text-embed-v2"), Dimension: ptr(int32(1024)), Metric: ptr(IndexMetricCosine)},
-				SparseEmbed: &SparseEmbedConfig{Model: ptr("pinecone-sparse-english-v0")},
-			}}},
+		},
+		{
+			name:               "embed string field only",
+			fields:             map[string]IndexSchemaField{"body": embed},
+			expectedVectorType: "dense",
+			expectedDimension:  ptr(int32(1024)),
+			expectedMetric:     IndexMetricCosine,
+		},
+		{
+			name:               "embed string field and a sparse vector field",
+			fields:             map[string]IndexSchemaField{"body": embed, "terms": sparse},
+			expectedVectorType: "dense",
+			expectedDimension:  ptr(int32(1024)),
+			expectedMetric:     IndexMetricCosine,
+		},
+		{
+			name:               "embed and sparse embed on one string field",
+			fields:             map[string]IndexSchemaField{"body": embedAndSparseEmbed},
+			expectedVectorType: "dense",
+			expectedDimension:  ptr(int32(1024)),
+			expectedMetric:     IndexMetricCosine,
+		},
+		{
+			name:               "dense vector field and a sparse embed string field",
+			fields:             map[string]IndexSchemaField{"your_vector": dense(768, IndexMetricDotproduct), "notes": sparseEmbed},
+			expectedVectorType: "dense",
+			expectedDimension:  ptr(int32(768)),
+			expectedMetric:     IndexMetricDotproduct,
+		},
+		{
+			name:               "sparse embed string field only",
+			fields:             map[string]IndexSchemaField{"notes": sparseEmbed, "title": fullTextSearch},
+			expectedVectorType: "sparse",
+			expectedMetric:     IndexMetricDotproduct,
+		},
+		{
+			name:               "sparse vector field only",
+			fields:             map[string]IndexSchemaField{"terms": sparse, "title": fullTextSearch},
+			expectedVectorType: "sparse",
+			expectedMetric:     IndexMetricDotproduct,
+		},
+		{
+			name:   "dense vector field and an embed string field leave the fields unset",
+			fields: map[string]IndexSchemaField{"your_vector": dense(768, IndexMetricCosine), "body": embed},
+		},
+		{
+			name:               "reserved dense field wins over an embed string field",
+			fields:             map[string]IndexSchemaField{"_values": dense(3, IndexMetricEuclidean), "body": embed},
+			expectedVectorType: "dense",
+			expectedDimension:  ptr(int32(3)),
+			expectedMetric:     IndexMetricEuclidean,
 		},
 	}
 

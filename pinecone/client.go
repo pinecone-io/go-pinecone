@@ -4,6 +4,7 @@
 package pinecone
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,15 +15,18 @@ import (
 	"net/url"
 	"os"
 	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
-	"github.com/pinecone-io/go-pinecone/v7/internal/gen"
-	"github.com/pinecone-io/go-pinecone/v7/internal/gen/db_control"
-	db_data_rest "github.com/pinecone-io/go-pinecone/v7/internal/gen/db_data/rest"
-	"github.com/pinecone-io/go-pinecone/v7/internal/gen/inference"
-	"github.com/pinecone-io/go-pinecone/v7/internal/provider"
-	"github.com/pinecone-io/go-pinecone/v7/internal/useragent"
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen"
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen/db_control"
+	db_data_rest "github.com/pinecone-io/go-pinecone/v8/internal/gen/db_data/rest"
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen/inference"
+	"github.com/pinecone-io/go-pinecone/v8/internal/provider"
+	"github.com/pinecone-io/go-pinecone/v8/internal/useragent"
 	"google.golang.org/grpc"
 )
 
@@ -83,11 +87,14 @@ type NewClientParams struct {
 	// the PINECONE_ADDITIONAL_HEADERS environment variable (a JSON object) are merged in; values in
 	// Headers take precedence. The "Api-Key" header is always set from ApiKey, and NewClient writes
 	// it into this map. gRPC data-plane calls made through [IndexConnection] send only the
-	// authentication header, not other custom headers.
+	// authentication header, not other custom headers. Don't set X-Pinecone-Api-Version here: the
+	// SDK's request and response types match the API version it was built for, and under another
+	// version requests can be wrong and response fields can be dropped without an error.
 	Headers map[string]string
 	// Host (Optional) is the host URL of the Pinecone API, used for control-plane and inference
 	// requests. Defaults to the PINECONE_CONTROLLER_HOST environment variable, or
-	// "https://api.pinecone.io" if unset. "https://" is prepended when no scheme is given.
+	// "https://api.pinecone.io" if unset. "https://" is prepended when no scheme is given, as in
+	// "localhost:8443".
 	Host string
 	// RestClient (Optional) is the HTTP client used to communicate with the Pinecone API.
 	RestClient *http.Client
@@ -106,11 +113,14 @@ type NewClientBaseParams struct {
 	// "Authorization" and "X-Project-Id" headers are required if authenticating using a JWT. Headers
 	// from the PINECONE_ADDITIONAL_HEADERS environment variable (a JSON object) are merged in; values
 	// in Headers take precedence. gRPC data-plane calls made through [IndexConnection] send only the
-	// authentication header, not other custom headers.
+	// authentication header, not other custom headers. Don't set X-Pinecone-Api-Version here: the
+	// SDK's request and response types match the API version it was built for, and under another
+	// version requests can be wrong and response fields can be dropped without an error.
 	Headers map[string]string
 	// Host (Optional) is the host URL of the Pinecone API, used for control-plane and inference
 	// requests. Defaults to the PINECONE_CONTROLLER_HOST environment variable, or
-	// "https://api.pinecone.io" if unset. "https://" is prepended when no scheme is given.
+	// "https://api.pinecone.io" if unset. "https://" is prepended when no scheme is given, as in
+	// "localhost:8443".
 	Host string
 	// RestClient (Optional) is the HTTP client used to communicate with the Pinecone API.
 	RestClient *http.Client
@@ -125,7 +135,9 @@ type NewClientBaseParams struct {
 // See [Client.Index] for code example.
 type NewIndexConnParams struct {
 	// Host (Required) is the host URL of the Pinecone index. Find it with [Client.DescribeIndex] or
-	// [Client.ListIndexes], or in the Pinecone web console.
+	// [Client.ListIndexes], or in the Pinecone web console. "https://" is prepended when no scheme
+	// is given. An "http://" host is used as given, without TLS, for both REST and gRPC calls,
+	// which is useful for Pinecone Local or a local proxy.
 	Host string
 	// Namespace (Optional) is the index namespace to use for operations. "" (the zero value) and
 	// "__default__" both refer to the default namespace.
@@ -313,7 +325,7 @@ func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*Ind
 	}
 
 	dbDataOptions := buildDataClientBaseOptions(*c.baseParams)
-	dbDataClient, err := db_data_rest.NewClient(ensureHostHasHttps(in.Host), dbDataOptions...)
+	dbDataClient, err := db_data_rest.NewClient(ensureHostScheme(in.Host), dbDataOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -336,17 +348,30 @@ func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*Ind
 	return idx, nil
 }
 
-func ensureHostHasHttps(host string) string {
-	if strings.HasPrefix(host, "http://") {
-		return strings.Replace(host, "http://", "https://", 1)
-	} else if !strings.HasPrefix(host, "https://") {
-		return "https://" + host
+// ensureHostScheme prepends "https://" to an index host that has no scheme and leaves an explicit
+// "http://" or "https://" host as given, matching the gRPC transport chosen by normalizeHost.
+func ensureHostScheme(host string) string {
+	if scheme, _ := splitHTTPScheme(host); scheme != "" {
+		return host
 	}
-
-	return host
+	return "https://" + host
 }
 
-// ListIndexes retrieves a list of all Indexes in a Pinecone [project].
+// splitHTTPScheme returns "http" or "https" and the rest of host when host starts with "http://" or
+// "https://", in any case. Otherwise it returns "" and host. It doesn't parse host as a URL,
+// because url.Parse reads "localhost:8443" as scheme "localhost" and rejects "127.0.0.1:8443".
+func splitHTTPScheme(host string) (string, string) {
+	for _, scheme := range []string{"https", "http"} {
+		prefix := scheme + "://"
+		if len(host) >= len(prefix) && strings.EqualFold(host[:len(prefix)], prefix) {
+			return scheme, host[len(prefix):]
+		}
+	}
+	return "", host
+}
+
+// ListIndexes retrieves a list of all Indexes in a Pinecone [project]. Indexes that use features
+// this SDK's API version can't represent are left out; list them with [Client.ListIncompatibleIndexes].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -378,18 +403,7 @@ func ensureHostHasHttps(host string) string {
 //
 // [project]: https://docs.pinecone.io/guides/projects/understanding-projects
 func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
-	res, err := c.restClient.ListIndexes(ctx, &db_control.ListIndexesParams{XPineconeApiVersion: gen.PineconeApiVersion})
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return nil, handleErrorResponseBody(res, "failed to list indexes: ")
-	}
-
-	var indexList db_control.IndexList
-	err = json.NewDecoder(res.Body).Decode(&indexList)
+	indexList, err := c.listIndexes(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +412,7 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	if indexList.Indexes != nil {
 		indexes = make([]*Index, len(*indexList.Indexes))
 		for i, idx := range *indexList.Indexes {
-			index, err := toIndex(&idx)
+			index, err := toIndex(&idx.IndexModel)
 			if err != nil {
 				return nil, err
 			}
@@ -409,6 +423,80 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	}
 
 	return indexes, nil
+}
+
+// ListIncompatibleIndexes lists the indexes in the project that [Client.ListIndexes] leaves out
+// because they use features this SDK's API version can't represent. Each [IncompatibleIndex] names
+// the earliest generally available and early-access API versions that can describe it, when there
+// are any. Such an index still exists and counts toward project limits.
+// [Client.DescribeIndex], [Client.ConfigureIndex], [Client.CreateCollection], and
+// [Client.CreateBackup] refuse it with a [PineconeError] whose error code is FAILED_PRECONDITION
+// and whose Reason is [ReasonResourceIncompatibleWithAPIVersion].
+// [Client.DeleteIndex] works unless the index has deletion protection enabled; this API version
+// can't turn that off, so use an SDK or API version that can describe the index.
+//
+// It returns an empty slice when every index can be described.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime, allowing for the request
+//     to be canceled or to timeout according to the context's deadline.
+//
+// Example:
+//
+//	incompatible, err := pc.ListIncompatibleIndexes(ctx)
+//	if err != nil {
+//		log.Fatalf("Failed to list indexes: %v", err)
+//	}
+//	for _, idx := range incompatible {
+//		if idx.MinimumAPIVersion != nil {
+//			fmt.Printf("%s: use API version %s or later\n", idx.Name, *idx.MinimumAPIVersion)
+//		} else {
+//			fmt.Printf("%s: %s\n", idx.Name, idx.Message)
+//		}
+//	}
+func (c *Client) ListIncompatibleIndexes(ctx context.Context) ([]*IncompatibleIndex, error) {
+	indexList, err := c.listIndexes(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := requireJSONArray(indexList.IncompatibleIndexes); err != nil {
+		return nil, fmt.Errorf("failed to decode incompatible_indexes: %w", err)
+	}
+	incompatible := make([]*IncompatibleIndex, 0)
+	for _, idx := range incompatibleEntries[IncompatibleIndex](indexList.IncompatibleIndexes) {
+		if idx.Name == "" {
+			continue
+		}
+		incompatible = append(incompatible, &idx)
+	}
+	return incompatible, nil
+}
+
+// indexListResponse keeps incompatible_indexes undecoded, so a malformed entry there can't stop
+// ListIndexes from returning the full indexes. The incompatible_* keys are required in 2026-10, but
+// servers deployed before that change omit them, so every list decoder treats a missing key as empty.
+type indexListResponse struct {
+	Indexes             *[]indexModel   `json:"indexes,omitempty"`
+	IncompatibleIndexes json.RawMessage `json:"incompatible_indexes,omitempty"`
+}
+
+func (c *Client) listIndexes(ctx context.Context) (*indexListResponse, error) {
+	res, err := c.restClient.ListIndexes(ctx, &db_control.ListIndexesParams{XPineconeApiVersion: gen.PineconeApiVersion})
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to list indexes: ")
+	}
+
+	var indexList indexListResponse
+	if err := json.NewDecoder(res.Body).Decode(&indexList); err != nil {
+		return nil, err
+	}
+	return &indexList, nil
 }
 
 // CreateIndexRequest holds the parameters for creating an index from an explicit schema with
@@ -437,7 +525,9 @@ type CreateIndexRequest struct {
 	// Deployment (Optional) describes where the index runs. Defaults to a serverless index on AWS in
 	// "us-east-1".
 	Deployment *IndexDeployment
-	// ReadCapacity (Optional) is the read capacity configuration. Defaults to OnDemand.
+	// ReadCapacity (Optional) is the read capacity configuration. Defaults to OnDemand, except that
+	// a BYOC environment that supports only Dedicated read capacity rejects OnDemand, including this
+	// default; set Dedicated there.
 	ReadCapacity *ReadCapacityParams
 	// CmekId (Optional) is the ID of a customer-managed encryption key (CMEK) to use for this index.
 	// Not supported for pod-based or BYOC deployments.
@@ -607,23 +697,36 @@ type CreateServerlessIndexRequest struct {
 }
 
 // ReadCapacityParams is the read capacity configuration for a new index, or for an index changed
-// with [Client.ConfigureIndex]. Set exactly one of Dedicated or OnDemand. When nil, a new index uses
-// OnDemand read capacity. Both modes are supported for serverless and BYOC indexes.
+// with [Client.ConfigureIndex]. Set exactly one of Dedicated or OnDemand; ConfigureIndex returns an
+// error when neither is set. When nil or empty, a new index uses OnDemand read capacity. Both modes are supported for new serverless and BYOC indexes, except in a
+// BYOC environment that supports only Dedicated read capacity, which rejects OnDemand, sent or
+// defaulted. [Client.ConfigureIndex] can't move an index with Dedicated read capacity back to
+// OnDemand; the API returns a 400 [PineconeError].
 type ReadCapacityParams struct {
-	// Dedicated selects Dedicated read capacity mode. Requires NodeType and Scaling configuration.
+	// Dedicated selects Dedicated read capacity mode. See [ReadCapacityDedicatedConfig] for the
+	// fields required when creating an index and when changing one with [Client.ConfigureIndex].
 	Dedicated *ReadCapacityDedicatedConfig `json:"dedicated,omitempty"`
 	// OnDemand selects OnDemand read capacity mode. No configuration is required.
 	OnDemand *ReadCapacityOnDemandConfig `json:"on_demand,omitempty"`
 }
 
 // ReadCapacityDedicatedConfig represents Dedicated read capacity configuration for indexes.
-// When creating a Dedicated index or converting an existing OnDemand index to Dedicated, you must specify NodeType, Scaling.Manual.Replicas,
-// and Scaling.Manual.Shards.
+// When creating a Dedicated index or converting an existing OnDemand index to Dedicated, you must
+// specify NodeType, Shards, and a Scaling strategy: Scaling.Manual with Replicas, or Scaling.Auto.
+//
+// With [Client.ConfigureIndex], every field is optional and omitted fields keep their current
+// value. Changing only NodeType or Shards keeps the current scaling strategy, including the bounds
+// of an autoscaled index.
 type ReadCapacityDedicatedConfig struct {
 	// NodeType is the type of machines to use. Available options: "b1" and "t1". "t1" includes
 	// increased processing power and memory.
 	NodeType *string `json:"node_type"`
-	// Scaling is the scaling strategy configuration. Currently supports manual scaling.
+	// Shards is the number of shards to use. Shards determine the storage capacity of an index,
+	// with each shard providing 250 GB of storage. When set, it wins over the deprecated
+	// Scaling.Manual.Shards.
+	Shards *int32 `json:"shards,omitempty"`
+	// Scaling is the scaling strategy: a fixed number of replicas per shard (Manual), or replica
+	// autoscaling between bounds (Auto). Set at most one of Manual and Auto.
 	Scaling *ReadCapacityScaling `json:"scaling,omitempty"`
 }
 
@@ -681,10 +784,10 @@ func (c *Client) CreateServerlessIndex(ctx context.Context, in *CreateServerless
 	}
 
 	if in.SourceCollection != nil {
-		return nil, fmt.Errorf("SourceCollection is not supported by Pinecone API version 2026-07, which does not support creating an index from a collection; use CreateIndexFromBackup to restore a backup into a new index")
+		return nil, fmt.Errorf("SourceCollection is not supported by Pinecone API versions 2026-07 and later, which do not support creating an index from a collection; use CreateIndexFromBackup to restore a backup into a new index")
 	}
 	if in.Schema != nil {
-		return nil, fmt.Errorf("Schema is not supported by Pinecone API version 2026-07: metadata fields are indexed automatically when you upsert data, so they don't need to be declared")
+		return nil, fmt.Errorf("Schema is not supported by Pinecone API versions 2026-07 and later: metadata fields are indexed automatically when you upsert data, so they don't need to be declared")
 	}
 
 	vectorType, err := validateVectorType(in.VectorType, in.Dimension, in.Metric)
@@ -996,8 +1099,9 @@ type CreateBYOCIndexRequest struct {
 	// "disabled" for the index. When "enabled", the index cannot be deleted. Defaults to "disabled".
 	DeletionProtection *DeletionProtection
 	// ReadCapacity (Optional) is the read capacity configuration for the index. Defaults to
-	// OnDemand when nil. To use Dedicated read capacity, set NodeType, Scaling.Manual.Replicas, and
-	// Scaling.Manual.Shards.
+	// OnDemand when nil. To use Dedicated read capacity, set NodeType, Shards, and a Scaling
+	// strategy. A BYOC environment that supports only Dedicated read capacity rejects OnDemand,
+	// including this default; set Dedicated there.
 	ReadCapacity *ReadCapacityParams
 	// Schema is not supported; setting it returns an error. Metadata fields are indexed
 	// automatically when you upsert data.
@@ -1054,7 +1158,7 @@ func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest
 	}
 
 	if in.Schema != nil {
-		return nil, fmt.Errorf("Schema is not supported by Pinecone API version 2026-07: metadata fields are indexed automatically when you upsert data, so they don't need to be declared")
+		return nil, fmt.Errorf("Schema is not supported by Pinecone API versions 2026-07 and later: metadata fields are indexed automatically when you upsert data, so they don't need to be declared")
 	}
 
 	deletionProtection := derefOrDefault(in.DeletionProtection, "disabled")
@@ -1110,6 +1214,14 @@ func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest
 
 // DescribeIndex retrieves information about a specific [Index]. See [Index] for more information.
 //
+// An index that uses features this SDK's API version can't represent returns a [PineconeError]
+// whose error code is FAILED_PRECONDITION and whose Reason is
+// [ReasonResourceIncompatibleWithAPIVersion]; its message says which API version, if any, can act
+// on it. Such an index is listed by [Client.ListIncompatibleIndexes] rather than
+// [Client.ListIndexes]. To work with it, upgrade to an SDK version that supports an API version
+// that can describe it, when there is one; overriding the X-Pinecone-Api-Version header instead
+// leaves this SDK's types out of step with the responses.
+//
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
@@ -1145,6 +1257,15 @@ func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest
 //		    fmt.Println(desc)
 //	    }
 func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, error) {
+	if idxName == "" {
+		return nil, fmt.Errorf("you must provide an idxName to describe an index")
+	}
+	return c.describeIndex(ctx, idxName, "failed to describe index: ")
+}
+
+// describeIndex describes an index, prefixing an API error message with errMsgPrefix so that a
+// caller such as ConfigureIndex reports the failure as its own operation.
+func (c *Client) describeIndex(ctx context.Context, idxName string, errMsgPrefix string) (*Index, error) {
 	res, err := c.restClient.DescribeIndex(ctx, idxName, &db_control.DescribeIndexParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
@@ -1152,7 +1273,7 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return nil, handleErrorResponseBody(res, "failed to describe index: ")
+		return nil, handleErrorResponseBody(res, errMsgPrefix)
 	}
 
 	return decodeIndex(res.Body)
@@ -1162,6 +1283,8 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 // in the Terminating state, for a short time after DeleteIndex returns. DeleteIndex returns a
 // [PineconeError] with Code 403 if deletion protection is enabled (disable it with
 // [Client.ConfigureIndex] first), or with Code 412 if a collection is being created from the index.
+// For an index listed by [Client.ListIncompatibleIndexes], this SDK can't turn deletion protection
+// off, because ConfigureIndex refuses such an index; use an SDK version that can describe it.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1193,6 +1316,9 @@ func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, err
 //	        fmt.Printf("Index \"%s\" deleted successfully", indexName)
 //	    }
 func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
+	if idxName == "" {
+		return fmt.Errorf("you must provide an idxName to delete an index")
+	}
 	res, err := c.restClient.DeleteIndex(ctx, idxName, &db_control.DeleteIndexParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return err
@@ -1260,14 +1386,17 @@ type ConfigureIndexParams struct {
 	Tags IndexTags
 	// Embed is not supported; setting it returns an error without calling the API.
 	//
-	// Deprecated: Pinecone API version 2026-07 no longer supports configuring an index's embedding
-	// through Embed. To update the read or write parameters of the embedding model of a legacy
-	// integrated index, use Schema.
+	// Deprecated: Pinecone API versions 2026-07 and later no longer support configuring an index's
+	// embedding through Embed. To update the read or write parameters of the embedding model of a
+	// legacy integrated index, use Schema.
 	Embed *ConfigureIndexEmbed
 	// ReadCapacity (Optional) is the [ReadCapacityParams] to apply to a serverless or BYOC index;
 	// setting it on a pod-based index returns an error. Converting an OnDemand index to Dedicated
-	// requires NodeType, Scaling.Manual.Replicas, and Scaling.Manual.Shards. Fields omitted from a
-	// Dedicated configuration keep their current values.
+	// requires NodeType, Shards, and a Scaling strategy. Fields omitted from a Dedicated
+	// configuration keep their current values. Set Scaling.Auto to turn on replica autoscaling or
+	// change its bounds, and Scaling.Manual to switch back to a fixed replica count. A request that
+	// matches the node type, shards, and scaling the index reports leaves read capacity unchanged, so
+	// to retry after the read capacity state is "Error", change at least one of them.
 	ReadCapacity *ReadCapacityParams
 	// Schema (Optional) is the [ConfigureIndexSchema] updating the read or write parameters of the
 	// embedding model of a legacy integrated index.
@@ -1291,6 +1420,8 @@ type ConfigureIndexParams struct {
 type ConfigureIndexSchema struct {
 	// Fields (Required) is the semantic text field to update, keyed by the name of the
 	// [SemanticTextField] in the index's [IndexSchema]. Exactly one field must be given.
+	// [Client.ConfigureIndex] returns an error, without changing the index, when the key doesn't
+	// name a semantic text field of the index, because the API would rename the field to the key.
 	Fields map[string]ConfigureSemanticTextField
 }
 
@@ -1308,8 +1439,8 @@ type ConfigureSemanticTextField struct {
 
 // ConfigureIndexEmbed contains parameters for configuring the embedding settings of a legacy integrated index.
 //
-// Deprecated: Pinecone API version 2026-07 no longer supports configuring an index's embedding through Embed, so
-// setting [ConfigureIndexParams].Embed returns an error. To update the read or write parameters of the embedding
+// Deprecated: Pinecone API versions 2026-07 and later no longer support configuring an index's embedding through
+// Embed, so setting [ConfigureIndexParams].Embed returns an error. To update the read or write parameters of the embedding
 // model of a legacy integrated index, use [ConfigureIndexParams].Schema. The model can't be changed after the
 // index is created.
 type ConfigureIndexEmbed struct {
@@ -1327,6 +1458,11 @@ type ConfigureIndexEmbed struct {
 // ConfigureIndex is used to configure an existing [Index] allowing you to update the index's deletion protection status, tags,
 // read capacity configuration, and the read and write parameters of a legacy integrated index's embedding model. You can also
 // [scale a pods-based index] by increasing the pod size or changing the number of replicas.
+//
+// An index that uses features this SDK's API version can't represent, as listed by
+// [Client.ListIncompatibleIndexes], returns a [PineconeError] whose error code is
+// FAILED_PRECONDITION and whose Reason is [ReasonResourceIncompatibleWithAPIVersion], and nothing
+// is changed.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1366,16 +1502,33 @@ type ConfigureIndexEmbed struct {
 //		     fmt.Printf("Failed to configure index: %v\n", err)
 //		 }
 //
+//		 // To change the read node replicas of a serverless or BYOC index with dedicated read
+//		 // capacity, here by turning on replica autoscaling between 1 and 3 replicas per shard:
+//		 _, err = pc.ConfigureIndex(ctx, "my-index", pinecone.ConfigureIndexParams{
+//		     ReadCapacity: &pinecone.ReadCapacityParams{Dedicated: &pinecone.ReadCapacityDedicatedConfig{
+//		         Scaling: &pinecone.ReadCapacityScaling{Auto: &pinecone.ReadCapacityAutoScaling{MinReplicas: 1, MaxReplicas: 3}},
+//		     }},
+//		 })
+//		 if err != nil {
+//		     fmt.Printf("Failed to configure index: %v\n", err)
+//		 }
+//
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/pods/scale-pod-based-indexes
 func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIndexParams) (*Index, error) {
+	if name == "" {
+		return nil, fmt.Errorf("you must provide a name to configure an index")
+	}
 	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" && in.Tags == nil && in.ReadCapacity == nil && in.Schema == nil && in.Embed == nil {
 		return nil, fmt.Errorf("must specify PodType, Replicas, DeletionProtection, ReadCapacity, Schema, or Tags when configuring an index")
 	}
 	if in.Embed != nil {
-		return nil, fmt.Errorf("Embed is not supported by Pinecone API version 2026-07: to update the read or write parameters of a legacy integrated index's embedding model, use Schema; to create a new index with integrated embedding, use CreateIndex with a StringField that sets Embed or SparseEmbed")
+		return nil, fmt.Errorf("Embed is not supported by Pinecone API versions 2026-07 and later: to update the read or write parameters of a legacy integrated index's embedding model, use Schema; to create a new index with integrated embedding, use CreateIndex with a StringField that sets Embed or SparseEmbed")
 	}
 	if in.Schema != nil && len(in.Schema.Fields) != 1 {
 		return nil, fmt.Errorf("Schema must contain exactly one field to update")
+	}
+	if in.ReadCapacity != nil && in.ReadCapacity.Dedicated == nil && in.ReadCapacity.OnDemand == nil {
+		return nil, errEmptyReadCapacityPatch
 	}
 
 	podType := pointerOrNil(in.PodType)
@@ -1383,7 +1536,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	deletionProtection := pointerOrNil(in.DeletionProtection)
 
 	// Describe index in order to evaluate the deployment type to validate type-specific parameters.
-	idxDesc, err := c.DescribeIndex(ctx, name)
+	idxDesc, err := c.describeIndex(ctx, name, "failed to configure index: ")
 	if err != nil {
 		return nil, err
 	}
@@ -1395,7 +1548,12 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 		return nil, fmt.Errorf("cannot configure ReadCapacity on a pod index; ReadCapacity is only supported for serverless and BYOC indexes")
 	}
 	if !isPod && (podType != nil || replicas != nil) {
-		return nil, fmt.Errorf("cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes")
+		return nil, fmt.Errorf("cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes. To change the read node replicas of a serverless or BYOC index, set ReadCapacity.Dedicated.Scaling")
+	}
+	if in.Schema != nil {
+		if err := checkSemanticTextKeys(name, idxDesc.Schema, in.Schema); err != nil {
+			return nil, err
+		}
 	}
 
 	var request db_control.ConfigureIndexRequest
@@ -1421,7 +1579,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 		fields := make(map[string]db_control.PatchSemanticTextField, len(in.Schema.Fields))
 		for fieldName, field := range in.Schema.Fields {
 			fields[fieldName] = db_control.PatchSemanticTextField{
-				Type:            db_control.PatchSemanticTextFieldTypeSemanticText,
+				Type:            db_control.SemanticText,
 				Model:           field.Model,
 				ReadParameters:  field.ReadParameters,
 				WriteParameters: field.WriteParameters,
@@ -1450,6 +1608,9 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 }
 
 // ListCollections retrieves a list of all Collections in a Pinecone [project]. See [understanding collections] for more information.
+//
+// Collections that use features this SDK's API version can't represent are left out; list them
+// with [Client.ListIncompatibleCollections].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1490,18 +1651,8 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 // [project]: https://docs.pinecone.io/guides/projects/understanding-projects
 // [understanding collections]: https://docs.pinecone.io/guides/indexes/pods/understanding-collections
 func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
-	res, err := c.restClient.ListCollections(ctx, &db_control.ListCollectionsParams{XPineconeApiVersion: gen.PineconeApiVersion})
+	collectionsResponse, err := c.listCollections(ctx)
 	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return nil, handleErrorResponseBody(res, "failed to list collections: ")
-	}
-
-	var collectionsResponse db_control.CollectionList
-	if err := json.NewDecoder(res.Body).Decode(&collectionsResponse); err != nil {
 		return nil, err
 	}
 
@@ -1517,8 +1668,84 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 	return collections, nil
 }
 
+// ListIncompatibleCollections lists the collections in the project that [Client.ListCollections]
+// leaves out because they use features this SDK's API version can't represent. Each
+// [IncompatibleCollection] names the earliest generally available and early-access API versions
+// that can describe it, when there are any. [Client.DescribeCollection] refuses such a collection
+// with a [PineconeError] whose error code is FAILED_PRECONDITION and whose Reason is
+// [ReasonResourceIncompatibleWithAPIVersion]; [Client.DeleteCollection] still works.
+//
+// It returns an empty slice when every collection can be described.
+//
+// Parameters:
+//   - ctx: A context.Context object controls the request's lifetime, allowing for the request
+//     to be canceled or to timeout according to the context's deadline.
+//
+// Example:
+//
+//	incompatible, err := pc.ListIncompatibleCollections(ctx)
+//	if err != nil {
+//		log.Fatalf("Failed to list collections: %v", err)
+//	}
+//	for _, collection := range incompatible {
+//		if collection.MinimumAPIVersion != nil {
+//			fmt.Printf("%s: use API version %s or later\n", collection.Name, *collection.MinimumAPIVersion)
+//		} else {
+//			fmt.Printf("%s: %s\n", collection.Name, collection.Message)
+//		}
+//	}
+func (c *Client) ListIncompatibleCollections(ctx context.Context) ([]*IncompatibleCollection, error) {
+	collectionsResponse, err := c.listCollections(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := requireJSONArray(collectionsResponse.IncompatibleCollections); err != nil {
+		return nil, fmt.Errorf("failed to decode incompatible_collections: %w", err)
+	}
+	incompatible := make([]*IncompatibleCollection, 0)
+	for _, collection := range incompatibleEntries[IncompatibleCollection](collectionsResponse.IncompatibleCollections) {
+		if collection.Name == "" {
+			continue
+		}
+		incompatible = append(incompatible, &collection)
+	}
+	return incompatible, nil
+}
+
+// collectionListResponse keeps incompatible_collections undecoded, so a malformed entry there
+// can't stop ListCollections from returning the full collections.
+type collectionListResponse struct {
+	Collections             *[]db_control.CollectionModel `json:"collections,omitempty"`
+	IncompatibleCollections json.RawMessage               `json:"incompatible_collections,omitempty"`
+}
+
+func (c *Client) listCollections(ctx context.Context) (*collectionListResponse, error) {
+	res, err := c.restClient.ListCollections(ctx, &db_control.ListCollectionsParams{XPineconeApiVersion: gen.PineconeApiVersion})
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, handleErrorResponseBody(res, "failed to list collections: ")
+	}
+
+	var collectionsResponse collectionListResponse
+	if err := json.NewDecoder(res.Body).Decode(&collectionsResponse); err != nil {
+		return nil, err
+	}
+	return &collectionsResponse, nil
+}
+
 // DescribeCollection retrieves information about a specific [Collection]. See [understanding collections]
 // for more information.
+//
+// A collection that uses features this SDK's API version can't represent returns a [PineconeError]
+// whose error code is FAILED_PRECONDITION and whose Reason is
+// [ReasonResourceIncompatibleWithAPIVersion]; its message says which API version, if any, can act
+// on it. Such a collection is listed by [Client.ListIncompatibleCollections] rather than
+// [Client.ListCollections].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1561,6 +1788,9 @@ func (c *Client) ListCollections(ctx context.Context) ([]*Collection, error) {
 // [dimensionality]: https://docs.pinecone.io/guides/indexes/pods/choose-a-pod-type-and-size#dimensionality-of-vectors
 // [understanding collections]: https://docs.pinecone.io/guides/indexes/pods/understanding-collections
 func (c *Client) DescribeCollection(ctx context.Context, collectionName string) (*Collection, error) {
+	if collectionName == "" {
+		return nil, fmt.Errorf("you must provide a collectionName to describe a collection")
+	}
 	res, err := c.restClient.DescribeCollection(ctx, collectionName, &db_control.DescribeCollectionParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
@@ -1610,7 +1840,10 @@ type CreateCollectionRequest struct {
 	Source string
 }
 
-// CreateCollection creates and initializes a new [Collection] via the specified [Client].
+// CreateCollection creates and initializes a new [Collection] via the specified [Client]. If the
+// source index uses features this SDK's API version can't represent, it returns a [PineconeError]
+// whose error code is FAILED_PRECONDITION and whose Reason is
+// [ReasonResourceIncompatibleWithAPIVersion].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1704,6 +1937,9 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 //		       log.Printf("Successfully deleted collection \"%s\"\n", collectionName)
 //	    }
 func (c *Client) DeleteCollection(ctx context.Context, collectionName string) error {
+	if collectionName == "" {
+		return fmt.Errorf("you must provide a collectionName to delete a collection")
+	}
 	res, err := c.restClient.DeleteCollection(ctx, collectionName, &db_control.DeleteCollectionParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return err
@@ -1728,7 +1964,10 @@ type CreateBackupParams struct {
 }
 
 // CreateBackup creates a [Backup] for an index. The returned [Backup] starts with Status
-// "Initializing"; poll [Client.DescribeBackup] until Status is "Ready" before restoring from it.
+// "Initializing"; poll [Client.DescribeBackup] until Status is "Ready" before restoring from it. If
+// the index uses features this SDK's API version can't represent, it returns a [PineconeError]
+// whose error code is FAILED_PRECONDITION and whose Reason is
+// [ReasonResourceIncompatibleWithAPIVersion].
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1771,10 +2010,10 @@ type CreateBackupParams struct {
 //		 }
 func (c *Client) CreateBackup(ctx context.Context, in *CreateBackupParams) (*Backup, error) {
 	if in == nil {
-		return nil, fmt.Errorf("in (*CreateBackupRequest) cannot be nil")
+		return nil, fmt.Errorf("in (*CreateBackupParams) cannot be nil")
 	}
 	if in.IndexName == "" {
-		return nil, fmt.Errorf("IndexName must be included in CreateBackupRequest")
+		return nil, fmt.Errorf("IndexName must be included in CreateBackupParams")
 	}
 
 	res, err := c.restClient.CreateBackup(ctx, in.IndexName, &db_control.CreateBackupParams{XPineconeApiVersion: gen.PineconeApiVersion}, db_control.CreateBackupRequest{
@@ -1805,8 +2044,12 @@ type CreateIndexFromBackupParams struct {
 	DeletionProtection *DeletionProtection `json:"deletion_protection,omitempty"`
 	// Tags (Optional) are custom user tags added to the index. See [IndexTags] for the limits.
 	Tags *IndexTags `json:"tags,omitempty"`
-	// ReadCapacity (Optional) is the read capacity for the new index. Defaults to OnDemand when nil.
-	// Dedicated capacity must be large enough to hold the backup's data.
+	// ReadCapacity (Optional) is the read capacity for the new index. Defaults to OnDemand when nil,
+	// except that a BYOC environment that supports only Dedicated read capacity rejects OnDemand,
+	// including this default; set Dedicated there. Read capacity isn't copied from the source index.
+	// Dedicated capacity needs enough shards to hold the backup's data; with too few, the request
+	// usually fails and the error message names the minimum. Older backups without size
+	// information aren't checked.
 	ReadCapacity *ReadCapacityParams `json:"read_capacity,omitempty"`
 	// Deployment (Optional) is where to create the index. Defaults to the cloud and region, or the
 	// BYOC environment, the backup was taken in. Set Managed to restore a serverless backup into
@@ -1833,7 +2076,10 @@ type CreateIndexFromBackupResponse struct {
 // serverless backup, or the same environment for a BYOC backup. To restore a serverless backup into
 // another region of the same cloud, set Deployment to a [ManagedDeployment] in that region.
 // Cross-region restore isn't yet available from every source region; the API returns 412 when it
-// isn't.
+// isn't. A backup that uses features this SDK's API version can't represent also returns a 412
+// [PineconeError] with error code FAILED_PRECONDITION and Reason
+// [ReasonResourceIncompatibleWithAPIVersion], whose message says which API version, if any, can act
+// on it; [Client.ListBackups] reports such a backup in [BackupList].IncompatibleData.
 // Cross-cloud restore is not supported, a serverless backup can't be restored into a BYOC
 // environment, and a BYOC backup can only be restored into the environment it was taken in.
 //
@@ -1870,13 +2116,13 @@ type CreateIndexFromBackupResponse struct {
 //	    }
 func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromBackupParams) (*CreateIndexFromBackupResponse, error) {
 	if in == nil {
-		return nil, fmt.Errorf("in (*CreateIndexFromBackupRequest) cannot be nil")
+		return nil, fmt.Errorf("in (*CreateIndexFromBackupParams) cannot be nil")
 	}
 	if in.BackupId == "" {
-		return nil, fmt.Errorf("BackupId must be included in CreateIndexFromBackupRequest")
+		return nil, fmt.Errorf("BackupId must be included in CreateIndexFromBackupParams")
 	}
 	if in.Name == "" {
-		return nil, fmt.Errorf("Name must be included in CreateIndexFromBackupRequest")
+		return nil, fmt.Errorf("Name must be included in CreateIndexFromBackupParams")
 	}
 	readCapacity, err := readCapacityParamsToReadCapacity(in.ReadCapacity)
 	if err != nil {
@@ -1917,6 +2163,12 @@ func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromB
 }
 
 // DescribeBackup describes a specific [Backup] by ID.
+//
+// A backup that uses features this SDK's API version can't represent returns a [PineconeError]
+// whose error code is FAILED_PRECONDITION and whose Reason is
+// [ReasonResourceIncompatibleWithAPIVersion]; its message says which API version, if any, can act
+// on it. [Client.ListBackups] reports such a backup in [BackupList].IncompatibleData instead of
+// Data.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -1976,6 +2228,9 @@ type ListBackupsParams struct {
 
 // ListBackups lists backups for a specific [Index], or all of the backups in a Pinecone project.
 //
+// Backups that use features this SDK's API version can't represent are reported in
+// [BackupList].IncompatibleData instead of Data.
+//
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
@@ -2023,6 +2278,9 @@ func (c *Client) ListBackups(ctx context.Context, in *ListBackupsParams) (*Backu
 			return nil, err
 		}
 	} else {
+		if *in.IndexName == "" {
+			return nil, fmt.Errorf("IndexName must not be empty; leave it nil to list the project's backups")
+		}
 		response, err = c.restClient.ListIndexBackups(ctx, *in.IndexName, &db_control.ListIndexBackupsParams{
 			IncludeDeleted:  in.IncludeDeleted,
 			Limit:           in.Limit,
@@ -2085,6 +2343,12 @@ func (c *Client) DeleteBackup(ctx context.Context, backupId string) error {
 
 // DescribeRestoreJob describes a specific [RestoreJob] by ID.
 //
+// A restore job that uses features this SDK's API version can't represent returns a [PineconeError]
+// whose error code is FAILED_PRECONDITION and whose Reason is
+// [ReasonResourceIncompatibleWithAPIVersion]; its message says which API version, if any, can act
+// on it. [Client.ListRestoreJobs] reports such a job in [RestoreJobList].IncompatibleData
+// instead of Data.
+//
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
@@ -2137,7 +2401,8 @@ type ListRestoreJobsParams struct {
 
 // ListRestoreJobs lists all restore jobs in a Pinecone project. Restore jobs are listed for the whole
 // project and can't be filtered by index. When Pagination is non-nil, pass Pagination.Next as
-// PaginationToken to fetch the next page.
+// PaginationToken to fetch the next page. Restore jobs that use features this SDK's API version
+// can't represent are reported in [RestoreJobList].IncompatibleData instead of Data.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -2212,18 +2477,14 @@ type EmbedRequest struct {
 }
 
 // EmbedParameters contains model-specific parameters for generating embeddings. Keys and values are
-// sent to the API as-is, so keys must use the API's snake_case names. The API rejects unknown keys
-// and keys the model doesn't support; call [InferenceService.DescribeModel] and read
-// SupportedParameters to see which keys a model accepts.
+// sent to the API as-is, so keys must use the API's snake_case names. Which keys a model accepts,
+// their allowed values, and their defaults differ by model, and the API rejects unknown keys and
+// keys the model doesn't support. Call [InferenceService.DescribeModel] or
+// [InferenceService.ListModels] and read SupportedParameters for the authoritative list.
 //
-// Keys:
-//   - "input_type": "query" or "passage". Required by asymmetric models such as
-//     multilingual-e5-large, llama-text-embed-v2, and pinecone-sparse-english-v0.
-//   - "truncate": "END" (default) or "NONE". With "NONE", an input longer than the model's maximum
-//     token length returns an error.
-//   - "dimension": (integer) the output dimension, for models that support more than one.
-//   - "return_tokens": (boolean) sparse models only; return SparseEmbedding.SparseTokens.
-//   - "max_tokens_per_sequence": (integer) for models that support it.
+// Common keys include "input_type" ("query" or "passage"), which asymmetric models such as
+// multilingual-e5-large require, and "truncate", which controls what happens to an input longer
+// than the model's maximum token length.
 type EmbedParameters map[string]interface{}
 
 // EmbedResponse holds the embeddings generated by [InferenceService.Embed], one [Embedding] per input,
@@ -2235,7 +2496,8 @@ type EmbedResponse struct {
 	Data []Embedding `json:"data"`
 	// Model is the model used to generate the embeddings.
 	Model string `json:"model"`
-	// VectorType indicates whether the embeddings are dense or sparse.
+	// VectorType is the kind of embeddings in Data: "dense" or "sparse". More kinds may be added;
+	// see [Embedding] for how an embedding of another kind is returned.
 	VectorType string `json:"vector_type"`
 	// Usage reports usage statistics ([Total Tokens]) for the request.
 	Usage struct {
@@ -2312,7 +2574,7 @@ func (i *InferenceService) Embed(ctx context.Context, in *EmbedRequest) (*EmbedR
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to embed: ")
 	}
 
@@ -2344,7 +2606,8 @@ type RerankRequest struct {
 	ReturnDocuments *bool
 	// TopN (Optional) is how many Documents to return. Defaults to the number of input Documents.
 	TopN *int
-	// Parameters (Optional) are additional model-specific parameters for the reranker.
+	// Parameters (Optional) are additional model-specific parameters for the reranker. Call
+	// [InferenceService.DescribeModel] and read SupportedParameters to see which keys a model accepts.
 	Parameters *map[string]interface{}
 }
 
@@ -2436,7 +2699,7 @@ func (i *InferenceService) Rerank(ctx context.Context, in *RerankRequest) (*Rera
 		return nil, err
 	}
 	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to rerank: ")
 	}
 	return decodeRerankResponse(res.Body)
@@ -2478,7 +2741,7 @@ func (i *InferenceService) DescribeModel(ctx context.Context, modelName string) 
 		return nil, err
 	}
 	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to get model: ")
 	}
 	var modelInfo ModelInfo
@@ -2486,6 +2749,7 @@ func (i *InferenceService) DescribeModel(ctx context.Context, modelName string) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode model info response: %w", err)
 	}
+	fillDeprecatedModality(&modelInfo)
 	return &modelInfo, nil
 }
 
@@ -2496,6 +2760,10 @@ type ListModelsParams struct {
 	// VectorType (Optional) is the vector type to filter by: "dense" or "sparse". Setting it implies
 	// Type "embed"; combining it with Type "rerank" returns an error from the API.
 	VectorType *string
+	// Modality (Optional) lists only the models that accept this kind of input, such as "text",
+	// "image" or "pdf": a model matches when its Modalities contain it. It takes one value. A value
+	// the API doesn't recognize returns a 400 [PineconeError].
+	Modality *string
 }
 
 // ListModels lists all available models hosted by Pinecone. You can filter results using [ListModelsParams].
@@ -2503,8 +2771,9 @@ type ListModelsParams struct {
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
 //     to be canceled or to timeout according to the context's deadline.
-//   - in: An optional [ListModelsParams] for filtering by model type and vector type. Pass nil to
-//     list all models.
+//   - in: An optional [ListModelsParams] for filtering by model type, vector type, and input
+//     modality. A model is listed only if it matches every filter you set. Pass nil to list all
+//     models.
 //
 // Returns a pointer to a [ModelInfoList] object or an error.
 //
@@ -2531,6 +2800,7 @@ func (i *InferenceService) ListModels(ctx context.Context, in *ListModelsParams)
 		params = &inference.ListModelsParams{
 			Type:       in.Type,
 			VectorType: in.VectorType,
+			Modality:   in.Modality,
 		}
 	}
 
@@ -2539,7 +2809,7 @@ func (i *InferenceService) ListModels(ctx context.Context, in *ListModelsParams)
 		return nil, err
 	}
 	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to list models: ")
 	}
 	var modelInfoList ModelInfoList
@@ -2547,7 +2817,31 @@ func (i *InferenceService) ListModels(ctx context.Context, in *ListModelsParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode model info list response: %w", err)
 	}
+	if modelInfoList.Models != nil {
+		for i := range *modelInfoList.Models {
+			fillDeprecatedModality(&(*modelInfoList.Models)[i])
+		}
+	}
 	return &modelInfoList, nil
+}
+
+// fillDeprecatedModality sets the deprecated Modality from Modalities when the response has no
+// modality of its own, as on API version 2026-10.
+func fillDeprecatedModality(model *ModelInfo) {
+	if model.Modality != nil || model.Modalities == nil {
+		return
+	}
+	modalities := *model.Modalities
+	var modality string
+	switch {
+	case slices.Contains(modalities, "text"):
+		modality = "text"
+	case len(modalities) == 1:
+		modality = modalities[0]
+	default:
+		return
+	}
+	model.Modality = &modality
 }
 
 func (c *Client) extractAuthHeader() map[string]string {
@@ -2608,52 +2902,134 @@ func toIndex(idx *db_control.IndexModel) (*Index, error) {
 }
 
 func decodeIndex(resBody io.ReadCloser) (*Index, error) {
-	var idx db_control.IndexModel
+	var idx indexModel
 	err := json.NewDecoder(resBody).Decode(&idx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode IndexModel response: %w", err)
 	}
-	index, err := toIndex(&idx)
+	index, err := toIndex(&idx.IndexModel)
 	if err != nil {
 		return nil, err
 	}
 	return index, nil
 }
 
+// incompatibleEntries decodes an incompatible_* array one entry at a time, leaving out entries that
+// don't decode, so a malformed entry can't hide the rest of a list response. Callers also drop
+// entries without an identifier, such as null or {}.
+func incompatibleEntries[T any](raw json.RawMessage) []T {
+	var items []json.RawMessage
+	if err := json.Unmarshal(raw, &items); err != nil {
+		return []T{}
+	}
+	entries := make([]T, 0, len(items))
+	for _, item := range items {
+		var entry T
+		if err := json.Unmarshal(item, &entry); err == nil {
+			entries = append(entries, entry)
+		}
+	}
+	return entries
+}
+
+// requireJSONArray returns an error unless raw is absent, null, or a JSON array. The
+// incompatible list decoders use it so a malformed list is reported instead of read as empty.
+func requireJSONArray(raw json.RawMessage) error {
+	if len(raw) == 0 {
+		return nil
+	}
+	var items []json.RawMessage
+	return json.Unmarshal(raw, &items)
+}
+
+// chooseIncompatibleList returns the incompatible list under key, or under the pre-rename
+// legacyKey when key is absent or null. It returns an error when the chosen value isn't an array.
+func chooseIncompatibleList(raw json.RawMessage, key string, legacy json.RawMessage, legacyKey string) (json.RawMessage, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		raw, key = legacy, legacyKey
+	}
+	if err := requireJSONArray(raw); err != nil {
+		return nil, fmt.Errorf("failed to decode %s: %w", key, err)
+	}
+	return raw, nil
+}
+
+// backupListResponse keeps incompatible_data undecoded; see incompatibleEntries. Until the server
+// renames it, production sends the array as incompatible_backups, which is read when
+// incompatible_data is absent or null. A value that isn't an array fails the decode.
+type backupListResponse struct {
+	Data                      *[]backupModel                 `json:"data,omitempty"`
+	Pagination                *db_control.PaginationResponse `json:"pagination"`
+	IncompatibleData          json.RawMessage                `json:"incompatible_data,omitempty"`
+	LegacyIncompatibleBackups json.RawMessage                `json:"incompatible_backups,omitempty"`
+}
+
 func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
-	var backupListDb db_control.BackupList
+	var backupListDb backupListResponse
 	if err := json.NewDecoder(resBody).Decode(&backupListDb); err != nil {
 		return nil, fmt.Errorf("failed to decode backup list response: %w", err)
 	}
+	incompatibleRaw, err := chooseIncompatibleList(backupListDb.IncompatibleData, "incompatible_data", backupListDb.LegacyIncompatibleBackups, "incompatible_backups")
+	if err != nil {
+		return nil, err
+	}
 	var backupList BackupList
+	backupList.IncompatibleData = make([]*IncompatibleBackup, 0)
+	for _, backup := range incompatibleEntries[IncompatibleBackup](incompatibleRaw) {
+		if backup.BackupId == "" {
+			continue
+		}
+		backupList.IncompatibleData = append(backupList.IncompatibleData, &backup)
+	}
 	if backupListDb.Data != nil {
 		backupList.Data = make([]*Backup, len(*backupListDb.Data))
 		for i, backup := range *backupListDb.Data {
-			backupList.Data[i] = toBackup(&backup)
+			backupList.Data[i] = toBackup(&backup.BackupModel)
 		}
-		backupList.Pagination = (*Pagination)(backupListDb.Pagination)
+		backupList.Pagination = toPaginationControl(backupListDb.Pagination)
 	} else {
 		backupList.Data = make([]*Backup, 0)
-		backupList.Pagination = (*Pagination)(backupListDb.Pagination)
+		backupList.Pagination = toPaginationControl(backupListDb.Pagination)
 	}
 	return &backupList, nil
 }
 
+// restoreJobListResponse keeps incompatible_data undecoded; see incompatibleEntries. Until the
+// server renames it, production sends the array as incompatible_restore_jobs, which is read when
+// incompatible_data is absent or null. A value that isn't an array fails the decode.
+type restoreJobListResponse struct {
+	Data                          []db_control.RestoreJobModel   `json:"data"`
+	Pagination                    *db_control.PaginationResponse `json:"pagination"`
+	IncompatibleData              json.RawMessage                `json:"incompatible_data,omitempty"`
+	LegacyIncompatibleRestoreJobs json.RawMessage                `json:"incompatible_restore_jobs,omitempty"`
+}
+
 func decodeRestoreJobList(resBody io.ReadCloser) (*RestoreJobList, error) {
-	var restoreJobListDb db_control.RestoreJobList
+	var restoreJobListDb restoreJobListResponse
 	if err := json.NewDecoder(resBody).Decode(&restoreJobListDb); err != nil {
 		return nil, fmt.Errorf("failed to decode restore job list response: %w", err)
 	}
+	incompatibleRaw, err := chooseIncompatibleList(restoreJobListDb.IncompatibleData, "incompatible_data", restoreJobListDb.LegacyIncompatibleRestoreJobs, "incompatible_restore_jobs")
+	if err != nil {
+		return nil, err
+	}
 	var restoreJobList RestoreJobList
+	restoreJobList.IncompatibleData = make([]*IncompatibleRestoreJob, 0)
+	for _, job := range incompatibleEntries[IncompatibleRestoreJob](incompatibleRaw) {
+		if job.RestoreJobId == "" {
+			continue
+		}
+		restoreJobList.IncompatibleData = append(restoreJobList.IncompatibleData, &job)
+	}
 	if len(restoreJobListDb.Data) > 0 {
 		restoreJobList.Data = make([]*RestoreJob, len(restoreJobListDb.Data))
 		for i, restoreJob := range restoreJobListDb.Data {
 			restoreJobList.Data[i] = toRestoreJob(&restoreJob)
 		}
-		restoreJobList.Pagination = (*Pagination)(restoreJobListDb.Pagination)
+		restoreJobList.Pagination = toPaginationControl(restoreJobListDb.Pagination)
 	} else {
 		restoreJobList.Data = make([]*RestoreJob, 0)
-		restoreJobList.Pagination = (*Pagination)(restoreJobListDb.Pagination)
+		restoreJobList.Pagination = toPaginationControl(restoreJobListDb.Pagination)
 	}
 	return &restoreJobList, nil
 }
@@ -2664,7 +3040,7 @@ func toBackup(backup *db_control.BackupModel) *Backup {
 	}
 
 	var createdAt *string
-	if backup.CreatedAt != nil {
+	if !backup.CreatedAt.IsZero() {
 		formatted := backup.CreatedAt.Format(time.RFC3339Nano)
 		createdAt = &formatted
 	}
@@ -2687,24 +3063,22 @@ func toBackup(backup *db_control.BackupModel) *Backup {
 		Tags:                 (*IndexTags)(backup.Tags),
 	}
 
-	// Populate the deprecated computed Dimension/Metric from the schema's dense vector field.
-	if dense := denseFieldForCompat(result.Schema); dense != nil {
-		dimension := dense.Dimension
-		metric := dense.Metric
-		result.Dimension = &dimension
-		result.Metric = &metric
+	// Populate the deprecated computed Dimension/Metric from the schema's dense slot.
+	if dense, _ := denseSlotForCompat(result.Schema); dense != nil {
+		result.Dimension = dense.dimension
+		result.Metric = dense.metric
 	}
 
 	return result
 }
 
 func decodeBackup(resBody io.ReadCloser) (*Backup, error) {
-	var backup db_control.BackupModel
+	var backup backupModel
 	if err := json.NewDecoder(resBody).Decode(&backup); err != nil {
 		return nil, fmt.Errorf("failed to decode backup response: %w", err)
 	}
 
-	return toBackup(&backup), nil
+	return toBackup(&backup.BackupModel), nil
 }
 
 func toRestoreJob(restoreJob *db_control.RestoreJobModel) *RestoreJob {
@@ -2739,47 +3113,74 @@ func decodeRestoreJob(resBody io.ReadCloser) (*RestoreJob, error) {
 	return toRestoreJob(&restoreJob), nil
 }
 
+// embedResponseWire and embeddingWire read the embed response without the generated union types,
+// so an embedding of a kind this SDK doesn't know doesn't fail the whole response.
+type embedResponseWire struct {
+	Data       []json.RawMessage `json:"data"`
+	Model      string            `json:"model"`
+	VectorType string            `json:"vector_type"`
+	Usage      json.RawMessage   `json:"usage"`
+}
+
+type embeddingWire struct {
+	VectorType string `json:"vector_type"`
+}
+
+type denseEmbeddingWire struct {
+	Values []float32 `json:"values"`
+}
+
+type sparseEmbeddingWire struct {
+	SparseValues  []float32 `json:"sparse_values"`
+	SparseIndices []int64   `json:"sparse_indices"`
+	SparseTokens  *[]string `json:"sparse_tokens"`
+}
+
 func decodeEmbedResponse(resBody io.ReadCloser) (*EmbedResponse, error) {
-	var rawEmbedResponse inference.EmbeddingsList
-	if err := json.NewDecoder(resBody).Decode(&rawEmbedResponse); err != nil {
+	var raw embedResponseWire
+	if err := json.NewDecoder(resBody).Decode(&raw); err != nil {
 		return nil, fmt.Errorf("failed to decode embed response: %w", err)
 	}
 
-	decodedEmbeddings := make([]Embedding, len(rawEmbedResponse.Data))
-	for i, embedding := range rawEmbedResponse.Data {
-
-		switch rawEmbedResponse.VectorType {
-		case "sparse":
-			dbSparseEmbedding, err := embedding.AsSparseEmbedding()
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode SparseEmbedding: %w", err)
-			}
-			decodedEmbeddings[i] = Embedding{SparseEmbedding: &SparseEmbedding{
-				VectorType:    dbSparseEmbedding.VectorType,
-				SparseValues:  dbSparseEmbedding.SparseValues,
-				SparseIndices: dbSparseEmbedding.SparseIndices,
-				SparseTokens:  dbSparseEmbedding.SparseTokens,
-			}}
-		case "dense":
-			dbDenseEmbedding, err := embedding.AsDenseEmbedding()
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode DenseEmbedding: %w", err)
-			}
-			decodedEmbeddings[i] = Embedding{DenseEmbedding: &DenseEmbedding{
-				VectorType: dbDenseEmbedding.VectorType,
-				Values:     dbDenseEmbedding.Values,
-			}}
-		default:
-			return nil, fmt.Errorf("unsupported VectorType: %s", rawEmbedResponse.VectorType)
+	out := &EmbedResponse{
+		Data:       make([]Embedding, len(raw.Data)),
+		Model:      raw.Model,
+		VectorType: raw.VectorType,
+	}
+	if len(raw.Usage) > 0 {
+		if err := json.Unmarshal(raw.Usage, &out.Usage); err != nil {
+			return nil, fmt.Errorf("failed to decode embed response: %w", err)
 		}
 	}
 
-	return &EmbedResponse{
-		Data:       decodedEmbeddings,
-		Model:      rawEmbedResponse.Model,
-		VectorType: rawEmbedResponse.VectorType,
-		Usage:      rawEmbedResponse.Usage,
-	}, nil
+	for i, item := range raw.Data {
+		var kind embeddingWire
+		if err := json.Unmarshal(item, &kind); err != nil {
+			return nil, fmt.Errorf("failed to decode embed response: %w", err)
+		}
+		vectorType := valueOrFallback(kind.VectorType, raw.VectorType)
+		switch vectorType {
+		case "dense":
+			var dense denseEmbeddingWire
+			if err := json.Unmarshal(item, &dense); err != nil {
+				return nil, fmt.Errorf("failed to decode embed response: %w", err)
+			}
+			out.Data[i].DenseEmbedding = &DenseEmbedding{VectorType: vectorType, Values: dense.Values}
+		case "sparse":
+			var sparse sparseEmbeddingWire
+			if err := json.Unmarshal(item, &sparse); err != nil {
+				return nil, fmt.Errorf("failed to decode embed response: %w", err)
+			}
+			out.Data[i].SparseEmbedding = &SparseEmbedding{
+				VectorType:    vectorType,
+				SparseValues:  sparse.SparseValues,
+				SparseIndices: sparse.SparseIndices,
+				SparseTokens:  sparse.SparseTokens,
+			}
+		}
+	}
+
+	return out, nil
 }
 
 func decodeRerankResponse(resBody io.ReadCloser) (*RerankResponse, error) {
@@ -2817,26 +3218,108 @@ func decodeCollection(resBody io.ReadCloser) (*Collection, error) {
 	return toCollection(&collectionModel), nil
 }
 
-func decodeErrorResponse(resBodyBytes []byte) (*db_control.ErrorResponse, error) {
-	var errorResponse db_control.ErrorResponse
+// apiErrorResponse is db_control.ErrorResponse with details left undecoded, so details that
+// aren't a JSON object can't hide the error code and message.
+type apiErrorResponse struct {
+	Error struct {
+		Code    string          `json:"code"`
+		Details json.RawMessage `json:"details,omitempty"`
+		Message string          `json:"message"`
+		Reason  *string         `json:"reason,omitempty"`
+	} `json:"error"`
+	Status int `json:"status"`
+}
+
+func decodeErrorResponse(resBodyBytes []byte) (*apiErrorResponse, error) {
+	var errorResponse apiErrorResponse
 	err := json.Unmarshal(resBodyBytes, &errorResponse)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode error response: %w", err)
 	}
 
-	if errorResponse.Status == 0 {
+	// Some error bodies carry error.code without a top-level status.
+	if errorResponse.Status == 0 && errorResponse.Error.Code == "" {
 		return nil, fmt.Errorf("unable to parse ErrorResponse: %v", string(resBodyBytes))
 	}
 
 	return &errorResponse, nil
 }
 
+// rpcStatus is the error body of the bulk import operations: a gRPC code and message.
+// Details, a list of protobuf Any values, is left undecoded so an unexpected shape can't hide the
+// code and message.
+type rpcStatus struct {
+	Code    *int32          `json:"code"`
+	Message *string         `json:"message"`
+	Details json.RawMessage `json:"details"`
+}
+
+// decodeRpcStatus decodes an rpcStatus error body. It reports false unless the body is a JSON
+// object with a numeric top-level "code".
+func decodeRpcStatus(resBodyBytes []byte) (*rpcStatus, bool) {
+	var status rpcStatus
+	if err := json.Unmarshal(resBodyBytes, &status); err != nil || status.Code == nil {
+		return nil, false
+	}
+	return &status, true
+}
+
+// grpcCodeNames are the canonical names of the gRPC status codes, indexed by code. They match the
+// error codes of the ErrorResponse shape.
+var grpcCodeNames = [...]string{
+	"OK", "CANCELLED", "UNKNOWN", "INVALID_ARGUMENT", "DEADLINE_EXCEEDED", "NOT_FOUND",
+	"ALREADY_EXISTS", "PERMISSION_DENIED", "RESOURCE_EXHAUSTED", "FAILED_PRECONDITION", "ABORTED",
+	"OUT_OF_RANGE", "UNIMPLEMENTED", "INTERNAL", "UNAVAILABLE", "DATA_LOSS", "UNAUTHENTICATED",
+}
+
+// grpcCodeName returns the canonical name of a gRPC status code, or "UNKNOWN" for a code it
+// doesn't recognize, as gRPC clients treat unrecognized codes.
+func grpcCodeName(code int32) string {
+	if code >= 0 && int(code) < len(grpcCodeNames) {
+		return grpcCodeNames[code]
+	}
+	return "UNKNOWN"
+}
+
+// maxPlainTextErrorMessageBytes caps the excerpt of a non-JSON error body kept in
+// [PineconeError.Message], so an HTML error page doesn't land whole in the message.
+const maxPlainTextErrorMessageBytes = 512
+
 type errorResponseMap struct {
-	StatusCode int    `json:"status_code"`
-	Body       string `json:"body,omitempty"`
-	ErrorCode  string `json:"error_code,omitempty"`
-	Message    string `json:"message,omitempty"`
-	Details    string `json:"details,omitempty"`
+	StatusCode int             `json:"status_code"`
+	Body       string          `json:"body,omitempty"`
+	ErrorCode  string          `json:"error_code,omitempty"`
+	Reason     string          `json:"reason,omitempty"`
+	Message    string          `json:"message,omitempty"`
+	Details    any             `json:"details,omitempty"`
+	details    *map[string]any `json:"-"`
+}
+
+// isSuccessStatus reports whether code is a 2xx status.
+func isSuccessStatus(code int) bool {
+	return code >= 200 && code < 300
+}
+
+// paginationFromNext returns nil for an empty token, so a non-nil [Pagination] always has a next page.
+func paginationFromNext(next string) *Pagination {
+	if next == "" {
+		return nil
+	}
+	return &Pagination{Next: next}
+}
+
+func normalizePagination(p *Pagination) *Pagination {
+	if p == nil {
+		return nil
+	}
+	return paginationFromNext(p.Next)
+}
+
+func toPaginationControl(p *db_control.PaginationResponse) *Pagination {
+	if p == nil {
+		return nil
+	}
+	return paginationFromNext(p.Next)
 }
 
 func handleErrorResponseBody(response *http.Response, errMsgPrefix string) error {
@@ -2854,11 +3337,29 @@ func handleErrorResponseBody(response *http.Response, errMsgPrefix string) error
 		if err == nil {
 			errMap.Message = errorResponse.Error.Message
 			errMap.ErrorCode = string(errorResponse.Error.Code)
+			if errorResponse.Error.Reason != nil {
+				errMap.Reason = *errorResponse.Error.Reason
+			}
 
-			if errorResponse.Error.Details != nil {
-				errMap.Details = fmt.Sprintf("%+v", errorResponse.Error.Details)
+			// Details that aren't a JSON object are left out; the code and message are kept.
+			var details map[string]any
+			if json.Unmarshal(errorResponse.Error.Details, &details) == nil && details != nil {
+				errMap.Details = details
+				errMap.details = &details
+			}
+		} else if status, ok := decodeRpcStatus(resBodyBytes); ok {
+			errMap.ErrorCode = grpcCodeName(*status.Code)
+			if status.Message != nil {
+				errMap.Message = *status.Message
+			}
+			var details []any
+			if json.Unmarshal(status.Details, &details) == nil && len(details) > 0 {
+				errMap.Details = details
 			}
 		}
+	} else {
+		// The API documents some 400 and 422 bodies as plain text rather than an ErrorResponse.
+		errMap.Message = plainTextErrorExcerpt(string(resBodyBytes))
 	}
 
 	errMap.Body = string(resBodyBytes)
@@ -2870,14 +3371,39 @@ func handleErrorResponseBody(response *http.Response, errMsgPrefix string) error
 	return formatError(errMap)
 }
 
+// plainTextErrorExcerpt collapses whitespace runs in body to single spaces and cuts the result to
+// at most maxPlainTextErrorMessageBytes on a UTF-8 boundary, marking a cut with a trailing "…".
+func plainTextErrorExcerpt(body string) string {
+	excerpt := strings.Join(strings.Fields(body), " ")
+	if len(excerpt) <= maxPlainTextErrorMessageBytes {
+		return excerpt
+	}
+	cut := maxPlainTextErrorMessageBytes
+	for cut > 0 && !utf8.RuneStart(excerpt[cut]) {
+		cut--
+	}
+	return strings.TrimRight(excerpt[:cut], " ") + "…"
+}
+
 func formatError(errMap errorResponseMap) error {
-	jsonString, err := json.Marshal(errMap)
-	if err != nil {
+	// json.Marshal would escape <, > and & as \u003c, \u003e and \u0026, which makes server
+	// messages such as "max_replicas must be >= min_replicas" hard to read.
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(errMap); err != nil {
 		return err
 	}
-	baseError := errors.New(string(jsonString))
+	baseError := errors.New(strings.TrimSuffix(buf.String(), "\n"))
 
-	return &PineconeError{Code: errMap.StatusCode, Msg: baseError}
+	return &PineconeError{
+		Code:      errMap.StatusCode,
+		ErrorCode: errMap.ErrorCode,
+		Reason:    errMap.Reason,
+		Message:   errMap.Message,
+		details:   errMap.details,
+		Msg:       baseError,
+	}
 }
 
 func buildClientBaseOptions(in NewClientBaseParams) []db_control.ClientOption {
@@ -2983,14 +3509,14 @@ func validateVectorType(vectorType *string, dimension *int32, metric *IndexMetri
 	return out, nil
 }
 
+// ensureURLScheme prepends "https://" to a control-plane or admin host that has no scheme, such as
+// "api.example.com" or "localhost:8443", and returns an error if the result isn't a valid URL.
 func ensureURLScheme(inputURL string) (string, error) {
-	parsedURL, err := url.Parse(inputURL)
-	if err != nil {
-		return "", fmt.Errorf("invalid URL: %v", err)
+	if !strings.Contains(inputURL, "://") {
+		inputURL = "https://" + inputURL
 	}
-
-	if parsedURL.Scheme == "" {
-		return "https://" + inputURL, nil
+	if _, err := url.Parse(inputURL); err != nil {
+		return "", fmt.Errorf("invalid URL: %w", err)
 	}
 	return inputURL, nil
 }
@@ -3042,12 +3568,55 @@ func fromMetadataSchemaToRest(schema *MetadataSchema) *db_control.MetadataSchema
 	}
 }
 
+// checkSemanticTextKeys returns an error unless every key of patch names a semantic_text field in
+// schema. The API doesn't reject another key: it renames the field, and the legacy field map, to it.
+func checkSemanticTextKeys(indexName string, schema *IndexSchema, patch *ConfigureIndexSchema) error {
+	var semanticText []string
+	if schema != nil {
+		for fieldName, field := range schema.Fields {
+			if field.SemanticText != nil {
+				semanticText = append(semanticText, fieldName)
+			}
+		}
+	}
+	sort.Strings(semanticText)
+	keys := make([]string, 0, len(patch.Fields))
+	for key := range patch.Fields {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if slices.Contains(semanticText, key) {
+			continue
+		}
+		switch len(semanticText) {
+		case 0:
+			return fmt.Errorf("Schema field %q isn't a semantic_text field of index %q; Schema applies only to the semantic_text field of a legacy integrated index", key, indexName)
+		case 1:
+			return fmt.Errorf("Schema field %q isn't a semantic_text field of index %q; its semantic_text field is %q", key, indexName, semanticText[0])
+		default:
+			quoted := make([]string, len(semanticText))
+			for i, n := range semanticText {
+				quoted[i] = strconv.Quote(n)
+			}
+			return fmt.Errorf("Schema field %q isn't a semantic_text field of index %q; its semantic_text fields are %s", key, indexName, strings.Join(quoted, ", "))
+		}
+	}
+	return nil
+}
+
+// errEmptyReadCapacityPatch is returned when ConfigureIndex gets a ReadCapacityParams with neither
+// mode set, which would otherwise send a request that changes nothing.
+var errEmptyReadCapacityPatch = errors.New("ReadCapacity must set Dedicated or OnDemand when configuring an index")
+
 // Takes the new ReadCapacityParams and the index's current ReadCapacity configuration and builds the
 // read-capacity PATCH for ConfigureIndex. Fields omitted from a Dedicated patch keep their current value.
 func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.ReadCapacityPatch, error) {
-	// nil new params -> return nil
-	if new == nil || (new.Dedicated == nil && new.OnDemand == nil) {
+	if new == nil {
 		return nil, nil
+	}
+	if new.Dedicated == nil && new.OnDemand == nil {
+		return nil, errEmptyReadCapacityPatch
 	}
 
 	if new.Dedicated != nil && new.OnDemand != nil {
@@ -3063,26 +3632,40 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 		return &result, nil
 	}
 
-	// nil / OnDemand -> Dedicated
-	// When converting from OnDemand to Dedicated, NodeType, Replicas, and Shards are required
-	if old == nil || old.OnDemand != nil {
-		if new.Dedicated.NodeType == nil ||
-			new.Dedicated.Scaling == nil ||
-			new.Dedicated.Scaling.Manual == nil ||
-			new.Dedicated.Scaling.Manual.Replicas == nil ||
-			new.Dedicated.Scaling.Manual.Shards == nil {
-			return nil, fmt.Errorf("Dedicated read capacity must be configured with a node type, scaling strategy, and manual scaling configuration")
-		}
+	if err := validateReadCapacityScaling(new.Dedicated.Scaling); err != nil {
+		return nil, err
 	}
+	// An empty Manual block would send replicas 0 and pause the index.
+	if manual := scalingManual(new.Dedicated.Scaling); manual != nil && manual.Replicas == nil && manual.Shards == nil {
+		return nil, errEmptyManualScalingPatch
+	}
+	shards := readCapacityShards(new.Dedicated)
 
 	patchConfig := db_control.ReadCapacityDedicatedPatchConfig{
 		NodeType: new.Dedicated.NodeType,
+		Shards:   shards,
 	}
-	if new.Dedicated.Scaling != nil && new.Dedicated.Scaling.Manual != nil {
-		patchConfig.Scaling = pointerOrNil("Manual")
-		patchConfig.Manual = &db_control.ScalingConfigManualPatch{
-			Replicas: new.Dedicated.Scaling.Manual.Replicas,
-			Shards:   new.Dedicated.Scaling.Manual.Shards,
+	// A Manual block without Replicas only carried the deprecated Shards, so it changes the shard
+	// count and keeps the current scaling strategy.
+	if scaling := new.Dedicated.Scaling; scaling != nil {
+		switch {
+		case scaling.Auto != nil:
+			patchConfig.Scaling = pointerOrNil("Auto")
+			patchConfig.Auto = &db_control.ScalingConfigAuto{
+				MinReplicas: scaling.Auto.MinReplicas,
+				MaxReplicas: scaling.Auto.MaxReplicas,
+			}
+		case scaling.Manual != nil && scaling.Manual.Replicas != nil:
+			patchConfig.Scaling = pointerOrNil("Manual")
+			patchConfig.Manual = &db_control.ScalingConfigManualPatch{Replicas: *scaling.Manual.Replicas}
+		}
+	}
+
+	// OnDemand -> Dedicated. When describe has no read capacity the SDK understands (omitted, or
+	// an unlisted mode), it can't tell whether this is a conversion, so the API judges the patch.
+	if old != nil && old.OnDemand != nil {
+		if patchConfig.NodeType == nil || patchConfig.Shards == nil || patchConfig.Scaling == nil {
+			return nil, errOnDemandToDedicatedIncomplete
 		}
 	}
 
@@ -3094,6 +3677,40 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 	}
 
 	return &result, nil
+}
+
+var errDedicatedReadCapacityIncomplete = errors.New("Dedicated read capacity must be configured with a node type, shards, and a scaling strategy (Scaling.Manual with Replicas, or Scaling.Auto)")
+
+var errOnDemandToDedicatedIncomplete = errors.New("the index uses OnDemand read capacity, so it has no current Dedicated settings to keep: switching it to Dedicated requires a node type, shards, and a scaling strategy (Scaling.Manual with Replicas, or Scaling.Auto)")
+
+var errEmptyManualScalingPatch = errors.New("Scaling.Manual must set Replicas; to change only the shard count, set Dedicated.Shards, and to keep the current scaling, omit Scaling")
+
+// Rejects Manual and Auto together, which can't become one scaling value. Ranges are left to the
+// API.
+func validateReadCapacityScaling(scaling *ReadCapacityScaling) error {
+	if scaling != nil && scaling.Manual != nil && scaling.Auto != nil {
+		return fmt.Errorf("both Scaling.Manual and Scaling.Auto are set; set only one")
+	}
+	return nil
+}
+
+func scalingManual(scaling *ReadCapacityScaling) *ReadCapacityManualScaling {
+	if scaling == nil {
+		return nil
+	}
+	return scaling.Manual
+}
+
+// Returns the shard count to send as dedicated.shards: Dedicated.Shards when set, which wins over
+// the deprecated Scaling.Manual.Shards, and otherwise the deprecated value.
+func readCapacityShards(dedicated *ReadCapacityDedicatedConfig) *int32 {
+	if dedicated.Shards != nil {
+		return dedicated.Shards
+	}
+	if manual := scalingManual(dedicated.Scaling); manual != nil {
+		return manual.Shards
+	}
+	return nil
 }
 
 // Converts the ReadCapacityParams to db_control.ReadCapacity - used for CreateServerlessIndex,
@@ -3121,25 +3738,37 @@ func readCapacityParamsToReadCapacity(request *ReadCapacityParams) (*db_control.
 		return &result, nil
 	}
 
-	// Dedicated: the 2026-07 create request requires node type and a manual scaling configuration.
-	if request.Dedicated.NodeType == nil ||
-		request.Dedicated.Scaling == nil ||
-		request.Dedicated.Scaling.Manual == nil ||
-		request.Dedicated.Scaling.Manual.Replicas == nil ||
-		request.Dedicated.Scaling.Manual.Shards == nil {
-		return nil, fmt.Errorf("Dedicated read capacity must be configured with a node type, scaling strategy, and manual scaling configuration")
+	// Dedicated: the create request requires node type, shards, and a scaling strategy.
+	dedicated := request.Dedicated
+	if err := validateReadCapacityScaling(dedicated.Scaling); err != nil {
+		return nil, err
+	}
+	shards := readCapacityShards(dedicated)
+	if dedicated.NodeType == nil || shards == nil || dedicated.Scaling == nil {
+		return nil, errDedicatedReadCapacityIncomplete
+	}
+
+	config := db_control.ReadCapacityDedicatedConfig{
+		NodeType: *dedicated.NodeType,
+		Shards:   *shards,
+	}
+	switch {
+	case dedicated.Scaling.Auto != nil:
+		config.Scaling = "Auto"
+		config.Auto = &db_control.ScalingConfigAuto{
+			MinReplicas: dedicated.Scaling.Auto.MinReplicas,
+			MaxReplicas: dedicated.Scaling.Auto.MaxReplicas,
+		}
+	case dedicated.Scaling.Manual != nil && dedicated.Scaling.Manual.Replicas != nil:
+		config.Scaling = "Manual"
+		config.Manual = &db_control.ScalingConfigManual{Replicas: *dedicated.Scaling.Manual.Replicas}
+	default:
+		return nil, errDedicatedReadCapacityIncomplete
 	}
 
 	dedicatedSpec := db_control.ReadCapacityDedicatedSpec{
-		Dedicated: db_control.ReadCapacityDedicatedConfig{
-			NodeType: *request.Dedicated.NodeType,
-			Scaling:  "Manual",
-			Manual: db_control.ScalingConfigManual{
-				Replicas: *request.Dedicated.Scaling.Manual.Replicas,
-				Shards:   *request.Dedicated.Scaling.Manual.Shards,
-			},
-		},
-		Mode: "Dedicated",
+		Dedicated: config,
+		Mode:      "Dedicated",
 	}
 	if err := result.FromReadCapacityDedicatedSpec(dedicatedSpec); err != nil {
 		return nil, err
@@ -3156,60 +3785,58 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 		return nil, nil
 	}
 
-	mode, err := rc.Discriminator()
-	if err != nil {
-		// If we can't determine the mode, return nil rather than failing.
-		// This handles cases like empty responses or unknown modes gracefully.
-		return nil, nil
+	status := ReadCapacityStatus{
+		State:           rc.Status.State,
+		CurrentReplicas: rc.Status.CurrentReplicas,
+		CurrentShards:   rc.Status.CurrentShards,
+		ErrorMessage:    rc.Status.ErrorMessage,
 	}
 
-	// Empty mode string means no configuration present
-	if mode == "" {
-		return nil, nil
-	}
-
-	switch mode {
+	switch rc.Mode {
 	case "OnDemand":
-		onDemandSpec, err := rc.AsReadCapacityOnDemandSpecResponse()
-		if err != nil {
-			return nil, err
-		}
-
 		return &ReadCapacity{
-			OnDemand: &ReadCapacityOnDemand{
-				Status: ReadCapacityStatus{
-					State:           onDemandSpec.Status.State,
-					CurrentReplicas: onDemandSpec.Status.CurrentReplicas,
-					CurrentShards:   onDemandSpec.Status.CurrentShards,
-					ErrorMessage:    onDemandSpec.Status.ErrorMessage,
-				},
-			},
+			OnDemand: &ReadCapacityOnDemand{Status: status},
 		}, nil
 	case "Dedicated":
-		dedicatedSpec, err := rc.AsReadCapacityDedicatedSpecResponse()
-		if err != nil {
-			return nil, err
+		dedicated := &ReadCapacityDedicated{Status: status}
+		config := rc.Dedicated
+		if config == nil {
+			return &ReadCapacity{Dedicated: dedicated}, nil
 		}
 
-		nodeType := dedicatedSpec.Dedicated.NodeType
-		dedicated := &ReadCapacityDedicated{
-			NodeType: &nodeType,
-			Status: ReadCapacityStatus{
-				State:           dedicatedSpec.Status.State,
-				CurrentReplicas: dedicatedSpec.Status.CurrentReplicas,
-				CurrentShards:   dedicatedSpec.Status.CurrentShards,
-				ErrorMessage:    dedicatedSpec.Status.ErrorMessage,
-			},
+		nodeType := config.NodeType
+		dedicated.NodeType = &nodeType
+		dedicated.ScalingStrategy = pointerOrNil(ReadCapacityScalingStrategy(config.Scaling))
+		for _, known := range []ReadCapacityScalingStrategy{ReadCapacityScalingStrategyManual, ReadCapacityScalingStrategyAuto} {
+			if strings.EqualFold(config.Scaling, string(known)) {
+				dedicated.ScalingStrategy = &known
+			}
+		}
+		if config.Shards != nil {
+			s := *config.Shards
+			dedicated.Shards = &s
 		}
 
-		// Scaling
-		if strings.EqualFold(dedicatedSpec.Dedicated.Scaling, "manual") {
-			replicas := dedicatedSpec.Dedicated.Manual.Replicas
-			shards := dedicatedSpec.Dedicated.Manual.Shards
+		// Scaling stays nil for a strategy this SDK doesn't know.
+		switch {
+		case strings.EqualFold(config.Scaling, "manual") && config.Manual != nil:
+			replicas := config.Manual.Replicas
+			var shards *int32
+			if config.Shards != nil {
+				s := *config.Shards
+				shards = &s
+			}
 			dedicated.Scaling = &ReadCapacityScaling{
 				Manual: &ReadCapacityManualScaling{
 					Replicas: &replicas,
-					Shards:   &shards,
+					Shards:   shards,
+				},
+			}
+		case strings.EqualFold(config.Scaling, "auto") && config.Auto != nil:
+			dedicated.Scaling = &ReadCapacityScaling{
+				Auto: &ReadCapacityAutoScaling{
+					MinReplicas: config.Auto.MinReplicas,
+					MaxReplicas: config.Auto.MaxReplicas,
 				},
 			}
 		}
@@ -3218,7 +3845,7 @@ func toReadCapacity(rc *db_control.ReadCapacityResponse) (*ReadCapacity, error) 
 			Dedicated: dedicated,
 		}, nil
 	default:
-		// Be permissive: return nil for unknown modes (e.g., future API additions)
+		// Be permissive: return nil for unknown or empty modes (e.g., future API additions)
 		// rather than failing the entire operation
 		return nil, nil
 	}

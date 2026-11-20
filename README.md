@@ -1,4 +1,4 @@
-# Pinecone Go SDK &middot; ![License](https://img.shields.io/github/license/pinecone-io/go-pinecone?color=orange) [![Go Reference](https://pkg.go.dev/badge/github.com/pinecone-io/go-pinecone/v7.svg)](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v7/pinecone)
+# Pinecone Go SDK &middot; ![License](https://img.shields.io/github/license/pinecone-io/go-pinecone?color=orange) [![Go Reference](https://pkg.go.dev/badge/github.com/pinecone-io/go-pinecone/v8.svg)](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v8/pinecone)
 
 The Pinecone Go SDK is the official Go client for [Pinecone Database](https://www.pinecone.io).
 
@@ -14,15 +14,18 @@ The Pinecone Go SDK is the official Go client for [Pinecone Database](https://ww
 - **Admin API**: Manage projects, organizations, API keys, service accounts, role bindings, invites, and users.
 - **Retries**: Optional automatic retries with exponential backoff.
 
-The SDK targets Pinecone API version `2026-07`, covering the control plane, data plane, Inference, and Admin APIs. For
+The SDK targets Pinecone API version `2026-10`, covering the control plane, data plane, Inference, and Admin APIs. For
 the API reference, see [Pinecone API](https://docs.pinecone.io/reference/api/introduction).
 
 ## Documentation
 
 - [Guides](./guides/README.md): detailed usage guides for each area of the SDK
-- [API reference](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v7/pinecone) for the latest release, or
-  [for `main`](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v7@main/pinecone)
+- [API reference](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v8/pinecone) for the latest release, or
+  [for `main`](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v8@main/pinecone)
 - [Pinecone documentation](https://docs.pinecone.io/)
+
+If you're upgrading from v7, see the [v8 migration guide](./guides/migration/v8.md). v8 moves to API version
+`2026-10`, which adds replica autoscaling for dedicated read capacity; for most code, only the import path changes.
 
 If you're upgrading from v6 or earlier, see the [v7 migration guide](./guides/migration/v7.md). v7 moves to API
 version `2026-07`, which adds document indexes and removes the ability to create pod-based indexes.
@@ -36,18 +39,18 @@ version `2026-07`, which adds document indexes and removes the ability to create
 ## Installation
 
 ```shell
-go get github.com/pinecone-io/go-pinecone/v7/pinecone
+go get github.com/pinecone-io/go-pinecone/v8/pinecone
 ```
 
 To upgrade to the latest version:
 
 ```shell
-go get -u github.com/pinecone-io/go-pinecone/v7/pinecone@latest
+go get -u github.com/pinecone-io/go-pinecone/v8/pinecone@latest
 ```
 
 ## Quickstart
 
-These quickstarts are also on [pkg.go.dev](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v7/pinecone#pkg-examples)
+These quickstarts are also on [pkg.go.dev](https://pkg.go.dev/github.com/pinecone-io/go-pinecone/v8/pinecone#pkg-examples)
 as package examples, which are compiled with the SDK's tests.
 
 ### Full-text search
@@ -64,7 +67,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/pinecone-io/go-pinecone/v7/pinecone"
+	"github.com/pinecone-io/go-pinecone/v8/pinecone"
 )
 
 func main() {
@@ -278,6 +281,7 @@ Indexes created with `CreateIndexForModel` are legacy integrated indexes, which 
   - [Legacy integrated indexes](./guides/inference/integrated-embedding.md): indexes created with
     `CreateIndexForModel`, and the legacy Records API
 - [Admin API](./guides/admin.md)
+- [v8 migration guide](./guides/migration/v8.md)
 - [v7 migration guide](./guides/migration/v7.md)
 
 ## Support

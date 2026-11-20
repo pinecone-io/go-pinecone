@@ -1,23 +1,25 @@
 package pinecone
 
 import (
-	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/pinecone-io/go-pinecone/v7/internal/gen"
-	"github.com/pinecone-io/go-pinecone/v7/internal/gen/db_control"
-	"github.com/pinecone-io/go-pinecone/v7/internal/gen/inference"
-	"github.com/pinecone-io/go-pinecone/v7/internal/provider"
-	"github.com/pinecone-io/go-pinecone/v7/internal/utils"
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen"
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen/db_control"
+	"github.com/pinecone-io/go-pinecone/v8/internal/provider"
+	"github.com/pinecone-io/go-pinecone/v8/internal/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -388,7 +390,7 @@ func TestCreateIndexSchemaValidationUnit(t *testing.T) {
 		},
 		Deployment: &IndexDeployment{Pod: &PodDeployment{Environment: "us-east1-gcp", PodType: "p1.x1"}},
 	})
-	require.ErrorContains(t, err, "creating pod-based indexes is not supported by Pinecone API version 2026-07")
+	require.ErrorContains(t, err, "creating pod-based indexes is not supported by Pinecone API versions 2026-07 and later")
 }
 
 func TestLegacyCreateGuidedErrorsUnit(t *testing.T) {
@@ -399,17 +401,17 @@ func TestLegacyCreateGuidedErrorsUnit(t *testing.T) {
 	_, err := client.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
 		Name: "x", Cloud: CloudAWS, Region: "us-east-1", Dimension: &dimension, SourceCollection: ptr("my-collection"),
 	})
-	require.ErrorContains(t, err, "SourceCollection is not supported by Pinecone API version 2026-07")
+	require.ErrorContains(t, err, "SourceCollection is not supported by Pinecone API versions 2026-07 and later")
 
 	_, err = client.CreateServerlessIndex(ctx, &CreateServerlessIndexRequest{
 		Name: "x", Cloud: CloudAWS, Region: "us-east-1", Dimension: &dimension, Schema: &MetadataSchema{},
 	})
-	require.ErrorContains(t, err, "Schema is not supported by Pinecone API version 2026-07")
+	require.ErrorContains(t, err, "Schema is not supported by Pinecone API versions 2026-07 and later")
 
 	_, err = client.CreateBYOCIndex(ctx, &CreateBYOCIndexRequest{
 		Name: "x", Environment: "e", Dimension: &dimension, Schema: &MetadataSchema{},
 	})
-	require.ErrorContains(t, err, "Schema is not supported by Pinecone API version 2026-07")
+	require.ErrorContains(t, err, "Schema is not supported by Pinecone API versions 2026-07 and later")
 }
 
 func TestConfigureIndexSchemaValidationUnit(t *testing.T) {
@@ -448,12 +450,60 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 		statusCode   int
 		prefix       string
 		errorOutput  string
+		errorCode    string
+		message      string
+		reason       string
+		details      map[string]any
 	}{
 		{
 			name:         "test ErrorResponse body",
 			responseBody: mockResponse(`{"error": { "code": "INVALID_ARGUMENT", "message": "test error message"}, "status": 400}`, http.StatusBadRequest),
 			statusCode:   http.StatusBadRequest,
 			errorOutput:  `{"status_code":400,"body":"{\"error\": { \"code\": \"INVALID_ARGUMENT\", \"message\": \"test error message\"}, \"status\": 400}","error_code":"INVALID_ARGUMENT","message":"test error message"}`,
+			errorCode:    "INVALID_ARGUMENT",
+			message:      "test error message",
+		}, {
+			name:         "test ErrorResponse body with prefix",
+			responseBody: mockResponse(`{"error": {"code": "ABORTED", "message": "busy"}, "status": 409}`, http.StatusConflict),
+			statusCode:   http.StatusConflict,
+			prefix:       "failed to configure index: ",
+			errorOutput:  `{"status_code":409,"body":"{\"error\": {\"code\": \"ABORTED\", \"message\": \"busy\"}, \"status\": 409}","error_code":"ABORTED","message":"failed to configure index: busy"}`,
+			errorCode:    "ABORTED",
+			message:      "failed to configure index: busy",
+		}, {
+			name:         "test ErrorResponse body with reason and details",
+			responseBody: mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "too many", "details": {"limit_documents": 1000, "actual_documents": 1001, "retryable": false, "unit": "documents"}}}`, http.StatusBadRequest),
+			statusCode:   http.StatusBadRequest,
+			prefix:       "failed to upsert documents: ",
+			errorOutput:  `{"status_code":400,"body":"{\"status\": 400, \"error\": {\"code\": \"INVALID_ARGUMENT\", \"reason\": \"TOO_MANY_DOCUMENTS\", \"message\": \"too many\", \"details\": {\"limit_documents\": 1000, \"actual_documents\": 1001, \"retryable\": false, \"unit\": \"documents\"}}}","error_code":"INVALID_ARGUMENT","reason":"TOO_MANY_DOCUMENTS","message":"failed to upsert documents: too many","details":{"actual_documents":1001,"limit_documents":1000,"retryable":false,"unit":"documents"}}`,
+			errorCode:    "INVALID_ARGUMENT",
+			message:      "failed to upsert documents: too many",
+			reason:       "TOO_MANY_DOCUMENTS",
+			details:      map[string]any{"limit_documents": float64(1000), "actual_documents": float64(1001), "retryable": false, "unit": "documents"},
+		}, {
+			name:         "server message with <, > and & is not HTML-escaped",
+			responseBody: mockResponse(`{"error": {"code": "INVALID_ARGUMENT", "message": "max_replicas must be >= min_replicas & < 10"}, "status": 400}`, http.StatusBadRequest),
+			statusCode:   http.StatusBadRequest,
+			prefix:       "failed to create index: ",
+			errorOutput:  `{"status_code":400,"body":"{\"error\": {\"code\": \"INVALID_ARGUMENT\", \"message\": \"max_replicas must be >= min_replicas & < 10\"}, \"status\": 400}","error_code":"INVALID_ARGUMENT","message":"failed to create index: max_replicas must be >= min_replicas & < 10"}`,
+			errorCode:    "INVALID_ARGUMENT",
+			message:      "failed to create index: max_replicas must be >= min_replicas & < 10",
+		}, {
+			name:         "ErrorResponse body without a top-level status",
+			responseBody: mockResponse(`{"error": {"code": "FAILED_PRECONDITION", "message": "index is incompatible with this API version"}}`, http.StatusPreconditionFailed),
+			statusCode:   http.StatusPreconditionFailed,
+			prefix:       "failed to describe index: ",
+			errorOutput:  `{"status_code":412,"body":"{\"error\": {\"code\": \"FAILED_PRECONDITION\", \"message\": \"index is incompatible with this API version\"}}","error_code":"FAILED_PRECONDITION","message":"failed to describe index: index is incompatible with this API version"}`,
+			errorCode:    "FAILED_PRECONDITION",
+			message:      "failed to describe index: index is incompatible with this API version",
+		}, {
+			name:         "ErrorResponse body with details but no reason",
+			responseBody: mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "message": "bad", "details": {"field": "top_k"}}}`, http.StatusBadRequest),
+			statusCode:   http.StatusBadRequest,
+			errorOutput:  `{"status_code":400,"body":"{\"status\": 400, \"error\": {\"code\": \"INVALID_ARGUMENT\", \"message\": \"bad\", \"details\": {\"field\": \"top_k\"}}}","error_code":"INVALID_ARGUMENT","message":"bad","details":{"field":"top_k"}}`,
+			errorCode:    "INVALID_ARGUMENT",
+			message:      "bad",
+			details:      map[string]any{"field": "top_k"},
 		}, {
 			name:         "test JSON body",
 			responseBody: mockResponse(`{"message": "test error message", "extraCode": 665}`, http.StatusBadRequest),
@@ -463,7 +513,62 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 			name:         "test string body",
 			responseBody: mockResponse(`test error message`, http.StatusBadRequest),
 			statusCode:   http.StatusBadRequest,
-			errorOutput:  `{"status_code":400,"body":"test error message"}`,
+			errorOutput:  `{"status_code":400,"body":"test error message","message":"test error message"}`,
+			message:      "test error message",
+		}, {
+			// The spec documents 400 and 422 bodies that are "an ErrorResponse or plain text".
+			name:         "plain-text body becomes the message, with the prefix",
+			responseBody: mockResponse("Failed to deserialize the JSON body into the target type: read_capacity: unknown variant `z9`\n", http.StatusUnprocessableEntity),
+			statusCode:   http.StatusUnprocessableEntity,
+			prefix:       "failed to create index: ",
+			errorOutput:  "{\"status_code\":422,\"body\":\"Failed to deserialize the JSON body into the target type: read_capacity: unknown variant `z9`\\n\",\"message\":\"failed to create index: Failed to deserialize the JSON body into the target type: read_capacity: unknown variant `z9`\"}",
+			message:      "failed to create index: Failed to deserialize the JSON body into the target type: read_capacity: unknown variant `z9`",
+		}, {
+			name:         "empty body leaves the message empty",
+			responseBody: mockResponse(``, http.StatusServiceUnavailable),
+			statusCode:   http.StatusServiceUnavailable,
+			prefix:       "failed to list indexes: ",
+			errorOutput:  `{"status_code":503}`,
+		}, {
+			name:         "whitespace-only body leaves the message empty",
+			responseBody: mockResponse(" \n", http.StatusBadGateway),
+			statusCode:   http.StatusBadGateway,
+			prefix:       "failed to list indexes: ",
+			errorOutput:  "{\"status_code\":502,\"body\":\" \\n\"}",
+		}, {
+			// details that aren't an object must not hide the error code and message.
+			name:         "ErrorResponse body whose details aren't an object",
+			responseBody: mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "bad", "details": [1, "two"]}}`, http.StatusBadRequest),
+			statusCode:   http.StatusBadRequest,
+			prefix:       "failed to upsert documents: ",
+			errorOutput:  `{"status_code":400,"body":"{\"status\": 400, \"error\": {\"code\": \"INVALID_ARGUMENT\", \"reason\": \"TOO_MANY_DOCUMENTS\", \"message\": \"bad\", \"details\": [1, \"two\"]}}","error_code":"INVALID_ARGUMENT","reason":"TOO_MANY_DOCUMENTS","message":"failed to upsert documents: bad"}`,
+			errorCode:    "INVALID_ARGUMENT",
+			message:      "failed to upsert documents: bad",
+			reason:       "TOO_MANY_DOCUMENTS",
+		}, {
+			// Bulk import errors use the rpcStatus shape; its details list is encoded as JSON.
+			name:         "rpcStatus body with details",
+			responseBody: mockResponse(`{"code": 3, "message": "bad uri", "details": [{"@type": "type.googleapis.com/google.rpc.BadRequest", "n": 1}]}`, http.StatusBadRequest),
+			statusCode:   http.StatusBadRequest,
+			prefix:       "failed to start import: ",
+			errorOutput:  `{"status_code":400,"body":"{\"code\": 3, \"message\": \"bad uri\", \"details\": [{\"@type\": \"type.googleapis.com/google.rpc.BadRequest\", \"n\": 1}]}","error_code":"INVALID_ARGUMENT","message":"failed to start import: bad uri","details":[{"@type":"type.googleapis.com/google.rpc.BadRequest","n":1}]}`,
+			errorCode:    "INVALID_ARGUMENT",
+			message:      "failed to start import: bad uri",
+		}, {
+			name:         "rpcStatus body whose details aren't a list",
+			responseBody: mockResponse(`{"code": 5, "message": "Import 101 not found", "details": {"x": 1}}`, http.StatusNotFound),
+			statusCode:   http.StatusNotFound,
+			prefix:       "failed to describe import: ",
+			errorOutput:  `{"status_code":404,"body":"{\"code\": 5, \"message\": \"Import 101 not found\", \"details\": {\"x\": 1}}","error_code":"NOT_FOUND","message":"failed to describe import: Import 101 not found"}`,
+			errorCode:    "NOT_FOUND",
+			message:      "failed to describe import: Import 101 not found",
+		}, {
+			name:         "ErrorResponse body with null details",
+			responseBody: mockResponse(`{"status": 404, "error": {"code": "NOT_FOUND", "message": "gone", "details": null}}`, http.StatusNotFound),
+			statusCode:   http.StatusNotFound,
+			errorOutput:  `{"status_code":404,"body":"{\"status\": 404, \"error\": {\"code\": \"NOT_FOUND\", \"message\": \"gone\", \"details\": null}}","error_code":"NOT_FOUND","message":"gone"}`,
+			errorCode:    "NOT_FOUND",
+			message:      "gone",
 		}, {
 			name:         "Test error response with empty response",
 			responseBody: mockResponse(`{}`, http.StatusBadRequest),
@@ -477,9 +582,70 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := handleErrorResponseBody(tt.responseBody, tt.prefix)
 			assert.Equal(t, err.Error(), tt.errorOutput, "Expected error to be '%s', but got '%s'", tt.errorOutput, err.Error())
+			var pcErr *PineconeError
+			require.ErrorAs(t, err, &pcErr)
+			assert.Equal(t, tt.statusCode, pcErr.Code)
+			assert.Equal(t, tt.errorCode, pcErr.ErrorCode)
+			assert.Equal(t, tt.message, pcErr.Message)
+			assert.Equal(t, tt.reason, pcErr.Reason)
+			assert.Equal(t, tt.details, pcErr.Details())
 
 		})
 	}
+}
+
+func TestHandleErrorResponseBodyPlainTextExcerptUnit(t *testing.T) {
+	const prefix = "failed to list indexes: "
+
+	t.Run("short plain text is unchanged", func(t *testing.T) {
+		err := handleErrorResponseBody(mockResponse("upstream connect error\n", http.StatusBadGateway), prefix)
+		var pcErr *PineconeError
+		require.ErrorAs(t, err, &pcErr)
+		assert.Equal(t, prefix+"upstream connect error", pcErr.Message)
+	})
+
+	t.Run("long HTML is collapsed and truncated, Msg keeps the full body", func(t *testing.T) {
+		body := "<html>\n  <head><title>502 Bad Gateway</title></head>\n  <body>\n" +
+			strings.Repeat("    <p>The server encountered a temporary error.</p>\n", 40) +
+			"  </body>\n</html>\n"
+		err := handleErrorResponseBody(mockResponse(body, http.StatusBadGateway), prefix)
+		var pcErr *PineconeError
+		require.ErrorAs(t, err, &pcErr)
+
+		excerpt := strings.TrimPrefix(pcErr.Message, prefix)
+		assert.True(t, strings.HasPrefix(pcErr.Message, prefix))
+		assert.True(t, strings.HasPrefix(excerpt, "<html> <head><title>502 Bad Gateway</title></head> <body> <p>"), excerpt)
+		assert.True(t, strings.HasSuffix(excerpt, "…"), excerpt)
+		assert.LessOrEqual(t, len(strings.TrimSuffix(excerpt, "…")), maxPlainTextErrorMessageBytes)
+		assert.NotContains(t, excerpt, "\n")
+		assert.NotContains(t, excerpt, "  ")
+
+		var summary map[string]any
+		require.NoError(t, json.Unmarshal([]byte(pcErr.Msg.Error()), &summary))
+		assert.Equal(t, body, summary["body"])
+	})
+
+	t.Run("truncation cuts on a UTF-8 boundary", func(t *testing.T) {
+		for offset := 0; offset < 4; offset++ {
+			body := strings.Repeat("a", maxPlainTextErrorMessageBytes-offset) + strings.Repeat("€😀", 50)
+			err := handleErrorResponseBody(mockResponse(body, http.StatusBadRequest), prefix)
+			var pcErr *PineconeError
+			require.ErrorAs(t, err, &pcErr)
+			assert.True(t, utf8.ValidString(pcErr.Message), "offset %d: %q", offset, pcErr.Message)
+			excerpt := strings.TrimSuffix(strings.TrimPrefix(pcErr.Message, prefix), "…")
+			assert.LessOrEqual(t, len(excerpt), maxPlainTextErrorMessageBytes)
+			assert.True(t, strings.HasPrefix(body, excerpt), "offset %d", offset)
+			assert.True(t, strings.HasSuffix(pcErr.Message, "…"))
+		}
+	})
+
+	t.Run("a body exactly at the cap is not marked", func(t *testing.T) {
+		body := strings.Repeat("x", maxPlainTextErrorMessageBytes)
+		err := handleErrorResponseBody(mockResponse(body, http.StatusBadRequest), prefix)
+		var pcErr *PineconeError
+		require.ErrorAs(t, err, &pcErr)
+		assert.Equal(t, prefix+body, pcErr.Message)
+	})
 }
 
 func TestFormatErrorUnit(t *testing.T) {
@@ -539,33 +705,83 @@ func TestValueOrFallBackUnit(t *testing.T) {
 
 func TestEnsureURLSchemeUnit(t *testing.T) {
 	tests := []struct {
-		name     string
 		url      string
 		expected string
 	}{
-		{
-			name:     "Confirm https prefix is added",
-			url:      "pinecone-api.io",
-			expected: "https://pinecone-api.io",
-		}, {
-			name:     "Confirm http prefix is added",
-			url:      "http://pinecone-api.io",
-			expected: "http://pinecone-api.io",
-		},
-		{
-			name:     "Confirm https prefix is added",
-			url:      "https://pinecone-api.io",
-			expected: "https://pinecone-api.io",
-		},
+		{"pinecone-api.io", "https://pinecone-api.io"},
+		{"pinecone-api.io/", "https://pinecone-api.io/"},
+		{"proxy.internal:8443", "https://proxy.internal:8443"},
+		{"proxy.internal:8443/", "https://proxy.internal:8443/"},
+		{"127.0.0.1:8443", "https://127.0.0.1:8443"},
+		{"localhost:8443", "https://localhost:8443"},
+		{"[::1]:8443", "https://[::1]:8443"},
+		{"http://pinecone-api.io", "http://pinecone-api.io"},
+		{"http://localhost:8443/", "http://localhost:8443/"},
+		{"HTTP://localhost:8443", "HTTP://localhost:8443"},
+		{"https://pinecone-api.io", "https://pinecone-api.io"},
+		{"https://127.0.0.1:8443/", "https://127.0.0.1:8443/"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, _ := ensureURLScheme(tt.url)
-			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		t.Run(tt.url, func(t *testing.T) {
+			result, err := ensureURLScheme(tt.url)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestEnsureURLSchemeRejectsInvalidURLUnit(t *testing.T) {
+	_, err := ensureURLScheme("https://bad host")
+	require.ErrorContains(t, err, "invalid URL")
+}
+
+// A Host without a scheme, including host:port, reaches the server over HTTPS for control-plane,
+// inference, and admin requests.
+func TestHostWithoutSchemeUnit(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/indexes":
+			_, _ = w.Write([]byte(`{"indexes": []}`))
+		case "/models":
+			_, _ = w.Write([]byte(`{"models": []}`))
+		case "/admin/projects":
+			_, _ = w.Write([]byte(`{"data": []}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+	hostPort := strings.TrimPrefix(server.URL, "https://")
+	_, port, err := net.SplitHostPort(hostPort)
+	require.NoError(t, err)
+	// The test certificate doesn't name localhost, so skip verification for these requests.
+	restClient := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
+
+	for _, host := range []string{hostPort, hostPort + "/", "localhost:" + port, "localhost:" + port + "/", server.URL, server.URL + "/"} {
+		t.Run(host, func(t *testing.T) {
+			pc, err := NewClientBase(NewClientBaseParams{Host: host, RestClient: restClient, Headers: map[string]string{"Api-Key": "k"}})
+			require.NoError(t, err)
+			_, err = pc.ListIndexes(context.Background())
+			require.NoError(t, err)
+			_, err = pc.Inference.ListModels(context.Background(), nil)
+			require.NoError(t, err)
+
+			admin, err := NewAdminClient(NewAdminClientParams{Host: host, RestClient: restClient, AccessToken: "token"})
+			require.NoError(t, err)
+			_, err = admin.Project.List(context.Background())
+			require.NoError(t, err)
 		})
 	}
 
+	t.Run("PINECONE_CONTROLLER_HOST", func(t *testing.T) {
+		t.Setenv("PINECONE_CONTROLLER_HOST", "localhost:"+port)
+		pc, err := NewClientBase(NewClientBaseParams{RestClient: restClient, Headers: map[string]string{"Api-Key": "k"}})
+		require.NoError(t, err)
+		_, err = pc.ListIndexes(context.Background())
+		require.NoError(t, err)
+	})
 }
 
 func TestToIndexUnit(t *testing.T) {
@@ -920,7 +1136,7 @@ func TestToBackupUnit(t *testing.T) {
 		model := &db_control.BackupModel{
 			BackupId:             "backup-1",
 			Cloud:                "aws",
-			CreatedAt:            &createdAt,
+			CreatedAt:            createdAt,
 			Description:          &description,
 			Name:                 &name,
 			NamespaceCount:       &namespaceCount,
@@ -984,7 +1200,7 @@ func TestToBackupUnit(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				result := toBackup(&db_control.BackupModel{CreatedAt: &tt.createdAt})
+				result := toBackup(&db_control.BackupModel{CreatedAt: tt.createdAt})
 				require.NotNil(t, result.CreatedAt)
 				require.Equal(t, tt.expected, *result.CreatedAt)
 
@@ -997,31 +1213,80 @@ func TestToBackupUnit(t *testing.T) {
 }
 
 func TestDecodeEmbedResponseUnit(t *testing.T) {
-	dense := inference.DenseEmbedding{
-		Values: []float32{0.1, 0.2},
+	decode := func(t *testing.T, body string) *EmbedResponse {
+		t.Helper()
+		res, err := decodeEmbedResponse(io.NopCloser(strings.NewReader(body)))
+		require.NoError(t, err)
+		return res
 	}
-	var embedding inference.Embedding
-	require.NoError(t, embedding.FromDenseEmbedding(dense))
 
-	totalTokens := int32(10)
-	raw := inference.EmbeddingsList{
-		Data:       []inference.Embedding{embedding},
-		Model:      "test-model",
-		VectorType: "dense",
-	}
-	raw.Usage.TotalTokens = &totalTokens
+	t.Run("dense", func(t *testing.T) {
+		res := decode(t, `{"model":"test-model","vector_type":"dense","data":[{"vector_type":"dense","values":[0.1,0.2]}],"usage":{"total_tokens":10}}`)
+		assert.Equal(t, "dense", res.VectorType)
+		assert.Equal(t, "test-model", res.Model)
+		require.NotNil(t, res.Usage.TotalTokens)
+		assert.Equal(t, int32(10), *res.Usage.TotalTokens)
+		require.Len(t, res.Data, 1)
+		assert.Equal(t, &DenseEmbedding{VectorType: "dense", Values: []float32{0.1, 0.2}}, res.Data[0].DenseEmbedding)
+		assert.Nil(t, res.Data[0].SparseEmbedding)
+	})
 
-	var buf bytes.Buffer
-	require.NoError(t, json.NewEncoder(&buf).Encode(raw))
+	t.Run("sparse with tokens", func(t *testing.T) {
+		res := decode(t, `{"model":"pinecone-sparse-english-v0","vector_type":"sparse","data":[{"vector_type":"sparse","sparse_values":[0.5],"sparse_indices":[4294967295],"sparse_tokens":["fox"]}],"usage":{"total_tokens":3}}`)
+		require.Len(t, res.Data, 1)
+		assert.Nil(t, res.Data[0].DenseEmbedding)
+		assert.Equal(t, &SparseEmbedding{
+			VectorType: "sparse", SparseValues: []float32{0.5}, SparseIndices: []int64{4294967295}, SparseTokens: &[]string{"fox"},
+		}, res.Data[0].SparseEmbedding)
+	})
 
-	result, err := decodeEmbedResponse(io.NopCloser(bytes.NewReader(buf.Bytes())))
+	t.Run("unknown vector type keeps model, usage and other items", func(t *testing.T) {
+		res := decode(t, `{"model":"future","vector_type":"multivector","data":[{"vector_type":"multivector","values":[[0.1],[0.2]],"sparse_indices":"x"},{"vector_type":"dense","values":[0.3]}],"usage":{"total_tokens":7}}`)
+		assert.Equal(t, "future", res.Model)
+		assert.Equal(t, "multivector", res.VectorType)
+		require.NotNil(t, res.Usage.TotalTokens)
+		assert.Equal(t, int32(7), *res.Usage.TotalTokens)
+		require.Len(t, res.Data, 2)
+		assert.Equal(t, Embedding{}, res.Data[0])
+		assert.Equal(t, &DenseEmbedding{VectorType: "dense", Values: []float32{0.3}}, res.Data[1].DenseEmbedding)
+	})
+
+	t.Run("each item decodes by its own vector type", func(t *testing.T) {
+		res := decode(t, `{"model":"m","vector_type":"dense","data":[{"vector_type":"sparse","sparse_values":[1],"sparse_indices":[2]}],"usage":{}}`)
+		require.Len(t, res.Data, 1)
+		assert.Nil(t, res.Data[0].DenseEmbedding)
+		require.NotNil(t, res.Data[0].SparseEmbedding)
+		assert.Equal(t, []int64{2}, res.Data[0].SparseEmbedding.SparseIndices)
+		assert.Nil(t, res.Usage.TotalTokens)
+	})
+
+	t.Run("item without vector type falls back to the list's", func(t *testing.T) {
+		res := decode(t, `{"model":"m","vector_type":"dense","data":[{"values":[0.5]}],"usage":{"total_tokens":1}}`)
+		require.Len(t, res.Data, 1)
+		assert.Equal(t, &DenseEmbedding{VectorType: "dense", Values: []float32{0.5}}, res.Data[0].DenseEmbedding)
+	})
+
+	t.Run("unrecognized properties are ignored", func(t *testing.T) {
+		res := decode(t, `{"model":"m","vector_type":"dense","data":[{"vector_type":"dense","values":[0.5],"extra":{"a":1}}],"usage":{"total_tokens":1,"other":2},"new_top_level":true}`)
+		require.Len(t, res.Data, 1)
+		require.NotNil(t, res.Data[0].DenseEmbedding)
+	})
+
+	t.Run("malformed body is an error", func(t *testing.T) {
+		_, err := decodeEmbedResponse(io.NopCloser(strings.NewReader(`{"data":[{"vector_type":"dense","values":"x"}]}`)))
+		require.ErrorContains(t, err, "failed to decode embed response")
+	})
+}
+
+func TestEmbedAcceptsUnknownVectorTypeUnit(t *testing.T) {
+	server := newWireServer(t, http.StatusOK, `{"model":"future","vector_type":"multivector","data":[{"vector_type":"multivector"}],"usage":{"total_tokens":4}}`)
+	pc := newWireClient(t, server.URL)
+	res, err := pc.Inference.Embed(context.Background(), &EmbedRequest{Model: "future", TextInputs: []string{"hi"}})
 	require.NoError(t, err)
-	require.Equal(t, "dense", result.VectorType)
-	require.Equal(t, "test-model", result.Model)
-	require.Equal(t, totalTokens, derefOrDefault(result.Usage.TotalTokens, int32(0)))
-	require.Len(t, result.Data, 1)
-	require.NotNil(t, result.Data[0].DenseEmbedding)
-	require.Equal(t, []float32{0.1, 0.2}, result.Data[0].DenseEmbedding.Values)
+	assert.Equal(t, "multivector", res.VectorType)
+	require.Len(t, res.Data, 1)
+	assert.Nil(t, res.Data[0].DenseEmbedding)
+	assert.Nil(t, res.Data[0].SparseEmbedding)
 }
 
 func TestDerefOrDefaultUnit(t *testing.T) {
@@ -1227,7 +1492,7 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 	}
 }
 
-func TestEnsureHostHasHttpsUnit(t *testing.T) {
+func TestEnsureHostSchemeUnit(t *testing.T) {
 	tests := []struct {
 		name     string
 		host     string
@@ -1239,21 +1504,30 @@ func TestEnsureHostHasHttpsUnit(t *testing.T) {
 			expected: "https://test-abcd.pinecone.io",
 		},
 		{
-			name:     "Host with http prefix should be converted to https",
-			host:     "http://test-abcd.pinecone.io",
-			expected: "https://test-abcd.pinecone.io",
+			name:     "Host with http prefix should remain unchanged",
+			host:     "http://localhost:5081",
+			expected: "http://localhost:5081",
+		},
+		{
+			name:     "Scheme match is case-insensitive",
+			host:     "HTTP://localhost:5081",
+			expected: "HTTP://localhost:5081",
 		},
 		{
 			name:     "Host without prefix should get https prefix",
 			host:     "test-abcd.pinecone.io",
 			expected: "https://test-abcd.pinecone.io",
 		},
+		{
+			name:     "Host and port without prefix should get https prefix",
+			host:     "localhost:5081",
+			expected: "https://localhost:5081",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ensureHostHasHttps(tt.host)
-			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+			assert.Equal(t, tt.expected, ensureHostScheme(tt.host))
 		})
 	}
 }
@@ -1343,7 +1617,7 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 			},
 		},
 		{
-			name: "Dedicated with NodeType only should error (2026-07 create requires full manual scaling config)",
+			name: "Dedicated with NodeType only should error (create requires shards and a scaling strategy)",
 			input: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
 					NodeType: ptr("t1"),
@@ -1391,7 +1665,118 @@ func Test_readCapacityParamsToReadCapacity_Unit(t *testing.T) {
 				assert.Equal(t, "b1", dedicatedSpec.Dedicated.NodeType)
 				assert.Equal(t, "Manual", dedicatedSpec.Dedicated.Scaling)
 				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Manual.Replicas)
-				assert.Equal(t, int32(3), dedicatedSpec.Dedicated.Manual.Shards)
+				assert.Equal(t, int32(3), dedicatedSpec.Dedicated.Shards)
+				assert.Nil(t, dedicatedSpec.Dedicated.Auto)
+			},
+		},
+		{
+			name: "Dedicated with Shards beside Manual scaling",
+			input: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Shards:   ptr(int32(2)),
+					Scaling:  &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(0))}},
+				},
+			},
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				dedicatedSpec, err := result.AsReadCapacityDedicatedSpec()
+				require.NoError(t, err)
+				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Shards)
+				assert.Equal(t, "Manual", dedicatedSpec.Dedicated.Scaling)
+				require.NotNil(t, dedicatedSpec.Dedicated.Manual)
+				assert.Equal(t, int32(0), dedicatedSpec.Dedicated.Manual.Replicas)
+			},
+		},
+		{
+			name: "Dedicated with Auto scaling",
+			input: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Shards:   ptr(int32(2)),
+					Scaling:  &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8}},
+				},
+			},
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				dedicatedSpec, err := result.AsReadCapacityDedicatedSpec()
+				require.NoError(t, err)
+				assert.Equal(t, "Auto", dedicatedSpec.Dedicated.Scaling)
+				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Shards)
+				assert.Nil(t, dedicatedSpec.Dedicated.Manual)
+				require.NotNil(t, dedicatedSpec.Dedicated.Auto)
+				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Auto.MinReplicas)
+				assert.Equal(t, int32(8), dedicatedSpec.Dedicated.Auto.MaxReplicas)
+			},
+		},
+		{
+			// Bounds are the API's to judge: the SDK sends them as given.
+			name: "Dedicated with out-of-range Auto bounds is sent as given",
+			input: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Shards:   ptr(int32(2)),
+					Scaling:  &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 4, MaxReplicas: 2}},
+				},
+			},
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				dedicatedSpec, err := result.AsReadCapacityDedicatedSpec()
+				require.NoError(t, err)
+				require.NotNil(t, dedicatedSpec.Dedicated.Auto)
+				assert.Equal(t, int32(4), dedicatedSpec.Dedicated.Auto.MinReplicas)
+				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Auto.MaxReplicas)
+			},
+		},
+		{
+			name: "Dedicated with Auto scaling and no shards should error",
+			input: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Scaling:  &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8}},
+				},
+			},
+			wantError: true,
+		},
+		{
+			name: "Dedicated with both Manual and Auto scaling should error",
+			input: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Shards:   ptr(int32(2)),
+					Scaling: &ReadCapacityScaling{
+						Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(2))},
+						Auto:   &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8},
+					},
+				},
+			},
+			wantError: true,
+		},
+		{
+			name: "Shards and the same deprecated Manual.Shards send shards once",
+			input: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Shards:   ptr(int32(2)),
+					Scaling:  &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(2)), Shards: ptr(int32(2))}},
+				},
+			},
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				raw, err := json.Marshal(result)
+				require.NoError(t, err)
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 2, "scaling": "Manual", "manual": {"replicas": 2}}}`, string(raw))
+			},
+		},
+		{
+			name: "Shards wins over a different deprecated Manual.Shards",
+			input: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Shards:   ptr(int32(2)),
+					Scaling:  &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(2)), Shards: ptr(int32(3))}},
+				},
+			},
+			validate: func(t *testing.T, result *db_control.ReadCapacity) {
+				raw, err := json.Marshal(result)
+				require.NoError(t, err)
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 2, "scaling": "Manual", "manual": {"replicas": 2}}}`, string(raw))
 			},
 		},
 	}
@@ -1445,6 +1830,15 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 			},
 		},
 		{
+			name:      "empty new params should error instead of sending a no-op patch",
+			newParams: &ReadCapacityParams{},
+			oldConfig: onDemandOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.EqualError(t, err, "ReadCapacity must set Dedicated or OnDemand when configuring an index")
+				assert.Nil(t, result)
+			},
+		},
+		{
 			name: "on-demand to dedicated without manual scaling should error",
 			newParams: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
@@ -1453,7 +1847,8 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 			},
 			oldConfig: onDemandOld,
 			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
-				assert.Error(t, err)
+				assert.ErrorIs(t, err, errOnDemandToDedicatedIncomplete)
+				assert.ErrorContains(t, err, "the index uses OnDemand read capacity")
 				assert.Nil(t, result)
 			},
 		},
@@ -1484,8 +1879,9 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 				require.NotNil(t, dedicatedSpec.Dedicated.NodeType)
 				assert.Equal(t, "t1", *dedicatedSpec.Dedicated.NodeType)
 				require.NotNil(t, dedicatedSpec.Dedicated.Manual)
-				assert.Equal(t, int32(2), *dedicatedSpec.Dedicated.Manual.Replicas)
-				assert.Equal(t, int32(3), *dedicatedSpec.Dedicated.Manual.Shards)
+				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Manual.Replicas)
+				require.NotNil(t, dedicatedSpec.Dedicated.Shards)
+				assert.Equal(t, int32(3), *dedicatedSpec.Dedicated.Shards)
 			},
 		},
 		{
@@ -1512,8 +1908,184 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 				require.NoError(t, specErr)
 				assert.Nil(t, dedicatedSpec.Dedicated.NodeType)
 				require.NotNil(t, dedicatedSpec.Dedicated.Manual)
-				assert.Equal(t, int32(4), *dedicatedSpec.Dedicated.Manual.Replicas)
-				assert.Nil(t, dedicatedSpec.Dedicated.Manual.Shards)
+				assert.Equal(t, int32(4), dedicatedSpec.Dedicated.Manual.Replicas)
+				assert.Nil(t, dedicatedSpec.Dedicated.Shards)
+			},
+		},
+		{
+			name: "dedicated shards-only patch keeps the scaling strategy",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{Shards: ptr(int32(3))},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.NoError(t, err)
+				dedicatedSpec, specErr := result.AsReadCapacityDedicatedPatchSpec()
+				require.NoError(t, specErr)
+				require.NotNil(t, dedicatedSpec.Dedicated.Shards)
+				assert.Equal(t, int32(3), *dedicatedSpec.Dedicated.Shards)
+				assert.Nil(t, dedicatedSpec.Dedicated.Scaling)
+				assert.Nil(t, dedicatedSpec.Dedicated.Manual)
+				assert.Nil(t, dedicatedSpec.Dedicated.Auto)
+			},
+		},
+		{
+			name: "deprecated Manual.Shards without Replicas patches only shards",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					Scaling: &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{Shards: ptr(int32(3))}},
+				},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.NoError(t, err)
+				dedicatedSpec, specErr := result.AsReadCapacityDedicatedPatchSpec()
+				require.NoError(t, specErr)
+				require.NotNil(t, dedicatedSpec.Dedicated.Shards)
+				assert.Equal(t, int32(3), *dedicatedSpec.Dedicated.Shards)
+				assert.Nil(t, dedicatedSpec.Dedicated.Scaling)
+				assert.Nil(t, dedicatedSpec.Dedicated.Manual)
+			},
+		},
+		{
+			// A scaling block copied from describe carries the old count in the deprecated field;
+			// Dedicated.Shards wins, so the shard change goes through.
+			name: "changing shards with a scaling block copied from describe sends the new shard count",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					Shards:  ptr(int32(4)),
+					Scaling: dedicatedOld.Dedicated.Scaling,
+				},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.NoError(t, err)
+				raw, marshalErr := json.Marshal(result)
+				require.NoError(t, marshalErr)
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"shards": 4, "scaling": "Manual", "manual": {"replicas": 1}}}`, string(raw))
+			},
+		},
+		{
+			name: "dedicated to autoscaling sends scaling Auto with bounds",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					Scaling: &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8}},
+				},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.NoError(t, err)
+				dedicatedSpec, specErr := result.AsReadCapacityDedicatedPatchSpec()
+				require.NoError(t, specErr)
+				require.NotNil(t, dedicatedSpec.Dedicated.Scaling)
+				assert.Equal(t, "Auto", *dedicatedSpec.Dedicated.Scaling)
+				require.NotNil(t, dedicatedSpec.Dedicated.Auto)
+				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Auto.MinReplicas)
+				assert.Equal(t, int32(8), dedicatedSpec.Dedicated.Auto.MaxReplicas)
+				assert.Nil(t, dedicatedSpec.Dedicated.Manual)
+				assert.Nil(t, dedicatedSpec.Dedicated.Shards)
+			},
+		},
+		{
+			name: "on-demand to autoscaling without shards should error",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Scaling:  &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8}},
+				},
+			},
+			oldConfig: onDemandOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				assert.ErrorIs(t, err, errOnDemandToDedicatedIncomplete)
+				assert.Nil(t, result)
+			},
+		},
+		{
+			name: "on-demand to autoscaling with node type, shards, and bounds succeeds",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					NodeType: ptr("b1"),
+					Shards:   ptr(int32(1)),
+					Scaling:  &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 1, MaxReplicas: 2}},
+				},
+			},
+			oldConfig: onDemandOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.NoError(t, err)
+				raw, marshalErr := json.Marshal(result)
+				require.NoError(t, marshalErr)
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 1, "scaling": "Auto", "auto": {"min_replicas": 1, "max_replicas": 2}}}`, string(raw))
+			},
+		},
+		{
+			name: "empty Manual block should error instead of being dropped",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					Scaling: &ReadCapacityScaling{Manual: &ReadCapacityManualScaling{}},
+				},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				assert.EqualError(t, err, "Scaling.Manual must set Replicas; to change only the shard count, set Dedicated.Shards, and to keep the current scaling, omit Scaling")
+				assert.Nil(t, result)
+			},
+		},
+		{
+			name: "dedicated node type only patch keeps the scaling strategy and shards",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{NodeType: ptr("t1")},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.NoError(t, err)
+				raw, marshalErr := json.Marshal(result)
+				require.NoError(t, marshalErr)
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"node_type": "t1"}}`, string(raw))
+			},
+		},
+		{
+			name: "Scaling with neither Manual nor Auto is the same as omitting it",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{Shards: ptr(int32(2)), Scaling: &ReadCapacityScaling{}},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.NoError(t, err)
+				raw, marshalErr := json.Marshal(result)
+				require.NoError(t, marshalErr)
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"shards": 2}}`, string(raw))
+			},
+		},
+		{
+			// Bounds are the API's to judge: the SDK sends them as given.
+			name: "Auto bounds out of range are sent as given",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					Scaling: &ReadCapacityScaling{Auto: &ReadCapacityAutoScaling{MinReplicas: 0, MaxReplicas: 0}},
+				},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.NoError(t, err)
+				raw, marshalErr := json.Marshal(result)
+				require.NoError(t, marshalErr)
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"scaling": "Auto", "auto": {"min_replicas": 0, "max_replicas": 0}}}`, string(raw))
+			},
+		},
+		{
+			name: "both Manual and Auto should error",
+			newParams: &ReadCapacityParams{
+				Dedicated: &ReadCapacityDedicatedConfig{
+					Scaling: &ReadCapacityScaling{
+						Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(2))},
+						Auto:   &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8},
+					},
+				},
+			},
+			oldConfig: dedicatedOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				assert.EqualError(t, err, "both Scaling.Manual and Scaling.Auto are set; set only one")
+				assert.Nil(t, result)
 			},
 		},
 		{
@@ -1536,7 +2108,8 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 			},
 		},
 		{
-			name: "nil old to dedicated without manual scaling should error",
+			// Without a known current configuration the SDK sends the partial patch for the API to judge.
+			name: "nil old to dedicated with node type only sends the patch",
 			newParams: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
 					NodeType: ptr("b1"),
@@ -1544,8 +2117,10 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 			},
 			oldConfig: nil,
 			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
-				assert.Error(t, err)
-				assert.Nil(t, result)
+				require.NoError(t, err)
+				raw, marshalErr := json.Marshal(result)
+				require.NoError(t, marshalErr)
+				assert.JSONEq(t, `{"mode": "Dedicated", "dedicated": {"node_type": "b1"}}`, string(raw))
 			},
 		},
 		{
@@ -1575,8 +2150,9 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 				require.NotNil(t, dedicatedSpec.Dedicated.NodeType)
 				assert.Equal(t, "t1", *dedicatedSpec.Dedicated.NodeType)
 				require.NotNil(t, dedicatedSpec.Dedicated.Manual)
-				assert.Equal(t, int32(2), *dedicatedSpec.Dedicated.Manual.Replicas)
-				assert.Equal(t, int32(3), *dedicatedSpec.Dedicated.Manual.Shards)
+				assert.Equal(t, int32(2), dedicatedSpec.Dedicated.Manual.Replicas)
+				require.NotNil(t, dedicatedSpec.Dedicated.Shards)
+				assert.Equal(t, int32(3), *dedicatedSpec.Dedicated.Shards)
 			},
 		},
 	}
@@ -1596,8 +2172,7 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 
 	// utility funcs for creating inputs from generated code types
 	onDemandInput := func() *db_control.ReadCapacityResponse {
-		var result db_control.ReadCapacityResponse
-		onDemandSpec := db_control.ReadCapacityOnDemandSpecResponse{
+		return &db_control.ReadCapacityResponse{
 			Mode: "OnDemand",
 			Status: db_control.ReadCapacityStatus{
 				State:           "Ready",
@@ -1606,18 +2181,12 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 				ErrorMessage:    nil,
 			},
 		}
-		err := result.FromReadCapacityOnDemandSpecResponse(onDemandSpec)
-		if err != nil {
-			panic(err)
-		}
-		return &result
 	}()
 
 	dedicatedNoScalingInput := func() *db_control.ReadCapacityResponse {
-		var result db_control.ReadCapacityResponse
-		dedicatedSpec := db_control.ReadCapacityDedicatedSpecResponse{
+		return &db_control.ReadCapacityResponse{
 			Mode: "Dedicated",
-			Dedicated: db_control.ReadCapacityDedicatedConfig{
+			Dedicated: &db_control.ReadCapacityDedicatedConfigResponse{
 				NodeType: "t1",
 			},
 			Status: db_control.ReadCapacityStatus{
@@ -1627,23 +2196,17 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 				ErrorMessage:    nil,
 			},
 		}
-		err := result.FromReadCapacityDedicatedSpecResponse(dedicatedSpec)
-		if err != nil {
-			panic(err)
-		}
-		return &result
 	}()
 
 	dedicatedWithScalingInput := func() *db_control.ReadCapacityResponse {
-		var result db_control.ReadCapacityResponse
-		dedicatedSpec := db_control.ReadCapacityDedicatedSpecResponse{
+		return &db_control.ReadCapacityResponse{
 			Mode: "Dedicated",
-			Dedicated: db_control.ReadCapacityDedicatedConfig{
+			Dedicated: &db_control.ReadCapacityDedicatedConfigResponse{
 				NodeType: "b1",
 				Scaling:  "Manual",
-				Manual: db_control.ScalingConfigManual{
+				Shards:   &shards,
+				Manual: &db_control.ScalingConfigManualResponse{
 					Replicas: 2,
-					Shards:   3,
 				},
 			},
 			Status: db_control.ReadCapacityStatus{
@@ -1653,11 +2216,6 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 				ErrorMessage:    &errorMsg,
 			},
 		}
-		err := result.FromReadCapacityDedicatedSpecResponse(dedicatedSpec)
-		if err != nil {
-			panic(err)
-		}
-		return &result
 	}()
 
 	emptyInput := func() *db_control.ReadCapacityResponse {
@@ -1670,16 +2228,24 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 		// Create a malformed ReadCapacityResponse with invalid JSON
 		var result db_control.ReadCapacityResponse
 		// Inject malformed JSON that isn't "unexpected end of JSON input"
-		_ = result.UnmarshalJSON([]byte(`{"mode": "OnDemand", "status": {"state": "Ready"`)) // missing closing braces
+		_ = json.Unmarshal([]byte(`{"mode": "OnDemand", "status": {"state": "Ready"`), &result) // missing closing braces
 		return &result
 	}()
 
 	unknownModeInput := func() *db_control.ReadCapacityResponse {
 		// Create a ReadCapacityResponse with an unknown mode
 		var result db_control.ReadCapacityResponse
-		_ = result.UnmarshalJSON([]byte(`{"mode": "FutureMode", "status": {"state": "Ready"}}`))
+		_ = json.Unmarshal([]byte(`{"mode": "FutureMode", "status": {"state": "Ready"}}`), &result)
 		return &result
 	}()
+
+	fromJSON := func(body string) *db_control.ReadCapacityResponse {
+		var result db_control.ReadCapacityResponse
+		if err := json.Unmarshal([]byte(body), &result); err != nil {
+			panic(err)
+		}
+		return &result
+	}
 
 	tests := []struct {
 		name      string
@@ -1687,6 +2253,87 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 		wantError bool
 		expected  *ReadCapacity
 	}{
+		{
+			// ScalingStrategy and Scaling agree even when the API's casing differs from the constants.
+			name: "Dedicated mode with a lowercase auto strategy",
+			input: fromJSON(`{"mode": "Dedicated",
+				"dedicated": {"node_type": "b1", "shards": 2, "scaling": "auto",
+					"auto": {"min_replicas": 2, "max_replicas": 8}},
+				"status": {"state": "Ready"}}`),
+			expected: &ReadCapacity{
+				Dedicated: &ReadCapacityDedicated{
+					NodeType:        ptr("b1"),
+					Shards:          ptr(int32(2)),
+					ScalingStrategy: ptr(ReadCapacityScalingStrategyAuto),
+					Scaling: &ReadCapacityScaling{
+						Auto: &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8},
+					},
+					Status: ReadCapacityStatus{State: "Ready"},
+				},
+			},
+		},
+		{
+			name: "Dedicated mode with auto scaling",
+			input: fromJSON(`{"mode": "Dedicated",
+				"dedicated": {"node_type": "b1", "shards": 2, "scaling": "Auto",
+					"auto": {"min_replicas": 2, "max_replicas": 8}},
+				"status": {"state": "Ready", "current_shards": 2, "current_replicas": 5}}`),
+			expected: &ReadCapacity{
+				Dedicated: &ReadCapacityDedicated{
+					NodeType:        ptr("b1"),
+					Shards:          ptr(int32(2)),
+					ScalingStrategy: ptr(ReadCapacityScalingStrategyAuto),
+					Scaling: &ReadCapacityScaling{
+						Auto: &ReadCapacityAutoScaling{MinReplicas: 2, MaxReplicas: 8},
+					},
+					Status: ReadCapacityStatus{State: "Ready", CurrentReplicas: ptr(int32(5)), CurrentShards: ptr(int32(2))},
+				},
+			},
+		},
+		{
+			name: "Dedicated mode with manual scaling reports shards in both places",
+			input: fromJSON(`{"mode": "Dedicated",
+				"dedicated": {"node_type": "b1", "shards": 2, "scaling": "Manual", "manual": {"replicas": 0}},
+				"status": {"state": "Ready", "current_shards": 2, "current_replicas": 0}}`),
+			expected: &ReadCapacity{
+				Dedicated: &ReadCapacityDedicated{
+					NodeType:        ptr("b1"),
+					Shards:          ptr(int32(2)),
+					ScalingStrategy: ptr(ReadCapacityScalingStrategyManual),
+					Scaling: &ReadCapacityScaling{
+						Manual: &ReadCapacityManualScaling{Replicas: ptr(int32(0)), Shards: ptr(int32(2))},
+					},
+					Status: ReadCapacityStatus{State: "Ready", CurrentReplicas: ptr(int32(0)), CurrentShards: ptr(int32(2))},
+				},
+			},
+		},
+		{
+			name: "Dedicated mode with an unknown scaling strategy reports it and leaves scaling nil",
+			input: fromJSON(`{"mode": "Dedicated",
+				"dedicated": {"node_type": "c9", "shards": 2, "scaling": "SomethingNew", "something_new": {}},
+				"status": {"state": "Paused", "current_shards": 2, "current_replicas": 5}}`),
+			expected: &ReadCapacity{
+				Dedicated: &ReadCapacityDedicated{
+					NodeType:        ptr("c9"),
+					Shards:          ptr(int32(2)),
+					ScalingStrategy: ptr(ReadCapacityScalingStrategy("SomethingNew")),
+					Status:          ReadCapacityStatus{State: "Paused", CurrentReplicas: ptr(int32(5)), CurrentShards: ptr(int32(2))},
+				},
+			},
+		},
+		{
+			name: "Dedicated mode with Auto strategy but no auto block leaves scaling nil",
+			input: fromJSON(`{"mode": "Dedicated",
+				"dedicated": {"node_type": "b1", "scaling": "Auto"},
+				"status": {"state": "Migrating", "current_shards": null, "current_replicas": null}}`),
+			expected: &ReadCapacity{
+				Dedicated: &ReadCapacityDedicated{
+					NodeType:        ptr("b1"),
+					ScalingStrategy: ptr(ReadCapacityScalingStrategyAuto),
+					Status:          ReadCapacityStatus{State: "Migrating"},
+				},
+			},
+		},
 		{
 			name:      "nil input",
 			input:     nil,
@@ -1749,7 +2396,9 @@ func Test_toReadCapacity_Unit(t *testing.T) {
 			wantError: false,
 			expected: &ReadCapacity{
 				Dedicated: &ReadCapacityDedicated{
-					NodeType: ptr("b1"),
+					NodeType:        ptr("b1"),
+					Shards:          ptr(int32(3)),
+					ScalingStrategy: ptr(ReadCapacityScalingStrategyManual),
 					Scaling: &ReadCapacityScaling{
 						Manual: &ReadCapacityManualScaling{
 							Replicas: ptr(int32(2)),
@@ -1808,7 +2457,7 @@ func Test_ConfigureIndex_ValidationErrors_Unit(t *testing.T) {
 			configParams: ConfigureIndexParams{
 				PodType: "p1.x1",
 			},
-			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes",
+			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes. To change the read node replicas of a serverless or BYOC index, set ReadCapacity.Dedicated.Scaling",
 		},
 		{
 			name:           "Serverless index with Replicas should error",
@@ -1816,7 +2465,7 @@ func Test_ConfigureIndex_ValidationErrors_Unit(t *testing.T) {
 			configParams: ConfigureIndexParams{
 				Replicas: 4,
 			},
-			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes",
+			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes. To change the read node replicas of a serverless or BYOC index, set ReadCapacity.Dedicated.Scaling",
 		},
 		{
 			name:           "Serverless index with both PodType and Replicas should error",
@@ -1825,7 +2474,7 @@ func Test_ConfigureIndex_ValidationErrors_Unit(t *testing.T) {
 				PodType:  "p1.x1",
 				Replicas: 4,
 			},
-			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes",
+			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes. To change the read node replicas of a serverless or BYOC index, set ReadCapacity.Dedicated.Scaling",
 		},
 		{
 			name:           "BYOC index with PodType should error",
@@ -1833,7 +2482,7 @@ func Test_ConfigureIndex_ValidationErrors_Unit(t *testing.T) {
 			configParams: ConfigureIndexParams{
 				PodType: "p1.x1",
 			},
-			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes",
+			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes. To change the read node replicas of a serverless or BYOC index, set ReadCapacity.Dedicated.Scaling",
 		},
 		{
 			name:           "BYOC index with Replicas should error",
@@ -1841,17 +2490,17 @@ func Test_ConfigureIndex_ValidationErrors_Unit(t *testing.T) {
 			configParams: ConfigureIndexParams{
 				Replicas: 2,
 			},
-			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes",
+			expectedError: "cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes. To change the read node replicas of a serverless or BYOC index, set ReadCapacity.Dedicated.Scaling",
 		},
 		{
-			name:           "Embed always errors under the 2026-07 API",
+			name:           "Embed always errors under API versions 2026-07 and later",
 			deploymentJSON: managedDeploymentJSON,
 			configParams: ConfigureIndexParams{
 				Embed: &ConfigureIndexEmbed{
 					Model: ptr("multilingual-e5-large"),
 				},
 			},
-			expectedError: "Embed is not supported by Pinecone API version 2026-07: to update the read or write parameters of a legacy integrated index's embedding model, use Schema; to create a new index with integrated embedding, use CreateIndex with a StringField that sets Embed or SparseEmbed",
+			expectedError: "Embed is not supported by Pinecone API versions 2026-07 and later: to update the read or write parameters of a legacy integrated index's embedding model, use Schema; to create a new index with integrated embedding, use CreateIndex with a StringField that sets Embed or SparseEmbed",
 		},
 		{
 			name:           "BYOC index switching ReadCapacity to OnDemand should succeed",
@@ -1900,4 +2549,101 @@ func mockResponse(body string, statusCode int) *http.Response {
 		Body:       io.NopCloser(strings.NewReader(body)),
 		Header:     make(http.Header),
 	}
+}
+
+// PineconeError must stay comparable with ==; adding a map or slice field would break callers.
+var _ = PineconeError{} == PineconeError{}
+
+// ModelInfo and User were comparable in v7; adding a field must keep them so.
+var _ = ModelInfo{} == ModelInfo{}
+var _ = User{} == User{}
+
+func TestPineconeErrorDetailsIsACopyUnit(t *testing.T) {
+	err := handleErrorResponseBody(mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "too many", "details": {"limit_documents": 1000}}}`, http.StatusBadRequest), "")
+	var pcErr *PineconeError
+	require.ErrorAs(t, err, &pcErr)
+	pcErr.Details()["limit_documents"] = 1
+	assert.Equal(t, float64(1000), pcErr.Details()["limit_documents"])
+}
+
+func TestPineconeErrorDetailsNestedValuesAreCopiedUnit(t *testing.T) {
+	err := handleErrorResponseBody(mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "EXAMPLE", "message": "bad", "details": {"limits": {"documents": 1000}, "fields": ["a", {"b": 1}]}}}`, http.StatusBadRequest), "")
+	var pcErr *PineconeError
+	require.ErrorAs(t, err, &pcErr)
+	want := map[string]any{
+		"limits": map[string]any{"documents": float64(1000)},
+		"fields": []any{"a", map[string]any{"b": float64(1)}},
+	}
+	got := pcErr.Details()
+	require.Equal(t, want, got)
+	got["limits"].(map[string]any)["documents"] = 1
+	got["fields"].([]any)[1].(map[string]any)["b"] = 2
+	assert.Equal(t, want, pcErr.Details())
+}
+
+func TestPineconeErrorTypedDetailsUnit(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want *ErrorDetails
+	}{
+		{
+			name: "incompatible resource with a minimum version",
+			body: `{"status": 412, "error": {"code": "FAILED_PRECONDITION", "reason": "RESOURCE_INCOMPATIBLE_WITH_API_VERSION", "message": "m", "details": {"api_version": "2026-10", "minimum_api_version": "2027-04"}}}`,
+			want: &ErrorDetails{APIVersion: ptr("2026-10"), MinimumAPIVersion: ptr("2027-04")},
+		},
+		{
+			name: "incompatible resource with only a preview version",
+			body: `{"status": 412, "error": {"code": "FAILED_PRECONDITION", "reason": "RESOURCE_INCOMPATIBLE_WITH_API_VERSION", "message": "m", "details": {"api_version": "2026-10", "preview_api_version": "2027-07.alpha"}}}`,
+			want: &ErrorDetails{APIVersion: ptr("2026-10"), PreviewAPIVersion: ptr("2027-07.alpha")},
+		},
+		{
+			name: "too many documents",
+			body: `{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "m", "details": {"limit_documents": 1000, "actual_documents": 1001}}}`,
+			want: &ErrorDetails{LimitDocuments: ptr(1000), ActualDocuments: ptr(1001)},
+		},
+		{
+			name: "embedding rate limit",
+			body: `{"status": 429, "error": {"code": "RESOURCE_EXHAUSTED", "reason": "RATE_LIMIT_EXCEEDED", "message": "m", "details": {"field": "content", "model": "llama-text-embed-v2"}}}`,
+			want: &ErrorDetails{Field: ptr("content"), Model: ptr("llama-text-embed-v2")},
+		},
+		{
+			name: "values of the wrong type and unknown keys are ignored",
+			body: `{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "m", "details": {"limit_documents": 10.5, "actual_documents": "11", "model": 3, "new_key": "x"}}}`,
+			want: &ErrorDetails{},
+		},
+		{
+			name: "no details",
+			body: `{"status": 400, "error": {"code": "INVALID_ARGUMENT", "message": "m"}}`,
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := handleErrorResponseBody(mockResponse(tt.body, http.StatusBadRequest), "")
+			var pcErr *PineconeError
+			require.ErrorAs(t, err, &pcErr)
+			assert.Equal(t, tt.want, pcErr.TypedDetails())
+		})
+	}
+
+	var nilErr *PineconeError
+	assert.Nil(t, nilErr.TypedDetails())
+}
+
+func TestPineconeErrorDetailsOnNilErrorUnit(t *testing.T) {
+	var pcErr *PineconeError
+	assert.Nil(t, pcErr.Details())
+}
+
+// The JSON in PineconeError.Msg must decode, with details as a JSON object rather than Go syntax.
+func TestPineconeErrorMsgDetailsAreJSONUnit(t *testing.T) {
+	err := handleErrorResponseBody(mockResponse(`{"status": 412, "error": {"code": "FAILED_PRECONDITION", "reason": "RESOURCE_INCOMPATIBLE_WITH_API_VERSION", "message": "m", "details": {"api_version": "2026-10", "preview_api_version": "2026-01.alpha", "nested": {"k": [1, "two"]}}}}`, http.StatusPreconditionFailed), "failed to describe index: ")
+	var m map[string]any
+	require.NoError(t, json.Unmarshal([]byte(err.Error()), &m))
+	assert.Equal(t, map[string]any{
+		"api_version":         "2026-10",
+		"preview_api_version": "2026-01.alpha",
+		"nested":              map[string]any{"k": []any{float64(1), "two"}},
+	}, m["details"])
 }
