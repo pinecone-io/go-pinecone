@@ -1393,7 +1393,9 @@ type ConfigureIndexParams struct {
 	// setting it on a pod-based index returns an error. Converting an OnDemand index to Dedicated
 	// requires NodeType, Shards, and a Scaling strategy. Fields omitted from a Dedicated
 	// configuration keep their current values. Set Scaling.Auto to turn on replica autoscaling or
-	// change its bounds, and Scaling.Manual to switch back to a fixed replica count.
+	// change its bounds, and Scaling.Manual to switch back to a fixed replica count. A request that
+	// matches the node type, shards, and scaling the index reports leaves read capacity unchanged, so
+	// to retry after the read capacity state is "Error", change at least one of them.
 	ReadCapacity *ReadCapacityParams
 	// Schema (Optional) is the [ConfigureIndexSchema] updating the read or write parameters of the
 	// embedding model of a legacy integrated index.
