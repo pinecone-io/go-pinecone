@@ -1539,7 +1539,7 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 		fields := make(map[string]db_control.PatchSemanticTextField, len(in.Schema.Fields))
 		for fieldName, field := range in.Schema.Fields {
 			fields[fieldName] = db_control.PatchSemanticTextField{
-				Type:            db_control.PatchSemanticTextFieldTypeSemanticText,
+				Type:            db_control.SemanticText,
 				Model:           field.Model,
 				ReadParameters:  field.ReadParameters,
 				WriteParameters: field.WriteParameters,
@@ -2033,7 +2033,7 @@ type CreateIndexFromBackupResponse struct {
 // isn't. A backup that uses features this SDK's API version can't represent also returns a 412
 // [PineconeError] with error code FAILED_PRECONDITION and Reason
 // [ReasonResourceIncompatibleWithAPIVersion], whose message says which API version, if any, can act
-// on it; [Client.ListBackups] reports such a backup in [BackupList].IncompatibleBackups.
+// on it; [Client.ListBackups] reports such a backup in [BackupList].IncompatibleData.
 // Cross-cloud restore is not supported, a serverless backup can't be restored into a BYOC
 // environment, and a BYOC backup can only be restored into the environment it was taken in.
 //
@@ -2121,7 +2121,7 @@ func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromB
 // A backup that uses features this SDK's API version can't represent returns a [PineconeError]
 // whose error code is FAILED_PRECONDITION and whose Reason is
 // [ReasonResourceIncompatibleWithAPIVersion]; its message says which API version, if any, can act
-// on it. [Client.ListBackups] reports such a backup in [BackupList].IncompatibleBackups instead of
+// on it. [Client.ListBackups] reports such a backup in [BackupList].IncompatibleData instead of
 // Data.
 //
 // Parameters:
@@ -2183,7 +2183,7 @@ type ListBackupsParams struct {
 // ListBackups lists backups for a specific [Index], or all of the backups in a Pinecone project.
 //
 // Backups that use features this SDK's API version can't represent are reported in
-// [BackupList].IncompatibleBackups instead of Data.
+// [BackupList].IncompatibleData instead of Data.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -2297,7 +2297,7 @@ func (c *Client) DeleteBackup(ctx context.Context, backupId string) error {
 // A restore job that uses features this SDK's API version can't represent returns a [PineconeError]
 // whose error code is FAILED_PRECONDITION and whose Reason is
 // [ReasonResourceIncompatibleWithAPIVersion]; its message says which API version, if any, can act
-// on it. [Client.ListRestoreJobs] reports such a job in [RestoreJobList].IncompatibleRestoreJobs
+// on it. [Client.ListRestoreJobs] reports such a job in [RestoreJobList].IncompatibleData
 // instead of Data.
 //
 // Parameters:
@@ -2353,7 +2353,7 @@ type ListRestoreJobsParams struct {
 // ListRestoreJobs lists all restore jobs in a Pinecone project. Restore jobs are listed for the whole
 // project and can't be filtered by index. When Pagination is non-nil, pass Pagination.Next as
 // PaginationToken to fetch the next page. Restore jobs that use features this SDK's API version
-// can't represent are reported in [RestoreJobList].IncompatibleRestoreJobs instead of Data.
+// can't represent are reported in [RestoreJobList].IncompatibleData instead of Data.
 //
 // Parameters:
 //   - ctx: A context.Context object controls the request's lifetime, allowing for the request
@@ -2895,11 +2895,22 @@ func requireJSONArray(raw json.RawMessage) error {
 	return json.Unmarshal(raw, &items)
 }
 
-// backupListResponse keeps incompatible_backups undecoded; see incompatibleEntries.
+// firstPresent returns raw unless the key was absent or null, in which case it returns fallback.
+func firstPresent(raw, fallback json.RawMessage) json.RawMessage {
+	if len(raw) == 0 || string(raw) == "null" {
+		return fallback
+	}
+	return raw
+}
+
+// backupListResponse keeps incompatible_data undecoded; see incompatibleEntries. Until the server
+// renames it, production sends the array as incompatible_backups, which is read when
+// incompatible_data is absent.
 type backupListResponse struct {
-	Data                *[]db_control.BackupModel      `json:"data,omitempty"`
-	Pagination          *db_control.PaginationResponse `json:"pagination"`
-	IncompatibleBackups json.RawMessage                `json:"incompatible_backups,omitempty"`
+	Data                      *[]db_control.BackupModel      `json:"data,omitempty"`
+	Pagination                *db_control.PaginationResponse `json:"pagination"`
+	IncompatibleData          json.RawMessage                `json:"incompatible_data,omitempty"`
+	LegacyIncompatibleBackups json.RawMessage                `json:"incompatible_backups,omitempty"`
 }
 
 func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
@@ -2908,12 +2919,12 @@ func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
 		return nil, fmt.Errorf("failed to decode backup list response: %w", err)
 	}
 	var backupList BackupList
-	backupList.IncompatibleBackups = make([]*IncompatibleBackup, 0)
-	for _, backup := range incompatibleEntries[IncompatibleBackup](backupListDb.IncompatibleBackups) {
+	backupList.IncompatibleData = make([]*IncompatibleBackup, 0)
+	for _, backup := range incompatibleEntries[IncompatibleBackup](firstPresent(backupListDb.IncompatibleData, backupListDb.LegacyIncompatibleBackups)) {
 		if backup.BackupId == "" {
 			continue
 		}
-		backupList.IncompatibleBackups = append(backupList.IncompatibleBackups, &backup)
+		backupList.IncompatibleData = append(backupList.IncompatibleData, &backup)
 	}
 	if backupListDb.Data != nil {
 		backupList.Data = make([]*Backup, len(*backupListDb.Data))
@@ -2928,11 +2939,14 @@ func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
 	return &backupList, nil
 }
 
-// restoreJobListResponse keeps incompatible_restore_jobs undecoded; see incompatibleEntries.
+// restoreJobListResponse keeps incompatible_data undecoded; see incompatibleEntries. Until the
+// server renames it, production sends the array as incompatible_restore_jobs, which is read when
+// incompatible_data is absent.
 type restoreJobListResponse struct {
-	Data                    []db_control.RestoreJobModel   `json:"data"`
-	Pagination              *db_control.PaginationResponse `json:"pagination"`
-	IncompatibleRestoreJobs json.RawMessage                `json:"incompatible_restore_jobs,omitempty"`
+	Data                          []db_control.RestoreJobModel   `json:"data"`
+	Pagination                    *db_control.PaginationResponse `json:"pagination"`
+	IncompatibleData              json.RawMessage                `json:"incompatible_data,omitempty"`
+	LegacyIncompatibleRestoreJobs json.RawMessage                `json:"incompatible_restore_jobs,omitempty"`
 }
 
 func decodeRestoreJobList(resBody io.ReadCloser) (*RestoreJobList, error) {
@@ -2941,12 +2955,12 @@ func decodeRestoreJobList(resBody io.ReadCloser) (*RestoreJobList, error) {
 		return nil, fmt.Errorf("failed to decode restore job list response: %w", err)
 	}
 	var restoreJobList RestoreJobList
-	restoreJobList.IncompatibleRestoreJobs = make([]*IncompatibleRestoreJob, 0)
-	for _, job := range incompatibleEntries[IncompatibleRestoreJob](restoreJobListDb.IncompatibleRestoreJobs) {
+	restoreJobList.IncompatibleData = make([]*IncompatibleRestoreJob, 0)
+	for _, job := range incompatibleEntries[IncompatibleRestoreJob](firstPresent(restoreJobListDb.IncompatibleData, restoreJobListDb.LegacyIncompatibleRestoreJobs)) {
 		if job.RestoreJobId == "" {
 			continue
 		}
-		restoreJobList.IncompatibleRestoreJobs = append(restoreJobList.IncompatibleRestoreJobs, &job)
+		restoreJobList.IncompatibleData = append(restoreJobList.IncompatibleData, &job)
 	}
 	if len(restoreJobListDb.Data) > 0 {
 		restoreJobList.Data = make([]*RestoreJob, len(restoreJobListDb.Data))
@@ -2967,7 +2981,7 @@ func toBackup(backup *db_control.BackupModel) *Backup {
 	}
 
 	var createdAt *string
-	if backup.CreatedAt != nil {
+	if !backup.CreatedAt.IsZero() {
 		formatted := backup.CreatedAt.Format(time.RFC3339Nano)
 		createdAt = &formatted
 	}

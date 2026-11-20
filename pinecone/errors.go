@@ -46,8 +46,8 @@ type PineconeError struct {
 // as MinimumAPIVersion and PreviewAPIVersion on [IncompatibleIndex]. A version key is left out when
 // there's no such version; when both are left out, no public API version can act on the resource
 // yet. The resource's entry in [Client.ListIncompatibleIndexes],
-// [Client.ListIncompatibleCollections], [BackupList].IncompatibleBackups, or
-// [RestoreJobList].IncompatibleRestoreJobs carries the same versions. [PineconeError.TypedDetails]
+// [Client.ListIncompatibleCollections], [BackupList].IncompatibleData, or
+// [RestoreJobList].IncompatibleData carries the same versions. [PineconeError.TypedDetails]
 // reads the details keys as typed fields.
 const ReasonResourceIncompatibleWithAPIVersion = "RESOURCE_INCOMPATIBLE_WITH_API_VERSION"
 

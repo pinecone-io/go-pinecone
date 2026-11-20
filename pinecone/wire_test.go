@@ -176,6 +176,39 @@ func TestPineconeApiVersionUnit(t *testing.T) {
 	assert.Equal(t, "2026-10", gen.PineconeApiVersion)
 }
 
+// openResponseIndexJSON is an index whose schema has a field type this SDK doesn't know, whose
+// deployment has a deployment type it doesn't know, and which carries properties it doesn't know at
+// every level.
+const openResponseIndexJSON = `{
+	"name": "future-index",
+	"host": "https://future-index.pinecone.io",
+	"deletion_protection": "disabled",
+	"status": {"ready": true, "state": "Ready", "progress": 1},
+	"deployment": {"deployment_type": "edge", "environment": "somewhere", "zone": "z1"},
+	"schema": {"fields": {
+		"_values": {"type": "dense_vector", "dimension": 3, "metric": "cosine", "quantization": "int8"},
+		"location": {"type": "geo_point", "precision": 7},
+		"genre": {"type": "string", "filterable": true, "collation": "en-US"}
+	}, "version": 2},
+	"tags": null,
+	"embed_cache": {"enabled": true}
+}`
+
+// assertOpenResponseIndex checks that openResponseIndexJSON decodes with its known parts intact.
+func assertOpenResponseIndex(t *testing.T, idx *Index) {
+	t.Helper()
+	require.NotNil(t, idx)
+	assert.Equal(t, "future-index", idx.Name)
+	assert.Nil(t, idx.Deployment)
+	require.NotNil(t, idx.Schema)
+	assert.Equal(t, map[string]IndexSchemaField{
+		"_values": {DenseVector: &DenseVectorField{Dimension: 3, Metric: IndexMetricCosine}},
+		"genre":   {String: &StringField{Filterable: ptr(true)}},
+	}, idx.Schema.Fields)
+	assert.Equal(t, ptr(int32(3)), idx.Dimension)
+	assert.Equal(t, IndexMetricCosine, idx.Metric)
+}
+
 func TestControlPlaneWireUnit(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -480,6 +513,55 @@ func TestControlPlaneWireUnit(t *testing.T) {
 				assert.Equal(t, IndexStatusStateDisabled, idx.Status.State)
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/indexes/test-index"}},
+		},
+		{
+			// 2026-10 describes schema fields and deployments as open objects: a field or deployment
+			// type this SDK doesn't know, and properties it doesn't know, must not fail the response.
+			name:     "DescribeIndex tolerates unknown schema field types, deployment types, and properties",
+			status:   http.StatusOK,
+			response: openResponseIndexJSON,
+			call: func(t *testing.T, pc *Client) {
+				idx, err := pc.DescribeIndex(context.Background(), "future-index")
+				require.NoError(t, err)
+				assertOpenResponseIndex(t, idx)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/indexes/future-index"}},
+		},
+		{
+			name:     "ListIndexes tolerates unknown schema field types, deployment types, and properties",
+			status:   http.StatusOK,
+			response: `{"indexes": [` + openResponseIndexJSON + `], "incompatible_indexes": []}`,
+			call: func(t *testing.T, pc *Client) {
+				indexes, err := pc.ListIndexes(context.Background())
+				require.NoError(t, err)
+				require.Len(t, indexes, 1)
+				assertOpenResponseIndex(t, indexes[0])
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/indexes"}},
+		},
+		{
+			name:   "ListBackups tolerates unknown schema field types and reads incompatible_data",
+			status: http.StatusOK,
+			response: `{"data": [{"backup_id": "bkp-1", "source_index_name": "docs", "source_index_id": "idx-1", "status": "Ready",
+					"cloud": "aws", "region": "us-east-1", "created_at": "2026-10-01T00:00:00Z", "storage_tier": "cold",
+					"schema": {"fields": {
+						"_values": {"type": "dense_vector", "dimension": 3, "metric": "cosine", "quantization": "int8"},
+						"location": {"type": "geo_point", "precision": 7}}}}],
+				"pagination": null,
+				"incompatible_data": [{"backup_id": "bkp-2", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m"}]}`,
+			call: func(t *testing.T, pc *Client) {
+				backups, err := pc.ListBackups(context.Background(), nil)
+				require.NoError(t, err)
+				require.Len(t, backups.Data, 1)
+				backup := backups.Data[0]
+				require.NotNil(t, backup.Schema)
+				assert.Equal(t, map[string]IndexSchemaField{
+					"_values": {DenseVector: &DenseVectorField{Dimension: 3, Metric: IndexMetricCosine}},
+				}, backup.Schema.Fields)
+				assert.Equal(t, ptr(int32(3)), backup.Dimension)
+				assert.Equal(t, []*IncompatibleBackup{{BackupId: "bkp-2", MinimumAPIVersion: ptr("2027-04"), Message: "m"}}, backups.IncompatibleData)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/backups"}},
 		},
 		{
 			name:     "ListCollections with no collections key",
@@ -1453,7 +1535,7 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			status: http.StatusOK,
 			response: `{"data": [{"backup_id": "bkp-1", "source_index_name": "docs", "source_index_id": "idx-1", "status": "Ready", "cloud": "aws", "region": "us-east-1"}],
 				"pagination": {"next": "dG9rZW4="},
-				"incompatible_backups": [
+				"incompatible_data": [
 					{"backup_id": "bkp-2", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m1"},
 					{"backup_id": "bkp-3", "minimum_api_version": null, "preview_api_version": "2027-07.alpha", "message": "m2"}]}`,
 			call: func(t *testing.T, pc *Client) {
@@ -1466,7 +1548,7 @@ func TestControlPlaneWireUnit(t *testing.T) {
 				assert.Equal(t, []*IncompatibleBackup{
 					{BackupId: "bkp-2", MinimumAPIVersion: ptr("2027-04"), Message: "m1"},
 					{BackupId: "bkp-3", PreviewAPIVersion: ptr("2027-07.alpha"), Message: "m2"},
-				}, backups.IncompatibleBackups)
+				}, backups.IncompatibleData)
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/backups", query: "limit=3"}},
 		},
@@ -1474,52 +1556,83 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			name:   "ListBackups for an index with an incompatible backup",
 			status: http.StatusOK,
 			response: `{"data": [],
-				"incompatible_backups": [{"backup_id": "bkp-2", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m1"}]}`,
+				"incompatible_data": [{"backup_id": "bkp-2", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m1"}]}`,
 			call: func(t *testing.T, pc *Client) {
 				backups, err := pc.ListBackups(context.Background(), &ListBackupsParams{IndexName: ptr("docs")})
 				require.NoError(t, err)
 				assert.Empty(t, backups.Data)
-				assert.Equal(t, []*IncompatibleBackup{{BackupId: "bkp-2", MinimumAPIVersion: ptr("2027-04"), Message: "m1"}}, backups.IncompatibleBackups)
+				assert.Equal(t, []*IncompatibleBackup{{BackupId: "bkp-2", MinimumAPIVersion: ptr("2027-04"), Message: "m1"}}, backups.IncompatibleData)
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/indexes/docs/backups"}},
 		},
 		{
-			name:     "ListBackups without incompatible_backups",
+			// Production sends the pre-rename key until the server-side rename deploys.
+			name:   "ListBackups and ListRestoreJobs fall back to the pre-rename keys",
+			status: http.StatusOK,
+			response: `{"data": [], "pagination": null,
+				"incompatible_backups": [{"backup_id": "b", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m"}],
+				"incompatible_restore_jobs": [{"restore_job_id": "r", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m"}]}`,
+			call: func(t *testing.T, pc *Client) {
+				backups, err := pc.ListBackups(context.Background(), nil)
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleBackup{{BackupId: "b", MinimumAPIVersion: ptr("2027-04"), Message: "m"}}, backups.IncompatibleData)
+
+				jobs, err := pc.ListRestoreJobs(context.Background(), nil)
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleRestoreJob{{RestoreJobId: "r", MinimumAPIVersion: ptr("2027-04"), Message: "m"}}, jobs.IncompatibleData)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/backups"}, {method: http.MethodGet, path: "/restore-jobs"}},
+		},
+		{
+			name:   "ListBackups prefers incompatible_data over the pre-rename key",
+			status: http.StatusOK,
+			response: `{"data": [], "pagination": null,
+				"incompatible_data": [{"backup_id": "new", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m"}],
+				"incompatible_backups": [{"backup_id": "old", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m"}]}`,
+			call: func(t *testing.T, pc *Client) {
+				backups, err := pc.ListBackups(context.Background(), nil)
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleBackup{{BackupId: "new", MinimumAPIVersion: ptr("2027-04"), Message: "m"}}, backups.IncompatibleData)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/backups"}},
+		},
+		{
+			name:     "ListBackups without incompatible_data",
 			status:   http.StatusOK,
 			response: `{"data": [{"backup_id": "bkp-1", "source_index_name": "docs", "source_index_id": "idx-1", "status": "Ready", "cloud": "aws", "region": "us-east-1"}]}`,
 			call: func(t *testing.T, pc *Client) {
 				backups, err := pc.ListBackups(context.Background(), nil)
 				require.NoError(t, err)
 				require.Len(t, backups.Data, 1)
-				assert.NotNil(t, backups.IncompatibleBackups)
-				assert.Empty(t, backups.IncompatibleBackups)
+				assert.NotNil(t, backups.IncompatibleData)
+				assert.Empty(t, backups.IncompatibleData)
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/backups"}},
 		},
 		{
-			// A malformed incompatible_backups must not stop ListBackups from returning the full
+			// A malformed incompatible_data must not stop ListBackups from returning the full
 			// backups. An entry that doesn't decode is left out; the others are kept.
-			name:   "ListBackups tolerates malformed incompatible_backups entries",
+			name:   "ListBackups tolerates malformed incompatible_data entries",
 			status: http.StatusOK,
 			response: `{"data": [{"backup_id": "bkp-1", "source_index_name": "docs", "source_index_id": "idx-1", "status": "Ready", "cloud": "aws", "region": "us-east-1"}],
-				"incompatible_backups": [{"backup_id": "bkp-2", "minimum_api_version": 2027, "message": "m1"}, "bkp-3", null, {}, {"backup_id": "bkp-4", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m2"}]}`,
+				"incompatible_data": [{"backup_id": "bkp-2", "minimum_api_version": 2027, "message": "m1"}, "bkp-3", null, {}, {"backup_id": "bkp-4", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m2"}]}`,
 			call: func(t *testing.T, pc *Client) {
 				backups, err := pc.ListBackups(context.Background(), nil)
 				require.NoError(t, err)
 				require.Len(t, backups.Data, 1)
-				assert.Equal(t, []*IncompatibleBackup{{BackupId: "bkp-4", MinimumAPIVersion: ptr("2027-04"), Message: "m2"}}, backups.IncompatibleBackups)
+				assert.Equal(t, []*IncompatibleBackup{{BackupId: "bkp-4", MinimumAPIVersion: ptr("2027-04"), Message: "m2"}}, backups.IncompatibleData)
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/backups"}},
 		},
 		{
-			name:     "ListBackups ignores an incompatible_backups that isn't an array",
+			name:     "ListBackups ignores an incompatible_data that isn't an array",
 			status:   http.StatusOK,
-			response: `{"data": [{"backup_id": "bkp-1", "source_index_name": "docs", "source_index_id": "idx-1", "status": "Ready", "cloud": "aws", "region": "us-east-1"}], "incompatible_backups": {"backup_id": "bkp-2"}}`,
+			response: `{"data": [{"backup_id": "bkp-1", "source_index_name": "docs", "source_index_id": "idx-1", "status": "Ready", "cloud": "aws", "region": "us-east-1"}], "incompatible_data": {"backup_id": "bkp-2"}}`,
 			call: func(t *testing.T, pc *Client) {
 				backups, err := pc.ListBackups(context.Background(), nil)
 				require.NoError(t, err)
 				require.Len(t, backups.Data, 1)
-				assert.Empty(t, backups.IncompatibleBackups)
+				assert.Empty(t, backups.IncompatibleData)
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/backups"}},
 		},
@@ -1548,7 +1661,7 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			status: http.StatusOK,
 			response: `{"data": [{"restore_job_id": "rj-1", "backup_id": "bkp-1", "target_index_name": "docs", "target_index_id": "idx-1", "status": "Completed", "created_at": "2026-03-15T10:30:00Z", "percent_complete": 100}],
 				"pagination": {"next": "dG9rZW4="},
-				"incompatible_restore_jobs": [{"restore_job_id": "rj-2", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m1"},
+				"incompatible_data": [{"restore_job_id": "rj-2", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m1"},
 					{"restore_job_id": "rj-3", "minimum_api_version": null, "preview_api_version": "2027-07.alpha", "message": "m2"}]}`,
 			call: func(t *testing.T, pc *Client) {
 				jobs, err := pc.ListRestoreJobs(context.Background(), &ListRestoreJobsParams{Limit: ptr(2)})
@@ -1560,45 +1673,45 @@ func TestControlPlaneWireUnit(t *testing.T) {
 				assert.Equal(t, []*IncompatibleRestoreJob{
 					{RestoreJobId: "rj-2", MinimumAPIVersion: ptr("2027-04"), Message: "m1"},
 					{RestoreJobId: "rj-3", PreviewAPIVersion: ptr("2027-07.alpha"), Message: "m2"},
-				}, jobs.IncompatibleRestoreJobs)
+				}, jobs.IncompatibleData)
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/restore-jobs", query: "limit=2"}},
 		},
 		{
-			name:   "ListRestoreJobs tolerates a malformed incompatible_restore_jobs",
+			name:   "ListRestoreJobs tolerates a malformed incompatible_data",
 			status: http.StatusOK,
 			response: `{"data": [{"restore_job_id": "rj-1", "backup_id": "bkp-1", "target_index_name": "docs", "target_index_id": "idx-1", "status": "Completed", "created_at": "2026-03-15T10:30:00Z", "percent_complete": 100}],
-				"incompatible_restore_jobs": [{"restore_job_id": 7}, null, {"minimum_api_version": "2027-04", "preview_api_version": null}, {"restore_job_id": "rj-3", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m2"}]}`,
+				"incompatible_data": [{"restore_job_id": 7}, null, {"minimum_api_version": "2027-04", "preview_api_version": null}, {"restore_job_id": "rj-3", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m2"}]}`,
 			call: func(t *testing.T, pc *Client) {
 				jobs, err := pc.ListRestoreJobs(context.Background(), nil)
 				require.NoError(t, err)
 				require.Len(t, jobs.Data, 1)
-				assert.Equal(t, []*IncompatibleRestoreJob{{RestoreJobId: "rj-3", MinimumAPIVersion: ptr("2027-04"), Message: "m2"}}, jobs.IncompatibleRestoreJobs)
+				assert.Equal(t, []*IncompatibleRestoreJob{{RestoreJobId: "rj-3", MinimumAPIVersion: ptr("2027-04"), Message: "m2"}}, jobs.IncompatibleData)
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/restore-jobs"}},
 		},
 		{
-			name:     "ListRestoreJobs ignores a non-array incompatible_restore_jobs",
+			name:     "ListRestoreJobs ignores a non-array incompatible_data",
 			status:   http.StatusOK,
-			response: `{"data": [{"restore_job_id": "rj-1", "backup_id": "bkp-1", "target_index_name": "docs", "target_index_id": "idx-1", "status": "Completed", "created_at": "2026-03-15T10:30:00Z", "percent_complete": 100}], "incompatible_restore_jobs": {"restore_job_id": "rj-2"}}`,
+			response: `{"data": [{"restore_job_id": "rj-1", "backup_id": "bkp-1", "target_index_name": "docs", "target_index_id": "idx-1", "status": "Completed", "created_at": "2026-03-15T10:30:00Z", "percent_complete": 100}], "incompatible_data": {"restore_job_id": "rj-2"}}`,
 			call: func(t *testing.T, pc *Client) {
 				jobs, err := pc.ListRestoreJobs(context.Background(), nil)
 				require.NoError(t, err)
 				require.Len(t, jobs.Data, 1)
-				assert.NotNil(t, jobs.IncompatibleRestoreJobs)
-				assert.Empty(t, jobs.IncompatibleRestoreJobs)
+				assert.NotNil(t, jobs.IncompatibleData)
+				assert.Empty(t, jobs.IncompatibleData)
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/restore-jobs"}},
 		},
 		{
-			name:     "ListRestoreJobs without incompatible_restore_jobs",
+			name:     "ListRestoreJobs without incompatible_data",
 			status:   http.StatusOK,
 			response: `{"data": []}`,
 			call: func(t *testing.T, pc *Client) {
 				jobs, err := pc.ListRestoreJobs(context.Background(), nil)
 				require.NoError(t, err)
-				assert.NotNil(t, jobs.IncompatibleRestoreJobs)
-				assert.Empty(t, jobs.IncompatibleRestoreJobs)
+				assert.NotNil(t, jobs.IncompatibleData)
+				assert.Empty(t, jobs.IncompatibleData)
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/restore-jobs"}},
 		},
@@ -1617,7 +1730,7 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			name:   "Empty incompatible arrays",
 			status: http.StatusOK,
 			response: `{"indexes": [], "collections": [], "data": [],
-				"incompatible_indexes": [], "incompatible_collections": [], "incompatible_backups": [], "incompatible_restore_jobs": []}`,
+				"incompatible_indexes": [], "incompatible_collections": [], "incompatible_data": []}`,
 			call: func(t *testing.T, pc *Client) {
 				indexes, err := pc.ListIncompatibleIndexes(context.Background())
 				require.NoError(t, err)
@@ -1629,11 +1742,11 @@ func TestControlPlaneWireUnit(t *testing.T) {
 
 				backups, err := pc.ListBackups(context.Background(), nil)
 				require.NoError(t, err)
-				assert.Equal(t, []*IncompatibleBackup{}, backups.IncompatibleBackups)
+				assert.Equal(t, []*IncompatibleBackup{}, backups.IncompatibleData)
 
 				jobs, err := pc.ListRestoreJobs(context.Background(), nil)
 				require.NoError(t, err)
-				assert.Equal(t, []*IncompatibleRestoreJob{}, jobs.IncompatibleRestoreJobs)
+				assert.Equal(t, []*IncompatibleRestoreJob{}, jobs.IncompatibleData)
 			},
 			want: []wantRequest{
 				{method: http.MethodGet, path: "/indexes"},
@@ -1644,13 +1757,15 @@ func TestControlPlaneWireUnit(t *testing.T) {
 		},
 		{
 			// Entry models may gain fields in later releases (apis a101b112); unknown ones are ignored.
+			// Backups and restore jobs share the incompatible_data key, so one array serves both lists:
+			// each list drops entries without its own identifier.
 			name:   "Incompatible entries with fields the SDK doesn't know",
 			status: http.StatusOK,
 			response: `{"indexes": [], "collections": [], "data": [],
 				"incompatible_indexes": [{"name": "i", "minimum_api_version": "2027-04", "preview_api_version": null, "docs_url": "https://docs.pinecone.io", "message": "m"}],
 				"incompatible_collections": [{"name": "c", "minimum_api_version": "2027-04", "preview_api_version": null, "docs_url": "https://docs.pinecone.io", "message": "m"}],
-				"incompatible_backups": [{"backup_id": "b", "minimum_api_version": "2027-04", "preview_api_version": null, "docs_url": "https://docs.pinecone.io", "message": "m"}],
-				"incompatible_restore_jobs": [{"restore_job_id": "r", "minimum_api_version": "2027-04", "preview_api_version": null, "docs_url": "https://docs.pinecone.io", "message": "m"}]}`,
+				"incompatible_data": [{"backup_id": "b", "minimum_api_version": "2027-04", "preview_api_version": null, "docs_url": "https://docs.pinecone.io", "message": "m"},
+					{"restore_job_id": "r", "minimum_api_version": "2027-04", "preview_api_version": null, "docs_url": "https://docs.pinecone.io", "message": "m"}]}`,
 			call: func(t *testing.T, pc *Client) {
 				indexes, err := pc.ListIncompatibleIndexes(context.Background())
 				require.NoError(t, err)
@@ -1662,11 +1777,11 @@ func TestControlPlaneWireUnit(t *testing.T) {
 
 				backups, err := pc.ListBackups(context.Background(), nil)
 				require.NoError(t, err)
-				assert.Equal(t, []*IncompatibleBackup{{BackupId: "b", MinimumAPIVersion: ptr("2027-04"), Message: "m"}}, backups.IncompatibleBackups)
+				assert.Equal(t, []*IncompatibleBackup{{BackupId: "b", MinimumAPIVersion: ptr("2027-04"), Message: "m"}}, backups.IncompatibleData)
 
 				jobs, err := pc.ListRestoreJobs(context.Background(), nil)
 				require.NoError(t, err)
-				assert.Equal(t, []*IncompatibleRestoreJob{{RestoreJobId: "r", MinimumAPIVersion: ptr("2027-04"), Message: "m"}}, jobs.IncompatibleRestoreJobs)
+				assert.Equal(t, []*IncompatibleRestoreJob{{RestoreJobId: "r", MinimumAPIVersion: ptr("2027-04"), Message: "m"}}, jobs.IncompatibleData)
 			},
 			want: []wantRequest{
 				{method: http.MethodGet, path: "/indexes"},

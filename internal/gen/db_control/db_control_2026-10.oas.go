@@ -22,11 +22,6 @@ const (
 	ApiKeyAuthScopes = "ApiKeyAuth.Scopes"
 )
 
-// Defines values for BooleanFieldType.
-const (
-	Boolean BooleanFieldType = "boolean"
-)
-
 // Defines values for ByocDeploymentDeploymentType.
 const (
 	Byoc ByocDeploymentDeploymentType = "byoc"
@@ -35,16 +30,6 @@ const (
 // Defines values for DenseVectorFieldType.
 const (
 	DenseVector DenseVectorFieldType = "dense_vector"
-)
-
-// Defines values for FloatFieldType.
-const (
-	Float FloatFieldType = "float"
-)
-
-// Defines values for IntegerFieldType.
-const (
-	Integer IntegerFieldType = "integer"
 )
 
 // Defines values for ManagedDeploymentDeploymentType.
@@ -59,22 +44,7 @@ const (
 
 // Defines values for PatchSemanticTextFieldType.
 const (
-	PatchSemanticTextFieldTypeSemanticText PatchSemanticTextFieldType = "semantic_text"
-)
-
-// Defines values for PodDeploymentDeploymentType.
-const (
-	Pod PodDeploymentDeploymentType = "pod"
-)
-
-// Defines values for ResponseStringFieldType.
-const (
-	ResponseStringFieldTypeString ResponseStringFieldType = "string"
-)
-
-// Defines values for SemanticTextFieldType.
-const (
-	SemanticTextFieldTypeSemanticText SemanticTextFieldType = "semantic_text"
+	SemanticText PatchSemanticTextFieldType = "semantic_text"
 )
 
 // Defines values for SparseVectorFieldType.
@@ -84,12 +54,7 @@ const (
 
 // Defines values for StringFieldType.
 const (
-	StringFieldTypeString StringFieldType = "string"
-)
-
-// Defines values for StringListFieldType.
-const (
-	StringList StringListFieldType = "string_list"
+	String StringFieldType = "string"
 )
 
 // BackupList The list of backups that exist in the project.
@@ -97,8 +62,8 @@ type BackupList struct {
 	// Data List of backup objects
 	Data *[]BackupModel `json:"data,omitempty"`
 
-	// IncompatibleBackups Backups that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `data`. Entries are paginated with the items, so a page's `data` may hold fewer than `limit` items, or none, while `pagination.next` is set. The array is empty when there are none.
-	IncompatibleBackups []IncompatibleBackup `json:"incompatible_backups"`
+	// IncompatibleData Backups that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `data`. Entries are paginated with the items, so a page's `data` may hold fewer than `limit` items, or none, while `pagination.next` is set. The array is empty when there are none.
+	IncompatibleData []IncompatibleBackup `json:"incompatible_data"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
@@ -113,19 +78,19 @@ type BackupModel struct {
 	Cloud string `json:"cloud"`
 
 	// CreatedAt Timestamp when the backup was created.
-	CreatedAt *time.Time `json:"created_at,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 
 	// Description Optional description providing context for the backup.
-	Description *string `json:"description,omitempty"`
+	Description *string `json:"description"`
 
 	// Name Optional user-defined name for the backup.
-	Name *string `json:"name,omitempty"`
+	Name *string `json:"name"`
 
 	// NamespaceCount Number of namespaces in the backup.
-	NamespaceCount *int64 `json:"namespace_count,omitempty"`
+	NamespaceCount *int64 `json:"namespace_count"`
 
 	// RecordCount Total number of records in the backup.
-	RecordCount *int64 `json:"record_count,omitempty"`
+	RecordCount *int64 `json:"record_count"`
 
 	// Region Cloud region where the backup is stored.
 	Region string `json:"region"`
@@ -134,7 +99,7 @@ type BackupModel struct {
 	Schema *IndexSchema `json:"schema,omitempty"`
 
 	// SizeBytes Size of the backup in bytes.
-	SizeBytes *int64 `json:"size_bytes,omitempty"`
+	SizeBytes *int64 `json:"size_bytes"`
 
 	// SourceIndexDeletedAt The deletion timestamp when the source index has been deleted. Not present for backups associated with an active index.
 	SourceIndexDeletedAt *time.Time `json:"source_index_deleted_at,omitempty"`
@@ -205,8 +170,8 @@ type BackupScheduleHistoryList struct {
 	// Data Backups from this schedule for the current page.
 	Data []BackupScheduleHistoryItem `json:"data"`
 
-	// IncompatibleBackups Backups from this schedule that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `data`. Entries are paginated with the items, so a page's `data` may hold fewer than `limit` items, or none, while `pagination.next` is set. The array is empty when there are none.
-	IncompatibleBackups []IncompatibleBackup `json:"incompatible_backups"`
+	// IncompatibleData Backups from this schedule that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `data`. Entries are paginated with the items, so a page's `data` may hold fewer than `limit` items, or none, while `pagination.next` is set. The array is empty when there are none.
+	IncompatibleData []IncompatibleBackup `json:"incompatible_data"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
@@ -217,8 +182,8 @@ type BackupScheduleList struct {
 	// Data Backup schedules returned for this page.
 	Data []BackupScheduleResponse `json:"data"`
 
-	// IncompatibleBackupSchedules Backup schedules that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `data`. Entries are paginated with the items, so a page's `data` may hold fewer than `limit` items, or none, while `pagination.next` is set. The array is empty when there are none.
-	IncompatibleBackupSchedules []IncompatibleBackupSchedule `json:"incompatible_backup_schedules"`
+	// IncompatibleData Backup schedules that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `data`. Entries are paginated with the items, so a page's `data` may hold fewer than `limit` items, or none, while `pagination.next` is set. The array is empty when there are none.
+	IncompatibleData []IncompatibleBackupSchedule `json:"incompatible_data"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
@@ -271,21 +236,6 @@ type BackupScheduleRetentionInput struct {
 	// ExpireAfterDays Number of days to retain each backup created by this schedule. Must be at least 1 and no more than the service-configured maximum; a value outside that range is rejected with `400`.
 	ExpireAfterDays int32 `json:"expire_after_days"`
 }
-
-// BooleanField A boolean field configuration. Boolean values are not declared in the index schema; include them as document metadata instead — they are indexed automatically at upsert time.
-type BooleanField struct {
-	// Description Optional description for this field. `null` when none was set.
-	Description *string `json:"description"`
-
-	// Filterable Whether this field is indexed for metadata filtering.
-	Filterable *bool `json:"filterable,omitempty"`
-
-	// Type Identifies this as a boolean field. Must be `boolean`.
-	Type BooleanFieldType `json:"type"`
-}
-
-// BooleanFieldType Identifies this as a boolean field. Must be `boolean`.
-type BooleanFieldType string
 
 // ByocDeployment Deployment configuration for a bring-your-own-compute (BYOC) index.
 type ByocDeployment struct {
@@ -372,8 +322,8 @@ type ConversionJobList struct {
 	// Data The conversion jobs on this page, newest first.
 	Data []ConversionJobModel `json:"data"`
 
-	// IncompatibleConversionJobs Conversion jobs that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `data`. Entries are paginated with the items, so a page's `data` may hold fewer than `limit` items, or none, while `pagination.next` is set. The array is empty when there are none.
-	IncompatibleConversionJobs []IncompatibleConversionJob `json:"incompatible_conversion_jobs"`
+	// IncompatibleData Conversion jobs that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `data`. Entries are paginated with the items, so a page's `data` may hold fewer than `limit` items, or none, while `pagination.next` is set. The array is empty when there are none.
+	IncompatibleData []IncompatibleConversionJob `json:"incompatible_data"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
@@ -448,8 +398,8 @@ type ConvertIndexRequest struct {
 	Tags *IndexTags `json:"tags"`
 }
 
-// ConvertIndexResponse The response for converting an index.
-type ConvertIndexResponse struct {
+// ConvertIndexResult The response for converting an index.
+type ConvertIndexResult struct {
 	// ConversionJobId Pass to Describe a conversion job to track the conversion's progress.
 	ConversionJobId string `json:"conversion_job_id"`
 
@@ -674,7 +624,7 @@ type DeletionProtection = string
 
 // DenseVectorField A dense vector field configuration. Stores fixed-dimension floating-point vectors for approximate nearest-neighbor (ANN) search.
 type DenseVectorField struct {
-	// Description Optional description for this field, at most 256 bytes. `null` in responses when none was set.
+	// Description Optional description for this field, at most 256 bytes.
 	Description *string `json:"description"`
 
 	// Dimension The number of dimensions in the dense vectors stored in this field.
@@ -692,7 +642,7 @@ type DenseVectorField struct {
 // DenseVectorFieldType Identifies this as a dense vector field. Must be `dense_vector`.
 type DenseVectorFieldType string
 
-// ErrorResponse The response shape used for all error responses.
+// ErrorResponse The response shape used for error responses that have a JSON body.
 type ErrorResponse struct {
 	// Error Detailed information about the error that occurred.
 	Error struct {
@@ -707,7 +657,7 @@ type ErrorResponse struct {
 		// - `preview_api_version`: the earliest early-access API version that can act on the resource, in the same form. Left out when no early-access API version can. Set independently of `minimum_api_version`; both may be set.
 		Details *map[string]interface{} `json:"details,omitempty"`
 
-		// Message A human-readable description of the error
+		// Message A human-readable description of the error. Message text in examples is illustrative: the server may send different wording, and wording can change without notice. Branch on `code`, and on `reason` where present, never on `message`.
 		Message string `json:"message"`
 
 		// Reason The exact cause of the error, when the error names one. Only some errors set it, and only on API version 2026-10 and later. Each reason belongs to one `code`, keeps its name and meaning within an API version, and documents the `details` keys it sets. New reasons may be added: treat a value you don't recognize as if `reason` were absent, and act on `code`.
@@ -720,21 +670,6 @@ type ErrorResponse struct {
 	// Status The HTTP status code of the error.
 	Status int `json:"status"`
 }
-
-// FloatField A numeric (floating-point) field configuration. Numeric values are not declared in the index schema; include them as document metadata instead — they are indexed automatically at upsert time.
-type FloatField struct {
-	// Description Optional description for this field. `null` when none was set.
-	Description *string `json:"description"`
-
-	// Filterable Whether this field is indexed for metadata filtering.
-	Filterable *bool `json:"filterable,omitempty"`
-
-	// Type Identifies this as a float field. Must be `float`.
-	Type FloatFieldType `json:"type"`
-}
-
-// FloatFieldType Identifies this as a float field. Must be `float`.
-type FloatFieldType string
 
 // IncompatibleBackup A backup that exists in the project but uses features this API version can't represent. Only its identifier is shown, with the API versions that can describe it and a message explaining what to do. Using this API version to describe it or create an index from it returns `412 FAILED_PRECONDITION`. Later releases may add fields to this object, such as other API versions that can describe the resource; ignore fields you don't recognize.
 type IncompatibleBackup struct {
@@ -826,13 +761,36 @@ type IncompatibleRestoreJob struct {
 	RestoreJobId string `json:"restore_job_id"`
 }
 
-// IndexDeployment The deployment configuration of a Pinecone index. The `deployment_type` field indicates which infrastructure model the index uses.
+// IndexDeployment The deployment configuration of a Pinecone index. `deployment_type` identifies the infrastructure model and decides which of the other properties are present:
 //
-// - `pod`: Dedicated pod-based infrastructure. Suitable for workloads that require predictable performance.
-// - `managed`: Serverless infrastructure managed by Pinecone, including full-text search indexes. Scales automatically; billed per usage.
-// - `byoc`: Bring-your-own-compute. Runs in customer-managed infrastructure.
+// - `pod`: Dedicated pod-based infrastructure. Suitable for workloads that require predictable performance. Carries `environment`, `pod_type`, `replicas`, and `shards`.
+// - `managed`: Serverless infrastructure managed by Pinecone, including full-text search indexes. Scales automatically; billed per usage. Carries `cloud` and `region`, and may carry `environment`.
+// - `byoc`: Bring-your-own-compute. Runs in customer-managed infrastructure. Carries `environment`.
+//
+// New deployment types and new properties may be added. Clients should accept a `deployment_type` not listed here, and ignore properties they don't recognize.
 type IndexDeployment struct {
-	union json.RawMessage
+	// Cloud The public cloud where the index is hosted. Present on `managed` deployments.
+	//
+	// Possible values: `gcp`, `aws`, or `azure`.
+	Cloud *string `json:"cloud,omitempty"`
+
+	// DeploymentType The infrastructure model of the index: `pod`, `managed`, or `byoc`. Clients should accept values not listed here.
+	DeploymentType string `json:"deployment_type"`
+
+	// Environment The Pinecone environment hosting the index. Present on `pod` and `byoc` deployments; may be present on `managed` deployments.
+	Environment *string `json:"environment,omitempty"`
+
+	// PodType The type of pod. One of `s1`, `p1`, or `p2` appended with `.` and one of `x1`, `x2`, `x4`, or `x8`. Present on `pod` deployments.
+	PodType *string `json:"pod_type,omitempty"`
+
+	// Region The region where the index is hosted. Present on `managed` deployments.
+	Region *string `json:"region,omitempty"`
+
+	// Replicas The number of replicas. Replicas duplicate your index to provide higher availability and throughput. Present on `pod` deployments.
+	Replicas *int32 `json:"replicas,omitempty"`
+
+	// Shards The number of shards. Shards split your data across multiple pods so you can fit more data into an index. Present on `pod` deployments.
+	Shards *int32 `json:"shards,omitempty"`
 }
 
 // IndexDeploymentRequest The deployment configuration for index creation. The `deployment_type` field selects the infrastructure model. Defaults to `managed` (serverless) in `us-east-1` on `aws` if omitted.
@@ -862,11 +820,13 @@ type IndexModel struct {
 	// Possible values: `disabled` or `enabled`.
 	DeletionProtection DeletionProtection `json:"deletion_protection"`
 
-	// Deployment The deployment configuration of a Pinecone index. The `deployment_type` field indicates which infrastructure model the index uses.
+	// Deployment The deployment configuration of a Pinecone index. `deployment_type` identifies the infrastructure model and decides which of the other properties are present:
 	//
-	// - `pod`: Dedicated pod-based infrastructure. Suitable for workloads that require predictable performance.
-	// - `managed`: Serverless infrastructure managed by Pinecone, including full-text search indexes. Scales automatically; billed per usage.
-	// - `byoc`: Bring-your-own-compute. Runs in customer-managed infrastructure.
+	// - `pod`: Dedicated pod-based infrastructure. Suitable for workloads that require predictable performance. Carries `environment`, `pod_type`, `replicas`, and `shards`.
+	// - `managed`: Serverless infrastructure managed by Pinecone, including full-text search indexes. Scales automatically; billed per usage. Carries `cloud` and `region`, and may carry `environment`.
+	// - `byoc`: Bring-your-own-compute. Runs in customer-managed infrastructure. Carries `environment`.
+	//
+	// New deployment types and new properties may be added. Clients should accept a `deployment_type` not listed here, and ignore properties they don't recognize.
 	Deployment IndexDeployment `json:"deployment"`
 
 	// Host The URL address where the index is hosted.
@@ -913,42 +873,60 @@ type IndexSchema struct {
 	Fields map[string]IndexSchemaField `json:"fields"`
 }
 
-// IndexSchemaField The configuration of a single field in the index schema. `type` identifies the field type:
+// IndexSchemaField The configuration of a single field in the index schema. `type` identifies the field type and decides which of the other properties are present:
 //
-// - `dense_vector`: Dense vectors.
+// - `dense_vector`: Dense vectors. Carries `dimension` and `metric`.
 // - `sparse_vector`: Sparse vectors.
-// - `string`: Text for full-text search, integrated embedding, or metadata filtering.
-// - `string_list`, `float`, `boolean`: Metadata fields.
-// - `semantic_text`, `integer`: Legacy field types from older indexes.
+// - `string`: Text. A search field carries one or more of `full_text_search`, `embed`, and `sparse_embed`, plus `store_text`; a string field used for metadata only carries `filterable` instead.
+// - `string_list`, `float`, `boolean`: Metadata fields. Carry `filterable`.
+// - `semantic_text`: The embedded text field of an integrated index created with `create_index_for_model` (the records API). Carries `model`, `dimension`, `metric`, `write_parameters`, and `read_parameters`. Document indexes declare embedding on a `string` field with `embed` or `sparse_embed` instead.
+// - `integer`: A legacy metadata field type from indexes created before numeric values were normalized to `float`. Carries `filterable`.
 //
-// Fields in older indexes may omit `type`.
+// A legacy metadata field from an index created before typed schema fields were introduced has no `type` and carries only `filterable`.
+//
+// New field types and new properties may be added. Clients should accept a `type` not listed here, and ignore properties they don't recognize.
 type IndexSchemaField struct {
-	union json.RawMessage
+	// Description The field's description, or `null` when none was set.
+	Description *string `json:"description"`
+
+	// Dimension The number of dimensions of the field's dense vectors. Present on `dense_vector` and `semantic_text` fields. On a `semantic_text` field whose model produces sparse vectors it is `0`, or `null` on some older indexes.
+	Dimension *int32 `json:"dimension"`
+
+	// Embed The dense embedding configuration of a `string` field, as resolved when the index was created: the values set in the create request, with every omitted one filled from the model's defaults. Present when the field was created with `embed`.
+	Embed *ResponseEmbedConfig `json:"embed,omitempty"`
+
+	// Filterable Whether this field is indexed for metadata filtering. Present on metadata fields, including a `string` field with no search configuration.
+	Filterable *bool `json:"filterable,omitempty"`
+
+	// FullTextSearch Full-text search configuration of a `string` field, with its resolved settings. Present when the field's text is stored, including when full-text search was enabled by default.
+	FullTextSearch *ResponseFullTextSearchConfig `json:"full_text_search,omitempty"`
+
+	// Metric The distance metric used for similarity search. Present on `dense_vector` and `semantic_text` fields.
+	//
+	// Possible values: `cosine`, `dotproduct`, or `euclidean`.
+	Metric *string `json:"metric,omitempty"`
+
+	// Model The hosted embedding model that embeds the text of a `semantic_text` field.
+	Model *string `json:"model,omitempty"`
+
+	// ReadParameters Model-specific parameters a `semantic_text` field applies at query time, such as `input_type`.
+	ReadParameters *map[string]interface{} `json:"read_parameters"`
+
+	// SparseEmbed The learned-sparse embedding configuration of a `string` field, as resolved when the index was created: the values set in the create request, with every omitted one filled from the model's defaults. Present when the field was created with `sparse_embed`. Sparse embeddings have no dimension or metric.
+	SparseEmbed *ResponseSparseEmbedConfig `json:"sparse_embed,omitempty"`
+
+	// StoreText Whether the text of a `string` field is stored. `true` means the text is stored and indexed for full-text search; `false` means it is embedded without being stored.
+	StoreText *bool `json:"store_text,omitempty"`
+
+	// Type The field type: `dense_vector`, `sparse_vector`, `string`, `string_list`, `float`, `boolean`, `semantic_text`, or `integer`. Absent on legacy metadata fields. Clients should accept values not listed here.
+	Type *string `json:"type,omitempty"`
+
+	// WriteParameters Model-specific parameters a `semantic_text` field applies at write time, such as `input_type`.
+	WriteParameters *map[string]interface{} `json:"write_parameters"`
 }
 
 // IndexTags Custom user tags added to an index, at most 20 per index. Keys must be 80 characters or less and alphanumeric, '_', or '-'. Values must be 120 characters or less and consist of printable ASCII characters or spaces. To unset a key, set the value to be an empty string. `null` in responses when the index has no tags.
 type IndexTags map[string]string
-
-// IntegerField A legacy integer field configuration. Integer fields were used in older index schemas before numeric values were normalized to `float` at upsert time. New indexes will not produce this field type; it may appear in responses for indexes created before that normalization was introduced.
-type IntegerField struct {
-	// Description Optional description for this field. `null` when none was set.
-	Description *string `json:"description"`
-
-	// Filterable Whether this field is indexed for metadata filtering.
-	Filterable *bool `json:"filterable,omitempty"`
-
-	// Type Identifies this as an integer field. Must be `integer`.
-	Type IntegerFieldType `json:"type"`
-}
-
-// IntegerFieldType Identifies this as an integer field. Must be `integer`.
-type IntegerFieldType string
-
-// LegacyMetadataField A legacy metadata field from indexes created before typed schema fields were introduced. The original data type of the field (string, float, boolean, etc.) was not recorded. Only the `filterable` flag is available. This field type will not appear in new indexes; it may appear in responses for older indexes pending schema migration.
-type LegacyMetadataField struct {
-	// Filterable Whether this field is indexed for metadata filtering.
-	Filterable bool `json:"filterable"`
-}
 
 // ManagedDeployment Deployment configuration for a serverless (managed) index. Serverless indexes scale automatically and you are billed only for the resources you use. This deployment type also covers full-text search indexes, which are serverless under the hood.
 type ManagedDeployment struct {
@@ -1022,27 +1000,6 @@ type PatchSemanticTextField struct {
 
 // PatchSemanticTextFieldType The field type. Must be `semantic_text`.
 type PatchSemanticTextFieldType string
-
-// PodDeployment Deployment configuration for a pod-based index.
-type PodDeployment struct {
-	// DeploymentType Identifies this as a pod-based deployment. Must be `pod`.
-	DeploymentType PodDeploymentDeploymentType `json:"deployment_type"`
-
-	// Environment The environment where the index is hosted.
-	Environment string `json:"environment"`
-
-	// PodType The type of pod to use. One of `s1`, `p1`, or `p2` appended with `.` and one of `x1`, `x2`, `x4`, or `x8`.
-	PodType string `json:"pod_type"`
-
-	// Replicas The number of replicas. Replicas duplicate your index. They provide higher availability and throughput. Replicas can be scaled up or down as your needs change.
-	Replicas *int32 `json:"replicas,omitempty"`
-
-	// Shards The number of shards. Shards split your data across multiple pods so you can fit more data into an index.
-	Shards *int32 `json:"shards,omitempty"`
-}
-
-// PodDeploymentDeploymentType Identifies this as a pod-based deployment. Must be `pod`.
-type PodDeploymentDeploymentType string
 
 // ReadCapacity By default the index will be created with read capacity mode `OnDemand`, for managed and BYOC indexes alike. The exception is a BYOC environment that supports only `Dedicated` read capacity: there, `OnDemand`, sent or defaulted, returns `400`, so send `Dedicated`. If you prefer to allocate dedicated read nodes for your workload, you must specify mode `Dedicated` and additional configurations for `node_type`, `shards`, and `scaling`. A key other than `mode` and `dedicated` is rejected with an error that names it.
 type ReadCapacity struct {
@@ -1202,10 +1159,37 @@ type ResponseEmbedConfig struct {
 	ProcessingLocation *string `json:"processing_location,omitempty"`
 
 	// ReadParameters The model-specific parameters applied when embedding the query text of `embed` scoring methods, as resolved at creation: the parameters set in the create request merged with the model's defaults.
-	ReadParameters *map[string]interface{} `json:"read_parameters,omitempty"`
+	ReadParameters map[string]interface{} `json:"read_parameters"`
 
 	// WriteParameters The model-specific parameters applied when embedding document text, as resolved at creation: the parameters set in the create request merged with the model's defaults.
-	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+	WriteParameters map[string]interface{} `json:"write_parameters"`
+}
+
+// ResponseFullTextSearchConfig Full-text search configuration of a `string` field, with its resolved settings. Present when the field's text is stored, including when full-text search was enabled by default.
+type ResponseFullTextSearchConfig struct {
+	// Language The language used for text analysis, or `null` when none is set.
+	Language *string `json:"language"`
+
+	// Ngram Character n-gram tokenization configuration. Present only when the field is configured for n-gram substring matching.
+	Ngram *ResponseNgramConfig `json:"ngram,omitempty"`
+
+	// Stemming Whether stemming is applied during text analysis.
+	Stemming bool `json:"stemming"`
+
+	// StopWords Whether stop words are filtered during text analysis. Only `true` if `stemming: true`.
+	StopWords bool `json:"stop_words"`
+}
+
+// ResponseNgramConfig Character n-gram tokenization configuration. Present only when the field is configured for n-gram substring matching.
+type ResponseNgramConfig struct {
+	// MaxGram Maximum n-gram length.
+	MaxGram int `json:"max_gram"`
+
+	// MinGram Minimum n-gram length.
+	MinGram int `json:"min_gram"`
+
+	// PrefixOnly Whether only prefix n-grams anchored at the start of the token are generated.
+	PrefixOnly bool `json:"prefix_only"`
 }
 
 // ResponseSparseEmbedConfig The learned-sparse embedding configuration of a `string` field, as resolved when the index was created: the values set in the create request, with every omitted one filled from the model's defaults. Present when the field was created with `sparse_embed`. Sparse embeddings have no dimension or metric.
@@ -1214,59 +1198,11 @@ type ResponseSparseEmbedConfig struct {
 	Model string `json:"model"`
 
 	// ReadParameters The model-specific parameters applied when embedding the query text of `sparse_embed` scoring methods, as resolved at creation: the parameters set in the create request merged with the model's defaults.
-	ReadParameters *map[string]interface{} `json:"read_parameters,omitempty"`
+	ReadParameters map[string]interface{} `json:"read_parameters"`
 
 	// WriteParameters The model-specific parameters applied when embedding document text, as resolved at creation: the parameters set in the create request merged with the model's defaults.
-	WriteParameters *map[string]interface{} `json:"write_parameters,omitempty"`
+	WriteParameters map[string]interface{} `json:"write_parameters"`
 }
-
-// ResponseStringField A string field as returned in index schema responses. A search field includes one or more of `full_text_search`, `embed`, and `sparse_embed`. A field whose text is stored always reports `full_text_search`, with its resolved settings, including when it was enabled by default. A string field used for metadata only includes a `filterable` flag instead.
-type ResponseStringField struct {
-	// Description Optional description for this field. `null` when none was set.
-	Description *string `json:"description"`
-
-	// Embed The dense embedding configuration of a `string` field, as resolved when the index was created: the values set in the create request, with every omitted one filled from the model's defaults. Present when the field was created with `embed`.
-	Embed *ResponseEmbedConfig `json:"embed,omitempty"`
-
-	// Filterable Whether this field is indexed for metadata filtering. Present only on a string field with no search configuration.
-	Filterable *bool `json:"filterable,omitempty"`
-
-	// FullTextSearch Full-text search configuration. Present when the field is indexed for full-text search.
-	FullTextSearch *struct {
-		// Language The language used for text analysis. Defaults to `en`.
-		Language string `json:"language"`
-
-		// Ngram Character n-gram tokenization configuration. Present only when the field is configured for n-gram substring matching.
-		Ngram *struct {
-			// MaxGram Maximum n-gram length.
-			MaxGram int `json:"max_gram"`
-
-			// MinGram Minimum n-gram length.
-			MinGram int `json:"min_gram"`
-
-			// PrefixOnly Whether only prefix n-grams anchored at the start of the token are generated.
-			PrefixOnly bool `json:"prefix_only"`
-		} `json:"ngram,omitempty"`
-
-		// Stemming Whether stemming is applied during text analysis.
-		Stemming bool `json:"stemming"`
-
-		// StopWords Whether stop words are filtered during text analysis. Only `true` if `stemming: true`.
-		StopWords bool `json:"stop_words"`
-	} `json:"full_text_search,omitempty"`
-
-	// SparseEmbed The learned-sparse embedding configuration of a `string` field, as resolved when the index was created: the values set in the create request, with every omitted one filled from the model's defaults. Present when the field was created with `sparse_embed`. Sparse embeddings have no dimension or metric.
-	SparseEmbed *ResponseSparseEmbedConfig `json:"sparse_embed,omitempty"`
-
-	// StoreText Whether the field's text is stored. `true` means the text is stored and indexed for full-text search; `false` means it is embedded without being stored.
-	StoreText *bool `json:"store_text,omitempty"`
-
-	// Type Identifies this as a string field. Must be `string`.
-	Type ResponseStringFieldType `json:"type"`
-}
-
-// ResponseStringFieldType Identifies this as a string field. Must be `string`.
-type ResponseStringFieldType string
 
 // RestoreDeploymentRequest Where to create the index. Defaults to the cloud and region, or the BYOC environment, the backup was taken in.
 //
@@ -1281,8 +1217,8 @@ type RestoreJobList struct {
 	// Data List of restore job objects
 	Data []RestoreJobModel `json:"data"`
 
-	// IncompatibleRestoreJobs Restore jobs that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `data`. Entries are paginated with the items, so a page's `data` may hold fewer than `limit` items, or none, while `pagination.next` is set. The array is empty when there are none.
-	IncompatibleRestoreJobs []IncompatibleRestoreJob `json:"incompatible_restore_jobs"`
+	// IncompatibleData Restore jobs that this API version can't describe, because they use features this API version can't represent. They still exist but are not included in `data`. Entries are paginated with the items, so a page's `data` may hold fewer than `limit` items, or none, while `pagination.next` is set. The array is empty when there are none.
+	IncompatibleData []IncompatibleRestoreJob `json:"incompatible_data"`
 
 	// Pagination Cursor envelope for the next page. `null` (or absent) on the final page of results.
 	Pagination *PaginationResponse `json:"pagination"`
@@ -1319,7 +1255,7 @@ type RestoreJobModel struct {
 
 // ScalingConfigAuto The config to use for automatic replica scaling. Pinecone adds and removes replicas within `min_replicas` and `max_replicas` based on read load. A missing bound, or `shards` or any other unknown key inside `auto`, is rejected with an error that names the field.
 type ScalingConfigAuto struct {
-	// MaxReplicas The maximum number of replicas per shard. Autoscaling never scales above this value. Must be greater than or equal to `min_replicas`.
+	// MaxReplicas The maximum number of replicas per shard. Autoscaling never scales above this value. Must be greater than `min_replicas`.
 	MaxReplicas int32 `json:"max_replicas"`
 
 	// MinReplicas The minimum number of replicas per shard. Autoscaling never scales below this value. Must be at least 1. To pause an index, use `Manual` scaling with `replicas` set to 0.
@@ -1353,40 +1289,9 @@ type ScalingConfigManualResponse struct {
 	Replicas int32 `json:"replicas"`
 }
 
-// SemanticTextField The embedded text field of a legacy integrated index created via create-for-model, as returned when the index is described. The index's embedding configuration is reported on the field named by its `field_map`. Legacy integrated indexes require the legacy Records API.
-//
-// This is a read-only view: `semantic_text` is rejected when creating an index. A document index reports an integrated-embedding field as a `string` field carrying `embed` or `sparse_embed` instead.
-type SemanticTextField struct {
-	// Description The field's description, or `null` when none was set.
-	Description *string `json:"description"`
-
-	// Dimension The dimension of the vectors the model produces. `null` for models that produce sparse vectors.
-	Dimension *int32 `json:"dimension"`
-
-	// Metric The distance metric the index uses.
-	//
-	// Possible values: `cosine`, `dotproduct`, or `euclidean`.
-	Metric *string `json:"metric,omitempty"`
-
-	// Model The hosted embedding model that embeds the field's text.
-	Model string `json:"model"`
-
-	// ReadParameters Model-specific parameters applied at query time, such as `input_type`.
-	ReadParameters *map[string]interface{} `json:"read_parameters"`
-
-	// Type Identifies this as a semantic text field. Must be `semantic_text`.
-	Type SemanticTextFieldType `json:"type"`
-
-	// WriteParameters Model-specific parameters applied at write time, such as `input_type`.
-	WriteParameters *map[string]interface{} `json:"write_parameters"`
-}
-
-// SemanticTextFieldType Identifies this as a semantic text field. Must be `semantic_text`.
-type SemanticTextFieldType string
-
 // SparseVectorField A sparse vector field configuration. Stores sparse vectors for keyword or hybrid search.
 type SparseVectorField struct {
-	// Description Optional description for this field, at most 256 bytes. `null` in responses when none was set.
+	// Description Optional description for this field, at most 256 bytes.
 	Description *string `json:"description"`
 
 	// Type Identifies this as a sparse vector field. Must be `sparse_vector`.
@@ -1455,30 +1360,10 @@ type StringField struct {
 // StringFieldType Identifies this as a string field. Must be `string`.
 type StringFieldType string
 
-// StringListField A string array field configuration. String array values are not declared in the index schema; include them as document metadata instead — they are indexed automatically at upsert time.
-type StringListField struct {
-	// Description Optional description for this field. `null` when none was set.
-	Description *string `json:"description"`
-
-	// Filterable Whether this field is indexed for metadata filtering.
-	Filterable *bool `json:"filterable,omitempty"`
-
-	// Type Identifies this as a string array field. Must be `string_list`.
-	Type StringListFieldType `json:"type"`
-}
-
-// StringListFieldType Identifies this as a string array field. Must be `string_list`.
-type StringListFieldType string
-
-// TypedIndexSchemaField A schema field that carries a `type` discriminator. This covers all field types in current use. See `IndexSchemaField` for the full union that also includes legacy untyped fields.
-type TypedIndexSchemaField struct {
-	union json.RawMessage
-}
-
 // UnauthorizedMessage The plain-text body of a `401` response. Authentication failures are rejected before the request reaches the API, so they carry a short message rather than an `ErrorResponse`.
 type UnauthorizedMessage = string
 
-// UnprocessableEntityMessage The plain-text body of a `422` response. A request body that cannot be deserialized is rejected before the request reaches the API, so it carries the deserializer's message rather than an `ErrorResponse`.
+// UnprocessableEntityMessage The plain-text body of an error response for a request body that cannot be deserialized. It carries the deserializer's message rather than an `ErrorResponse`.
 type UnprocessableEntityMessage = string
 
 // UpdateBackupScheduleRequest Fields that can be updated on an existing backup schedule. Omitted fields are left unchanged. Re-enabling a disabled schedule (`enabled: true`) enqueues a new backup operation.
@@ -1516,7 +1401,7 @@ type ListBackupScheduleHistoryParams struct {
 	// Limit The number of results to return per page.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// PaginationToken The token to use to retrieve the next page of results. A malformed token is rejected with `400`.
+	// PaginationToken The token to use to retrieve the next page of results. `pagination_token` is accepted as another name for this parameter. A malformed token is rejected with `400`.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
 
 	// XPineconeApiVersion Required date-based version header
@@ -1528,7 +1413,7 @@ type ListProjectBackupsParams struct {
 	// Limit The number of results to return per page.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// PaginationToken The token to use to retrieve the next page of results. A malformed token is rejected with `400`.
+	// PaginationToken The token to use to retrieve the next page of results. `pagination_token` is accepted as another name for this parameter. A malformed token is rejected with `400`.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
 
 	// XPineconeApiVersion Required date-based version header
@@ -1582,7 +1467,7 @@ type ListConversionJobsParams struct {
 	// Limit The number of results to return per page.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// PaginationToken The token to use to retrieve the next page of results. A malformed token is rejected with `400`.
+	// PaginationToken The token to use to retrieve the next page of results. `pagination_token` is accepted as another name for this parameter. A malformed token is rejected with `400`.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
 
 	// XPineconeApiVersion Required date-based version header
@@ -1642,7 +1527,7 @@ type ListBackupSchedulesParams struct {
 	// Limit The number of results to return per page.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// PaginationToken The token to use to retrieve the next page of results. A malformed token is rejected with `400`.
+	// PaginationToken The token to use to retrieve the next page of results. `pagination_token` is accepted as another name for this parameter. A malformed token is rejected with `400`.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
 
 	// XPineconeApiVersion Required date-based version header
@@ -1663,7 +1548,7 @@ type ListIndexBackupsParams struct {
 	// Limit The number of results to return per page.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// PaginationToken The token to use to retrieve the next page of results. A malformed token is rejected with `400`.
+	// PaginationToken The token to use to retrieve the next page of results. `pagination_token` is accepted as another name for this parameter. A malformed token is rejected with `400`.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
 
 	// XPineconeApiVersion Required date-based version header
@@ -1687,7 +1572,7 @@ type ListRestoreJobsParams struct {
 	// Limit The number of results to return per page.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// PaginationToken The token to use to retrieve the next page of results. A malformed token is rejected with `400`.
+	// PaginationToken The token to use to retrieve the next page of results. `pagination_token` is accepted as another name for this parameter. A malformed token is rejected with `400`.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
 
 	// XPineconeApiVersion Required date-based version header
@@ -1846,125 +1731,6 @@ func (t *CreateIndexSchemaField) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsPodDeployment returns the union data inside the IndexDeployment as a PodDeployment
-func (t IndexDeployment) AsPodDeployment() (PodDeployment, error) {
-	var body PodDeployment
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPodDeployment overwrites any union data inside the IndexDeployment as the provided PodDeployment
-func (t *IndexDeployment) FromPodDeployment(v PodDeployment) error {
-	v.DeploymentType = "pod"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePodDeployment performs a merge with any union data inside the IndexDeployment, using the provided PodDeployment
-func (t *IndexDeployment) MergePodDeployment(v PodDeployment) error {
-	v.DeploymentType = "pod"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsManagedDeployment returns the union data inside the IndexDeployment as a ManagedDeployment
-func (t IndexDeployment) AsManagedDeployment() (ManagedDeployment, error) {
-	var body ManagedDeployment
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromManagedDeployment overwrites any union data inside the IndexDeployment as the provided ManagedDeployment
-func (t *IndexDeployment) FromManagedDeployment(v ManagedDeployment) error {
-	v.DeploymentType = "managed"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeManagedDeployment performs a merge with any union data inside the IndexDeployment, using the provided ManagedDeployment
-func (t *IndexDeployment) MergeManagedDeployment(v ManagedDeployment) error {
-	v.DeploymentType = "managed"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsByocDeployment returns the union data inside the IndexDeployment as a ByocDeployment
-func (t IndexDeployment) AsByocDeployment() (ByocDeployment, error) {
-	var body ByocDeployment
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromByocDeployment overwrites any union data inside the IndexDeployment as the provided ByocDeployment
-func (t *IndexDeployment) FromByocDeployment(v ByocDeployment) error {
-	v.DeploymentType = "byoc"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeByocDeployment performs a merge with any union data inside the IndexDeployment, using the provided ByocDeployment
-func (t *IndexDeployment) MergeByocDeployment(v ByocDeployment) error {
-	v.DeploymentType = "byoc"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t IndexDeployment) Discriminator() (string, error) {
-	var discriminator struct {
-		Discriminator string `json:"deployment_type"`
-	}
-	err := json.Unmarshal(t.union, &discriminator)
-	return discriminator.Discriminator, err
-}
-
-func (t IndexDeployment) ValueByDiscriminator() (interface{}, error) {
-	discriminator, err := t.Discriminator()
-	if err != nil {
-		return nil, err
-	}
-	switch discriminator {
-	case "byoc":
-		return t.AsByocDeployment()
-	case "managed":
-		return t.AsManagedDeployment()
-	case "pod":
-		return t.AsPodDeployment()
-	default:
-		return nil, errors.New("unknown discriminator value: " + discriminator)
-	}
-}
-
-func (t IndexDeployment) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *IndexDeployment) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
 // AsManagedDeployment returns the union data inside the IndexDeploymentRequest as a ManagedDeployment
 func (t IndexDeploymentRequest) AsManagedDeployment() (ManagedDeployment, error) {
 	var body ManagedDeployment
@@ -2050,68 +1816,6 @@ func (t IndexDeploymentRequest) MarshalJSON() ([]byte, error) {
 }
 
 func (t *IndexDeploymentRequest) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsTypedIndexSchemaField returns the union data inside the IndexSchemaField as a TypedIndexSchemaField
-func (t IndexSchemaField) AsTypedIndexSchemaField() (TypedIndexSchemaField, error) {
-	var body TypedIndexSchemaField
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromTypedIndexSchemaField overwrites any union data inside the IndexSchemaField as the provided TypedIndexSchemaField
-func (t *IndexSchemaField) FromTypedIndexSchemaField(v TypedIndexSchemaField) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeTypedIndexSchemaField performs a merge with any union data inside the IndexSchemaField, using the provided TypedIndexSchemaField
-func (t *IndexSchemaField) MergeTypedIndexSchemaField(v TypedIndexSchemaField) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsLegacyMetadataField returns the union data inside the IndexSchemaField as a LegacyMetadataField
-func (t IndexSchemaField) AsLegacyMetadataField() (LegacyMetadataField, error) {
-	var body LegacyMetadataField
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromLegacyMetadataField overwrites any union data inside the IndexSchemaField as the provided LegacyMetadataField
-func (t *IndexSchemaField) FromLegacyMetadataField(v LegacyMetadataField) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeLegacyMetadataField performs a merge with any union data inside the IndexSchemaField, using the provided LegacyMetadataField
-func (t *IndexSchemaField) MergeLegacyMetadataField(v LegacyMetadataField) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t IndexSchemaField) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *IndexSchemaField) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -2379,275 +2083,6 @@ func (t RestoreDeploymentRequest) MarshalJSON() ([]byte, error) {
 }
 
 func (t *RestoreDeploymentRequest) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsDenseVectorField returns the union data inside the TypedIndexSchemaField as a DenseVectorField
-func (t TypedIndexSchemaField) AsDenseVectorField() (DenseVectorField, error) {
-	var body DenseVectorField
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromDenseVectorField overwrites any union data inside the TypedIndexSchemaField as the provided DenseVectorField
-func (t *TypedIndexSchemaField) FromDenseVectorField(v DenseVectorField) error {
-	v.Type = "dense_vector"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeDenseVectorField performs a merge with any union data inside the TypedIndexSchemaField, using the provided DenseVectorField
-func (t *TypedIndexSchemaField) MergeDenseVectorField(v DenseVectorField) error {
-	v.Type = "dense_vector"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSparseVectorField returns the union data inside the TypedIndexSchemaField as a SparseVectorField
-func (t TypedIndexSchemaField) AsSparseVectorField() (SparseVectorField, error) {
-	var body SparseVectorField
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSparseVectorField overwrites any union data inside the TypedIndexSchemaField as the provided SparseVectorField
-func (t *TypedIndexSchemaField) FromSparseVectorField(v SparseVectorField) error {
-	v.Type = "sparse_vector"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSparseVectorField performs a merge with any union data inside the TypedIndexSchemaField, using the provided SparseVectorField
-func (t *TypedIndexSchemaField) MergeSparseVectorField(v SparseVectorField) error {
-	v.Type = "sparse_vector"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSemanticTextField returns the union data inside the TypedIndexSchemaField as a SemanticTextField
-func (t TypedIndexSchemaField) AsSemanticTextField() (SemanticTextField, error) {
-	var body SemanticTextField
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSemanticTextField overwrites any union data inside the TypedIndexSchemaField as the provided SemanticTextField
-func (t *TypedIndexSchemaField) FromSemanticTextField(v SemanticTextField) error {
-	v.Type = "semantic_text"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSemanticTextField performs a merge with any union data inside the TypedIndexSchemaField, using the provided SemanticTextField
-func (t *TypedIndexSchemaField) MergeSemanticTextField(v SemanticTextField) error {
-	v.Type = "semantic_text"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsResponseStringField returns the union data inside the TypedIndexSchemaField as a ResponseStringField
-func (t TypedIndexSchemaField) AsResponseStringField() (ResponseStringField, error) {
-	var body ResponseStringField
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromResponseStringField overwrites any union data inside the TypedIndexSchemaField as the provided ResponseStringField
-func (t *TypedIndexSchemaField) FromResponseStringField(v ResponseStringField) error {
-	v.Type = "string"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeResponseStringField performs a merge with any union data inside the TypedIndexSchemaField, using the provided ResponseStringField
-func (t *TypedIndexSchemaField) MergeResponseStringField(v ResponseStringField) error {
-	v.Type = "string"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsStringListField returns the union data inside the TypedIndexSchemaField as a StringListField
-func (t TypedIndexSchemaField) AsStringListField() (StringListField, error) {
-	var body StringListField
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromStringListField overwrites any union data inside the TypedIndexSchemaField as the provided StringListField
-func (t *TypedIndexSchemaField) FromStringListField(v StringListField) error {
-	v.Type = "string_list"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeStringListField performs a merge with any union data inside the TypedIndexSchemaField, using the provided StringListField
-func (t *TypedIndexSchemaField) MergeStringListField(v StringListField) error {
-	v.Type = "string_list"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsFloatField returns the union data inside the TypedIndexSchemaField as a FloatField
-func (t TypedIndexSchemaField) AsFloatField() (FloatField, error) {
-	var body FloatField
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromFloatField overwrites any union data inside the TypedIndexSchemaField as the provided FloatField
-func (t *TypedIndexSchemaField) FromFloatField(v FloatField) error {
-	v.Type = "float"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeFloatField performs a merge with any union data inside the TypedIndexSchemaField, using the provided FloatField
-func (t *TypedIndexSchemaField) MergeFloatField(v FloatField) error {
-	v.Type = "float"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsIntegerField returns the union data inside the TypedIndexSchemaField as a IntegerField
-func (t TypedIndexSchemaField) AsIntegerField() (IntegerField, error) {
-	var body IntegerField
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromIntegerField overwrites any union data inside the TypedIndexSchemaField as the provided IntegerField
-func (t *TypedIndexSchemaField) FromIntegerField(v IntegerField) error {
-	v.Type = "integer"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeIntegerField performs a merge with any union data inside the TypedIndexSchemaField, using the provided IntegerField
-func (t *TypedIndexSchemaField) MergeIntegerField(v IntegerField) error {
-	v.Type = "integer"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsBooleanField returns the union data inside the TypedIndexSchemaField as a BooleanField
-func (t TypedIndexSchemaField) AsBooleanField() (BooleanField, error) {
-	var body BooleanField
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromBooleanField overwrites any union data inside the TypedIndexSchemaField as the provided BooleanField
-func (t *TypedIndexSchemaField) FromBooleanField(v BooleanField) error {
-	v.Type = "boolean"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeBooleanField performs a merge with any union data inside the TypedIndexSchemaField, using the provided BooleanField
-func (t *TypedIndexSchemaField) MergeBooleanField(v BooleanField) error {
-	v.Type = "boolean"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t TypedIndexSchemaField) Discriminator() (string, error) {
-	var discriminator struct {
-		Discriminator string `json:"type"`
-	}
-	err := json.Unmarshal(t.union, &discriminator)
-	return discriminator.Discriminator, err
-}
-
-func (t TypedIndexSchemaField) ValueByDiscriminator() (interface{}, error) {
-	discriminator, err := t.Discriminator()
-	if err != nil {
-		return nil, err
-	}
-	switch discriminator {
-	case "boolean":
-		return t.AsBooleanField()
-	case "dense_vector":
-		return t.AsDenseVectorField()
-	case "float":
-		return t.AsFloatField()
-	case "integer":
-		return t.AsIntegerField()
-	case "semantic_text":
-		return t.AsSemanticTextField()
-	case "sparse_vector":
-		return t.AsSparseVectorField()
-	case "string":
-		return t.AsResponseStringField()
-	case "string_list":
-		return t.AsStringListField()
-	default:
-		return nil, errors.New("unknown discriminator value: " + discriminator)
-	}
-}
-
-func (t TypedIndexSchemaField) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *TypedIndexSchemaField) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -5098,6 +4533,7 @@ type UpdateBackupScheduleApiResponse struct {
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
 	JSON412      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5228,6 +4664,7 @@ type CreateIndexFromBackupOperationApiResponse struct {
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
 	JSON412      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5280,6 +4717,7 @@ type CreateCollectionApiResponse struct {
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
 	JSON412      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5458,6 +4896,7 @@ type CreateIndexApiResponse struct {
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
 	JSON412      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5486,6 +4925,7 @@ type CreateIndexForModelApiResponse struct {
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5564,6 +5004,7 @@ type ConfigureIndexApiResponse struct {
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
 	JSON412      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5619,6 +5060,7 @@ type CreateBackupScheduleApiResponse struct {
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
 	JSON412      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5671,6 +5113,7 @@ type CreateBackupApiResponse struct {
 	JSON400      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON412      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -5693,13 +5136,14 @@ func (r CreateBackupApiResponse) StatusCode() int {
 type ConvertIndexApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON202      *ConvertIndexResponse
+	JSON202      *ConvertIndexResult
 	JSON400      *ErrorResponse
 	JSON402      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
 	JSON412      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -6244,12 +5688,25 @@ func ParseUpdateBackupScheduleApiResponse(rsp *http.Response) (*UpdateBackupSche
 		}
 		response.JSON412 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -6305,6 +5762,9 @@ func ParseListBackupScheduleHistoryApiResponse(rsp *http.Response) (*ListBackupS
 		}
 		response.JSON500 = &dest
 
+	case rsp.StatusCode == 400:
+		// Content-type (text/plain) unsupported
+
 	}
 
 	return response, nil
@@ -6351,6 +5811,9 @@ func ParseListProjectBackupsApiResponse(rsp *http.Response) (*ListProjectBackups
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -6514,12 +5977,25 @@ func ParseCreateIndexFromBackupOperationApiResponse(rsp *http.Response) (*Create
 		}
 		response.JSON412 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -6622,12 +6098,25 @@ func ParseCreateCollectionApiResponse(rsp *http.Response) (*CreateCollectionApiR
 		}
 		response.JSON412 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -6668,6 +6157,9 @@ func ParseDeleteCollectionApiResponse(rsp *http.Response) (*DeleteCollectionApiR
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -6762,6 +6254,9 @@ func ParseListConversionJobsApiResponse(rsp *http.Response) (*ListConversionJobs
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -6972,12 +6467,25 @@ func ParseCreateIndexApiResponse(rsp *http.Response) (*CreateIndexApiResponse, e
 		}
 		response.JSON412 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -7040,12 +6548,25 @@ func ParseCreateIndexForModelApiResponse(rsp *http.Response) (*CreateIndexForMod
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -7202,12 +6723,25 @@ func ParseConfigureIndexApiResponse(rsp *http.Response) (*ConfigureIndexApiRespo
 		}
 		response.JSON412 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -7262,6 +6796,9 @@ func ParseListBackupSchedulesApiResponse(rsp *http.Response) (*ListBackupSchedul
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -7331,12 +6868,25 @@ func ParseCreateBackupScheduleApiResponse(rsp *http.Response) (*CreateBackupSche
 		}
 		response.JSON412 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -7392,6 +6942,9 @@ func ParseListIndexBackupsApiResponse(rsp *http.Response) (*ListIndexBackupsApiR
 		}
 		response.JSON500 = &dest
 
+	case rsp.StatusCode == 400:
+		// Content-type (text/plain) unsupported
+
 	}
 
 	return response, nil
@@ -7439,12 +6992,25 @@ func ParseCreateBackupApiResponse(rsp *http.Response) (*CreateBackupApiResponse,
 		}
 		response.JSON412 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -7466,7 +7032,7 @@ func ParseConvertIndexApiResponse(rsp *http.Response) (*ConvertIndexApiResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
-		var dest ConvertIndexResponse
+		var dest ConvertIndexResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -7514,12 +7080,25 @@ func ParseConvertIndexApiResponse(rsp *http.Response) (*ConvertIndexApiResponse,
 		}
 		response.JSON412 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -7567,6 +7146,9 @@ func ParseListRestoreJobsApiResponse(rsp *http.Response) (*ListRestoreJobsApiRes
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+		// Content-type (text/plain) unsupported
 
 	}
 

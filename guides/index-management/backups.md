@@ -63,7 +63,7 @@ To list every backup in the project, leave out `IndexName`. To also list backups
 set `IncludeDeleted`, which requires `IndexName`.
 
 If a backup uses a feature that this SDK's API version can't represent, this SDK can't describe it, so `ListBackups`
-reports it in `IncompatibleBackups` instead of `Data`, with its `BackupId`. Each entry's `MinimumAPIVersion` is the
+reports it in `IncompatibleData` instead of `Data`, with its `BackupId`. Each entry's `MinimumAPIVersion` is the
 earliest generally available API version that can describe the backup, and every later one can too; `PreviewAPIVersion`
 is the earliest early-access API version that can. Either is `nil` when there's no such version, and when both are, no
 public API version can describe the backup yet. Each incompatible backup counts toward `Limit`, so a page can hold fewer
@@ -78,7 +78,7 @@ backups, err := pc.ListBackups(ctx, nil)
 if err != nil {
 	log.Fatalf("Failed to list backups: %v", err)
 }
-for _, b := range backups.IncompatibleBackups {
+for _, b := range backups.IncompatibleData {
 	if b.MinimumAPIVersion != nil {
 		fmt.Printf("%s (use API version %s or later)\n", b.BackupId, *b.MinimumAPIVersion)
 	} else {
@@ -117,7 +117,7 @@ fmt.Printf("Restore job status: %s\n", job.Status)
 
 A restore job's `Status` is `"Pending"`, `"Completed"`, `"Failed"`, or `"Cancelled"`. The restore is finished when it's
 `"Completed"`. `PercentComplete` is reported only as 100, once the job completes. To list the project's restore jobs,
-use `ListRestoreJobs`. Like `ListBackups`, it reports a restore job this SDK can't describe in `IncompatibleRestoreJobs`
+use `ListRestoreJobs`. Like `ListBackups`, it reports a restore job this SDK can't describe in `IncompatibleData`
 instead of `Data`, and `DescribeRestoreJob` refuses such a job with the error code `FAILED_PRECONDITION` and the reason
 `RESOURCE_INCOMPATIBLE_WITH_API_VERSION`.
 
