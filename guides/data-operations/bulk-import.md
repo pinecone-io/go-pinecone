@@ -63,6 +63,17 @@ if v := imp.ValidationResult; v != nil && v.ImportSuccesses != nil && v.ImportEr
 }
 ```
 
+When a request fails, the error is a `*pinecone.PineconeError`. Its `ErrorCode` is the name of the gRPC status code
+the API returned, such as `INVALID_ARGUMENT` for a bad URI or `NOT_FOUND` for an unknown import ID:
+
+```go
+imp, err = idxConnection.DescribeImport(ctx, "unknown-import-id")
+var pcErr *pinecone.PineconeError
+if errors.As(err, &pcErr) && pcErr.ErrorCode == "NOT_FOUND" {
+	fmt.Println("No import with that ID")
+}
+```
+
 ## List imports
 
 `ListImports` takes a `*ListImportsRequest`, or nil for the defaults:

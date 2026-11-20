@@ -18,7 +18,9 @@ type PineconeError struct {
 	Code int
 	// ErrorCode is the API's error code from the response body, such as "ABORTED" when a read
 	// capacity change is still in progress, or "ALREADY_EXISTS". It's empty when the body isn't
-	// an API error response. Branch on it rather than on the message text.
+	// an API error response. Branch on it rather than on the message text. Bulk import errors
+	// carry a numeric gRPC status code, which ErrorCode holds by its canonical name, such as
+	// "NOT_FOUND" for code 5; a code the SDK doesn't recognize is "UNKNOWN".
 	ErrorCode string
 	// Reason is the exact cause of the error, such as "TOO_MANY_DOCUMENTS", when the API names one.
 	// Only some errors set it, and only on API version 2026-10 and later. Each reason belongs to one
