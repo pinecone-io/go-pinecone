@@ -1792,7 +1792,8 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 			},
 			oldConfig: onDemandOld,
 			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
-				assert.Error(t, err)
+				assert.ErrorIs(t, err, errOnDemandToDedicatedIncomplete)
+				assert.ErrorContains(t, err, "the index uses OnDemand read capacity")
 				assert.Nil(t, result)
 			},
 		},
@@ -1940,7 +1941,7 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 			},
 			oldConfig: onDemandOld,
 			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
-				assert.ErrorIs(t, err, errDedicatedReadCapacityIncomplete)
+				assert.ErrorIs(t, err, errOnDemandToDedicatedIncomplete)
 				assert.Nil(t, result)
 			},
 		},
