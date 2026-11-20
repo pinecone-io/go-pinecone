@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pinecone-io/go-pinecone/v8/internal/gen"
@@ -591,6 +592,60 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 
 		})
 	}
+}
+
+func TestHandleErrorResponseBodyPlainTextExcerptUnit(t *testing.T) {
+	const prefix = "failed to list indexes: "
+
+	t.Run("short plain text is unchanged", func(t *testing.T) {
+		err := handleErrorResponseBody(mockResponse("upstream connect error\n", http.StatusBadGateway), prefix)
+		var pcErr *PineconeError
+		require.ErrorAs(t, err, &pcErr)
+		assert.Equal(t, prefix+"upstream connect error", pcErr.Message)
+	})
+
+	t.Run("long HTML is collapsed and truncated, Msg keeps the full body", func(t *testing.T) {
+		body := "<html>\n  <head><title>502 Bad Gateway</title></head>\n  <body>\n" +
+			strings.Repeat("    <p>The server encountered a temporary error.</p>\n", 40) +
+			"  </body>\n</html>\n"
+		err := handleErrorResponseBody(mockResponse(body, http.StatusBadGateway), prefix)
+		var pcErr *PineconeError
+		require.ErrorAs(t, err, &pcErr)
+
+		excerpt := strings.TrimPrefix(pcErr.Message, prefix)
+		assert.True(t, strings.HasPrefix(pcErr.Message, prefix))
+		assert.True(t, strings.HasPrefix(excerpt, "<html> <head><title>502 Bad Gateway</title></head> <body> <p>"), excerpt)
+		assert.True(t, strings.HasSuffix(excerpt, "…"), excerpt)
+		assert.LessOrEqual(t, len(strings.TrimSuffix(excerpt, "…")), maxPlainTextErrorMessageBytes)
+		assert.NotContains(t, excerpt, "\n")
+		assert.NotContains(t, excerpt, "  ")
+
+		var summary map[string]any
+		require.NoError(t, json.Unmarshal([]byte(pcErr.Msg.Error()), &summary))
+		assert.Equal(t, body, summary["body"])
+	})
+
+	t.Run("truncation cuts on a UTF-8 boundary", func(t *testing.T) {
+		for offset := 0; offset < 4; offset++ {
+			body := strings.Repeat("a", maxPlainTextErrorMessageBytes-offset) + strings.Repeat("€😀", 50)
+			err := handleErrorResponseBody(mockResponse(body, http.StatusBadRequest), prefix)
+			var pcErr *PineconeError
+			require.ErrorAs(t, err, &pcErr)
+			assert.True(t, utf8.ValidString(pcErr.Message), "offset %d: %q", offset, pcErr.Message)
+			excerpt := strings.TrimSuffix(strings.TrimPrefix(pcErr.Message, prefix), "…")
+			assert.LessOrEqual(t, len(excerpt), maxPlainTextErrorMessageBytes)
+			assert.True(t, strings.HasPrefix(body, excerpt), "offset %d", offset)
+			assert.True(t, strings.HasSuffix(pcErr.Message, "…"))
+		}
+	})
+
+	t.Run("a body exactly at the cap is not marked", func(t *testing.T) {
+		body := strings.Repeat("x", maxPlainTextErrorMessageBytes)
+		err := handleErrorResponseBody(mockResponse(body, http.StatusBadRequest), prefix)
+		var pcErr *PineconeError
+		require.ErrorAs(t, err, &pcErr)
+		assert.Equal(t, prefix+body, pcErr.Message)
+	})
 }
 
 func TestFormatErrorUnit(t *testing.T) {

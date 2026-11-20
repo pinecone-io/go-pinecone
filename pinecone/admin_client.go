@@ -667,7 +667,7 @@ func (o *DefaultOrganizationClient) List(ctx context.Context) ([]*Organization, 
 //	}
 func (o *DefaultOrganizationClient) Describe(ctx context.Context, organizationId string) (*Organization, error) {
 	if organizationId == "" {
-		return nil, fmt.Errorf("organizationId must not be empty")
+		return nil, fmt.Errorf("you must provide an organizationId to describe an organization")
 	}
 	res, err := o.restClient.FetchOrganization(ctx, organizationId, &admin.FetchOrganizationParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
@@ -717,7 +717,7 @@ func (o *DefaultOrganizationClient) Update(ctx context.Context, organizationId s
 		return nil, fmt.Errorf("in (*UpdateOrganizationParams) cannot be nil")
 	}
 	if organizationId == "" {
-		return nil, fmt.Errorf("organizationId must not be empty")
+		return nil, fmt.Errorf("you must provide an organizationId to update an organization")
 	}
 
 	request := admin.UpdateOrganizationRequest{
@@ -762,7 +762,7 @@ func (o *DefaultOrganizationClient) Update(ctx context.Context, organizationId s
 //	}
 func (o *DefaultOrganizationClient) Delete(ctx context.Context, organizationId string) error {
 	if organizationId == "" {
-		return fmt.Errorf("organizationId must not be empty")
+		return fmt.Errorf("you must provide an organizationId to delete an organization")
 	}
 	res, err := o.restClient.DeleteOrganization(ctx, organizationId, &admin.DeleteOrganizationParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
@@ -1563,7 +1563,8 @@ type CreateInviteParams struct {
 	// The email address to invite.
 	Email string `json:"email"`
 
-	// Role bindings for the invitee. Must include at least one organization-scoped
+	// Role bindings for the invitee. Required: [InviteClient.Create] returns an error without
+	// sending the request when it's empty. Must include at least one organization-scoped
 	// binding that grants organization membership (e.g. "OrgOwner", "OrgManager",
 	// "OrgBillingAdmin", or "OrgMember"); project-scoped bindings are optional.
 	RoleBindings []RoleBindingInput `json:"role_bindings"`
@@ -1595,6 +1596,9 @@ type CreateInviteParams struct {
 func (i *DefaultInviteClient) Create(ctx context.Context, in *CreateInviteParams) (*Invite, error) {
 	if in == nil {
 		return nil, fmt.Errorf("in (*CreateInviteParams) cannot be nil")
+	}
+	if len(in.RoleBindings) == 0 {
+		return nil, fmt.Errorf("you must provide at least one role binding in RoleBindings to create an invite")
 	}
 
 	roleBindings := make([]admin.RoleBindingInput, len(in.RoleBindings))

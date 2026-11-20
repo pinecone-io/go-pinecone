@@ -630,6 +630,8 @@ var (
 	testSAWithSecretBody     = `{"client_secret":"` + testServiceAccountSecret + `","service_account":{"client_id":"cid","created_at":"2026-10-01T00:00:00Z","id":"` + testResourceId + `","name":"sa","updated_at":"2026-10-01T00:00:00Z"}}`
 )
 
+var testInviteRoleBindings = []RoleBindingInput{{ResourceType: ResourceTypeOrganization, Role: "OrgMember"}}
+
 func newAdminStatusTestClient(t *testing.T, status int, body string) (*AdminClient, *int32) {
 	t.Helper()
 	t.Setenv("PINECONE_CLIENT_ID", "")
@@ -736,7 +738,7 @@ func TestAdminCallsAcceptPlausibleSuccessStatuses(t *testing.T) {
 		})
 		t.Run(fmt.Sprintf("Invite.Create %d", status), func(t *testing.T) {
 			client, _ := newAdminStatusTestClient(t, status, inviteBody)
-			_, err := client.Invite.Create(context.Background(), &CreateInviteParams{Email: "a@example.com"})
+			_, err := client.Invite.Create(context.Background(), &CreateInviteParams{Email: "a@example.com", RoleBindings: testInviteRoleBindings})
 			require.NoError(t, err)
 		})
 		t.Run(fmt.Sprintf("RoleBinding.Create %d", status), func(t *testing.T) {
@@ -767,16 +769,55 @@ func TestOrganizationMethodsRejectEmptyId(t *testing.T) {
 	ctx := context.Background()
 
 	org, err := client.Organization.Describe(ctx, "")
-	assert.EqualError(t, err, "organizationId must not be empty")
+	assert.EqualError(t, err, "you must provide an organizationId to describe an organization")
 	assert.Nil(t, org)
 
 	name := "n"
 	org, err = client.Organization.Update(ctx, "", &UpdateOrganizationParams{Name: &name})
-	assert.EqualError(t, err, "organizationId must not be empty")
+	assert.EqualError(t, err, "you must provide an organizationId to update an organization")
 	assert.Nil(t, org)
 
-	assert.EqualError(t, client.Organization.Delete(ctx, ""), "organizationId must not be empty")
+	assert.EqualError(t, client.Organization.Delete(ctx, ""), "you must provide an organizationId to delete an organization")
 	assert.Equal(t, int32(0), atomic.LoadInt32(calls), "no request should be sent")
+}
+
+func TestInviteCreateRequiresRoleBindingsUnit(t *testing.T) {
+	client, calls := newAdminStatusTestClient(t, http.StatusCreated, `{}`)
+	ctx := context.Background()
+
+	for name, bindings := range map[string][]RoleBindingInput{"nil": nil, "empty": {}} {
+		t.Run(name, func(t *testing.T) {
+			invite, err := client.Invite.Create(ctx, &CreateInviteParams{Email: "a@example.com", RoleBindings: bindings})
+			assert.EqualError(t, err, "you must provide at least one role binding in RoleBindings to create an invite")
+			assert.Nil(t, invite)
+		})
+	}
+	assert.Equal(t, int32(0), atomic.LoadInt32(calls), "no request should be sent")
+}
+
+func TestInviteCreateSendsRoleBindingsUnit(t *testing.T) {
+	t.Setenv("PINECONE_CLIENT_ID", "")
+	t.Setenv("PINECONE_CLIENT_SECRET", "")
+	t.Setenv("PINECONE_ACCESS_TOKEN", "")
+	var got map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&got))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":"` + testResourceId + `","email":"a@example.com","status":"pending","created_at":"2026-10-01T00:00:00Z","expires_at":null,"processed_at":null}`))
+	}))
+	t.Cleanup(server.Close)
+	client, err := NewAdminClientWithContext(context.Background(), NewAdminClientParams{AccessToken: "test-token", Host: server.URL})
+	require.NoError(t, err)
+
+	_, err = client.Invite.Create(context.Background(), &CreateInviteParams{
+		Email:        "a@example.com",
+		RoleBindings: []RoleBindingInput{{ResourceType: ResourceTypeOrganization, Role: "OrgMember"}},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "a@example.com", got["email"])
+	assert.Equal(t, []any{map[string]any{"resource_type": "organization", "role": "OrgMember"}}, got["role_bindings"])
 }
 
 func TestAdminDecodeErrorsNameTheOperation(t *testing.T) {
@@ -859,7 +900,7 @@ func TestAdminDecodeErrorsNameTheOperation(t *testing.T) {
 			return err
 		},
 		"create invite": func(c *AdminClient) error {
-			_, err := c.Invite.Create(ctx, &CreateInviteParams{Email: "a@example.com"})
+			_, err := c.Invite.Create(ctx, &CreateInviteParams{Email: "a@example.com", RoleBindings: testInviteRoleBindings})
 			return err
 		},
 		"list invites": func(c *AdminClient) error {

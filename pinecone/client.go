@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/pinecone-io/go-pinecone/v8/internal/gen"
 	"github.com/pinecone-io/go-pinecone/v8/internal/gen/db_control"
@@ -3280,6 +3281,10 @@ func grpcCodeName(code int32) string {
 	return "UNKNOWN"
 }
 
+// maxPlainTextErrorMessageBytes caps the excerpt of a non-JSON error body kept in
+// [PineconeError.Message], so an HTML error page doesn't land whole in the message.
+const maxPlainTextErrorMessageBytes = 512
+
 type errorResponseMap struct {
 	StatusCode int             `json:"status_code"`
 	Body       string          `json:"body,omitempty"`
@@ -3354,7 +3359,7 @@ func handleErrorResponseBody(response *http.Response, errMsgPrefix string) error
 		}
 	} else {
 		// The API documents some 400 and 422 bodies as plain text rather than an ErrorResponse.
-		errMap.Message = strings.TrimSpace(string(resBodyBytes))
+		errMap.Message = plainTextErrorExcerpt(string(resBodyBytes))
 	}
 
 	errMap.Body = string(resBodyBytes)
@@ -3364,6 +3369,20 @@ func handleErrorResponseBody(response *http.Response, errMsgPrefix string) error
 	}
 
 	return formatError(errMap)
+}
+
+// plainTextErrorExcerpt collapses whitespace runs in body to single spaces and cuts the result to
+// at most maxPlainTextErrorMessageBytes on a UTF-8 boundary, marking a cut with a trailing "…".
+func plainTextErrorExcerpt(body string) string {
+	excerpt := strings.Join(strings.Fields(body), " ")
+	if len(excerpt) <= maxPlainTextErrorMessageBytes {
+		return excerpt
+	}
+	cut := maxPlainTextErrorMessageBytes
+	for cut > 0 && !utf8.RuneStart(excerpt[cut]) {
+		cut--
+	}
+	return strings.TrimRight(excerpt[:cut], " ") + "…"
 }
 
 func formatError(errMap errorResponseMap) error {
