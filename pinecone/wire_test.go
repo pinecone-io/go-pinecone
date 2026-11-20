@@ -215,6 +215,7 @@ func assertOpenResponseIndex(t *testing.T, idx *Index) {
 	require.NotNil(t, idx)
 	assert.Equal(t, "future-index", idx.Name)
 	assert.Nil(t, idx.Deployment)
+	assert.Nil(t, idx.Spec)
 	require.NotNil(t, idx.Schema)
 	assert.Equal(t, map[string]IndexSchemaField{
 		"_values": {DenseVector: &DenseVectorField{Dimension: 3, Metric: IndexMetricCosine}},
@@ -2282,4 +2283,249 @@ func derefOrNil(s *string) any {
 func requireIncompatibleIndexError(t *testing.T, err error) {
 	t.Helper()
 	requireIncompatibleError(t, err, incompatibleIndexMessage, incompatibleMinimumDetails)
+}
+
+func TestLegacyIntegratedIndexDimensionWireUnit(t *testing.T) {
+	sparseEmbed := func(dimension string) string {
+		return `{"chunk_text": {"type": "semantic_text", "model": "pinecone-sparse-english-v0"` + dimension +
+			`, "metric": "dotproduct", "write_parameters": {"input_type": "passage"}}}`
+	}
+	sparse := &IndexEmbed{
+		Model:           "pinecone-sparse-english-v0",
+		Metric:          ptr(IndexMetricDotproduct),
+		FieldMap:        &map[string]interface{}{"text": "chunk_text"},
+		WriteParameters: &map[string]interface{}{"input_type": "passage"},
+	}
+	dense := &IndexEmbed{
+		Model:     "multilingual-e5-large",
+		Dimension: ptr(int32(1024)),
+		Metric:    ptr(IndexMetricCosine),
+		FieldMap:  &map[string]interface{}{"text": "chunk_text"},
+	}
+
+	fieldsTests := []struct {
+		name       string
+		fields     string
+		vectorType string
+		metric     IndexMetric
+		embed      *IndexEmbed
+	}{
+		{name: "sparse model with a zero dimension", fields: sparseEmbed(`, "dimension": 0`), vectorType: "sparse", metric: IndexMetricDotproduct, embed: sparse},
+		{name: "sparse model with a null dimension", fields: sparseEmbed(`, "dimension": null`), vectorType: "sparse", metric: IndexMetricDotproduct, embed: sparse},
+		{name: "sparse model without a dimension", fields: sparseEmbed(""), vectorType: "sparse", metric: IndexMetricDotproduct, embed: sparse},
+		{
+			name:       "dense model",
+			fields:     `{"chunk_text": {"type": "semantic_text", "model": "multilingual-e5-large", "dimension": 1024, "metric": "cosine"}}`,
+			vectorType: "dense",
+			metric:     IndexMetricCosine,
+			embed:      dense,
+		},
+	}
+
+	assertIndex := func(t *testing.T, idx *Index, vectorType string, metric IndexMetric, embed *IndexEmbed) {
+		t.Helper()
+		require.NotNil(t, idx)
+		assert.Equal(t, vectorType, idx.VectorType)
+		assert.Equal(t, metric, idx.Metric)
+		assert.Equal(t, embed.Dimension, idx.Dimension)
+		assert.Equal(t, embed, idx.Embed)
+		require.NotNil(t, idx.Schema)
+		field := idx.Schema.Fields["chunk_text"]
+		require.NotNil(t, field.SemanticText)
+		assert.Equal(t, embed.Dimension, field.SemanticText.Dimension)
+	}
+
+	for _, ft := range fieldsTests {
+		t.Run(ft.name, func(t *testing.T) {
+			index := indexModelFixture{name: "model-index", fields: ft.fields}.JSON()
+
+			t.Run("CreateIndexForModel", func(t *testing.T) {
+				server := newWireServer(t, http.StatusCreated, index)
+				idx, err := newWireClient(t, server.URL).CreateIndexForModel(context.Background(), &CreateIndexForModelRequest{
+					Name:   "model-index",
+					Cloud:  CloudAWS,
+					Region: "us-east-1",
+					Embed: CreateIndexForModelEmbed{
+						Model:    ft.embed.Model,
+						FieldMap: map[string]interface{}{"text": "chunk_text"},
+					},
+				})
+				require.NoError(t, err)
+				assertIndex(t, idx, ft.vectorType, ft.metric, ft.embed)
+			})
+
+			t.Run("DescribeIndex", func(t *testing.T) {
+				server := newWireServer(t, http.StatusOK, index)
+				idx, err := newWireClient(t, server.URL).DescribeIndex(context.Background(), "model-index")
+				require.NoError(t, err)
+				assertIndex(t, idx, ft.vectorType, ft.metric, ft.embed)
+			})
+
+			t.Run("ListIndexes", func(t *testing.T) {
+				server := newWireServer(t, http.StatusOK, `{"indexes": [`+index+`], "incompatible_indexes": []}`)
+				indexes, err := newWireClient(t, server.URL).ListIndexes(context.Background())
+				require.NoError(t, err)
+				require.Len(t, indexes, 1)
+				assertIndex(t, indexes[0], ft.vectorType, ft.metric, ft.embed)
+			})
+		})
+	}
+}
+
+func TestDocumentIndexDenseSlotWireUnit(t *testing.T) {
+	const embedFields = `{
+		"body": {"type": "string", "store_text": false, "embed": {"model": "llama-text-embed-v2", "dimension": 1024, "metric": "cosine"}},
+		"terms": {"type": "sparse_vector"}
+	}`
+
+	t.Run("DescribeIndex", func(t *testing.T) {
+		server := newWireServer(t, http.StatusOK, indexModelFixture{name: "docs", fields: embedFields}.JSON())
+		idx, err := newWireClient(t, server.URL).DescribeIndex(context.Background(), "docs")
+		require.NoError(t, err)
+		assert.Equal(t, "dense", idx.VectorType)
+		assert.Equal(t, ptr(int32(1024)), idx.Dimension)
+		assert.Equal(t, IndexMetricCosine, idx.Metric)
+		assert.Nil(t, idx.Embed)
+	})
+
+	t.Run("DescribeBackup", func(t *testing.T) {
+		server := newWireServer(t, http.StatusOK, `{"backup_id": "bkp-1", "source_index_name": "docs", "source_index_id": "idx-1",
+			"status": "Ready", "cloud": "aws", "region": "us-east-1", "schema": {"fields": `+embedFields+`}}`)
+		backup, err := newWireClient(t, server.URL).DescribeBackup(context.Background(), "bkp-1")
+		require.NoError(t, err)
+		assert.Equal(t, ptr(int32(1024)), backup.Dimension)
+		assert.Equal(t, ptr(IndexMetricCosine), backup.Metric)
+	})
+}
+
+func TestUnknownTypesReusingKnownPropertiesWireUnit(t *testing.T) {
+	const knownField = `"_values": {"type": "dense_vector", "dimension": 3, "metric": "cosine"}`
+	knownFields := map[string]IndexSchemaField{
+		"_values": {DenseVector: &DenseVectorField{Dimension: 3, Metric: IndexMetricCosine}},
+	}
+	managed := &IndexDeployment{Managed: &ManagedDeployment{Cloud: CloudAWS, Region: "us-east-1"}}
+
+	cases := []struct {
+		name       string
+		fields     string
+		deployment string
+		want       *IndexDeployment
+	}{
+		{name: "field type reusing metric as an object", fields: `{` + knownField + `, "loc": {"type": "geo_point", "metric": {"kind": "haversine"}}}`, want: managed},
+		{name: "field type reusing dimension as a string", fields: `{` + knownField + `, "loc": {"type": "geo_point", "dimension": "2d"}}`, want: managed},
+		{name: "field type reusing embed as a string", fields: `{` + knownField + `, "loc": {"type": "geo_point", "embed": "auto"}}`, want: managed},
+		{name: "field type that isn't a string", fields: `{` + knownField + `, "loc": {"type": {"name": "geo_point"}, "metric": {"kind": "haversine"}}}`, want: managed},
+		{name: "deployment type reusing replicas as a string", fields: `{` + knownField + `}`, deployment: `{"deployment_type": "edge", "environment": "edge-1", "replicas": "auto", "shards": [1]}`},
+		{name: "deployment type that isn't a string", fields: `{` + knownField + `}`, deployment: `{"deployment_type": 7, "replicas": "auto"}`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			index := indexModelFixture{name: "future-index", fields: tc.fields, deployment: tc.deployment}.JSON()
+			backup := `{"backup_id": "bkp-1", "source_index_name": "future-index", "source_index_id": "idx-1", "status": "Ready",
+				"cloud": "aws", "region": "us-east-1", "schema": {"fields": ` + tc.fields + `}}`
+
+			assertIndex := func(t *testing.T, idx *Index) {
+				t.Helper()
+				require.NotNil(t, idx)
+				require.NotNil(t, idx.Schema)
+				assert.Equal(t, knownFields, idx.Schema.Fields)
+				assert.Equal(t, tc.want, idx.Deployment)
+				assert.Equal(t, ptr(int32(3)), idx.Dimension)
+				if tc.want == nil {
+					assert.Nil(t, idx.Spec)
+				}
+			}
+
+			indexCalls := []struct {
+				name     string
+				status   int
+				response string
+				call     func(pc *Client) (*Index, error)
+			}{
+				{"DescribeIndex", http.StatusOK, index, func(pc *Client) (*Index, error) {
+					return pc.DescribeIndex(context.Background(), "future-index")
+				}},
+				{"CreateIndex", http.StatusCreated, index, func(pc *Client) (*Index, error) {
+					return pc.CreateIndex(context.Background(), &CreateIndexRequest{
+						Name:   "future-index",
+						Schema: IndexSchema{Fields: map[string]IndexSchemaField{"_values": knownFields["_values"]}},
+					})
+				}},
+				{"CreateIndexForModel", http.StatusCreated, index, func(pc *Client) (*Index, error) {
+					return pc.CreateIndexForModel(context.Background(), &CreateIndexForModelRequest{
+						Name:   "future-index",
+						Cloud:  CloudAWS,
+						Region: "us-east-1",
+						Embed:  CreateIndexForModelEmbed{Model: "multilingual-e5-large", FieldMap: map[string]interface{}{"text": "chunk_text"}},
+					})
+				}},
+				{"ConfigureIndex", http.StatusOK, index, func(pc *Client) (*Index, error) {
+					return pc.ConfigureIndex(context.Background(), "future-index", ConfigureIndexParams{Tags: IndexTags{"env": "dev"}})
+				}},
+				{"ListIndexes", http.StatusOK, `{"indexes": [` + index + `, ` + indexModelFixture{}.JSON() + `], "incompatible_indexes": []}`, func(pc *Client) (*Index, error) {
+					indexes, err := pc.ListIndexes(context.Background())
+					if err != nil {
+						return nil, err
+					}
+					require.Len(t, indexes, 2)
+					assert.Equal(t, "test-index", indexes[1].Name)
+					return indexes[0], nil
+				}},
+			}
+			for _, call := range indexCalls {
+				t.Run(call.name, func(t *testing.T) {
+					server := newWireServer(t, call.status, call.response)
+					idx, err := call.call(newWireClient(t, server.URL))
+					require.NoError(t, err)
+					assertIndex(t, idx)
+				})
+			}
+
+			t.Run("DescribeBackup", func(t *testing.T) {
+				server := newWireServer(t, http.StatusOK, backup)
+				got, err := newWireClient(t, server.URL).DescribeBackup(context.Background(), "bkp-1")
+				require.NoError(t, err)
+				require.NotNil(t, got.Schema)
+				assert.Equal(t, knownFields, got.Schema.Fields)
+			})
+
+			t.Run("ListBackups", func(t *testing.T) {
+				server := newWireServer(t, http.StatusOK, `{"data": [`+backup+`], "pagination": null, "incompatible_data": []}`)
+				got, err := newWireClient(t, server.URL).ListBackups(context.Background(), nil)
+				require.NoError(t, err)
+				require.Len(t, got.Data, 1)
+				require.NotNil(t, got.Data[0].Schema)
+				assert.Equal(t, knownFields, got.Data[0].Schema.Fields)
+			})
+		})
+	}
+}
+
+func TestMistypedKnownPropertyFailsWireUnit(t *testing.T) {
+	cases := []struct {
+		name       string
+		fields     string
+		deployment string
+	}{
+		{name: "dense vector dimension as a string", fields: `{"_values": {"type": "dense_vector", "dimension": "1536", "metric": "cosine"}}`},
+		{name: "managed deployment cloud as a number", deployment: `{"deployment_type": "managed", "cloud": 123, "region": "us-east-1"}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			index := indexModelFixture{fields: tc.fields, deployment: tc.deployment}.JSON()
+
+			t.Run("DescribeIndex", func(t *testing.T) {
+				server := newWireServer(t, http.StatusOK, index)
+				_, err := newWireClient(t, server.URL).DescribeIndex(context.Background(), "test-index")
+				require.Error(t, err)
+			})
+
+			t.Run("ListIndexes", func(t *testing.T) {
+				server := newWireServer(t, http.StatusOK, `{"indexes": [`+index+`], "incompatible_indexes": []}`)
+				_, err := newWireClient(t, server.URL).ListIndexes(context.Background())
+				require.Error(t, err)
+			})
+		})
+	}
 }

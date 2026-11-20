@@ -396,7 +396,7 @@ func (c *Client) ListIndexes(ctx context.Context) ([]*Index, error) {
 	if indexList.Indexes != nil {
 		indexes = make([]*Index, len(*indexList.Indexes))
 		for i, idx := range *indexList.Indexes {
-			index, err := toIndex(&idx)
+			index, err := toIndex(&idx.IndexModel)
 			if err != nil {
 				return nil, err
 			}
@@ -461,8 +461,8 @@ func (c *Client) ListIncompatibleIndexes(ctx context.Context) ([]*IncompatibleIn
 // ListIndexes from returning the full indexes. The incompatible_* keys are required in 2026-10, but
 // servers deployed before that change omit them, so every list decoder treats a missing key as empty.
 type indexListResponse struct {
-	Indexes             *[]db_control.IndexModel `json:"indexes,omitempty"`
-	IncompatibleIndexes json.RawMessage          `json:"incompatible_indexes,omitempty"`
+	Indexes             *[]indexModel   `json:"indexes,omitempty"`
+	IncompatibleIndexes json.RawMessage `json:"incompatible_indexes,omitempty"`
 }
 
 func (c *Client) listIndexes(ctx context.Context) (*indexListResponse, error) {
@@ -2858,12 +2858,12 @@ func toIndex(idx *db_control.IndexModel) (*Index, error) {
 }
 
 func decodeIndex(resBody io.ReadCloser) (*Index, error) {
-	var idx db_control.IndexModel
+	var idx indexModel
 	err := json.NewDecoder(resBody).Decode(&idx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode IndexModel response: %w", err)
 	}
-	index, err := toIndex(&idx)
+	index, err := toIndex(&idx.IndexModel)
 	if err != nil {
 		return nil, err
 	}
@@ -2910,7 +2910,7 @@ func firstPresent(raw, fallback json.RawMessage) json.RawMessage {
 // renames it, production sends the array as incompatible_backups, which is read when
 // incompatible_data is absent.
 type backupListResponse struct {
-	Data                      *[]db_control.BackupModel      `json:"data,omitempty"`
+	Data                      *[]backupModel                 `json:"data,omitempty"`
 	Pagination                *db_control.PaginationResponse `json:"pagination"`
 	IncompatibleData          json.RawMessage                `json:"incompatible_data,omitempty"`
 	LegacyIncompatibleBackups json.RawMessage                `json:"incompatible_backups,omitempty"`
@@ -2932,7 +2932,7 @@ func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
 	if backupListDb.Data != nil {
 		backupList.Data = make([]*Backup, len(*backupListDb.Data))
 		for i, backup := range *backupListDb.Data {
-			backupList.Data[i] = toBackup(&backup)
+			backupList.Data[i] = toBackup(&backup.BackupModel)
 		}
 		backupList.Pagination = (*Pagination)(backupListDb.Pagination)
 	} else {
@@ -3007,24 +3007,22 @@ func toBackup(backup *db_control.BackupModel) *Backup {
 		Tags:                 (*IndexTags)(backup.Tags),
 	}
 
-	// Populate the deprecated computed Dimension/Metric from the schema's dense vector field.
-	if dense := denseFieldForCompat(result.Schema); dense != nil {
-		dimension := dense.Dimension
-		metric := dense.Metric
-		result.Dimension = &dimension
-		result.Metric = &metric
+	// Populate the deprecated computed Dimension/Metric from the schema's dense slot.
+	if dense, _ := denseSlotForCompat(result.Schema); dense != nil {
+		result.Dimension = dense.dimension
+		result.Metric = dense.metric
 	}
 
 	return result
 }
 
 func decodeBackup(resBody io.ReadCloser) (*Backup, error) {
-	var backup db_control.BackupModel
+	var backup backupModel
 	if err := json.NewDecoder(resBody).Decode(&backup); err != nil {
 		return nil, fmt.Errorf("failed to decode backup response: %w", err)
 	}
 
-	return toBackup(&backup), nil
+	return toBackup(&backup.BackupModel), nil
 }
 
 func toRestoreJob(restoreJob *db_control.RestoreJobModel) *RestoreJob {
