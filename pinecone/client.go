@@ -3417,7 +3417,7 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 	// an unlisted mode), it can't tell whether this is a conversion, so the API judges the patch.
 	if old != nil && old.OnDemand != nil {
 		if patchConfig.NodeType == nil || patchConfig.Shards == nil || patchConfig.Scaling == nil {
-			return nil, errDedicatedReadCapacityIncomplete
+			return nil, errOnDemandToDedicatedIncomplete
 		}
 	}
 
@@ -3432,6 +3432,8 @@ func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.
 }
 
 var errDedicatedReadCapacityIncomplete = errors.New("Dedicated read capacity must be configured with a node type, shards, and a scaling strategy (Scaling.Manual with Replicas, or Scaling.Auto)")
+
+var errOnDemandToDedicatedIncomplete = errors.New("the index uses OnDemand read capacity, so it has no current Dedicated settings to keep: switching it to Dedicated requires a node type, shards, and a scaling strategy (Scaling.Manual with Replicas, or Scaling.Auto)")
 
 var errEmptyManualScalingPatch = errors.New("Scaling.Manual must set Replicas; to change only the shard count, set Dedicated.Shards, and to keep the current scaling, omit Scaling")
 
