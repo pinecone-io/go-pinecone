@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/pinecone-io/go-pinecone/v8/internal/gen"
-	db_data_rest "github.com/pinecone-io/go-pinecone/v8/internal/gen/db_data/rest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -133,18 +132,34 @@ func newWireClient(t *testing.T, host string) *Client {
 
 func newWireIndexConnection(t *testing.T, host string, namespace string) *IndexConnection {
 	t.Helper()
-	// Client.Index forces https on the REST host, so build the connection directly to keep the
-	// httptest server's plain-http URL.
-	dbDataClient, err := db_data_rest.NewClient(host)
+	idx, err := newWireClient(t, host).Index(NewIndexConnParams{Host: host, Namespace: namespace})
 	require.NoError(t, err)
-	idx, err := newIndexConnection(newIndexParameters{
-		host:               host,
-		namespace:          namespace,
-		additionalMetadata: map[string]string{"Api-Key": "test-api-key"},
-		dbDataClient:       dbDataClient,
+	t.Cleanup(func() { _ = idx.Close() })
+	return idx
+}
+
+// An explicit http:// index host reaches a plain-HTTP server on every REST data-plane surface:
+// documents, records, and imports.
+func TestIndexRESTHonorsHTTPHost(t *testing.T) {
+	server := newWireServer(t, http.StatusOK, `{}`)
+	require.Contains(t, server.URL, "http://")
+	idx := newWireIndexConnection(t, server.URL, "movies")
+	ctx := context.Background()
+
+	_, err := idx.ListDocuments(ctx, nil)
+	require.NoError(t, err)
+	_, err = idx.SearchRecords(ctx, &SearchRecordsRequest{
+		Query: SearchRecordsQuery{TopK: 1, Inputs: &map[string]interface{}{"text": "q"}},
 	})
 	require.NoError(t, err)
-	return idx
+	_, err = idx.ListImports(ctx, nil)
+	require.NoError(t, err)
+
+	got := server.requests()
+	require.Len(t, got, 3)
+	assert.Equal(t, "/namespaces/movies/documents/list", got[0].path)
+	assert.Equal(t, "/records/namespaces/movies/search", got[1].path)
+	assert.Equal(t, "/bulk/imports", got[2].path)
 }
 
 // wantRequest is an expected request. An empty body means the request must have no body; a

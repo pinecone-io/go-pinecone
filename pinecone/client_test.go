@@ -1282,7 +1282,7 @@ func TestBuildClientBaseOptionsUnit(t *testing.T) {
 	}
 }
 
-func TestEnsureHostHasHttpsUnit(t *testing.T) {
+func TestEnsureHostSchemeUnit(t *testing.T) {
 	tests := []struct {
 		name     string
 		host     string
@@ -1294,21 +1294,30 @@ func TestEnsureHostHasHttpsUnit(t *testing.T) {
 			expected: "https://test-abcd.pinecone.io",
 		},
 		{
-			name:     "Host with http prefix should be converted to https",
-			host:     "http://test-abcd.pinecone.io",
-			expected: "https://test-abcd.pinecone.io",
+			name:     "Host with http prefix should remain unchanged",
+			host:     "http://localhost:5081",
+			expected: "http://localhost:5081",
+		},
+		{
+			name:     "Scheme match is case-insensitive",
+			host:     "HTTP://localhost:5081",
+			expected: "HTTP://localhost:5081",
 		},
 		{
 			name:     "Host without prefix should get https prefix",
 			host:     "test-abcd.pinecone.io",
 			expected: "https://test-abcd.pinecone.io",
 		},
+		{
+			name:     "Host and port without prefix should get https prefix",
+			host:     "localhost:5081",
+			expected: "https://localhost:5081",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ensureHostHasHttps(tt.host)
-			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+			assert.Equal(t, tt.expected, ensureHostScheme(tt.host))
 		})
 	}
 }
