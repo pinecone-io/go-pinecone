@@ -781,7 +781,7 @@ func TestOrganizationMethodsRejectEmptyId(t *testing.T) {
 	assert.Equal(t, int32(0), atomic.LoadInt32(calls), "no request should be sent")
 }
 
-func TestInviteCreateRequiresRoleBindings(t *testing.T) {
+func TestInviteCreateRequiresRoleBindingsUnit(t *testing.T) {
 	client, calls := newAdminStatusTestClient(t, http.StatusCreated, `{}`)
 	ctx := context.Background()
 
@@ -795,7 +795,7 @@ func TestInviteCreateRequiresRoleBindings(t *testing.T) {
 	assert.Equal(t, int32(0), atomic.LoadInt32(calls), "no request should be sent")
 }
 
-func TestInviteCreateSendsRoleBindings(t *testing.T) {
+func TestInviteCreateSendsRoleBindingsUnit(t *testing.T) {
 	t.Setenv("PINECONE_CLIENT_ID", "")
 	t.Setenv("PINECONE_CLIENT_SECRET", "")
 	t.Setenv("PINECONE_ACCESS_TOKEN", "")

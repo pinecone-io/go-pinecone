@@ -594,7 +594,7 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 	}
 }
 
-func TestHandleErrorResponseBodyPlainTextExcerpt(t *testing.T) {
+func TestHandleErrorResponseBodyPlainTextExcerptUnit(t *testing.T) {
 	const prefix = "failed to list indexes: "
 
 	t.Run("short plain text is unchanged", func(t *testing.T) {
