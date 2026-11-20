@@ -462,17 +462,25 @@ type Index struct {
 	// Tags are the custom [IndexTags] added to the index.
 	Tags *IndexTags `json:"tags,omitempty"`
 
-	// Metric is the distance metric of the index's dense vector field.
+	// Metric is the distance metric of the index's dense vectors: the Metric of its [DenseVectorField],
+	// or of the Embed config of a [StringField] with dense integrated embedding. It is "dotproduct" for
+	// an index that stores only sparse vectors.
 	//
-	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] in Schema instead.
+	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] or the
+	// [StringField] Embed config in Schema instead.
 	Metric IndexMetric `json:"metric"`
-	// VectorType is the index's vector type, "dense" or "sparse".
+	// VectorType is the index's vector type: "dense" when a [DenseVectorField] or a [StringField] with
+	// Embed holds its dense vectors, "sparse" when it stores only sparse vectors (a [SparseVectorField]
+	// or a [StringField] with SparseEmbed), and empty for an index with no vector field.
 	//
 	// Deprecated: Derived from Schema for backward compatibility. Use the vector fields in Schema instead.
 	VectorType string `json:"vector_type"`
-	// Dimension is the dimension of the index's dense vector field.
+	// Dimension is the dimension of the index's dense vectors: the Dimension of its
+	// [DenseVectorField], or of the Embed config of a [StringField] with dense integrated embedding.
+	// Nil for an index that stores only sparse vectors.
 	//
-	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] in Schema instead.
+	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] or the
+	// [StringField] Embed config in Schema instead.
 	Dimension *int32 `json:"dimension,omitempty"`
 	// Spec is the index's [IndexSpec]: a [PodSpec], [ServerlessSpec], or [BYOCSpec].
 	//
@@ -1501,13 +1509,17 @@ type Backup struct {
 	// Tags are the custom user [IndexTags] of the backup.
 	Tags *IndexTags `json:"tags,omitempty"`
 
-	// Dimension is the dimension of the source index's dense vector field.
+	// Dimension is the dimension of the source index's dense vectors: the Dimension of its
+	// [DenseVectorField], or of the Embed config of a [StringField] with dense integrated embedding.
 	//
-	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] in Schema instead.
+	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] or the
+	// [StringField] Embed config in Schema instead.
 	Dimension *int32 `json:"dimension,omitempty"`
-	// Metric is the distance metric of the source index's dense vector field.
+	// Metric is the distance metric of the source index's dense vectors: the Metric of its
+	// [DenseVectorField], or of the Embed config of a [StringField] with dense integrated embedding.
 	//
-	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] in Schema instead.
+	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] or the
+	// [StringField] Embed config in Schema instead.
 	Metric *IndexMetric `json:"metric,omitempty"`
 }
 

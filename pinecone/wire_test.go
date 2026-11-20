@@ -2370,3 +2370,29 @@ func TestLegacyIntegratedIndexDimensionWireUnit(t *testing.T) {
 		})
 	}
 }
+
+func TestDocumentIndexDenseSlotWireUnit(t *testing.T) {
+	const embedFields = `{
+		"body": {"type": "string", "store_text": false, "embed": {"model": "llama-text-embed-v2", "dimension": 1024, "metric": "cosine"}},
+		"terms": {"type": "sparse_vector"}
+	}`
+
+	t.Run("DescribeIndex", func(t *testing.T) {
+		server := newWireServer(t, http.StatusOK, indexModelFixture{name: "docs", fields: embedFields}.JSON())
+		idx, err := newWireClient(t, server.URL).DescribeIndex(context.Background(), "docs")
+		require.NoError(t, err)
+		assert.Equal(t, "dense", idx.VectorType)
+		assert.Equal(t, ptr(int32(1024)), idx.Dimension)
+		assert.Equal(t, IndexMetricCosine, idx.Metric)
+		assert.Nil(t, idx.Embed)
+	})
+
+	t.Run("DescribeBackup", func(t *testing.T) {
+		server := newWireServer(t, http.StatusOK, `{"backup_id": "bkp-1", "source_index_name": "docs", "source_index_id": "idx-1",
+			"status": "Ready", "cloud": "aws", "region": "us-east-1", "schema": {"fields": `+embedFields+`}}`)
+		backup, err := newWireClient(t, server.URL).DescribeBackup(context.Background(), "bkp-1")
+		require.NoError(t, err)
+		assert.Equal(t, ptr(int32(1024)), backup.Dimension)
+		assert.Equal(t, ptr(IndexMetricCosine), backup.Metric)
+	})
+}

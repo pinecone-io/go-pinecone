@@ -243,25 +243,55 @@ func toIndexDeployment(deployment db_control.IndexDeployment) *IndexDeployment {
 	}
 }
 
-// denseFieldForCompat picks the dense vector field the deprecated Dimension/Metric/VectorType
-// accessors resolve to: the reserved "_values" field when present, otherwise a sole dense field.
-func denseFieldForCompat(schema *IndexSchema) *DenseVectorField {
-	if schema == nil {
+// denseSlot is the dimension and metric of an index's dense vector slot.
+type denseSlot struct {
+	dimension *int32
+	metric    *IndexMetric
+}
+
+// denseSlotOf returns the dense slot a field occupies: a dense vector field, or a string field with
+// dense integrated embedding (Embed). It returns nil for any other field.
+func denseSlotOf(field IndexSchemaField) *denseSlot {
+	switch {
+	case field.DenseVector != nil:
+		dimension, metric := field.DenseVector.Dimension, field.DenseVector.Metric
+		return &denseSlot{dimension: &dimension, metric: &metric}
+	case field.String != nil && field.String.Embed != nil:
+		slot := &denseSlot{}
+		if field.String.Embed.Dimension != nil {
+			dimension := *field.String.Embed.Dimension
+			slot.dimension = &dimension
+		}
+		if field.String.Embed.Metric != nil {
+			metric := *field.String.Embed.Metric
+			slot.metric = &metric
+		}
+		return slot
+	default:
 		return nil
 	}
-	if field, ok := schema.Fields[reservedDenseFieldName]; ok && field.DenseVector != nil {
-		return field.DenseVector
+}
+
+// denseSlotForCompat picks the dense slot the deprecated Dimension/Metric/VectorType accessors
+// resolve to: the reserved "_values" field when present, otherwise the sole field occupying the
+// dense slot. found reports whether any field occupies the dense slot, even when slot is nil because
+// several do.
+func denseSlotForCompat(schema *IndexSchema) (slot *denseSlot, found bool) {
+	if schema == nil {
+		return nil, false
 	}
-	var found *DenseVectorField
+	if field, ok := schema.Fields[reservedDenseFieldName]; ok && field.DenseVector != nil {
+		return denseSlotOf(field), true
+	}
 	for _, field := range schema.Fields {
-		if field.DenseVector != nil {
-			if found != nil {
-				return nil // ambiguous: more than one dense field, no single compat answer
+		if candidate := denseSlotOf(field); candidate != nil {
+			if found {
+				return nil, true // ambiguous: more than one dense field, no single compat answer
 			}
-			found = field.DenseVector
+			slot, found = candidate, true
 		}
 	}
-	return found
+	return slot, found
 }
 
 // semanticTextFieldForCompat returns the name and config of the schema's semantic_text field, if any.
@@ -278,13 +308,14 @@ func semanticTextFieldForCompat(schema *IndexSchema) (string, *SemanticTextField
 	return "", nil
 }
 
-// hasSparseField reports whether the schema declares any sparse vector field.
-func hasSparseField(schema *IndexSchema) bool {
+// hasSparseSlot reports whether any field occupies the sparse slot: a sparse vector field, or a
+// string field with sparse integrated embedding (SparseEmbed).
+func hasSparseSlot(schema *IndexSchema) bool {
 	if schema == nil {
 		return false
 	}
 	for _, field := range schema.Fields {
-		if field.SparseVector != nil {
+		if field.SparseVector != nil || (field.String != nil && field.String.SparseEmbed != nil) {
 			return true
 		}
 	}
@@ -294,10 +325,12 @@ func hasSparseField(schema *IndexSchema) bool {
 // applyIndexCompatFields populates the deprecated computed fields (Metric, VectorType, Dimension,
 // Spec, Embed) on an Index from its Schema and Deployment.
 //
-// Vector-type resolution: indexes that store dense vectors always report both "_values" and
-// "_sparse_values" regardless of how they were created, so a dense field wins over a sparse one.
-// A sparse-only schema resolves to "sparse" with the implied "dotproduct" metric. A full-text-search
-// index with no vector field leaves all three unset.
+// Vector-type resolution: an index has one dense slot (a dense vector field, or a string field with
+// Embed) and one sparse slot (a sparse vector field, or a string field with SparseEmbed). Indexes
+// that store dense vectors always report both "_values" and "_sparse_values" regardless of how they
+// were created, so the dense slot wins over the sparse one. A schema with only a sparse slot
+// resolves to "sparse" with the implied "dotproduct" metric. A full-text-search index with no vector
+// field, or a schema with several dense fields, leaves all three unset.
 func applyIndexCompatFields(index *Index) {
 	semanticName, semantic := semanticTextFieldForCompat(index.Schema)
 	if semantic != nil {
@@ -311,15 +344,17 @@ func applyIndexCompatFields(index *Index) {
 		}
 	}
 
-	if dense := denseFieldForCompat(index.Schema); dense != nil {
+	dense, hasDense := denseSlotForCompat(index.Schema)
+	if dense != nil {
 		index.VectorType = "dense"
-		dimension := dense.Dimension
-		index.Dimension = &dimension
-		index.Metric = dense.Metric
-	} else if hasSparseField(index.Schema) {
+		index.Dimension = dense.dimension
+		if dense.metric != nil {
+			index.Metric = *dense.metric
+		}
+	} else if !hasDense && hasSparseSlot(index.Schema) {
 		index.VectorType = "sparse"
 		index.Metric = IndexMetricDotproduct
-	} else if semantic != nil {
+	} else if !hasDense && semantic != nil {
 		index.Dimension = semantic.Dimension
 		if semantic.Metric != nil {
 			index.Metric = *semantic.Metric

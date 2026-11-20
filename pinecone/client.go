@@ -3007,12 +3007,10 @@ func toBackup(backup *db_control.BackupModel) *Backup {
 		Tags:                 (*IndexTags)(backup.Tags),
 	}
 
-	// Populate the deprecated computed Dimension/Metric from the schema's dense vector field.
-	if dense := denseFieldForCompat(result.Schema); dense != nil {
-		dimension := dense.Dimension
-		metric := dense.Metric
-		result.Dimension = &dimension
-		result.Metric = &metric
+	// Populate the deprecated computed Dimension/Metric from the schema's dense slot.
+	if dense, _ := denseSlotForCompat(result.Schema); dense != nil {
+		result.Dimension = dense.dimension
+		result.Metric = dense.metric
 	}
 
 	return result
