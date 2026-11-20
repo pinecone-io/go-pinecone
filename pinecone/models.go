@@ -1,8 +1,11 @@
 package pinecone
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -894,7 +897,9 @@ func NewMetadata(m map[string]interface{}) (*Metadata, error) {
 }
 
 // Embedding represents the embedding of a single input which is returned after [generating embeddings].
-// [Embedding] is a tagged union which can have either a [SparseEmbedding] or a [DenseEmbedding].
+// [Embedding] is a tagged union which can have either a [SparseEmbedding] or a [DenseEmbedding],
+// chosen by the embedding's own vector type. An embedding of a kind this SDK doesn't recognize has
+// neither set; the response's Model, VectorType, and Usage are still returned.
 //
 // [generating embeddings]: https://docs.pinecone.io/reference/api/latest/inference/generate-vectors
 type Embedding struct {
@@ -920,11 +925,13 @@ type SparseEmbedding struct {
 	SparseValues []float32 `json:"sparse_values"`
 	// SparseIndices are the embedding indices, one for each entry in SparseValues.
 	SparseIndices []int64 `json:"sparse_indices"`
-	// SparseTokens are the normalized tokens used to create the sparse embedding, if requested.
+	// SparseTokens are the normalized tokens used to create the sparse embedding. Set when the
+	// request's [EmbedParameters] has "return_tokens": true.
 	SparseTokens *[]string `json:"sparse_tokens,omitempty"`
 }
 
-// Pagination represents the pagination information for a list of resources.
+// Pagination represents the pagination information for a list of resources. A response's
+// Pagination is nil when there are no more pages, so a non-nil Pagination always has a Next token.
 type Pagination struct {
 	// Next is the token to pass to retrieve the next page of results.
 	Next string `json:"next"`
@@ -1428,9 +1435,11 @@ type ModelInfo struct {
 
 // SupportedParameter describes a parameter supported by the model, including parameter value constraints.
 type SupportedParameter struct {
-	// AllowedValues are the allowed parameter values when Type is "one_of".
+	// AllowedValues are the allowed parameter values when Type is "one_of". The API can send any
+	// JSON value here; see [SupportedParameterValue] for how each is represented.
 	AllowedValues *[]SupportedParameterValue `json:"allowed_values,omitempty"`
-	// Default is the default value for the parameter when the parameter is optional.
+	// Default is the default value for the parameter when the parameter is optional. It's nil when
+	// the API sends no default or null.
 	Default *SupportedParameterValue `json:"default,omitempty"`
 	// Max is the maximum allowed value (inclusive) when Type is "numeric_range".
 	Max *float32 `json:"max,omitempty"`
@@ -1450,44 +1459,95 @@ type SupportedParameter struct {
 }
 
 // SupportedParameterValue is a tagged union type representing the value of a [SupportedParameter].
+// At most one of StringValue, IntValue, FloatValue, and BoolValue is set, and none is set for a
+// JSON null.
 type SupportedParameterValue struct {
 	// StringValue is set if the parameter accepts strings.
 	StringValue *string
 	// IntValue is set if the parameter accepts integers.
 	IntValue *int32
-	// FloatValue is set if the parameter accepts floating point numbers.
+	// FloatValue is set if the parameter accepts floating point numbers. It's also set, to the
+	// nearest float32, for an integer outside the int32 range; RawValue then holds the exact value.
 	FloatValue *float32
 	// BoolValue is set if the parameter accepts true/false input.
 	BoolValue *bool
+	// RawValue holds the value's JSON text when no other field can hold it exactly: an array, an
+	// object, an integer outside the int32 range, or a number outside the float32 range. It's nil
+	// otherwise.
+	RawValue json.RawMessage
 }
 
-// UnmarshalJSON decodes a JSON string, number, or boolean into the matching field of
-// [SupportedParameterValue]. It returns an error for any other JSON type.
+// UnmarshalJSON decodes any JSON value into [SupportedParameterValue]. A string, boolean, or number
+// sets the matching field, null sets no field, and an array or object is kept in RawValue.
 func (spv *SupportedParameterValue) UnmarshalJSON(data []byte) error {
-	var s string
-	if err := json.Unmarshal(data, &s); err == nil {
+	data = bytes.TrimSpace(data)
+	*spv = SupportedParameterValue{}
+	if len(data) == 0 {
+		return fmt.Errorf("unsupported type for SupportedParameterValue: empty input")
+	}
+
+	switch data[0] {
+	case 'n':
+		return nil
+	case '"':
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return err
+		}
 		spv.StringValue = &s
 		return nil
-	}
-
-	var i int32
-	if err := json.Unmarshal(data, &i); err == nil {
-		spv.IntValue = &i
-		return nil
-	}
-
-	var f float32
-	if err := json.Unmarshal(data, &f); err == nil {
-		spv.FloatValue = &f
-		return nil
-	}
-
-	var b bool
-	if err := json.Unmarshal(data, &b); err == nil {
+	case 't', 'f':
+		var b bool
+		if err := json.Unmarshal(data, &b); err != nil {
+			return err
+		}
 		spv.BoolValue = &b
 		return nil
+	case '[', '{':
+		spv.RawValue = append(json.RawMessage(nil), data...)
+		return nil
 	}
-	return fmt.Errorf("unsupported type for SupportedParameterValue: %s", data)
+
+	var number json.Number
+	if err := json.Unmarshal(data, &number); err != nil {
+		return fmt.Errorf("unsupported type for SupportedParameterValue: %s", data)
+	}
+	text := number.String()
+	if !strings.ContainsAny(text, ".eE") {
+		if i, err := strconv.ParseInt(text, 10, 32); err == nil {
+			i32 := int32(i)
+			spv.IntValue = &i32
+			return nil
+		}
+		spv.RawValue = append(json.RawMessage(nil), data...)
+	}
+	f, err := strconv.ParseFloat(text, 32)
+	if err != nil {
+		spv.RawValue = append(json.RawMessage(nil), data...)
+		return nil
+	}
+	f32 := float32(f)
+	spv.FloatValue = &f32
+	return nil
+}
+
+// MarshalJSON encodes the [SupportedParameterValue] as the plain JSON value it was decoded from:
+// RawValue when set, otherwise the field that is set, or null when none is.
+func (spv SupportedParameterValue) MarshalJSON() ([]byte, error) {
+	switch {
+	case spv.RawValue != nil:
+		return spv.RawValue, nil
+	case spv.StringValue != nil:
+		return json.Marshal(*spv.StringValue)
+	case spv.IntValue != nil:
+		return json.Marshal(*spv.IntValue)
+	case spv.FloatValue != nil:
+		return json.Marshal(*spv.FloatValue)
+	case spv.BoolValue != nil:
+		return json.Marshal(*spv.BoolValue)
+	default:
+		return []byte("null"), nil
+	}
 }
 
 // Backup describes the configuration and status of a Pinecone backup.
