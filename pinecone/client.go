@@ -90,7 +90,8 @@ type NewClientParams struct {
 	Headers map[string]string
 	// Host (Optional) is the host URL of the Pinecone API, used for control-plane and inference
 	// requests. Defaults to the PINECONE_CONTROLLER_HOST environment variable, or
-	// "https://api.pinecone.io" if unset. "https://" is prepended when no scheme is given.
+	// "https://api.pinecone.io" if unset. "https://" is prepended when no scheme is given, as in
+	// "localhost:8443".
 	Host string
 	// RestClient (Optional) is the HTTP client used to communicate with the Pinecone API.
 	RestClient *http.Client
@@ -115,7 +116,8 @@ type NewClientBaseParams struct {
 	Headers map[string]string
 	// Host (Optional) is the host URL of the Pinecone API, used for control-plane and inference
 	// requests. Defaults to the PINECONE_CONTROLLER_HOST environment variable, or
-	// "https://api.pinecone.io" if unset. "https://" is prepended when no scheme is given.
+	// "https://api.pinecone.io" if unset. "https://" is prepended when no scheme is given, as in
+	// "localhost:8443".
 	Host string
 	// RestClient (Optional) is the HTTP client used to communicate with the Pinecone API.
 	RestClient *http.Client
@@ -346,12 +348,23 @@ func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*Ind
 // ensureHostScheme prepends "https://" to an index host that has no scheme and leaves an explicit
 // "http://" or "https://" host as given, matching the gRPC transport chosen by normalizeHost.
 func ensureHostScheme(host string) string {
-	for _, scheme := range []string{"https://", "http://"} {
-		if len(host) >= len(scheme) && strings.EqualFold(host[:len(scheme)], scheme) {
-			return host
-		}
+	if scheme, _ := splitHTTPScheme(host); scheme != "" {
+		return host
 	}
 	return "https://" + host
+}
+
+// splitHTTPScheme returns "http" or "https" and the rest of host when host starts with "http://" or
+// "https://", in any case. Otherwise it returns "" and host. It doesn't parse host as a URL,
+// because url.Parse reads "localhost:8443" as scheme "localhost" and rejects "127.0.0.1:8443".
+func splitHTTPScheme(host string) (string, string) {
+	for _, scheme := range []string{"https", "http"} {
+		prefix := scheme + "://"
+		if len(host) >= len(prefix) && strings.EqualFold(host[:len(prefix)], prefix) {
+			return scheme, host[len(prefix):]
+		}
+	}
+	return "", host
 }
 
 // ListIndexes retrieves a list of all Indexes in a Pinecone [project]. Indexes that use features
@@ -3414,14 +3427,14 @@ func validateVectorType(vectorType *string, dimension *int32, metric *IndexMetri
 	return out, nil
 }
 
+// ensureURLScheme prepends "https://" to a control-plane or admin host that has no scheme, such as
+// "api.example.com" or "localhost:8443", and returns an error if the result isn't a valid URL.
 func ensureURLScheme(inputURL string) (string, error) {
-	parsedURL, err := url.Parse(inputURL)
-	if err != nil {
-		return "", fmt.Errorf("invalid URL: %v", err)
+	if !strings.Contains(inputURL, "://") {
+		inputURL = "https://" + inputURL
 	}
-
-	if parsedURL.Scheme == "" {
-		return "https://" + inputURL, nil
+	if _, err := url.Parse(inputURL); err != nil {
+		return "", fmt.Errorf("invalid URL: %w", err)
 	}
 	return inputURL, nil
 }

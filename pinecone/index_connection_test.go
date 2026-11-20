@@ -785,6 +785,46 @@ func TestNormalizeHostUnit(t *testing.T) {
 			host:             "https://this-is-my-host.io:33445",
 			expectedHost:     "this-is-my-host.io:33445",
 			expectedIsSecure: true,
+		}, {
+			name:             "http:// selects plaintext",
+			host:             "http://localhost:5081",
+			expectedHost:     "localhost:5081",
+			expectedIsSecure: false,
+		}, {
+			name:             "uppercase HTTP:// selects plaintext and is removed",
+			host:             "HTTP://localhost:5081",
+			expectedHost:     "localhost:5081",
+			expectedIsSecure: false,
+		}, {
+			name:             "mixed-case Https:// is removed",
+			host:             "Https://this-is-my-host.io",
+			expectedHost:     "this-is-my-host.io",
+			expectedIsSecure: true,
+		}, {
+			name:             "host without a scheme is secure",
+			host:             "this-is-my-host.io",
+			expectedHost:     "this-is-my-host.io",
+			expectedIsSecure: true,
+		}, {
+			name:             "localhost:port without a scheme is secure and unchanged",
+			host:             "localhost:5081",
+			expectedHost:     "localhost:5081",
+			expectedIsSecure: true,
+		}, {
+			name:             "IP:port without a scheme is secure and unchanged",
+			host:             "127.0.0.1:5081",
+			expectedHost:     "127.0.0.1:5081",
+			expectedIsSecure: true,
+		}, {
+			name:             "trailing slash is removed",
+			host:             "https://this-is-my-host.io/",
+			expectedHost:     "this-is-my-host.io",
+			expectedIsSecure: true,
+		}, {
+			name:             "trailing slash is removed from a plaintext host",
+			host:             "http://localhost:5081/",
+			expectedHost:     "localhost:5081",
+			expectedIsSecure: false,
 		},
 	}
 

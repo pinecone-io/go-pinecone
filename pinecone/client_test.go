@@ -3,10 +3,13 @@ package pinecone
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -649,33 +652,83 @@ func TestValueOrFallBackUnit(t *testing.T) {
 
 func TestEnsureURLSchemeUnit(t *testing.T) {
 	tests := []struct {
-		name     string
 		url      string
 		expected string
 	}{
-		{
-			name:     "Confirm https prefix is added",
-			url:      "pinecone-api.io",
-			expected: "https://pinecone-api.io",
-		}, {
-			name:     "Confirm http prefix is added",
-			url:      "http://pinecone-api.io",
-			expected: "http://pinecone-api.io",
-		},
-		{
-			name:     "Confirm https prefix is added",
-			url:      "https://pinecone-api.io",
-			expected: "https://pinecone-api.io",
-		},
+		{"pinecone-api.io", "https://pinecone-api.io"},
+		{"pinecone-api.io/", "https://pinecone-api.io/"},
+		{"proxy.internal:8443", "https://proxy.internal:8443"},
+		{"proxy.internal:8443/", "https://proxy.internal:8443/"},
+		{"127.0.0.1:8443", "https://127.0.0.1:8443"},
+		{"localhost:8443", "https://localhost:8443"},
+		{"[::1]:8443", "https://[::1]:8443"},
+		{"http://pinecone-api.io", "http://pinecone-api.io"},
+		{"http://localhost:8443/", "http://localhost:8443/"},
+		{"HTTP://localhost:8443", "HTTP://localhost:8443"},
+		{"https://pinecone-api.io", "https://pinecone-api.io"},
+		{"https://127.0.0.1:8443/", "https://127.0.0.1:8443/"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, _ := ensureURLScheme(tt.url)
-			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		t.Run(tt.url, func(t *testing.T) {
+			result, err := ensureURLScheme(tt.url)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestEnsureURLSchemeRejectsInvalidURLUnit(t *testing.T) {
+	_, err := ensureURLScheme("https://bad host")
+	require.ErrorContains(t, err, "invalid URL")
+}
+
+// A Host without a scheme, including host:port, reaches the server over HTTPS for control-plane,
+// inference, and admin requests.
+func TestHostWithoutSchemeUnit(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/indexes":
+			_, _ = w.Write([]byte(`{"indexes": []}`))
+		case "/models":
+			_, _ = w.Write([]byte(`{"models": []}`))
+		case "/admin/projects":
+			_, _ = w.Write([]byte(`{"data": []}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+	hostPort := strings.TrimPrefix(server.URL, "https://")
+	_, port, err := net.SplitHostPort(hostPort)
+	require.NoError(t, err)
+	// The test certificate doesn't name localhost, so skip verification for these requests.
+	restClient := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
+
+	for _, host := range []string{hostPort, hostPort + "/", "localhost:" + port, "localhost:" + port + "/", server.URL, server.URL + "/"} {
+		t.Run(host, func(t *testing.T) {
+			pc, err := NewClientBase(NewClientBaseParams{Host: host, RestClient: restClient, Headers: map[string]string{"Api-Key": "k"}})
+			require.NoError(t, err)
+			_, err = pc.ListIndexes(context.Background())
+			require.NoError(t, err)
+			_, err = pc.Inference.ListModels(context.Background(), nil)
+			require.NoError(t, err)
+
+			admin, err := NewAdminClient(NewAdminClientParams{Host: host, RestClient: restClient, AccessToken: "token"})
+			require.NoError(t, err)
+			_, err = admin.Project.List(context.Background())
+			require.NoError(t, err)
 		})
 	}
 
+	t.Run("PINECONE_CONTROLLER_HOST", func(t *testing.T) {
+		t.Setenv("PINECONE_CONTROLLER_HOST", "localhost:"+port)
+		pc, err := NewClientBase(NewClientBaseParams{RestClient: restClient, Headers: map[string]string{"Api-Key": "k"}})
+		require.NoError(t, err)
+		_, err = pc.ListIndexes(context.Background())
+		require.NoError(t, err)
+	})
 }
 
 func TestToIndexUnit(t *testing.T) {

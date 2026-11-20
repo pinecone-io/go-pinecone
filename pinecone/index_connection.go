@@ -7,9 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -2518,28 +2516,12 @@ func sparseValToGrpc(sv *SparseValues) *db_data_grpc.SparseValues {
 	}
 }
 
+// normalizeHost returns the gRPC target for an index host, without its "http://" or "https://"
+// scheme (matched in any case) or a trailing slash, and whether to use TLS. Only "http://" selects
+// plaintext.
 func normalizeHost(host string) (string, bool) {
-	// default to secure unless http is specified
-	isSecure := true
-
-	parsedHost, err := url.Parse(host)
-	if err != nil {
-		log.Default().Printf("Failed to parse host %s: %v", host, err)
-		return host, isSecure
-	}
-
-	if parsedHost.Scheme == "http" {
-		isSecure = false
-	}
-
-	// the gRPC client is not expecting a scheme so we strip that out
-	if parsedHost.Scheme == "https" {
-		host = strings.TrimPrefix(host, "https://")
-	} else if parsedHost.Scheme == "http" {
-		host = strings.TrimPrefix(host, "http://")
-	}
-
-	return host, isSecure
+	scheme, target := splitHTTPScheme(host)
+	return strings.TrimSuffix(target, "/"), scheme != "http"
 }
 
 // Converts MetadataSchema to db_data_grpc.MetadataSchema defined in the generated gRPC API
