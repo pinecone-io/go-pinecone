@@ -54,6 +54,15 @@ fmt.Printf("Status: %s, %.0f%% complete, %d records imported\n", imp.Status, imp
 `ImportStatusFailed`, or `ImportStatusCancelled`. An import can stay `ImportStatusInProgress` at 100% while
 indexing finishes.
 
+Once Pinecone has validated the import data, `ValidationResult` reports how many records passed and failed validation.
+It's nil until validation has run, and each count is nil when the API leaves it out:
+
+```go
+if v := imp.ValidationResult; v != nil && v.ImportSuccesses != nil && v.ImportErrors != nil {
+	fmt.Printf("Validation: %d records passed, %d failed\n", *v.ImportSuccesses, *v.ImportErrors)
+}
+```
+
 ## List imports
 
 `ListImports` takes a `*ListImportsRequest`, or nil for the defaults:

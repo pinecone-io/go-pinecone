@@ -1146,6 +1146,29 @@ func (c *namespaceCapturingClient) DeleteNamespace(ctx context.Context, in *db_d
 	return &db_data_grpc.DeleteResponse{}, nil
 }
 
+func (c *namespaceCapturingClient) CreateNamespace(ctx context.Context, in *db_data_grpc.CreateNamespaceRequest, opts ...grpc.CallOption) (*db_data_grpc.NamespaceDescription, error) {
+	c.namespaces = append(c.namespaces, in.Name)
+	return &db_data_grpc.NamespaceDescription{Name: in.Name}, nil
+}
+
+func TestCreateNamespaceValidationUnit(t *testing.T) {
+	fake := &namespaceCapturingClient{}
+	var client db_data_grpc.VectorServiceClient = fake
+	idxConn := &IndexConnection{grpcClient: &client}
+	ctx := context.Background()
+
+	_, err := idxConn.CreateNamespace(ctx, &CreateNamespaceParams{})
+	require.ErrorContains(t, err, "Name")
+	assert.Empty(t, fake.namespaces, "an empty Name is rejected before sending")
+
+	_, err = idxConn.CreateNamespace(ctx, &CreateNamespaceParams{
+		Name:   "movies",
+		Schema: &MetadataSchema{Fields: map[string]MetadataSchemaField{"genre": {Filterable: true}}},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"movies"}, fake.namespaces)
+}
+
 func TestNamespaceOperationsResolveDefaultNamespaceUnit(t *testing.T) {
 	fake := &namespaceCapturingClient{}
 	var client db_data_grpc.VectorServiceClient = fake

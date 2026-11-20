@@ -975,6 +975,17 @@ type Import struct {
 	FinishedAt *time.Time `json:"finished_at,omitempty"`
 	// Error is the error message associated with the failure, if the import failed.
 	Error *string `json:"error,omitempty"`
+	// ValidationResult is the result of the validation run performed on the import data. It is nil
+	// until validation has run.
+	ValidationResult *ImportValidationResult `json:"validation_result,omitempty"`
+}
+
+// ImportValidationResult reports the result of the validation run performed on an [Import]'s data.
+type ImportValidationResult struct {
+	// ImportSuccesses is the number of records that passed validation.
+	ImportSuccesses *int64 `json:"import_successes,omitempty"`
+	// ImportErrors is the number of records that failed validation.
+	ImportErrors *int64 `json:"import_errors,omitempty"`
 }
 
 // IntegratedRecord is a record to upsert into a legacy integrated index via
@@ -1338,6 +1349,9 @@ type SearchRecordsResponse struct {
 	} `json:"result"`
 	// Usage is the [SearchUsage] consumed by the search operation.
 	Usage SearchUsage `json:"usage"`
+	// Namespace is the namespace that served the search: the connection's namespace, or the
+	// alias's target namespace when the connection names a namespace alias.
+	Namespace string `json:"namespace"`
 }
 
 // SearchRecordsVector represents the vector data used in a search request.
