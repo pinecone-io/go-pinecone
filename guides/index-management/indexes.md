@@ -506,6 +506,7 @@ _, err = pc.ConfigureIndex(ctx, "articles", pinecone.ConfigureIndexParams{
 
 // Update the read parameters of a legacy integrated index's embedding model. The key is the name
 // of the semantic text field in the index's schema, which is the text field from its FieldMap.
+// ConfigureIndex returns an error for any other key, because the API would rename the field.
 _, err = pc.ConfigureIndex(ctx, "example-legacy-integrated-index", pinecone.ConfigureIndexParams{
 	Schema: &pinecone.ConfigureIndexSchema{
 		Fields: map[string]pinecone.ConfigureSemanticTextField{

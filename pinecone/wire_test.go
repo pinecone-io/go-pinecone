@@ -26,6 +26,8 @@ const (
 	podDeploymentJSON     = `{"deployment_type": "pod", "environment": "us-east1-gcp", "pod_type": "p1.x1", "replicas": 1, "shards": 1}`
 	byocDeploymentJSON    = `{"deployment_type": "byoc", "environment": "test-environ"}`
 	denseFieldsJSON       = `{"_values": {"type": "dense_vector", "dimension": 3, "metric": "cosine"}}`
+	// semanticTextFieldsJSON is the schema of a legacy integrated index.
+	semanticTextFieldsJSON = `{"chunk_text": {"type": "semantic_text", "model": "multilingual-e5-large", "dimension": 1024, "metric": "cosine"}}`
 
 	autoscaledReadCapacityJSON      = `{"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 2, "scaling": "Auto", "auto": {"min_replicas": 2, "max_replicas": 8}}, "status": {"state": "Ready", "current_replicas": 5, "current_shards": 2}}`
 	dedicatedManualReadCapacityJSON = `{"mode": "Dedicated", "dedicated": {"node_type": "b1", "shards": 1, "scaling": "Manual", "manual": {"replicas": 2}}, "status": {"state": "Ready", "current_replicas": 2, "current_shards": 1}}`
@@ -462,7 +464,7 @@ func TestControlPlaneWireUnit(t *testing.T) {
 		{
 			name:     "ConfigureIndex schema",
 			status:   http.StatusOK,
-			response: indexModelFixture{name: "integrated-index"}.JSON(),
+			response: indexModelFixture{name: "integrated-index", fields: semanticTextFieldsJSON}.JSON(),
 			call: func(t *testing.T, pc *Client) {
 				_, err := pc.ConfigureIndex(context.Background(), "integrated-index", ConfigureIndexParams{
 					Schema: &ConfigureIndexSchema{Fields: map[string]ConfigureSemanticTextField{
@@ -2958,6 +2960,57 @@ func TestControlPlaneValidationSendsNoRequestUnit(t *testing.T) {
 			var pcErr *PineconeError
 			assert.False(t, errors.As(err, &pcErr), "validation errors are plain errors")
 			assert.Empty(t, server.requests(), "no request may be sent")
+		})
+	}
+}
+
+// ConfigureIndex rejects a Schema key that doesn't name a semantic_text field of the index, because
+// the API renames the field (and the legacy field map) to the key instead of rejecting it.
+func TestConfigureIndexSchemaKeyMustNameSemanticTextFieldUnit(t *testing.T) {
+	readParams := &map[string]interface{}{"input_type": "query"}
+	tests := []struct {
+		name    string
+		fields  string
+		key     string
+		wantErr string
+	}{
+		{
+			name:    "misspelled key",
+			fields:  semanticTextFieldsJSON,
+			key:     "chunk_txt",
+			wantErr: `Schema field "chunk_txt" isn't a semantic_text field of index "integrated-index"; its semantic_text field is "chunk_text"`,
+		},
+		{
+			name:    "index without a semantic_text field",
+			fields:  denseFieldsJSON,
+			key:     "_values",
+			wantErr: `Schema field "_values" isn't a semantic_text field of index "integrated-index"; Schema applies only to the semantic_text field of a legacy integrated index`,
+		},
+		{
+			name:   "key names the semantic_text field",
+			fields: semanticTextFieldsJSON,
+			key:    "chunk_text",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := newWireServer(t, http.StatusOK, indexModelFixture{name: "integrated-index", fields: tt.fields}.JSON())
+			_, err := newWireClient(t, server.URL).ConfigureIndex(context.Background(), "integrated-index", ConfigureIndexParams{
+				Schema: &ConfigureIndexSchema{Fields: map[string]ConfigureSemanticTextField{tt.key: {ReadParameters: readParams}}},
+			})
+			got := server.requests()
+			if tt.wantErr != "" {
+				require.EqualError(t, err, tt.wantErr)
+				var pcErr *PineconeError
+				assert.False(t, errors.As(err, &pcErr), "validation errors are plain errors")
+				require.Len(t, got, 1, "only the describe request may be sent")
+				assert.Equal(t, http.MethodGet, got[0].method)
+				return
+			}
+			require.NoError(t, err)
+			require.Len(t, got, 2)
+			assert.Equal(t, http.MethodPatch, got[1].method)
+			assert.JSONEq(t, `{"schema": {"fields": {"chunk_text": {"type": "semantic_text", "read_parameters": {"input_type": "query"}}}}, "tags": null}`, got[1].body)
 		})
 	}
 }

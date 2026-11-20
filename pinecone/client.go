@@ -15,6 +15,8 @@ import (
 	"net/url"
 	"os"
 	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1415,6 +1417,8 @@ type ConfigureIndexParams struct {
 type ConfigureIndexSchema struct {
 	// Fields (Required) is the semantic text field to update, keyed by the name of the
 	// [SemanticTextField] in the index's [IndexSchema]. Exactly one field must be given.
+	// [Client.ConfigureIndex] returns an error, without changing the index, when the key doesn't
+	// name a semantic text field of the index, because the API would rename the field to the key.
 	Fields map[string]ConfigureSemanticTextField
 }
 
@@ -1542,6 +1546,11 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	}
 	if !isPod && (podType != nil || replicas != nil) {
 		return nil, fmt.Errorf("cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes. To change the read node replicas of a serverless or BYOC index, set ReadCapacity.Dedicated.Scaling")
+	}
+	if in.Schema != nil {
+		if err := checkSemanticTextKeys(name, idxDesc.Schema, in.Schema); err != nil {
+			return nil, err
+		}
 	}
 
 	var request db_control.ConfigureIndexRequest
@@ -3484,6 +3493,43 @@ func fromMetadataSchemaToRest(schema *MetadataSchema) *db_control.MetadataSchema
 	return &db_control.MetadataSchema{
 		Fields: &fields,
 	}
+}
+
+// checkSemanticTextKeys returns an error unless every key of patch names a semantic_text field in
+// schema. The API doesn't reject another key: it renames the field, and the legacy field map, to it.
+func checkSemanticTextKeys(indexName string, schema *IndexSchema, patch *ConfigureIndexSchema) error {
+	var semanticText []string
+	if schema != nil {
+		for fieldName, field := range schema.Fields {
+			if field.SemanticText != nil {
+				semanticText = append(semanticText, fieldName)
+			}
+		}
+	}
+	sort.Strings(semanticText)
+	keys := make([]string, 0, len(patch.Fields))
+	for key := range patch.Fields {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if slices.Contains(semanticText, key) {
+			continue
+		}
+		switch len(semanticText) {
+		case 0:
+			return fmt.Errorf("Schema field %q isn't a semantic_text field of index %q; Schema applies only to the semantic_text field of a legacy integrated index", key, indexName)
+		case 1:
+			return fmt.Errorf("Schema field %q isn't a semantic_text field of index %q; its semantic_text field is %q", key, indexName, semanticText[0])
+		default:
+			quoted := make([]string, len(semanticText))
+			for i, n := range semanticText {
+				quoted[i] = strconv.Quote(n)
+			}
+			return fmt.Errorf("Schema field %q isn't a semantic_text field of index %q; its semantic_text fields are %s", key, indexName, strings.Join(quoted, ", "))
+		}
+	}
+	return nil
 }
 
 // errEmptyReadCapacityPatch is returned when ConfigureIndex gets a ReadCapacityParams with neither
