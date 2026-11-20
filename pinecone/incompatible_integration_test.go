@@ -25,24 +25,25 @@ func TestIncompatibleListKeysIntegration(t *testing.T) {
 	version := gen.PineconeApiVersion
 
 	cases := []struct {
+		name string
 		key  string
 		list func(context.Context) (*http.Response, error)
 	}{
-		{"incompatible_indexes", func(ctx context.Context) (*http.Response, error) {
+		{"indexes", "incompatible_indexes", func(ctx context.Context) (*http.Response, error) {
 			return pc.restClient.ListIndexes(ctx, &db_control.ListIndexesParams{XPineconeApiVersion: version})
 		}},
-		{"incompatible_collections", func(ctx context.Context) (*http.Response, error) {
+		{"collections", "incompatible_collections", func(ctx context.Context) (*http.Response, error) {
 			return pc.restClient.ListCollections(ctx, &db_control.ListCollectionsParams{XPineconeApiVersion: version})
 		}},
-		{"incompatible_backups", func(ctx context.Context) (*http.Response, error) {
+		{"backups", "incompatible_data", func(ctx context.Context) (*http.Response, error) {
 			return pc.restClient.ListProjectBackups(ctx, nil)
 		}},
-		{"incompatible_restore_jobs", func(ctx context.Context) (*http.Response, error) {
+		{"restore jobs", "incompatible_data", func(ctx context.Context) (*http.Response, error) {
 			return pc.restClient.ListRestoreJobs(ctx, nil)
 		}},
 	}
 	for _, tc := range cases {
-		t.Run(tc.key, func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			res, err := tc.list(t.Context())
 			require.NoError(t, err)
 			defer res.Body.Close()

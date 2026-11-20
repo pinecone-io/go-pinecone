@@ -1518,15 +1518,15 @@ type BackupList struct {
 	// Pagination holds the token for fetching the next page of results. It is nil when there are
 	// no more results; otherwise pass Pagination.Next as the next request's PaginationToken.
 	Pagination *Pagination `json:"pagination,omitempty"`
-	// IncompatibleBackups lists the backups on this page that this SDK's API version can't
+	// IncompatibleData lists the backups on this page that this SDK's API version can't
 	// describe, so they're left out of Data. Each counts toward Limit like a backup in Data, so a
 	// page can hold fewer than Limit backups in Data while Pagination still points to more. It is
 	// empty when every backup can be described.
-	IncompatibleBackups []*IncompatibleBackup `json:"incompatible_backups,omitempty"`
+	IncompatibleData []*IncompatibleBackup `json:"incompatible_data,omitempty"`
 }
 
 // IncompatibleBackup is a backup that exists in the project but uses features this SDK's API
-// version can't represent, so [Client.ListBackups] reports it in [BackupList].IncompatibleBackups
+// version can't represent, so [Client.ListBackups] reports it in [BackupList].IncompatibleData
 // instead of Data. [Client.DescribeBackup] and [Client.CreateIndexFromBackup] refuse it with a
 // [PineconeError] whose error code is FAILED_PRECONDITION and whose Reason is
 // [ReasonResourceIncompatibleWithAPIVersion]; [Client.DeleteBackup] still works.
@@ -1577,15 +1577,15 @@ type RestoreJobList struct {
 	// Pagination holds the token for fetching the next page of results. It is nil when there are
 	// no more results; otherwise pass Pagination.Next as the next request's PaginationToken.
 	Pagination *Pagination `json:"pagination,omitempty"`
-	// IncompatibleRestoreJobs lists the restore jobs on this page that this SDK's API version
+	// IncompatibleData lists the restore jobs on this page that this SDK's API version
 	// can't describe, so they're left out of Data. Each counts toward Limit like a restore job in
 	// Data, so a page can hold fewer than Limit restore jobs in Data while Pagination still points
 	// to more. It is empty when every restore job can be described.
-	IncompatibleRestoreJobs []*IncompatibleRestoreJob `json:"incompatible_restore_jobs,omitempty"`
+	IncompatibleData []*IncompatibleRestoreJob `json:"incompatible_data,omitempty"`
 }
 
 // IncompatibleRestoreJob is a restore job that uses features this SDK's API version can't
-// represent, so [Client.ListRestoreJobs] reports it in [RestoreJobList].IncompatibleRestoreJobs
+// represent, so [Client.ListRestoreJobs] reports it in [RestoreJobList].IncompatibleData
 // instead of Data. [Client.DescribeRestoreJob] refuses it with a [PineconeError] whose error code
 // is FAILED_PRECONDITION and whose Reason is [ReasonResourceIncompatibleWithAPIVersion].
 type IncompatibleRestoreJob struct {

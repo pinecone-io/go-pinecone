@@ -155,9 +155,9 @@ func toDbRestoreDeploymentRequest(deployment *IndexDeployment) (*db_control.Rest
 }
 
 // toIndexSchema converts the generated response schema into the public IndexSchema. Each field is
-// decoded straight into the matching public type, whose JSON tags mirror the wire names. Fields with
-// an unknown type are skipped rather than failing the whole response, so the SDK keeps working when
-// the API introduces new field types.
+// re-encoded and decoded straight into the matching public type, whose JSON tags mirror the wire
+// names. Fields with an unknown type are skipped rather than failing the whole response, so the SDK
+// keeps working when the API introduces new field types.
 func toIndexSchema(schema *db_control.IndexSchema) *IndexSchema {
 	if schema == nil {
 		return nil
@@ -165,20 +165,14 @@ func toIndexSchema(schema *db_control.IndexSchema) *IndexSchema {
 
 	fields := make(map[string]IndexSchemaField, len(schema.Fields))
 	for name, field := range schema.Fields {
-		raw, err := field.MarshalJSON()
+		raw, err := json.Marshal(field)
 		if err != nil {
-			continue
-		}
-		var tagged struct {
-			Type string `json:"type"`
-		}
-		if err := json.Unmarshal(raw, &tagged); err != nil {
 			continue
 		}
 
 		var publicField IndexSchemaField
 		var target any
-		switch tagged.Type {
+		switch derefOrDefault(field.Type, "") {
 		case "dense_vector":
 			publicField.DenseVector = &DenseVectorField{}
 			target = publicField.DenseVector
@@ -219,43 +213,26 @@ func toIndexSchema(schema *db_control.IndexSchema) *IndexSchema {
 	return &IndexSchema{Fields: fields}
 }
 
-// toIndexDeployment converts the generated response deployment union into the public IndexDeployment.
-// A deployment of an unknown type, or one that can't be decoded, is reported as nil rather than
-// failing the whole response, matching how toIndexSchema treats fields it can't read.
+// toIndexDeployment converts the generated response deployment into the public IndexDeployment. A
+// deployment of an unknown type is reported as nil rather than failing the whole response, matching
+// how toIndexSchema treats fields it can't read.
 func toIndexDeployment(deployment db_control.IndexDeployment) *IndexDeployment {
-	discriminator, err := deployment.Discriminator()
-	if err != nil {
-		return nil
-	}
-
-	switch discriminator {
+	switch deployment.DeploymentType {
 	case "managed":
-		managed, err := deployment.AsManagedDeployment()
-		if err != nil {
-			return nil
-		}
 		return &IndexDeployment{Managed: &ManagedDeployment{
-			Cloud:       Cloud(managed.Cloud),
-			Region:      managed.Region,
-			Environment: managed.Environment,
+			Cloud:       Cloud(derefOrDefault(deployment.Cloud, "")),
+			Region:      derefOrDefault(deployment.Region, ""),
+			Environment: deployment.Environment,
 		}}
 	case "pod":
-		pod, err := deployment.AsPodDeployment()
-		if err != nil {
-			return nil
-		}
 		return &IndexDeployment{Pod: &PodDeployment{
-			Environment: pod.Environment,
-			PodType:     pod.PodType,
-			Replicas:    pod.Replicas,
-			Shards:      pod.Shards,
+			Environment: derefOrDefault(deployment.Environment, ""),
+			PodType:     derefOrDefault(deployment.PodType, ""),
+			Replicas:    deployment.Replicas,
+			Shards:      deployment.Shards,
 		}}
 	case "byoc":
-		byoc, err := deployment.AsByocDeployment()
-		if err != nil {
-			return nil
-		}
-		return &IndexDeployment{Byoc: &ByocDeployment{Environment: byoc.Environment}}
+		return &IndexDeployment{Byoc: &ByocDeployment{Environment: derefOrDefault(deployment.Environment, "")}}
 	default:
 		return nil
 	}

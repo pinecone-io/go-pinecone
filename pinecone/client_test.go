@@ -975,7 +975,7 @@ func TestToBackupUnit(t *testing.T) {
 		model := &db_control.BackupModel{
 			BackupId:             "backup-1",
 			Cloud:                "aws",
-			CreatedAt:            &createdAt,
+			CreatedAt:            createdAt,
 			Description:          &description,
 			Name:                 &name,
 			NamespaceCount:       &namespaceCount,
@@ -1039,7 +1039,7 @@ func TestToBackupUnit(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				result := toBackup(&db_control.BackupModel{CreatedAt: &tt.createdAt})
+				result := toBackup(&db_control.BackupModel{CreatedAt: tt.createdAt})
 				require.NotNil(t, result.CreatedAt)
 				require.Equal(t, tt.expected, *result.CreatedAt)
 

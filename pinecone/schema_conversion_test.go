@@ -702,9 +702,9 @@ func TestToIndexDeploymentUnit(t *testing.T) {
 			expected:   nil,
 		},
 		{
-			name:       "malformed deployment is skipped",
-			deployment: `{"deployment_type": "managed", "cloud": 123, "region": "us-east-1"}`,
-			expected:   nil,
+			name:       "unknown properties are ignored",
+			deployment: `{"deployment_type": "managed", "cloud": "aws", "region": "us-east-1", "zone": "use1-az1"}`,
+			expected:   &IndexDeployment{Managed: &ManagedDeployment{Cloud: CloudAWS, Region: "us-east-1"}},
 		},
 	}
 
