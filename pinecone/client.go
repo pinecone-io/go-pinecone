@@ -15,6 +15,8 @@ import (
 	"net/url"
 	"os"
 	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -90,7 +92,8 @@ type NewClientParams struct {
 	Headers map[string]string
 	// Host (Optional) is the host URL of the Pinecone API, used for control-plane and inference
 	// requests. Defaults to the PINECONE_CONTROLLER_HOST environment variable, or
-	// "https://api.pinecone.io" if unset. "https://" is prepended when no scheme is given.
+	// "https://api.pinecone.io" if unset. "https://" is prepended when no scheme is given, as in
+	// "localhost:8443".
 	Host string
 	// RestClient (Optional) is the HTTP client used to communicate with the Pinecone API.
 	RestClient *http.Client
@@ -115,7 +118,8 @@ type NewClientBaseParams struct {
 	Headers map[string]string
 	// Host (Optional) is the host URL of the Pinecone API, used for control-plane and inference
 	// requests. Defaults to the PINECONE_CONTROLLER_HOST environment variable, or
-	// "https://api.pinecone.io" if unset. "https://" is prepended when no scheme is given.
+	// "https://api.pinecone.io" if unset. "https://" is prepended when no scheme is given, as in
+	// "localhost:8443".
 	Host string
 	// RestClient (Optional) is the HTTP client used to communicate with the Pinecone API.
 	RestClient *http.Client
@@ -346,12 +350,23 @@ func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*Ind
 // ensureHostScheme prepends "https://" to an index host that has no scheme and leaves an explicit
 // "http://" or "https://" host as given, matching the gRPC transport chosen by normalizeHost.
 func ensureHostScheme(host string) string {
-	for _, scheme := range []string{"https://", "http://"} {
-		if len(host) >= len(scheme) && strings.EqualFold(host[:len(scheme)], scheme) {
-			return host
-		}
+	if scheme, _ := splitHTTPScheme(host); scheme != "" {
+		return host
 	}
 	return "https://" + host
+}
+
+// splitHTTPScheme returns "http" or "https" and the rest of host when host starts with "http://" or
+// "https://", in any case. Otherwise it returns "" and host. It doesn't parse host as a URL,
+// because url.Parse reads "localhost:8443" as scheme "localhost" and rejects "127.0.0.1:8443".
+func splitHTTPScheme(host string) (string, string) {
+	for _, scheme := range []string{"https", "http"} {
+		prefix := scheme + "://"
+		if len(host) >= len(prefix) && strings.EqualFold(host[:len(prefix)], prefix) {
+			return scheme, host[len(prefix):]
+		}
+	}
+	return "", host
 }
 
 // ListIndexes retrieves a list of all Indexes in a Pinecone [project]. Indexes that use features
@@ -681,8 +696,8 @@ type CreateServerlessIndexRequest struct {
 }
 
 // ReadCapacityParams is the read capacity configuration for a new index, or for an index changed
-// with [Client.ConfigureIndex]. Set exactly one of Dedicated or OnDemand. When nil, a new index uses
-// OnDemand read capacity. Both modes are supported for new serverless and BYOC indexes, except in a
+// with [Client.ConfigureIndex]. Set exactly one of Dedicated or OnDemand; ConfigureIndex returns an
+// error when neither is set. When nil or empty, a new index uses OnDemand read capacity. Both modes are supported for new serverless and BYOC indexes, except in a
 // BYOC environment that supports only Dedicated read capacity, which rejects OnDemand, sent or
 // defaulted. [Client.ConfigureIndex] can't move an index with Dedicated read capacity back to
 // OnDemand; the API returns a 400 [PineconeError].
@@ -1241,6 +1256,9 @@ func (c *Client) CreateBYOCIndex(ctx context.Context, in *CreateBYOCIndexRequest
 //		    fmt.Println(desc)
 //	    }
 func (c *Client) DescribeIndex(ctx context.Context, idxName string) (*Index, error) {
+	if idxName == "" {
+		return nil, fmt.Errorf("you must provide an idxName to describe an index")
+	}
 	return c.describeIndex(ctx, idxName, "failed to describe index: ")
 }
 
@@ -1297,6 +1315,9 @@ func (c *Client) describeIndex(ctx context.Context, idxName string, errMsgPrefix
 //	        fmt.Printf("Index \"%s\" deleted successfully", indexName)
 //	    }
 func (c *Client) DeleteIndex(ctx context.Context, idxName string) error {
+	if idxName == "" {
+		return fmt.Errorf("you must provide an idxName to delete an index")
+	}
 	res, err := c.restClient.DeleteIndex(ctx, idxName, &db_control.DeleteIndexParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return err
@@ -1396,6 +1417,8 @@ type ConfigureIndexParams struct {
 type ConfigureIndexSchema struct {
 	// Fields (Required) is the semantic text field to update, keyed by the name of the
 	// [SemanticTextField] in the index's [IndexSchema]. Exactly one field must be given.
+	// [Client.ConfigureIndex] returns an error, without changing the index, when the key doesn't
+	// name a semantic text field of the index, because the API would rename the field to the key.
 	Fields map[string]ConfigureSemanticTextField
 }
 
@@ -1489,6 +1512,9 @@ type ConfigureIndexEmbed struct {
 //
 // [scale a pods-based index]: https://docs.pinecone.io/guides/indexes/pods/scale-pod-based-indexes
 func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIndexParams) (*Index, error) {
+	if name == "" {
+		return nil, fmt.Errorf("you must provide a name to configure an index")
+	}
 	if in.PodType == "" && in.Replicas == 0 && in.DeletionProtection == "" && in.Tags == nil && in.ReadCapacity == nil && in.Schema == nil && in.Embed == nil {
 		return nil, fmt.Errorf("must specify PodType, Replicas, DeletionProtection, ReadCapacity, Schema, or Tags when configuring an index")
 	}
@@ -1497,6 +1523,9 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	}
 	if in.Schema != nil && len(in.Schema.Fields) != 1 {
 		return nil, fmt.Errorf("Schema must contain exactly one field to update")
+	}
+	if in.ReadCapacity != nil && in.ReadCapacity.Dedicated == nil && in.ReadCapacity.OnDemand == nil {
+		return nil, errEmptyReadCapacityPatch
 	}
 
 	podType := pointerOrNil(in.PodType)
@@ -1517,6 +1546,11 @@ func (c *Client) ConfigureIndex(ctx context.Context, name string, in ConfigureIn
 	}
 	if !isPod && (podType != nil || replicas != nil) {
 		return nil, fmt.Errorf("cannot configure PodType or Replicas on a non-pod index; these parameters are only supported for pod indexes. To change the read node replicas of a serverless or BYOC index, set ReadCapacity.Dedicated.Scaling")
+	}
+	if in.Schema != nil {
+		if err := checkSemanticTextKeys(name, idxDesc.Schema, in.Schema); err != nil {
+			return nil, err
+		}
 	}
 
 	var request db_control.ConfigureIndexRequest
@@ -1751,6 +1785,9 @@ func (c *Client) listCollections(ctx context.Context) (*collectionListResponse, 
 // [dimensionality]: https://docs.pinecone.io/guides/indexes/pods/choose-a-pod-type-and-size#dimensionality-of-vectors
 // [understanding collections]: https://docs.pinecone.io/guides/indexes/pods/understanding-collections
 func (c *Client) DescribeCollection(ctx context.Context, collectionName string) (*Collection, error) {
+	if collectionName == "" {
+		return nil, fmt.Errorf("you must provide a collectionName to describe a collection")
+	}
 	res, err := c.restClient.DescribeCollection(ctx, collectionName, &db_control.DescribeCollectionParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
@@ -1897,6 +1934,9 @@ func (c *Client) CreateCollection(ctx context.Context, in *CreateCollectionReque
 //		       log.Printf("Successfully deleted collection \"%s\"\n", collectionName)
 //	    }
 func (c *Client) DeleteCollection(ctx context.Context, collectionName string) error {
+	if collectionName == "" {
+		return fmt.Errorf("you must provide a collectionName to delete a collection")
+	}
 	res, err := c.restClient.DeleteCollection(ctx, collectionName, &db_control.DeleteCollectionParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return err
@@ -1967,10 +2007,10 @@ type CreateBackupParams struct {
 //		 }
 func (c *Client) CreateBackup(ctx context.Context, in *CreateBackupParams) (*Backup, error) {
 	if in == nil {
-		return nil, fmt.Errorf("in (*CreateBackupRequest) cannot be nil")
+		return nil, fmt.Errorf("in (*CreateBackupParams) cannot be nil")
 	}
 	if in.IndexName == "" {
-		return nil, fmt.Errorf("IndexName must be included in CreateBackupRequest")
+		return nil, fmt.Errorf("IndexName must be included in CreateBackupParams")
 	}
 
 	res, err := c.restClient.CreateBackup(ctx, in.IndexName, &db_control.CreateBackupParams{XPineconeApiVersion: gen.PineconeApiVersion}, db_control.CreateBackupRequest{
@@ -2073,13 +2113,13 @@ type CreateIndexFromBackupResponse struct {
 //	    }
 func (c *Client) CreateIndexFromBackup(ctx context.Context, in *CreateIndexFromBackupParams) (*CreateIndexFromBackupResponse, error) {
 	if in == nil {
-		return nil, fmt.Errorf("in (*CreateIndexFromBackupRequest) cannot be nil")
+		return nil, fmt.Errorf("in (*CreateIndexFromBackupParams) cannot be nil")
 	}
 	if in.BackupId == "" {
-		return nil, fmt.Errorf("BackupId must be included in CreateIndexFromBackupRequest")
+		return nil, fmt.Errorf("BackupId must be included in CreateIndexFromBackupParams")
 	}
 	if in.Name == "" {
-		return nil, fmt.Errorf("Name must be included in CreateIndexFromBackupRequest")
+		return nil, fmt.Errorf("Name must be included in CreateIndexFromBackupParams")
 	}
 	readCapacity, err := readCapacityParamsToReadCapacity(in.ReadCapacity)
 	if err != nil {
@@ -2235,6 +2275,9 @@ func (c *Client) ListBackups(ctx context.Context, in *ListBackupsParams) (*Backu
 			return nil, err
 		}
 	} else {
+		if *in.IndexName == "" {
+			return nil, fmt.Errorf("IndexName must not be empty; leave it nil to list the project's backups")
+		}
 		response, err = c.restClient.ListIndexBackups(ctx, *in.IndexName, &db_control.ListIndexBackupsParams{
 			IncludeDeleted:  in.IncludeDeleted,
 			Limit:           in.Limit,
@@ -2889,7 +2932,7 @@ func incompatibleEntries[T any](raw json.RawMessage) []T {
 }
 
 // requireJSONArray returns an error unless raw is absent, null, or a JSON array. The
-// ListIncompatible* methods use it so a malformed list is reported instead of read as empty.
+// incompatible list decoders use it so a malformed list is reported instead of read as empty.
 func requireJSONArray(raw json.RawMessage) error {
 	if len(raw) == 0 {
 		return nil
@@ -2898,17 +2941,21 @@ func requireJSONArray(raw json.RawMessage) error {
 	return json.Unmarshal(raw, &items)
 }
 
-// firstPresent returns raw unless the key was absent or null, in which case it returns fallback.
-func firstPresent(raw, fallback json.RawMessage) json.RawMessage {
+// chooseIncompatibleList returns the incompatible list under key, or under the pre-rename
+// legacyKey when key is absent or null. It returns an error when the chosen value isn't an array.
+func chooseIncompatibleList(raw json.RawMessage, key string, legacy json.RawMessage, legacyKey string) (json.RawMessage, error) {
 	if len(raw) == 0 || string(raw) == "null" {
-		return fallback
+		raw, key = legacy, legacyKey
 	}
-	return raw
+	if err := requireJSONArray(raw); err != nil {
+		return nil, fmt.Errorf("failed to decode %s: %w", key, err)
+	}
+	return raw, nil
 }
 
 // backupListResponse keeps incompatible_data undecoded; see incompatibleEntries. Until the server
 // renames it, production sends the array as incompatible_backups, which is read when
-// incompatible_data is absent.
+// incompatible_data is absent or null. A value that isn't an array fails the decode.
 type backupListResponse struct {
 	Data                      *[]backupModel                 `json:"data,omitempty"`
 	Pagination                *db_control.PaginationResponse `json:"pagination"`
@@ -2921,9 +2968,13 @@ func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
 	if err := json.NewDecoder(resBody).Decode(&backupListDb); err != nil {
 		return nil, fmt.Errorf("failed to decode backup list response: %w", err)
 	}
+	incompatibleRaw, err := chooseIncompatibleList(backupListDb.IncompatibleData, "incompatible_data", backupListDb.LegacyIncompatibleBackups, "incompatible_backups")
+	if err != nil {
+		return nil, err
+	}
 	var backupList BackupList
 	backupList.IncompatibleData = make([]*IncompatibleBackup, 0)
-	for _, backup := range incompatibleEntries[IncompatibleBackup](firstPresent(backupListDb.IncompatibleData, backupListDb.LegacyIncompatibleBackups)) {
+	for _, backup := range incompatibleEntries[IncompatibleBackup](incompatibleRaw) {
 		if backup.BackupId == "" {
 			continue
 		}
@@ -2944,7 +2995,7 @@ func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
 
 // restoreJobListResponse keeps incompatible_data undecoded; see incompatibleEntries. Until the
 // server renames it, production sends the array as incompatible_restore_jobs, which is read when
-// incompatible_data is absent.
+// incompatible_data is absent or null. A value that isn't an array fails the decode.
 type restoreJobListResponse struct {
 	Data                          []db_control.RestoreJobModel   `json:"data"`
 	Pagination                    *db_control.PaginationResponse `json:"pagination"`
@@ -2957,9 +3008,13 @@ func decodeRestoreJobList(resBody io.ReadCloser) (*RestoreJobList, error) {
 	if err := json.NewDecoder(resBody).Decode(&restoreJobListDb); err != nil {
 		return nil, fmt.Errorf("failed to decode restore job list response: %w", err)
 	}
+	incompatibleRaw, err := chooseIncompatibleList(restoreJobListDb.IncompatibleData, "incompatible_data", restoreJobListDb.LegacyIncompatibleRestoreJobs, "incompatible_restore_jobs")
+	if err != nil {
+		return nil, err
+	}
 	var restoreJobList RestoreJobList
 	restoreJobList.IncompatibleData = make([]*IncompatibleRestoreJob, 0)
-	for _, job := range incompatibleEntries[IncompatibleRestoreJob](firstPresent(restoreJobListDb.IncompatibleData, restoreJobListDb.LegacyIncompatibleRestoreJobs)) {
+	for _, job := range incompatibleEntries[IncompatibleRestoreJob](incompatibleRaw) {
 		if job.RestoreJobId == "" {
 			continue
 		}
@@ -3135,8 +3190,20 @@ func decodeCollection(resBody io.ReadCloser) (*Collection, error) {
 	return toCollection(&collectionModel), nil
 }
 
-func decodeErrorResponse(resBodyBytes []byte) (*db_control.ErrorResponse, error) {
-	var errorResponse db_control.ErrorResponse
+// apiErrorResponse is db_control.ErrorResponse with details left undecoded, so details that
+// aren't a JSON object can't hide the error code and message.
+type apiErrorResponse struct {
+	Error struct {
+		Code    string          `json:"code"`
+		Details json.RawMessage `json:"details,omitempty"`
+		Message string          `json:"message"`
+		Reason  *string         `json:"reason,omitempty"`
+	} `json:"error"`
+	Status int `json:"status"`
+}
+
+func decodeErrorResponse(resBodyBytes []byte) (*apiErrorResponse, error) {
+	var errorResponse apiErrorResponse
 	err := json.Unmarshal(resBodyBytes, &errorResponse)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode error response: %w", err)
@@ -3151,14 +3218,13 @@ func decodeErrorResponse(resBodyBytes []byte) (*db_control.ErrorResponse, error)
 }
 
 // rpcStatus is the error body of the bulk import operations: a gRPC code and message.
+// Details, a list of protobuf Any values, is left undecoded so an unexpected shape can't hide the
+// code and message.
 type rpcStatus struct {
 	Code    *int32          `json:"code"`
 	Message *string         `json:"message"`
-	Details *[]rpcStatusAny `json:"details"`
+	Details json.RawMessage `json:"details"`
 }
-
-// rpcStatusAny is one entry of rpcStatus details, a protobuf Any.
-type rpcStatusAny map[string]any
 
 // decodeRpcStatus decodes an rpcStatus error body. It reports false unless the body is a JSON
 // object with a numeric top-level "code".
@@ -3193,7 +3259,7 @@ type errorResponseMap struct {
 	ErrorCode  string          `json:"error_code,omitempty"`
 	Reason     string          `json:"reason,omitempty"`
 	Message    string          `json:"message,omitempty"`
-	Details    string          `json:"details,omitempty"`
+	Details    any             `json:"details,omitempty"`
 	details    *map[string]any `json:"-"`
 }
 
@@ -3216,19 +3282,25 @@ func handleErrorResponseBody(response *http.Response, errMsgPrefix string) error
 				errMap.Reason = *errorResponse.Error.Reason
 			}
 
-			if errorResponse.Error.Details != nil {
-				errMap.Details = fmt.Sprintf("%+v", errorResponse.Error.Details)
-				errMap.details = errorResponse.Error.Details
+			// Details that aren't a JSON object are left out; the code and message are kept.
+			var details map[string]any
+			if json.Unmarshal(errorResponse.Error.Details, &details) == nil && details != nil {
+				errMap.Details = details
+				errMap.details = &details
 			}
 		} else if status, ok := decodeRpcStatus(resBodyBytes); ok {
 			errMap.ErrorCode = grpcCodeName(*status.Code)
 			if status.Message != nil {
 				errMap.Message = *status.Message
 			}
-			if status.Details != nil && len(*status.Details) > 0 {
-				errMap.Details = fmt.Sprintf("%+v", *status.Details)
+			var details []any
+			if json.Unmarshal(status.Details, &details) == nil && len(details) > 0 {
+				errMap.Details = details
 			}
 		}
+	} else {
+		// The API documents some 400 and 422 bodies as plain text rather than an ErrorResponse.
+		errMap.Message = strings.TrimSpace(string(resBodyBytes))
 	}
 
 	errMap.Body = string(resBodyBytes)
@@ -3364,14 +3436,14 @@ func validateVectorType(vectorType *string, dimension *int32, metric *IndexMetri
 	return out, nil
 }
 
+// ensureURLScheme prepends "https://" to a control-plane or admin host that has no scheme, such as
+// "api.example.com" or "localhost:8443", and returns an error if the result isn't a valid URL.
 func ensureURLScheme(inputURL string) (string, error) {
-	parsedURL, err := url.Parse(inputURL)
-	if err != nil {
-		return "", fmt.Errorf("invalid URL: %v", err)
+	if !strings.Contains(inputURL, "://") {
+		inputURL = "https://" + inputURL
 	}
-
-	if parsedURL.Scheme == "" {
-		return "https://" + inputURL, nil
+	if _, err := url.Parse(inputURL); err != nil {
+		return "", fmt.Errorf("invalid URL: %w", err)
 	}
 	return inputURL, nil
 }
@@ -3423,12 +3495,55 @@ func fromMetadataSchemaToRest(schema *MetadataSchema) *db_control.MetadataSchema
 	}
 }
 
+// checkSemanticTextKeys returns an error unless every key of patch names a semantic_text field in
+// schema. The API doesn't reject another key: it renames the field, and the legacy field map, to it.
+func checkSemanticTextKeys(indexName string, schema *IndexSchema, patch *ConfigureIndexSchema) error {
+	var semanticText []string
+	if schema != nil {
+		for fieldName, field := range schema.Fields {
+			if field.SemanticText != nil {
+				semanticText = append(semanticText, fieldName)
+			}
+		}
+	}
+	sort.Strings(semanticText)
+	keys := make([]string, 0, len(patch.Fields))
+	for key := range patch.Fields {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if slices.Contains(semanticText, key) {
+			continue
+		}
+		switch len(semanticText) {
+		case 0:
+			return fmt.Errorf("Schema field %q isn't a semantic_text field of index %q; Schema applies only to the semantic_text field of a legacy integrated index", key, indexName)
+		case 1:
+			return fmt.Errorf("Schema field %q isn't a semantic_text field of index %q; its semantic_text field is %q", key, indexName, semanticText[0])
+		default:
+			quoted := make([]string, len(semanticText))
+			for i, n := range semanticText {
+				quoted[i] = strconv.Quote(n)
+			}
+			return fmt.Errorf("Schema field %q isn't a semantic_text field of index %q; its semantic_text fields are %s", key, indexName, strings.Join(quoted, ", "))
+		}
+	}
+	return nil
+}
+
+// errEmptyReadCapacityPatch is returned when ConfigureIndex gets a ReadCapacityParams with neither
+// mode set, which would otherwise send a request that changes nothing.
+var errEmptyReadCapacityPatch = errors.New("ReadCapacity must set Dedicated or OnDemand when configuring an index")
+
 // Takes the new ReadCapacityParams and the index's current ReadCapacity configuration and builds the
 // read-capacity PATCH for ConfigureIndex. Fields omitted from a Dedicated patch keep their current value.
 func patchReadCapacity(new *ReadCapacityParams, old *ReadCapacity) (*db_control.ReadCapacityPatch, error) {
-	// nil new params -> return nil
-	if new == nil || (new.Dedicated == nil && new.OnDemand == nil) {
+	if new == nil {
 		return nil, nil
+	}
+	if new.Dedicated == nil && new.OnDemand == nil {
+		return nil, errEmptyReadCapacityPatch
 	}
 
 	if new.Dedicated != nil && new.OnDemand != nil {

@@ -119,6 +119,9 @@ res, err := idxConnection.SearchRecords(ctx, &pinecone.SearchRecordsRequest{
 if err != nil {
 	log.Fatalf("Failed to search records: %v", err)
 }
+for _, hit := range res.Result.Hits {
+	fmt.Printf("%s (%.3f): %v\n", hit.Id, hit.Score, hit.Fields["chunk_text"])
+}
 ```
 
 `RankFields` must name at least one field, and every returned record must contain each field it names. How many fields

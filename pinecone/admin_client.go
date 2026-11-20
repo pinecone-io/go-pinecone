@@ -234,8 +234,8 @@ type NewAdminClientParams struct {
 	AccessToken string
 
 	// (Optional) The host URL of the Pinecone Admin API. Falls back to PINECONE_CONTROLLER_HOST, then
-	// "https://api.pinecone.io". "https://" is prepended if no scheme is given. Does not affect the
-	// OAuth token endpoint.
+	// "https://api.pinecone.io". "https://" is prepended if no scheme is given, as in
+	// "localhost:8443". Does not affect the OAuth token endpoint.
 	Host string
 
 	// (Optional) Additional headers to include in every Admin API request. Merged over headers parsed

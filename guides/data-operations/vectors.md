@@ -75,6 +75,10 @@ vectors := []*pinecone.Vector{
 }
 
 count, err := idxConnection.UpsertVectors(ctx, vectors)
+if err != nil {
+	log.Fatalf("Failed to upsert vectors: %v", err)
+}
+fmt.Printf("Upserted %d vectors\n", count)
 ```
 
 Writes are applied asynchronously, so a new record may not appear in queries right away. For more, see
@@ -127,6 +131,9 @@ res, err := idxConnection.QueryByVectorId(ctx, &pinecone.QueryByVectorIdRequest{
 })
 if err != nil {
 	log.Fatalf("Failed to query by vector ID: %v", err)
+}
+for _, match := range res.Matches {
+	fmt.Printf("%s: %f\n", match.Vector.Id, match.Score)
 }
 ```
 

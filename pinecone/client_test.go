@@ -3,10 +3,13 @@ package pinecone
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -473,7 +476,7 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 			responseBody: mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "too many", "details": {"limit_documents": 1000, "actual_documents": 1001, "retryable": false, "unit": "documents"}}}`, http.StatusBadRequest),
 			statusCode:   http.StatusBadRequest,
 			prefix:       "failed to upsert documents: ",
-			errorOutput:  `{"status_code":400,"body":"{\"status\": 400, \"error\": {\"code\": \"INVALID_ARGUMENT\", \"reason\": \"TOO_MANY_DOCUMENTS\", \"message\": \"too many\", \"details\": {\"limit_documents\": 1000, \"actual_documents\": 1001, \"retryable\": false, \"unit\": \"documents\"}}}","error_code":"INVALID_ARGUMENT","reason":"TOO_MANY_DOCUMENTS","message":"failed to upsert documents: too many","details":"&map[actual_documents:1001 limit_documents:1000 retryable:false unit:documents]"}`,
+			errorOutput:  `{"status_code":400,"body":"{\"status\": 400, \"error\": {\"code\": \"INVALID_ARGUMENT\", \"reason\": \"TOO_MANY_DOCUMENTS\", \"message\": \"too many\", \"details\": {\"limit_documents\": 1000, \"actual_documents\": 1001, \"retryable\": false, \"unit\": \"documents\"}}}","error_code":"INVALID_ARGUMENT","reason":"TOO_MANY_DOCUMENTS","message":"failed to upsert documents: too many","details":{"actual_documents":1001,"limit_documents":1000,"retryable":false,"unit":"documents"}}`,
 			errorCode:    "INVALID_ARGUMENT",
 			message:      "failed to upsert documents: too many",
 			reason:       "TOO_MANY_DOCUMENTS",
@@ -498,7 +501,7 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 			name:         "ErrorResponse body with details but no reason",
 			responseBody: mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "message": "bad", "details": {"field": "top_k"}}}`, http.StatusBadRequest),
 			statusCode:   http.StatusBadRequest,
-			errorOutput:  `{"status_code":400,"body":"{\"status\": 400, \"error\": {\"code\": \"INVALID_ARGUMENT\", \"message\": \"bad\", \"details\": {\"field\": \"top_k\"}}}","error_code":"INVALID_ARGUMENT","message":"bad","details":"&map[field:top_k]"}`,
+			errorOutput:  `{"status_code":400,"body":"{\"status\": 400, \"error\": {\"code\": \"INVALID_ARGUMENT\", \"message\": \"bad\", \"details\": {\"field\": \"top_k\"}}}","error_code":"INVALID_ARGUMENT","message":"bad","details":{"field":"top_k"}}`,
 			errorCode:    "INVALID_ARGUMENT",
 			message:      "bad",
 			details:      map[string]any{"field": "top_k"},
@@ -511,7 +514,62 @@ func TestHandleErrorResponseBodyUnit(t *testing.T) {
 			name:         "test string body",
 			responseBody: mockResponse(`test error message`, http.StatusBadRequest),
 			statusCode:   http.StatusBadRequest,
-			errorOutput:  `{"status_code":400,"body":"test error message"}`,
+			errorOutput:  `{"status_code":400,"body":"test error message","message":"test error message"}`,
+			message:      "test error message",
+		}, {
+			// The spec documents 400 and 422 bodies that are "an ErrorResponse or plain text".
+			name:         "plain-text body becomes the message, with the prefix",
+			responseBody: mockResponse("Failed to deserialize the JSON body into the target type: read_capacity: unknown variant `z9`\n", http.StatusUnprocessableEntity),
+			statusCode:   http.StatusUnprocessableEntity,
+			prefix:       "failed to create index: ",
+			errorOutput:  "{\"status_code\":422,\"body\":\"Failed to deserialize the JSON body into the target type: read_capacity: unknown variant `z9`\\n\",\"message\":\"failed to create index: Failed to deserialize the JSON body into the target type: read_capacity: unknown variant `z9`\"}",
+			message:      "failed to create index: Failed to deserialize the JSON body into the target type: read_capacity: unknown variant `z9`",
+		}, {
+			name:         "empty body leaves the message empty",
+			responseBody: mockResponse(``, http.StatusServiceUnavailable),
+			statusCode:   http.StatusServiceUnavailable,
+			prefix:       "failed to list indexes: ",
+			errorOutput:  `{"status_code":503}`,
+		}, {
+			name:         "whitespace-only body leaves the message empty",
+			responseBody: mockResponse(" \n", http.StatusBadGateway),
+			statusCode:   http.StatusBadGateway,
+			prefix:       "failed to list indexes: ",
+			errorOutput:  "{\"status_code\":502,\"body\":\" \\n\"}",
+		}, {
+			// details that aren't an object must not hide the error code and message.
+			name:         "ErrorResponse body whose details aren't an object",
+			responseBody: mockResponse(`{"status": 400, "error": {"code": "INVALID_ARGUMENT", "reason": "TOO_MANY_DOCUMENTS", "message": "bad", "details": [1, "two"]}}`, http.StatusBadRequest),
+			statusCode:   http.StatusBadRequest,
+			prefix:       "failed to upsert documents: ",
+			errorOutput:  `{"status_code":400,"body":"{\"status\": 400, \"error\": {\"code\": \"INVALID_ARGUMENT\", \"reason\": \"TOO_MANY_DOCUMENTS\", \"message\": \"bad\", \"details\": [1, \"two\"]}}","error_code":"INVALID_ARGUMENT","reason":"TOO_MANY_DOCUMENTS","message":"failed to upsert documents: bad"}`,
+			errorCode:    "INVALID_ARGUMENT",
+			message:      "failed to upsert documents: bad",
+			reason:       "TOO_MANY_DOCUMENTS",
+		}, {
+			// Bulk import errors use the rpcStatus shape; its details list is encoded as JSON.
+			name:         "rpcStatus body with details",
+			responseBody: mockResponse(`{"code": 3, "message": "bad uri", "details": [{"@type": "type.googleapis.com/google.rpc.BadRequest", "n": 1}]}`, http.StatusBadRequest),
+			statusCode:   http.StatusBadRequest,
+			prefix:       "failed to start import: ",
+			errorOutput:  `{"status_code":400,"body":"{\"code\": 3, \"message\": \"bad uri\", \"details\": [{\"@type\": \"type.googleapis.com/google.rpc.BadRequest\", \"n\": 1}]}","error_code":"INVALID_ARGUMENT","message":"failed to start import: bad uri","details":[{"@type":"type.googleapis.com/google.rpc.BadRequest","n":1}]}`,
+			errorCode:    "INVALID_ARGUMENT",
+			message:      "failed to start import: bad uri",
+		}, {
+			name:         "rpcStatus body whose details aren't a list",
+			responseBody: mockResponse(`{"code": 5, "message": "Import 101 not found", "details": {"x": 1}}`, http.StatusNotFound),
+			statusCode:   http.StatusNotFound,
+			prefix:       "failed to describe import: ",
+			errorOutput:  `{"status_code":404,"body":"{\"code\": 5, \"message\": \"Import 101 not found\", \"details\": {\"x\": 1}}","error_code":"NOT_FOUND","message":"failed to describe import: Import 101 not found"}`,
+			errorCode:    "NOT_FOUND",
+			message:      "failed to describe import: Import 101 not found",
+		}, {
+			name:         "ErrorResponse body with null details",
+			responseBody: mockResponse(`{"status": 404, "error": {"code": "NOT_FOUND", "message": "gone", "details": null}}`, http.StatusNotFound),
+			statusCode:   http.StatusNotFound,
+			errorOutput:  `{"status_code":404,"body":"{\"status\": 404, \"error\": {\"code\": \"NOT_FOUND\", \"message\": \"gone\", \"details\": null}}","error_code":"NOT_FOUND","message":"gone"}`,
+			errorCode:    "NOT_FOUND",
+			message:      "gone",
 		}, {
 			name:         "Test error response with empty response",
 			responseBody: mockResponse(`{}`, http.StatusBadRequest),
@@ -594,33 +652,83 @@ func TestValueOrFallBackUnit(t *testing.T) {
 
 func TestEnsureURLSchemeUnit(t *testing.T) {
 	tests := []struct {
-		name     string
 		url      string
 		expected string
 	}{
-		{
-			name:     "Confirm https prefix is added",
-			url:      "pinecone-api.io",
-			expected: "https://pinecone-api.io",
-		}, {
-			name:     "Confirm http prefix is added",
-			url:      "http://pinecone-api.io",
-			expected: "http://pinecone-api.io",
-		},
-		{
-			name:     "Confirm https prefix is added",
-			url:      "https://pinecone-api.io",
-			expected: "https://pinecone-api.io",
-		},
+		{"pinecone-api.io", "https://pinecone-api.io"},
+		{"pinecone-api.io/", "https://pinecone-api.io/"},
+		{"proxy.internal:8443", "https://proxy.internal:8443"},
+		{"proxy.internal:8443/", "https://proxy.internal:8443/"},
+		{"127.0.0.1:8443", "https://127.0.0.1:8443"},
+		{"localhost:8443", "https://localhost:8443"},
+		{"[::1]:8443", "https://[::1]:8443"},
+		{"http://pinecone-api.io", "http://pinecone-api.io"},
+		{"http://localhost:8443/", "http://localhost:8443/"},
+		{"HTTP://localhost:8443", "HTTP://localhost:8443"},
+		{"https://pinecone-api.io", "https://pinecone-api.io"},
+		{"https://127.0.0.1:8443/", "https://127.0.0.1:8443/"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, _ := ensureURLScheme(tt.url)
-			assert.Equal(t, tt.expected, result, "Expected result to be '%s', but got '%s'", tt.expected, result)
+		t.Run(tt.url, func(t *testing.T) {
+			result, err := ensureURLScheme(tt.url)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestEnsureURLSchemeRejectsInvalidURLUnit(t *testing.T) {
+	_, err := ensureURLScheme("https://bad host")
+	require.ErrorContains(t, err, "invalid URL")
+}
+
+// A Host without a scheme, including host:port, reaches the server over HTTPS for control-plane,
+// inference, and admin requests.
+func TestHostWithoutSchemeUnit(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/indexes":
+			_, _ = w.Write([]byte(`{"indexes": []}`))
+		case "/models":
+			_, _ = w.Write([]byte(`{"models": []}`))
+		case "/admin/projects":
+			_, _ = w.Write([]byte(`{"data": []}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+	hostPort := strings.TrimPrefix(server.URL, "https://")
+	_, port, err := net.SplitHostPort(hostPort)
+	require.NoError(t, err)
+	// The test certificate doesn't name localhost, so skip verification for these requests.
+	restClient := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
+
+	for _, host := range []string{hostPort, hostPort + "/", "localhost:" + port, "localhost:" + port + "/", server.URL, server.URL + "/"} {
+		t.Run(host, func(t *testing.T) {
+			pc, err := NewClientBase(NewClientBaseParams{Host: host, RestClient: restClient, Headers: map[string]string{"Api-Key": "k"}})
+			require.NoError(t, err)
+			_, err = pc.ListIndexes(context.Background())
+			require.NoError(t, err)
+			_, err = pc.Inference.ListModels(context.Background(), nil)
+			require.NoError(t, err)
+
+			admin, err := NewAdminClient(NewAdminClientParams{Host: host, RestClient: restClient, AccessToken: "token"})
+			require.NoError(t, err)
+			_, err = admin.Project.List(context.Background())
+			require.NoError(t, err)
 		})
 	}
 
+	t.Run("PINECONE_CONTROLLER_HOST", func(t *testing.T) {
+		t.Setenv("PINECONE_CONTROLLER_HOST", "localhost:"+port)
+		pc, err := NewClientBase(NewClientBaseParams{RestClient: restClient, Headers: map[string]string{"Api-Key": "k"}})
+		require.NoError(t, err)
+		_, err = pc.ListIndexes(context.Background())
+		require.NoError(t, err)
+	})
 }
 
 func TestToIndexUnit(t *testing.T) {
@@ -1620,6 +1728,15 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 			},
 		},
 		{
+			name:      "empty new params should error instead of sending a no-op patch",
+			newParams: &ReadCapacityParams{},
+			oldConfig: onDemandOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.EqualError(t, err, "ReadCapacity must set Dedicated or OnDemand when configuring an index")
+				assert.Nil(t, result)
+			},
+		},
+		{
 			name: "on-demand to dedicated without manual scaling should error",
 			newParams: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
@@ -2415,4 +2532,16 @@ func TestPineconeErrorTypedDetailsUnit(t *testing.T) {
 func TestPineconeErrorDetailsOnNilErrorUnit(t *testing.T) {
 	var pcErr *PineconeError
 	assert.Nil(t, pcErr.Details())
+}
+
+// The JSON in PineconeError.Msg must decode, with details as a JSON object rather than Go syntax.
+func TestPineconeErrorMsgDetailsAreJSONUnit(t *testing.T) {
+	err := handleErrorResponseBody(mockResponse(`{"status": 412, "error": {"code": "FAILED_PRECONDITION", "reason": "RESOURCE_INCOMPATIBLE_WITH_API_VERSION", "message": "m", "details": {"api_version": "2026-10", "preview_api_version": "2026-01.alpha", "nested": {"k": [1, "two"]}}}}`, http.StatusPreconditionFailed), "failed to describe index: ")
+	var m map[string]any
+	require.NoError(t, json.Unmarshal([]byte(err.Error()), &m))
+	assert.Equal(t, map[string]any{
+		"api_version":         "2026-10",
+		"preview_api_version": "2026-01.alpha",
+		"nested":              map[string]any{"k": []any{float64(1), "two"}},
+	}, m["details"])
 }

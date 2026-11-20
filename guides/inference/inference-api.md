@@ -48,6 +48,7 @@ query, err := pc.Inference.Embed(ctx, &pinecone.EmbedRequest{
 if err != nil {
 	log.Fatalf("Failed to embed query: %v", err)
 }
+fmt.Printf("Query: %d dimensions\n", len(query.Data[0].DenseEmbedding.Values))
 ```
 
 Each `Embedding` has a `DenseEmbedding` or a `SparseEmbedding`, depending on the model.

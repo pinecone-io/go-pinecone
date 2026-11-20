@@ -63,6 +63,10 @@ idx, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
 		},
 	},
 })
+if err != nil {
+	log.Fatalf("Failed to create index: %v", err)
+}
+fmt.Printf("Created index %s\n", idx.Name)
 ```
 
 Each search of a document index ranks by one kind of scoring, so a single search can't combine the dense and sparse
@@ -119,6 +123,10 @@ idx, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
 		Managed: &pinecone.ManagedDeployment{Cloud: pinecone.CloudGCP, Region: "us-central1"},
 	},
 })
+if err != nil {
+	log.Fatalf("Failed to create index: %v", err)
+}
+fmt.Printf("Created index %s\n", idx.Name)
 ```
 
 For the available regions, see [Create an index](https://docs.pinecone.io/guides/index-data/create-an-index).
@@ -148,6 +156,7 @@ idx, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
 if err != nil {
 	log.Fatalf("Failed to create index: %v", err)
 }
+fmt.Printf("Created index %s\n", idx.Name)
 ```
 
 Every field of `EmbedConfig` and `SparseEmbedConfig` is optional, so an empty config selects the default model. The
@@ -175,6 +184,7 @@ idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest
 if err != nil {
 	log.Fatalf("Failed to create serverless index: %v", err)
 }
+fmt.Printf("Created index %s\n", idx.Name)
 ```
 
 You can also create an index that stores only sparse vectors, for
@@ -191,6 +201,10 @@ idx, err := pc.CreateServerlessIndex(ctx, &pinecone.CreateServerlessIndexRequest
 	Region:     "us-east-1",
 	VectorType: &vectorType,
 })
+if err != nil {
+	log.Fatalf("Failed to create index: %v", err)
+}
+fmt.Printf("Created index %s\n", idx.Name)
 ```
 
 A vector index can store both dense and sparse vectors. To run hybrid queries that combine them, the dense vectors
@@ -208,6 +222,10 @@ idx, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
 		},
 	},
 })
+if err != nil {
+	log.Fatalf("Failed to create index: %v", err)
+}
+fmt.Printf("Created index %s\n", idx.Name)
 ```
 
 ### Create a BYOC index
@@ -224,6 +242,10 @@ idx, err := pc.CreateBYOCIndex(ctx, &pinecone.CreateBYOCIndexRequest{
 	Metric:      &metric,
 	Dimension:   &dimension,
 })
+if err != nil {
+	log.Fatalf("Failed to create index: %v", err)
+}
+fmt.Printf("Created index %s\n", idx.Name)
 ```
 
 Like a serverless index, a BYOC index uses on-demand read capacity by default. To provision dedicated read nodes
@@ -256,6 +278,7 @@ idx, err := pc.CreateIndexForModel(ctx, &pinecone.CreateIndexForModelRequest{
 if err != nil {
 	log.Fatalf("Failed to create index: %v", err)
 }
+fmt.Printf("Created index %s\n", idx.Name)
 ```
 
 `FieldMap` names the record field whose text is embedded. To upsert and search text, see
@@ -311,6 +334,10 @@ idx, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
 		},
 	},
 })
+if err != nil {
+	log.Fatalf("Failed to create index: %v", err)
+}
+fmt.Printf("Created index %s\n", idx.Name)
 ```
 
 Each shard provides 250 GB of storage, and an index needs at least one. Setting `Replicas` to 0 pauses the index. An
@@ -355,6 +382,10 @@ idx, err := pc.CreateIndex(ctx, &pinecone.CreateIndexRequest{
 		},
 	},
 })
+if err != nil {
+	log.Fatalf("Failed to create index: %v", err)
+}
+fmt.Printf("Created index %s\n", idx.Name)
 ```
 
 When you describe an autoscaled index, `ReadCapacity.Dedicated.ScalingStrategy` is
@@ -506,6 +537,7 @@ _, err = pc.ConfigureIndex(ctx, "articles", pinecone.ConfigureIndexParams{
 
 // Update the read parameters of a legacy integrated index's embedding model. The key is the name
 // of the semantic text field in the index's schema, which is the text field from its FieldMap.
+// ConfigureIndex returns an error for any other key, because the API would rename the field.
 _, err = pc.ConfigureIndex(ctx, "example-legacy-integrated-index", pinecone.ConfigureIndexParams{
 	Schema: &pinecone.ConfigureIndexSchema{
 		Fields: map[string]pinecone.ConfigureSemanticTextField{
