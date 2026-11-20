@@ -2152,8 +2152,8 @@ func toRoleBindingList(roleBindingList admin.RoleBindingList) *RoleBindingList {
 	for i, roleBinding := range roleBindingList.Data {
 		list.Data[i] = toRoleBinding(roleBinding)
 	}
-	if roleBindingList.Pagination != nil && roleBindingList.Pagination.Next != nil {
-		list.Pagination = &Pagination{Next: *roleBindingList.Pagination.Next}
+	if roleBindingList.Pagination != nil {
+		list.Pagination = paginationFromNext(derefOrDefault(roleBindingList.Pagination.Next, ""))
 	}
 	return list
 }
@@ -2190,8 +2190,8 @@ func toServiceAccountList(serviceAccountList admin.ServiceAccountList) *ServiceA
 	for i, serviceAccount := range serviceAccountList.Data {
 		list.Data[i] = toServiceAccount(serviceAccount)
 	}
-	if serviceAccountList.Pagination != nil && serviceAccountList.Pagination.Next != nil {
-		list.Pagination = &Pagination{Next: *serviceAccountList.Pagination.Next}
+	if serviceAccountList.Pagination != nil {
+		list.Pagination = paginationFromNext(derefOrDefault(serviceAccountList.Pagination.Next, ""))
 	}
 	return list
 }
@@ -2214,8 +2214,8 @@ func toInviteList(inviteList admin.InviteList) *InviteList {
 	for i, invite := range inviteList.Data {
 		list.Data[i] = toInvite(invite)
 	}
-	if inviteList.Pagination != nil && inviteList.Pagination.Next != nil {
-		list.Pagination = &Pagination{Next: *inviteList.Pagination.Next}
+	if inviteList.Pagination != nil {
+		list.Pagination = paginationFromNext(derefOrDefault(inviteList.Pagination.Next, ""))
 	}
 	return list
 }
@@ -2244,8 +2244,8 @@ func toUserList(userList admin.UserList) *UserList {
 	for i, user := range userList.Data {
 		list.Data[i] = toUser(user)
 	}
-	if userList.Pagination != nil && userList.Pagination.Next != nil {
-		list.Pagination = &Pagination{Next: *userList.Pagination.Next}
+	if userList.Pagination != nil {
+		list.Pagination = paginationFromNext(derefOrDefault(userList.Pagination.Next, ""))
 	}
 	return list
 }

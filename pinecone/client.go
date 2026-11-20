@@ -2983,10 +2983,10 @@ func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
 		for i, backup := range *backupListDb.Data {
 			backupList.Data[i] = toBackup(&backup.BackupModel)
 		}
-		backupList.Pagination = (*Pagination)(backupListDb.Pagination)
+		backupList.Pagination = toPaginationControl(backupListDb.Pagination)
 	} else {
 		backupList.Data = make([]*Backup, 0)
-		backupList.Pagination = (*Pagination)(backupListDb.Pagination)
+		backupList.Pagination = toPaginationControl(backupListDb.Pagination)
 	}
 	return &backupList, nil
 }
@@ -3023,10 +3023,10 @@ func decodeRestoreJobList(resBody io.ReadCloser) (*RestoreJobList, error) {
 		for i, restoreJob := range restoreJobListDb.Data {
 			restoreJobList.Data[i] = toRestoreJob(&restoreJob)
 		}
-		restoreJobList.Pagination = (*Pagination)(restoreJobListDb.Pagination)
+		restoreJobList.Pagination = toPaginationControl(restoreJobListDb.Pagination)
 	} else {
 		restoreJobList.Data = make([]*RestoreJob, 0)
-		restoreJobList.Pagination = (*Pagination)(restoreJobListDb.Pagination)
+		restoreJobList.Pagination = toPaginationControl(restoreJobListDb.Pagination)
 	}
 	return &restoreJobList, nil
 }

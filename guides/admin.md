@@ -351,7 +351,7 @@ account.
 
 `RoleBinding.List`, `ServiceAccount.List`, `Invite.List`, and `User.List` return a page of results, `Limit` (1–100,
 default 100) per page. When `Pagination` is non-nil, pass `Pagination.Next` as `PaginationToken`, with the same filters
-and `Limit`, to get the next page:
+and `Limit`, to get the next page. `Pagination` is nil on the last page:
 
 ```go
 var token *string
