@@ -2089,7 +2089,7 @@ func (idx *IndexConnection) DescribeNamespace(ctx context.Context, namespace str
 type ListNamespacesResponse struct {
 	// Namespaces are the [NamespaceDescription] objects returned.
 	Namespaces []*NamespaceDescription
-	// Pagination is the [Pagination] object for paginating results.
+	// Pagination holds the token for the next page, or is nil when there are no more results.
 	Pagination *Pagination
 	// TotalCount is the total number of namespaces in the index matching the prefix.
 	TotalCount int32

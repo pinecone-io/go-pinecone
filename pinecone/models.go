@@ -1194,7 +1194,7 @@ type FetchDocumentsResponse struct {
 	Documents map[string]Document `json:"documents"`
 	// Namespace is the namespace the documents were fetched from.
 	Namespace string `json:"namespace"`
-	// Pagination holds the token for the next page of a fetch by Filter, if more results remain.
+	// Pagination holds the token for the next page of a fetch by Filter, or is nil when there are no more results.
 	Pagination *Pagination `json:"pagination,omitempty"`
 	// Usage is the [DocumentUsage] consumed by the fetch.
 	Usage DocumentUsage `json:"usage"`
@@ -1274,7 +1274,7 @@ type ListDocumentsResponse struct {
 	Documents []ListedDocument `json:"documents"`
 	// Namespace is the namespace the documents were listed from.
 	Namespace string `json:"namespace"`
-	// Pagination holds the token for the next page, if more results remain.
+	// Pagination holds the token for the next page, or is nil when there are no more results.
 	Pagination *Pagination `json:"pagination,omitempty"`
 	// Usage is the [DocumentUsage] consumed by the list operation.
 	Usage DocumentUsage `json:"usage"`
