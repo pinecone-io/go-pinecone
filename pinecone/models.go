@@ -133,12 +133,14 @@ type IndexTags map[string]string
 // the reserved field names "_values" (dense) and "_sparse_values" (sparse). Metadata fields
 // configured for filtering on older indexes are reported as [LegacyMetadataField] entries.
 type IndexSchema struct {
-	// Fields maps each field name to its [IndexSchemaField] configuration.
+	// Fields maps each field name to its [IndexSchemaField] configuration. Fields of a type this SDK
+	// version doesn't know are left out.
 	Fields map[string]IndexSchemaField `json:"fields"`
 }
 
 // IndexSchemaField is the configuration of a single field in an [IndexSchema]. Exactly one of the
-// pointer fields is non-nil, identifying the field's type.
+// pointer fields is non-nil, identifying the field's type. A response field whose type this SDK
+// version doesn't know has no IndexSchemaField: it is left out of [IndexSchema].Fields.
 type IndexSchemaField struct {
 	// DenseVector is set when the field is a [DenseVectorField].
 	DenseVector *DenseVectorField `json:"dense_vector,omitempty"`
@@ -443,7 +445,8 @@ type Index struct {
 	Host string `json:"host"`
 	// Schema is the [IndexSchema] of the index, defining its typed fields.
 	Schema *IndexSchema `json:"schema,omitempty"`
-	// Deployment is the [IndexDeployment] of the index (managed, pod, or BYOC).
+	// Deployment is the [IndexDeployment] of the index (managed, pod, or BYOC). Nil when the index's
+	// deployment type is one this SDK version doesn't know.
 	Deployment *IndexDeployment `json:"deployment,omitempty"`
 	// ReadCapacity is the [ReadCapacity] configuration of the index, if any.
 	ReadCapacity *ReadCapacity `json:"read_capacity,omitempty"`
@@ -482,7 +485,8 @@ type Index struct {
 	// Deprecated: Derived from Schema for backward compatibility. Use the [DenseVectorField] or the
 	// [StringField] Embed config in Schema instead.
 	Dimension *int32 `json:"dimension,omitempty"`
-	// Spec is the index's [IndexSpec]: a [PodSpec], [ServerlessSpec], or [BYOCSpec].
+	// Spec is the index's [IndexSpec]: a [PodSpec], [ServerlessSpec], or [BYOCSpec]. Nil when
+	// Deployment is nil.
 	//
 	// Deprecated: Derived from Deployment for backward compatibility. Use Deployment instead.
 	Spec *IndexSpec `json:"spec,omitempty"`

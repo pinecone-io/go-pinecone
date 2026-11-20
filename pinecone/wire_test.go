@@ -215,6 +215,7 @@ func assertOpenResponseIndex(t *testing.T, idx *Index) {
 	require.NotNil(t, idx)
 	assert.Equal(t, "future-index", idx.Name)
 	assert.Nil(t, idx.Deployment)
+	assert.Nil(t, idx.Spec)
 	require.NotNil(t, idx.Schema)
 	assert.Equal(t, map[string]IndexSchemaField{
 		"_values": {DenseVector: &DenseVectorField{Dimension: 3, Metric: IndexMetricCosine}},
