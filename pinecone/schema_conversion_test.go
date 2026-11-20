@@ -49,6 +49,22 @@ func TestToIndexSchemaUnit(t *testing.T) {
 			}},
 		},
 		{
+			name:  "semantic text with a sparse model and a zero dimension",
+			field: `{"type": "semantic_text", "model": "pinecone-sparse-english-v0", "dimension": 0, "metric": "dotproduct"}`,
+			expected: IndexSchemaField{SemanticText: &SemanticTextField{
+				Model:  "pinecone-sparse-english-v0",
+				Metric: ptr(IndexMetricDotproduct),
+			}},
+		},
+		{
+			name:  "semantic text with a sparse model and a null dimension",
+			field: `{"type": "semantic_text", "model": "pinecone-sparse-english-v0", "dimension": null, "metric": "dotproduct"}`,
+			expected: IndexSchemaField{SemanticText: &SemanticTextField{
+				Model:  "pinecone-sparse-english-v0",
+				Metric: ptr(IndexMetricDotproduct),
+			}},
+		},
+		{
 			name: "string with full-text search",
 			field: `{
 				"type": "string",

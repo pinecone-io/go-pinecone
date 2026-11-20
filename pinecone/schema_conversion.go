@@ -157,7 +157,9 @@ func toDbRestoreDeploymentRequest(deployment *IndexDeployment) (*db_control.Rest
 // toIndexSchema converts the generated response schema into the public IndexSchema. Each field is
 // re-encoded and decoded straight into the matching public type, whose JSON tags mirror the wire
 // names. Fields with an unknown type are skipped rather than failing the whole response, so the SDK
-// keeps working when the API introduces new field types.
+// keeps working when the API introduces new field types. The API reports the dimension of a
+// semantic_text field whose model produces sparse vectors as 0 (or null on some older indexes); both
+// become a nil Dimension.
 func toIndexSchema(schema *db_control.IndexSchema) *IndexSchema {
 	if schema == nil {
 		return nil
@@ -207,6 +209,9 @@ func toIndexSchema(schema *db_control.IndexSchema) *IndexSchema {
 
 		if err := json.Unmarshal(raw, target); err != nil {
 			continue
+		}
+		if semantic := publicField.SemanticText; semantic != nil && semantic.Dimension != nil && *semantic.Dimension == 0 {
+			semantic.Dimension = nil
 		}
 		fields[name] = publicField
 	}
