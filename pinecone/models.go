@@ -725,14 +725,18 @@ type ReadCapacityAutoScaling struct {
 	MaxReplicas int32 `json:"max_replicas"`
 }
 
-// ReadCapacityStatus represents the current status of factors affecting the read capacity of a serverless index.
+// ReadCapacityStatus represents the current status of factors affecting the read capacity of a serverless or
+// BYOC index.
 type ReadCapacityStatus struct {
 	// State is the overall status state: "Ready", "Scaling", "Migrating", or "Error". The API may
 	// add states, so don't assume this list is exhaustive. When it's "Error", ErrorMessage, if set, says why.
+	// It stays "Error" until [Client.ConfigureIndex] requests a configuration different from the one
+	// the index reports, which is the one that failed; a request that repeats it leaves State as is.
 	State string `json:"state"`
 	// CurrentReplicas is the current number of replicas per shard. For an autoscaled index, it's
-	// the live count the autoscaler has reached; autoscaling changes it without leaving "Ready". It's
-	// nil for OnDemand and until a Dedicated index finishes provisioning.
+	// the live count the autoscaler has reached; autoscaling changes it without leaving "Ready". The
+	// API reports no target count, so "Ready" doesn't mean the count has stopped changing. It's nil
+	// for OnDemand and until a Dedicated index finishes provisioning.
 	CurrentReplicas *int32 `json:"current_replicas,omitempty"`
 	// CurrentShards is the current number of shards. It's nil for OnDemand and until a Dedicated
 	// index finishes provisioning.

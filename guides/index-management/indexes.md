@@ -303,8 +303,14 @@ for {
 ```
 
 For an index with dedicated read capacity, also wait until `ReadCapacity.Dedicated.Status.State` is `"Ready"`. If it's
-`"Error"`, `Status.ErrorMessage`, if set, says why; stop waiting rather than loop. Read capacity in `"Error"` can still
-be configured, so fix the cause and call `ConfigureIndex` again.
+`"Error"`, `Status.ErrorMessage`, if set, says why; stop waiting rather than loop.
+
+Read capacity in `"Error"` can still be configured, but only a changed configuration starts a new attempt. The
+configuration `DescribeIndex` reports is the one that failed. A `ConfigureIndex` call whose node type, shards, and
+scaling all match it succeeds without doing anything, and the state stays `"Error"` with the same message. To recover,
+request a configuration that differs in at least one of them, for example a lower `MaxReplicas` or `Replicas`. The
+state then moves to `"Scaling"` or `"Migrating"` while it's applied. Before you start waiting, check the state in the
+`Index` that `ConfigureIndex` returns. If it's still `"Error"`, nothing changed.
 
 ## Dedicated read capacity
 
@@ -393,6 +399,11 @@ When you describe an autoscaled index, `ReadCapacity.Dedicated.ScalingStrategy` 
 number of replicas per shard is in `ReadCapacity.Dedicated.Status.CurrentReplicas`. The autoscaler changes the replica
 count without leaving the `"Ready"` state, so it doesn't block your own changes.
 
+The API doesn't report a target replica count for an autoscaled index, or any signal that the autoscaler has settled.
+You get the live `Status.CurrentReplicas`, the bounds in `Scaling.Auto`, and `Status.State`, which stays `"Ready"` while
+the autoscaler adds or removes replicas. So `"Ready"` means no change you requested is still being applied, not that the
+replica count has stopped changing.
+
 `MinReplicas` must be at least 1. To pause an autoscaled index, switch it to `Scaling.Manual` with `Replicas` set to 0.
 
 ### Change read capacity
@@ -405,6 +416,10 @@ capacity. Wait until the state is `"Ready"`, then try again. The client's `Retry
 
 The whole `ConfigureIndex` call fails, so tags or deletion protection set in the same call aren't applied either. To
 change them while read capacity is being applied, use a separate call without `ReadCapacity`.
+
+A request whose node type, shards, and scaling all match the configuration `DescribeIndex` reports, including one
+that's still being applied or one that failed, succeeds and leaves read capacity unchanged. To retry a change that left
+the state `"Error"`, see [Wait for an index to be ready](#wait-for-an-index-to-be-ready).
 
 `PineconeError.ErrorCode` holds the error code. This example retries on `ABORTED` and stops on any other error:
 
