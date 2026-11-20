@@ -142,6 +142,10 @@ res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
 	},
 	IncludeFields: []string{"*"},
 })
+if err != nil {
+	log.Fatalf("Failed to search documents: %v", err)
+}
+fmt.Printf("Found %d documents\n", len(res.Matches))
 ```
 
 For the full syntax, see [Query syntax](https://docs.pinecone.io/guides/search/full-text-search/query-syntax).
@@ -158,6 +162,9 @@ _, err := idxConnection.UpsertDocuments(ctx, &pinecone.UpsertDocumentsRequest{
 		{"_id": "doc-1", "your_vector": []float32{0.1, 0.2, 0.3}, "genre": "drama"},
 	},
 })
+if err != nil {
+	log.Fatalf("Failed to upsert documents: %v", err)
+}
 
 queryVector := []float32{0.1, 0.2, 0.3}
 
@@ -167,6 +174,10 @@ res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
 		{Type: "dense_vector", Fields: []string{"your_vector"}, Values: &queryVector},
 	},
 })
+if err != nil {
+	log.Fatalf("Failed to search documents: %v", err)
+}
+fmt.Printf("Found %d documents\n", len(res.Matches))
 ```
 
 For a sparse vector field, set `Type` to `"sparse_vector"` and pass `SparseValues`:
@@ -185,6 +196,10 @@ res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
 		},
 	},
 })
+if err != nil {
+	log.Fatalf("Failed to search documents: %v", err)
+}
+fmt.Printf("Found %d documents\n", len(res.Matches))
 ```
 
 ### Filter search results
@@ -205,6 +220,10 @@ res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
 		"year": map[string]interface{}{"$gte": 2022},
 	},
 })
+if err != nil {
+	log.Fatalf("Failed to search documents: %v", err)
+}
+fmt.Printf("Found %d documents\n", len(res.Matches))
 ```
 
 Filters on search and fetch requests also accept three text-match operators on full-text-search fields:
@@ -232,6 +251,10 @@ res, err := idxConnection.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
 		},
 	},
 })
+if err != nil {
+	log.Fatalf("Failed to search documents: %v", err)
+}
+fmt.Printf("Found %d documents\n", len(res.Matches))
 ```
 
 Filtered updates and deletes don't accept text-match operators. To update or delete documents by their text, search or
@@ -390,6 +413,7 @@ res, err := factChecks.SearchDocuments(ctx, &pinecone.SearchDocumentsRequest{
 if err != nil {
 	log.Fatalf("Failed to search documents: %v", err)
 }
+fmt.Printf("Found %d documents\n", len(res.Matches))
 ```
 
 ### Stored text

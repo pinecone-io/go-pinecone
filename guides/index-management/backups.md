@@ -138,6 +138,7 @@ res, err := pc.CreateIndexFromBackup(ctx, &pinecone.CreateIndexFromBackupParams{
 if err != nil {
 	log.Fatalf("Failed to create index from backup: %v", err)
 }
+fmt.Printf("Restore job %s started\n", res.RestoreJobId)
 ```
 
 Cross-region restore isn't yet available from every source region; the API returns `412` when it isn't. Cross-cloud

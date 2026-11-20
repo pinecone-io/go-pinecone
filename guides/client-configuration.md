@@ -93,6 +93,9 @@ pc, err := pinecone.NewClient(pinecone.NewClientParams{
 	ApiKey:      os.Getenv("PINECONE_API_KEY"),
 	RetryPolicy: pinecone.DefaultRetryPolicy(), // 3 retries, 500ms base, 30s cap, 2x backoff
 })
+if err != nil {
+	log.Fatalf("Failed to create Client: %v", err)
+}
 ```
 
 To customize the policy, construct a `RetryPolicy` directly:
@@ -107,6 +110,9 @@ pc, err := pinecone.NewClient(pinecone.NewClientParams{
 		BackoffMultiplier: 2,
 	},
 })
+if err != nil {
+	log.Fatalf("Failed to create Client: %v", err)
+}
 ```
 
 ## Targeting an index
@@ -139,6 +145,7 @@ defer idxConnection.Close()
 
 // Reuse the same connection for another namespace.
 otherNamespace := idxConnection.WithNamespace("example-namespace-2")
+fmt.Printf("Second connection targets %s\n", otherNamespace.Namespace())
 ```
 
 The same `IndexConnection` is used for both [document operations](./data-operations/documents.md) and

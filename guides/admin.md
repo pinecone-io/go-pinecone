@@ -71,15 +71,29 @@ if err != nil {
 }
 
 projects, err := adminClient.Project.List(ctx)
+if err != nil {
+	log.Fatalf("Failed to list projects: %v", err)
+}
+fmt.Printf("%d projects\n", len(projects))
 
 project, err = adminClient.Project.Describe(ctx, project.Id)
+if err != nil {
+	log.Fatalf("Failed to describe project: %v", err)
+}
 
 newName := "renamed-project"
 project, err = adminClient.Project.Update(ctx, project.Id, &pinecone.UpdateProjectParams{
 	Name: &newName,
 })
+if err != nil {
+	log.Fatalf("Failed to update project: %v", err)
+}
+fmt.Printf("Renamed project to %s\n", project.Name)
 
 err = adminClient.Project.Delete(ctx, project.Id)
+if err != nil {
+	log.Fatalf("Failed to delete project: %v", err)
+}
 ```
 
 You can't delete a project while it has indexes, collections, assistants, or backups. Its API keys are deleted with it.
@@ -99,13 +113,23 @@ if err != nil {
 }
 
 org, err := adminClient.Organization.Describe(ctx, orgs[0].Id)
+if err != nil {
+	log.Fatalf("Failed to describe organization: %v", err)
+}
 
 newName := "renamed-org"
 org, err = adminClient.Organization.Update(ctx, org.Id, &pinecone.UpdateOrganizationParams{
 	Name: &newName,
 })
+if err != nil {
+	log.Fatalf("Failed to update organization: %v", err)
+}
+fmt.Printf("Renamed organization to %s\n", org.Name)
 
 err = adminClient.Organization.Delete(ctx, org.Id)
+if err != nil {
+	log.Fatalf("Failed to delete organization: %v", err)
+}
 ```
 
 `Update` can change only the organization's name. You can delete an organization only when it's on the Free plan, its
@@ -129,15 +153,29 @@ if err != nil {
 fmt.Printf("Created API key %s\n", apiKey.Key.Id)
 
 keys, err := adminClient.APIKey.List(ctx, project.Id)
+if err != nil {
+	log.Fatalf("Failed to list API keys: %v", err)
+}
+fmt.Printf("%d API keys\n", len(keys))
 
 key, err := adminClient.APIKey.Describe(ctx, apiKey.Key.Id)
+if err != nil {
+	log.Fatalf("Failed to describe API key: %v", err)
+}
 
 newRoles := []string{"DataPlaneViewer"}
 key, err = adminClient.APIKey.Update(ctx, apiKey.Key.Id, &pinecone.UpdateAPIKeyParams{
 	Roles: &newRoles,
 })
+if err != nil {
+	log.Fatalf("Failed to update API key: %v", err)
+}
+fmt.Printf("API key %s now has roles %v\n", key.Id, key.Roles)
 
 err = adminClient.APIKey.Delete(ctx, apiKey.Key.Id)
+if err != nil {
+	log.Fatalf("Failed to delete API key: %v", err)
+}
 ```
 
 API key roles are `"ProjectEditor"` (the default), `"ProjectViewer"`, `"ControlPlaneEditor"`, `"ControlPlaneViewer"`,
@@ -163,17 +201,36 @@ if err != nil {
 fmt.Printf("Client ID: %s\n", sa.ServiceAccount.ClientId)
 
 accounts, err := adminClient.ServiceAccount.List(ctx, &pinecone.ListServiceAccountsParams{})
+if err != nil {
+	log.Fatalf("Failed to list service accounts: %v", err)
+}
+fmt.Printf("%d service accounts\n", len(accounts.Data))
 
 account, err := adminClient.ServiceAccount.Describe(ctx, sa.ServiceAccount.Id)
+if err != nil {
+	log.Fatalf("Failed to describe service account: %v", err)
+}
 
 newName := "renamed-service-account"
 account, err = adminClient.ServiceAccount.Update(ctx, sa.ServiceAccount.Id, &pinecone.UpdateServiceAccountParams{
 	Name: &newName,
 })
+if err != nil {
+	log.Fatalf("Failed to update service account: %v", err)
+}
+fmt.Printf("Renamed service account to %s\n", account.Name)
 
 rotated, err := adminClient.ServiceAccount.RotateSecret(ctx, sa.ServiceAccount.Id)
+if err != nil {
+	log.Fatalf("Failed to rotate service account secret: %v", err)
+}
+// Store rotated.ClientSecret securely, and never log it.
+fmt.Printf("Rotated the secret of client %s\n", rotated.ServiceAccount.ClientId)
 
 err = adminClient.ServiceAccount.Delete(ctx, sa.ServiceAccount.Id)
+if err != nil {
+	log.Fatalf("Failed to delete service account: %v", err)
+}
 ```
 
 `RotateSecret` returns a new client secret, and the previous secret stops working. Access tokens already issued with
@@ -201,10 +258,20 @@ bindings, err := adminClient.RoleBinding.List(ctx, &pinecone.ListRoleBindingsPar
 	PrincipalType: &principalType,
 	PrincipalId:   &sa.ServiceAccount.Id,
 })
+if err != nil {
+	log.Fatalf("Failed to list role bindings: %v", err)
+}
+fmt.Printf("%d role bindings\n", len(bindings.Data))
 
 binding, err = adminClient.RoleBinding.Describe(ctx, binding.Id)
+if err != nil {
+	log.Fatalf("Failed to describe role binding: %v", err)
+}
 
 err = adminClient.RoleBinding.Delete(ctx, binding.Id)
+if err != nil {
+	log.Fatalf("Failed to delete role binding: %v", err)
+}
 ```
 
 Organization-scoped roles are `"OrgOwner"`, `"OrgManager"`, `"OrgBillingAdmin"`, and `"OrgMember"`. Project-scoped
@@ -229,12 +296,26 @@ if err != nil {
 }
 
 invites, err := adminClient.Invite.List(ctx, &pinecone.ListInvitesParams{})
+if err != nil {
+	log.Fatalf("Failed to list invites: %v", err)
+}
+fmt.Printf("%d pending or expired invites\n", len(invites.Data))
 
 invite, err = adminClient.Invite.Describe(ctx, invite.Id)
+if err != nil {
+	log.Fatalf("Failed to describe invite: %v", err)
+}
 
 invite, err = adminClient.Invite.Resend(ctx, invite.Id)
+if err != nil {
+	log.Fatalf("Failed to resend invite: %v", err)
+}
+fmt.Printf("Invite to %s expires at %v\n", invite.Email, invite.ExpiresAt)
 
 err = adminClient.Invite.Delete(ctx, invite.Id)
+if err != nil {
+	log.Fatalf("Failed to delete invite: %v", err)
+}
 ```
 
 `List` returns only pending and expired invites. `Resend` sets the invite back to pending and extends its expiration to
