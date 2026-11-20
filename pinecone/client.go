@@ -130,7 +130,9 @@ type NewClientBaseParams struct {
 // See [Client.Index] for code example.
 type NewIndexConnParams struct {
 	// Host (Required) is the host URL of the Pinecone index. Find it with [Client.DescribeIndex] or
-	// [Client.ListIndexes], or in the Pinecone web console.
+	// [Client.ListIndexes], or in the Pinecone web console. "https://" is prepended when no scheme
+	// is given. An "http://" host is used as given, without TLS, for both REST and gRPC calls,
+	// which is useful for Pinecone Local or a local proxy.
 	Host string
 	// Namespace (Optional) is the index namespace to use for operations. "" (the zero value) and
 	// "__default__" both refer to the default namespace.
@@ -318,7 +320,7 @@ func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*Ind
 	}
 
 	dbDataOptions := buildDataClientBaseOptions(*c.baseParams)
-	dbDataClient, err := db_data_rest.NewClient(ensureHostHasHttps(in.Host), dbDataOptions...)
+	dbDataClient, err := db_data_rest.NewClient(ensureHostScheme(in.Host), dbDataOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -341,14 +343,15 @@ func (c *Client) Index(in NewIndexConnParams, dialOpts ...grpc.DialOption) (*Ind
 	return idx, nil
 }
 
-func ensureHostHasHttps(host string) string {
-	if strings.HasPrefix(host, "http://") {
-		return strings.Replace(host, "http://", "https://", 1)
-	} else if !strings.HasPrefix(host, "https://") {
-		return "https://" + host
+// ensureHostScheme prepends "https://" to an index host that has no scheme and leaves an explicit
+// "http://" or "https://" host as given, matching the gRPC transport chosen by normalizeHost.
+func ensureHostScheme(host string) string {
+	for _, scheme := range []string{"https://", "http://"} {
+		if len(host) >= len(scheme) && strings.EqualFold(host[:len(scheme)], scheme) {
+			return host
+		}
 	}
-
-	return host
+	return "https://" + host
 }
 
 // ListIndexes retrieves a list of all Indexes in a Pinecone [project]. Indexes that use features
