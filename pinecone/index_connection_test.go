@@ -838,7 +838,6 @@ func TestNormalizeHostUnit(t *testing.T) {
 }
 
 func TestToPaginationTokenGrpcUnit(t *testing.T) {
-	tokenForNilCase := ""
 	tokenForPositiveCase := "next-token"
 
 	tests := []struct {
@@ -847,9 +846,9 @@ func TestToPaginationTokenGrpcUnit(t *testing.T) {
 		expected *string
 	}{
 		{
-			name:     "Pass empty token, expect empty string to be returned",
+			name:     "Pass empty token, expect nil because there are no more pages",
 			token:    &db_data_grpc.Pagination{},
-			expected: &tokenForNilCase,
+			expected: nil,
 		},
 		{
 			name: "Pass token",

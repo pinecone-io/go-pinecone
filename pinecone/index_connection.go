@@ -702,18 +702,11 @@ func (idx *IndexConnection) FetchVectorsByMetadata(ctx context.Context, in *Fetc
 		vectors[id] = toVector(vector)
 	}
 
-	var pagination *Pagination
-	if res.Pagination != nil {
-		pagination = &Pagination{
-			Next: res.Pagination.Next,
-		}
-	}
-
 	return &FetchVectorsByMetadataResponse{
 		Vectors:    vectors,
 		Usage:      toUsage(res.Usage),
 		Namespace:  res.Namespace,
-		Pagination: pagination,
+		Pagination: toPaginationGrpc(res.Pagination),
 	}, nil
 }
 
@@ -2096,7 +2089,7 @@ func (idx *IndexConnection) DescribeNamespace(ctx context.Context, namespace str
 type ListNamespacesResponse struct {
 	// Namespaces are the [NamespaceDescription] objects returned.
 	Namespaces []*NamespaceDescription
-	// Pagination is the [Pagination] object for paginating results.
+	// Pagination holds the token for the next page, or is nil when there are no more results.
 	Pagination *Pagination
 	// TotalCount is the total number of namespaces in the index matching the prefix.
 	TotalCount int32
@@ -2343,15 +2336,22 @@ func toUsage(u *db_data_grpc.Usage) *Usage {
 	}
 }
 
-func toPaginationTokenGrpc(p *db_data_grpc.Pagination) *string {
+func toPaginationGrpc(p *db_data_grpc.Pagination) *Pagination {
 	if p == nil {
+		return nil
+	}
+	return paginationFromNext(p.Next)
+}
+
+func toPaginationTokenGrpc(p *db_data_grpc.Pagination) *string {
+	if p == nil || p.Next == "" {
 		return nil
 	}
 	return &p.Next
 }
 
 func toPaginationTokenRest(p *db_data_rest.Pagination) *string {
-	if p == nil {
+	if p == nil || p.Next == "" {
 		return nil
 	}
 	return &p.Next
@@ -2454,16 +2454,9 @@ func toListNamespacesResponse(listNamespacesResponse *db_data_grpc.ListNamespace
 	for i, ns := range listNamespacesResponse.Namespaces {
 		namespaces[i] = toNamespaceDescription(ns)
 	}
-	var pagination *Pagination
-	if listNamespacesResponse.Pagination != nil {
-		pagination = &Pagination{
-			Next: listNamespacesResponse.Pagination.Next,
-		}
-	}
-
 	return &ListNamespacesResponse{
 		Namespaces: namespaces,
-		Pagination: pagination,
+		Pagination: toPaginationGrpc(listNamespacesResponse.Pagination),
 		TotalCount: derefOrDefault(listNamespacesResponse.TotalCount, 0),
 	}
 }
@@ -2777,6 +2770,7 @@ func (idx *IndexConnection) FetchDocuments(ctx context.Context, in *FetchDocumen
 	if err != nil {
 		return nil, err
 	}
+	response.Pagination = normalizePagination(response.Pagination)
 	return &response, nil
 }
 
@@ -2929,5 +2923,6 @@ func (idx *IndexConnection) ListDocuments(ctx context.Context, in *ListDocuments
 	if err != nil {
 		return nil, err
 	}
+	response.Pagination = normalizePagination(response.Pagination)
 	return &response, nil
 }

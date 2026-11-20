@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -629,4 +630,101 @@ func TestMarshalIndexEmbedUnit(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSupportedParameterValueUnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want SupportedParameterValue
+	}{
+		{name: "string", in: `"END"`, want: SupportedParameterValue{StringValue: ptr("END")}},
+		{name: "empty string", in: `""`, want: SupportedParameterValue{StringValue: ptr("")}},
+		{name: "int32", in: `1024`, want: SupportedParameterValue{IntValue: ptr(int32(1024))}},
+		{name: "negative int32", in: `-2147483648`, want: SupportedParameterValue{IntValue: ptr(int32(-2147483648))}},
+		{name: "float", in: `0.5`, want: SupportedParameterValue{FloatValue: ptr(float32(0.5))}},
+		{name: "exponent", in: `1e3`, want: SupportedParameterValue{FloatValue: ptr(float32(1000))}},
+		{name: "bool", in: `true`, want: SupportedParameterValue{BoolValue: ptr(true)}},
+		{name: "null", in: `null`, want: SupportedParameterValue{}},
+		{
+			name: "integer outside int32",
+			in:   `3000000001`,
+			want: SupportedParameterValue{FloatValue: ptr(float32(3000000001)), RawValue: json.RawMessage(`3000000001`)},
+		},
+		{name: "array", in: `["a", 1]`, want: SupportedParameterValue{RawValue: json.RawMessage(`["a", 1]`)}},
+		{name: "object", in: `{"k": "v"}`, want: SupportedParameterValue{RawValue: json.RawMessage(`{"k": "v"}`)}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got SupportedParameterValue
+			require.NoError(t, json.Unmarshal([]byte(tt.in), &got))
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestSupportedParameterValueMarshalJSON(t *testing.T) {
+	tests := []struct {
+		name string
+		in   SupportedParameterValue
+		want string
+	}{
+		{name: "string", in: SupportedParameterValue{StringValue: ptr("END")}, want: `"END"`},
+		{name: "int", in: SupportedParameterValue{IntValue: ptr(int32(7))}, want: `7`},
+		{name: "float", in: SupportedParameterValue{FloatValue: ptr(float32(0.25))}, want: `0.25`},
+		{name: "bool", in: SupportedParameterValue{BoolValue: ptr(false)}, want: `false`},
+		{name: "none set", in: SupportedParameterValue{}, want: `null`},
+		{name: "raw wins", in: SupportedParameterValue{FloatValue: ptr(float32(3e9)), RawValue: json.RawMessage(`3000000001`)}, want: `3000000001`},
+		{name: "raw array", in: SupportedParameterValue{RawValue: json.RawMessage(`["a"]`)}, want: `["a"]`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := json.Marshal(tt.in)
+			require.NoError(t, err)
+			assert.JSONEq(t, tt.want, string(got))
+		})
+	}
+}
+
+func TestModelInfoToleratesAnyParameterValueAndRoundTrips(t *testing.T) {
+	body := `{"models": [
+		{"model": "odd", "short_description": "d", "type": "embed", "vector_type": "dense",
+		 "supported_parameters": [
+			{"parameter": "input_type", "type": "one_of", "value_type": "string", "required": true,
+			 "allowed_values": ["query", "passage", null, ["a"], {"k": 1}, 3000000001, 7, 0.5, true]},
+			{"parameter": "truncate", "type": "one_of", "value_type": "string", "required": false,
+			 "allowed_values": ["END", "NONE", "START"], "default": ["END"]},
+			{"parameter": "dimension", "type": "numeric_range", "value_type": "integer", "required": false,
+			 "min": 1, "max": 4096, "default": null}
+		 ]},
+		{"model": "plain", "short_description": "p", "type": "rerank"}
+	]}`
+	var list ModelInfoList
+	require.NoError(t, json.Unmarshal([]byte(body), &list))
+	require.NotNil(t, list.Models)
+	require.Len(t, *list.Models, 2)
+	params := *(*list.Models)[0].SupportedParameters
+	allowed := *params[0].AllowedValues
+	require.Len(t, allowed, 9)
+	assert.Equal(t, SupportedParameterValue{}, allowed[2], "null sets no field")
+	assert.Equal(t, json.RawMessage(`["a"]`), allowed[3].RawValue)
+	assert.Equal(t, json.RawMessage(`{"k": 1}`), allowed[4].RawValue)
+	assert.Equal(t, json.RawMessage(`3000000001`), allowed[5].RawValue)
+	assert.Equal(t, ptr(int32(7)), allowed[6].IntValue)
+	require.NotNil(t, params[1].Default)
+	assert.Equal(t, json.RawMessage(`["END"]`), params[1].Default.RawValue)
+	assert.Nil(t, params[2].Default)
+
+	encoded, err := json.Marshal(list)
+	require.NoError(t, err)
+	var again ModelInfoList
+	require.NoError(t, json.Unmarshal(encoded, &again))
+	reencoded, err := json.Marshal(again)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(encoded), string(reencoded))
+	againAllowed := *(*(*again.Models)[0].SupportedParameters)[0].AllowedValues
+	assert.Equal(t, allowed[0], againAllowed[0])
+	assert.Equal(t, allowed[5], againAllowed[5])
+	assert.Equal(t, allowed[7], againAllowed[7])
+	assert.JSONEq(t, `{"k": 1}`, string(againAllowed[4].RawValue))
 }

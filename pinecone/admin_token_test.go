@@ -6,12 +6,15 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/pinecone-io/go-pinecone/v8/internal/gen"
 	"github.com/pinecone-io/go-pinecone/v8/internal/gen/admin"
+	"github.com/pinecone-io/go-pinecone/v8/internal/useragent"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -185,4 +188,90 @@ func mockAuthTokens(t *testing.T) *int32 {
 	}
 	t.Cleanup(func() { getAuthTokenFunc = getAuthToken })
 	return &mints
+}
+
+// redirectTransport sends every request to target, keeping the path, so a test server can stand in
+// for the fixed OAuth token endpoint.
+type redirectTransport struct{ target *url.URL }
+
+func (rt redirectTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = req.Clone(req.Context())
+	req.URL.Scheme = rt.target.Scheme
+	req.URL.Host = rt.target.Host
+	return http.DefaultTransport.RoundTrip(req)
+}
+
+func newTokenTestServer(t *testing.T, status int, body string) (*http.Client, *http.Header) {
+	t.Helper()
+	var got http.Header
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/oauth/token" {
+			got = r.Header.Clone()
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(server.Close)
+	target, err := url.Parse(server.URL)
+	require.NoError(t, err)
+	return &http.Client{Transport: redirectTransport{target: target}}, &got
+}
+
+func TestAdminTokenRequestSendsAPIVersionAndUserAgent(t *testing.T) {
+	t.Setenv("PINECONE_ACCESS_TOKEN", "")
+	t.Setenv("PINECONE_ADDITIONAL_HEADERS", "")
+	httpClient, got := newTokenTestServer(t, http.StatusOK, `{"access_token":"tok","expires_in":1800,"token_type":"Bearer"}`)
+	sourceTag := "my_tag"
+	headers := map[string]string{"X-Custom": "value"}
+
+	_, err := NewAdminClientWithContext(context.Background(), NewAdminClientParams{
+		ClientId: "id", ClientSecret: "secret", RestClient: httpClient, SourceTag: &sourceTag, Headers: &headers,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, *got, "token endpoint was not called")
+	assert.Equal(t, gen.PineconeApiVersion, got.Get("X-Pinecone-Api-Version"))
+	assert.Equal(t, useragent.BuildUserAgent(sourceTag), got.Get("User-Agent"))
+	assert.Equal(t, "application/json", got.Get("Content-Type"))
+	assert.Empty(t, got.Get("X-Custom"), "Headers are documented as not sent on the token request")
+}
+
+func TestAdminTokenErrorDecodesOAuthErrorShape(t *testing.T) {
+	t.Setenv("PINECONE_ACCESS_TOKEN", "")
+	httpClient, _ := newTokenTestServer(t, http.StatusUnauthorized, `{"error":"access_denied","error_description":"Unauthorized"}`)
+
+	_, err := NewAdminClientWithContext(context.Background(), NewAdminClientParams{
+		ClientId: "id", ClientSecret: "secret", RestClient: httpClient,
+	})
+	var pcErr *PineconeError
+	require.ErrorAs(t, err, &pcErr)
+	assert.Equal(t, http.StatusUnauthorized, pcErr.Code)
+	assert.Equal(t, "failed to get auth token: Unauthorized", pcErr.Message)
+	assert.Equal(t, "access_denied", pcErr.ErrorCode)
+	assert.Contains(t, err.Error(), "failed to get auth token: Unauthorized")
+	assert.NotContains(t, err.Error(), "secret")
+}
+
+func TestAdminTokenErrorKeepsPineconeErrorShape(t *testing.T) {
+	t.Setenv("PINECONE_ACCESS_TOKEN", "")
+	httpClient, _ := newTokenTestServer(t, http.StatusServiceUnavailable, `{"error":{"code":"UNAVAILABLE","message":"down"},"status":503}`)
+
+	_, err := NewAdminClientWithContext(context.Background(), NewAdminClientParams{
+		ClientId: "id", ClientSecret: "secret", RestClient: httpClient,
+	})
+	var pcErr *PineconeError
+	require.ErrorAs(t, err, &pcErr)
+	assert.Equal(t, "failed to get auth token: down", pcErr.Message)
+	assert.Equal(t, "UNAVAILABLE", pcErr.ErrorCode)
+}
+
+func TestAdminTokenDecodeErrorNamesTheOperation(t *testing.T) {
+	t.Setenv("PINECONE_ACCESS_TOKEN", "")
+	httpClient, _ := newTokenTestServer(t, http.StatusOK, `{"access_token":`)
+
+	_, err := NewAdminClientWithContext(context.Background(), NewAdminClientParams{
+		ClientId: "id", ClientSecret: "secret", RestClient: httpClient,
+	})
+	require.ErrorContains(t, err, "failed to decode auth token response: ")
+	assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
 }

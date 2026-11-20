@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/pinecone-io/go-pinecone/v8/internal/gen"
+	db_data_grpc "github.com/pinecone-io/go-pinecone/v8/internal/gen/db_data/grpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -3011,6 +3012,123 @@ func TestConfigureIndexSchemaKeyMustNameSemanticTextFieldUnit(t *testing.T) {
 			require.Len(t, got, 2)
 			assert.Equal(t, http.MethodPatch, got[1].method)
 			assert.JSONEq(t, `{"schema": {"fields": {"chunk_text": {"type": "semantic_text", "read_parameters": {"input_type": "query"}}}}, "tags": null}`, got[1].body)
+		})
+	}
+}
+
+// paginationCases are the shapes a list response's pagination can take. Only a non-empty next
+// token means there is another page.
+var paginationCases = []struct {
+	name     string
+	fragment string
+	want     *Pagination
+}{
+	{name: "absent", fragment: ``},
+	{name: "null", fragment: `, "pagination": null`},
+	{name: "empty object", fragment: `, "pagination": {}`},
+	{name: "empty next", fragment: `, "pagination": {"next": ""}`},
+	{name: "next token", fragment: `, "pagination": {"next": "tok"}`, want: &Pagination{Next: "tok"}},
+}
+
+func wantNextToken(p *Pagination) *string {
+	if p == nil {
+		return nil
+	}
+	return &p.Next
+}
+
+func TestRESTListPaginationEmptyNextMeansNoMorePages(t *testing.T) {
+	ctx := context.Background()
+	adminList := func(t *testing.T, body string) *AdminClient {
+		client, _ := newAdminStatusTestClient(t, http.StatusOK, body)
+		return client
+	}
+	endpoints := []struct {
+		name string
+		body string
+		call func(t *testing.T, body string) *Pagination
+	}{
+		{"RoleBinding.List", `{"data": []%s}`, func(t *testing.T, body string) *Pagination {
+			res, err := adminList(t, body).RoleBinding.List(ctx, nil)
+			require.NoError(t, err)
+			return res.Pagination
+		}},
+		{"ServiceAccount.List", `{"data": []%s}`, func(t *testing.T, body string) *Pagination {
+			res, err := adminList(t, body).ServiceAccount.List(ctx, nil)
+			require.NoError(t, err)
+			return res.Pagination
+		}},
+		{"Invite.List", `{"data": []%s}`, func(t *testing.T, body string) *Pagination {
+			res, err := adminList(t, body).Invite.List(ctx, nil)
+			require.NoError(t, err)
+			return res.Pagination
+		}},
+		{"User.List", `{"data": []%s}`, func(t *testing.T, body string) *Pagination {
+			res, err := adminList(t, body).User.List(ctx, nil)
+			require.NoError(t, err)
+			return res.Pagination
+		}},
+		{"ListBackups", `{"data": []%s}`, func(t *testing.T, body string) *Pagination {
+			res, err := newWireClient(t, newWireServer(t, http.StatusOK, body).URL).ListBackups(ctx, nil)
+			require.NoError(t, err)
+			return res.Pagination
+		}},
+		{"ListBackups with data", `{"data": [{"backup_id": "b", "source_index_name": "i", "source_index_id": "x", "status": "Ready", "cloud": "aws", "region": "us-east-1"}]%s}`, func(t *testing.T, body string) *Pagination {
+			res, err := newWireClient(t, newWireServer(t, http.StatusOK, body).URL).ListBackups(ctx, nil)
+			require.NoError(t, err)
+			return res.Pagination
+		}},
+		{"ListRestoreJobs", `{"data": []%s}`, func(t *testing.T, body string) *Pagination {
+			res, err := newWireClient(t, newWireServer(t, http.StatusOK, body).URL).ListRestoreJobs(ctx, nil)
+			require.NoError(t, err)
+			return res.Pagination
+		}},
+		{"ListImports", `{"data": []%s}`, func(t *testing.T, body string) *Pagination {
+			res, err := newWireIndexConnection(t, newWireServer(t, http.StatusOK, body).URL, "").ListImports(ctx, nil)
+			require.NoError(t, err)
+			if res.NextPaginationToken == nil {
+				return nil
+			}
+			return &Pagination{Next: *res.NextPaginationToken}
+		}},
+		{"ListDocuments", `{"documents": [], "namespace": "n"%s}`, func(t *testing.T, body string) *Pagination {
+			res, err := newWireIndexConnection(t, newWireServer(t, http.StatusOK, body).URL, "n").ListDocuments(ctx, nil)
+			require.NoError(t, err)
+			return res.Pagination
+		}},
+		{"FetchDocuments", `{"documents": {}, "namespace": "n"%s}`, func(t *testing.T, body string) *Pagination {
+			res, err := newWireIndexConnection(t, newWireServer(t, http.StatusOK, body).URL, "n").FetchDocuments(ctx, &FetchDocumentsRequest{
+				Filter: map[string]interface{}{"genre": "drama"},
+			})
+			require.NoError(t, err)
+			return res.Pagination
+		}},
+	}
+	for _, ep := range endpoints {
+		for _, tc := range paginationCases {
+			t.Run(ep.name+"/"+tc.name, func(t *testing.T) {
+				got := ep.call(t, fmt.Sprintf(ep.body, tc.fragment))
+				assert.Equal(t, tc.want, got)
+			})
+		}
+	}
+}
+
+func TestGRPCPaginationEmptyNextMeansNoMorePages(t *testing.T) {
+	cases := []struct {
+		name string
+		in   *db_data_grpc.Pagination
+		want *Pagination
+	}{
+		{name: "absent", in: nil},
+		{name: "empty next", in: &db_data_grpc.Pagination{}},
+		{name: "next token", in: &db_data_grpc.Pagination{Next: "tok"}, want: &Pagination{Next: "tok"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, toPaginationGrpc(tc.in), "FetchVectorsByMetadata")
+			assert.Equal(t, wantNextToken(tc.want), toPaginationTokenGrpc(tc.in), "ListVectors")
+			assert.Equal(t, tc.want, toListNamespacesResponse(&db_data_grpc.ListNamespacesResponse{Pagination: tc.in}).Pagination, "ListNamespaces")
 		})
 	}
 }

@@ -1,7 +1,6 @@
 package pinecone
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -18,7 +17,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pinecone-io/go-pinecone/v8/internal/gen"
 	"github.com/pinecone-io/go-pinecone/v8/internal/gen/db_control"
-	"github.com/pinecone-io/go-pinecone/v8/internal/gen/inference"
 	"github.com/pinecone-io/go-pinecone/v8/internal/provider"
 	"github.com/pinecone-io/go-pinecone/v8/internal/utils"
 
@@ -1160,31 +1158,80 @@ func TestToBackupUnit(t *testing.T) {
 }
 
 func TestDecodeEmbedResponseUnit(t *testing.T) {
-	dense := inference.DenseEmbedding{
-		Values: []float32{0.1, 0.2},
+	decode := func(t *testing.T, body string) *EmbedResponse {
+		t.Helper()
+		res, err := decodeEmbedResponse(io.NopCloser(strings.NewReader(body)))
+		require.NoError(t, err)
+		return res
 	}
-	var embedding inference.Embedding
-	require.NoError(t, embedding.FromDenseEmbedding(dense))
 
-	totalTokens := int32(10)
-	raw := inference.EmbeddingsList{
-		Data:       []inference.Embedding{embedding},
-		Model:      "test-model",
-		VectorType: "dense",
-	}
-	raw.Usage.TotalTokens = &totalTokens
+	t.Run("dense", func(t *testing.T) {
+		res := decode(t, `{"model":"test-model","vector_type":"dense","data":[{"vector_type":"dense","values":[0.1,0.2]}],"usage":{"total_tokens":10}}`)
+		assert.Equal(t, "dense", res.VectorType)
+		assert.Equal(t, "test-model", res.Model)
+		require.NotNil(t, res.Usage.TotalTokens)
+		assert.Equal(t, int32(10), *res.Usage.TotalTokens)
+		require.Len(t, res.Data, 1)
+		assert.Equal(t, &DenseEmbedding{VectorType: "dense", Values: []float32{0.1, 0.2}}, res.Data[0].DenseEmbedding)
+		assert.Nil(t, res.Data[0].SparseEmbedding)
+	})
 
-	var buf bytes.Buffer
-	require.NoError(t, json.NewEncoder(&buf).Encode(raw))
+	t.Run("sparse with tokens", func(t *testing.T) {
+		res := decode(t, `{"model":"pinecone-sparse-english-v0","vector_type":"sparse","data":[{"vector_type":"sparse","sparse_values":[0.5],"sparse_indices":[4294967295],"sparse_tokens":["fox"]}],"usage":{"total_tokens":3}}`)
+		require.Len(t, res.Data, 1)
+		assert.Nil(t, res.Data[0].DenseEmbedding)
+		assert.Equal(t, &SparseEmbedding{
+			VectorType: "sparse", SparseValues: []float32{0.5}, SparseIndices: []int64{4294967295}, SparseTokens: &[]string{"fox"},
+		}, res.Data[0].SparseEmbedding)
+	})
 
-	result, err := decodeEmbedResponse(io.NopCloser(bytes.NewReader(buf.Bytes())))
+	t.Run("unknown vector type keeps model, usage and other items", func(t *testing.T) {
+		res := decode(t, `{"model":"future","vector_type":"multivector","data":[{"vector_type":"multivector","values":[[0.1],[0.2]],"sparse_indices":"x"},{"vector_type":"dense","values":[0.3]}],"usage":{"total_tokens":7}}`)
+		assert.Equal(t, "future", res.Model)
+		assert.Equal(t, "multivector", res.VectorType)
+		require.NotNil(t, res.Usage.TotalTokens)
+		assert.Equal(t, int32(7), *res.Usage.TotalTokens)
+		require.Len(t, res.Data, 2)
+		assert.Equal(t, Embedding{}, res.Data[0])
+		assert.Equal(t, &DenseEmbedding{VectorType: "dense", Values: []float32{0.3}}, res.Data[1].DenseEmbedding)
+	})
+
+	t.Run("each item decodes by its own vector type", func(t *testing.T) {
+		res := decode(t, `{"model":"m","vector_type":"dense","data":[{"vector_type":"sparse","sparse_values":[1],"sparse_indices":[2]}],"usage":{}}`)
+		require.Len(t, res.Data, 1)
+		assert.Nil(t, res.Data[0].DenseEmbedding)
+		require.NotNil(t, res.Data[0].SparseEmbedding)
+		assert.Equal(t, []int64{2}, res.Data[0].SparseEmbedding.SparseIndices)
+		assert.Nil(t, res.Usage.TotalTokens)
+	})
+
+	t.Run("item without vector type falls back to the list's", func(t *testing.T) {
+		res := decode(t, `{"model":"m","vector_type":"dense","data":[{"values":[0.5]}],"usage":{"total_tokens":1}}`)
+		require.Len(t, res.Data, 1)
+		assert.Equal(t, &DenseEmbedding{VectorType: "dense", Values: []float32{0.5}}, res.Data[0].DenseEmbedding)
+	})
+
+	t.Run("unrecognized properties are ignored", func(t *testing.T) {
+		res := decode(t, `{"model":"m","vector_type":"dense","data":[{"vector_type":"dense","values":[0.5],"extra":{"a":1}}],"usage":{"total_tokens":1,"other":2},"new_top_level":true}`)
+		require.Len(t, res.Data, 1)
+		require.NotNil(t, res.Data[0].DenseEmbedding)
+	})
+
+	t.Run("malformed body is an error", func(t *testing.T) {
+		_, err := decodeEmbedResponse(io.NopCloser(strings.NewReader(`{"data":[{"vector_type":"dense","values":"x"}]}`)))
+		require.ErrorContains(t, err, "failed to decode embed response")
+	})
+}
+
+func TestEmbedAcceptsUnknownVectorTypeUnit(t *testing.T) {
+	server := newWireServer(t, http.StatusOK, `{"model":"future","vector_type":"multivector","data":[{"vector_type":"multivector"}],"usage":{"total_tokens":4}}`)
+	pc := newWireClient(t, server.URL)
+	res, err := pc.Inference.Embed(context.Background(), &EmbedRequest{Model: "future", TextInputs: []string{"hi"}})
 	require.NoError(t, err)
-	require.Equal(t, "dense", result.VectorType)
-	require.Equal(t, "test-model", result.Model)
-	require.Equal(t, totalTokens, derefOrDefault(result.Usage.TotalTokens, int32(0)))
-	require.Len(t, result.Data, 1)
-	require.NotNil(t, result.Data[0].DenseEmbedding)
-	require.Equal(t, []float32{0.1, 0.2}, result.Data[0].DenseEmbedding.Values)
+	assert.Equal(t, "multivector", res.VectorType)
+	require.Len(t, res.Data, 1)
+	assert.Nil(t, res.Data[0].DenseEmbedding)
+	assert.Nil(t, res.Data[0].SparseEmbedding)
 }
 
 func TestDerefOrDefaultUnit(t *testing.T) {

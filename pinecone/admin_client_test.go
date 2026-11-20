@@ -3,9 +3,13 @@ package pinecone
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -610,6 +614,282 @@ func TestOrganizationDeleteStatusCodesUnit(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
+		})
+	}
+}
+
+const (
+	testAPIKeySecret         = "pckey_secret_value_do_not_log"
+	testServiceAccountSecret = "sa_client_secret_do_not_log"
+	testProjectId            = "4ba3ad9f-2bbd-4c2b-a0c2-d2f3a7c2c9a1"
+	testResourceId           = "0f8e7d6c-5b4a-4392-8170-6e5d4c3b2a19"
+)
+
+var (
+	testAPIKeyWithSecretBody = `{"key":{"id":"` + testResourceId + `","name":"k","project_id":"` + testProjectId + `","roles":["ProjectEditor"]},"value":"` + testAPIKeySecret + `"}`
+	testSAWithSecretBody     = `{"client_secret":"` + testServiceAccountSecret + `","service_account":{"client_id":"cid","created_at":"2026-10-01T00:00:00Z","id":"` + testResourceId + `","name":"sa","updated_at":"2026-10-01T00:00:00Z"}}`
+)
+
+func newAdminStatusTestClient(t *testing.T, status int, body string) (*AdminClient, *int32) {
+	t.Helper()
+	t.Setenv("PINECONE_CLIENT_ID", "")
+	t.Setenv("PINECONE_CLIENT_SECRET", "")
+	t.Setenv("PINECONE_ACCESS_TOKEN", "")
+	var calls int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(server.Close)
+	client, err := NewAdminClientWithContext(context.Background(), NewAdminClientParams{
+		AccessToken: "test-token",
+		Host:        server.URL,
+	})
+	require.NoError(t, err)
+	return client, &calls
+}
+
+func TestSecretBearingAdminCallsAcceptAnySuccessStatus(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusCreated} {
+		t.Run(fmt.Sprintf("APIKey.Create %d", status), func(t *testing.T) {
+			client, _ := newAdminStatusTestClient(t, status, testAPIKeyWithSecretBody)
+			key, err := client.APIKey.Create(context.Background(), testProjectId, &CreateAPIKeyParams{Name: "k"})
+			require.NoError(t, err)
+			assert.Equal(t, testAPIKeySecret, key.Value)
+			assert.Equal(t, testResourceId, key.Key.Id)
+		})
+		t.Run(fmt.Sprintf("ServiceAccount.Create %d", status), func(t *testing.T) {
+			client, _ := newAdminStatusTestClient(t, status, testSAWithSecretBody)
+			sa, err := client.ServiceAccount.Create(context.Background(), &CreateServiceAccountParams{Name: "sa"})
+			require.NoError(t, err)
+			assert.Equal(t, testServiceAccountSecret, sa.ClientSecret)
+			assert.Equal(t, testResourceId, sa.ServiceAccount.Id)
+		})
+		t.Run(fmt.Sprintf("ServiceAccount.RotateSecret %d", status), func(t *testing.T) {
+			client, _ := newAdminStatusTestClient(t, status, testSAWithSecretBody)
+			sa, err := client.ServiceAccount.RotateSecret(context.Background(), testResourceId)
+			require.NoError(t, err)
+			assert.Equal(t, testServiceAccountSecret, sa.ClientSecret)
+		})
+	}
+}
+
+func TestSecretBearingAdminCallsNeverPutSecretInError(t *testing.T) {
+	malformedKey := `{"key":{"id":"not-a-uuid","name":"k","project_id":"` + testProjectId + `","roles":[]},"value":"` + testAPIKeySecret + `"}`
+	malformedSA := `{"client_secret":"` + testServiceAccountSecret + `","service_account":{"id":"not-a-uuid","created_at":"yesterday"}}`
+	secrets := []string{testAPIKeySecret, testServiceAccountSecret}
+
+	calls := map[string]func(*AdminClient) error{
+		"APIKey.Create": func(c *AdminClient) error {
+			_, err := c.APIKey.Create(context.Background(), testProjectId, &CreateAPIKeyParams{Name: "k"})
+			return err
+		},
+		"ServiceAccount.Create": func(c *AdminClient) error {
+			_, err := c.ServiceAccount.Create(context.Background(), &CreateServiceAccountParams{Name: "sa"})
+			return err
+		},
+		"ServiceAccount.RotateSecret": func(c *AdminClient) error {
+			_, err := c.ServiceAccount.RotateSecret(context.Background(), testResourceId)
+			return err
+		},
+	}
+	bodies := []string{
+		testAPIKeyWithSecretBody,
+		testSAWithSecretBody,
+		malformedKey,
+		malformedSA,
+		testAPIKeyWithSecretBody[:len(testAPIKeyWithSecretBody)-2],
+		testSAWithSecretBody[:len(testSAWithSecretBody)-2],
+	}
+	for name, call := range calls {
+		for _, status := range []int{http.StatusOK, http.StatusCreated, http.StatusAccepted, http.StatusNonAuthoritativeInfo} {
+			for i, body := range bodies {
+				t.Run(fmt.Sprintf("%s/%d/body%d", name, status, i), func(t *testing.T) {
+					client, _ := newAdminStatusTestClient(t, status, body)
+					err := call(client)
+					if err == nil {
+						return
+					}
+					var pcErr *PineconeError
+					assert.False(t, errors.As(err, &pcErr), "a 2xx response must not become a PineconeError: %v", err)
+					for _, secret := range secrets {
+						assert.NotContains(t, err.Error(), secret)
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestAdminCallsAcceptPlausibleSuccessStatuses(t *testing.T) {
+	projectBody := `{"id":"` + testProjectId + `","name":"p","max_pods":0,"force_encryption_with_cmek":false,"organization_id":"org"}`
+	inviteBody := `{"id":"` + testResourceId + `","email":"a@example.com","status":"pending","created_at":"2026-10-01T00:00:00Z","expires_at":null,"processed_at":null}`
+	roleBindingBody := `{"id":"` + testResourceId + `","principal_id":"p","principal_type":"service_account","resource_id":"org","resource_type":"organization","role":"OrgMember","created_at":"2026-10-01T00:00:00Z"}`
+
+	for _, status := range []int{http.StatusOK, http.StatusCreated} {
+		t.Run(fmt.Sprintf("Project.Create %d", status), func(t *testing.T) {
+			client, _ := newAdminStatusTestClient(t, status, projectBody)
+			_, err := client.Project.Create(context.Background(), &CreateProjectParams{Name: "p"})
+			require.NoError(t, err)
+		})
+		t.Run(fmt.Sprintf("Invite.Create %d", status), func(t *testing.T) {
+			client, _ := newAdminStatusTestClient(t, status, inviteBody)
+			_, err := client.Invite.Create(context.Background(), &CreateInviteParams{Email: "a@example.com"})
+			require.NoError(t, err)
+		})
+		t.Run(fmt.Sprintf("RoleBinding.Create %d", status), func(t *testing.T) {
+			client, _ := newAdminStatusTestClient(t, status, roleBindingBody)
+			_, err := client.RoleBinding.Create(context.Background(), &CreateRoleBindingParams{
+				PrincipalId: "p", PrincipalType: PrincipalTypeServiceAccount, ResourceType: ResourceTypeOrganization, Role: "OrgMember",
+			})
+			require.NoError(t, err)
+		})
+	}
+	for _, status := range []int{http.StatusOK, http.StatusAccepted, http.StatusNoContent} {
+		t.Run(fmt.Sprintf("deletes %d", status), func(t *testing.T) {
+			client, _ := newAdminStatusTestClient(t, status, "")
+			ctx := context.Background()
+			require.NoError(t, client.Project.Delete(ctx, testProjectId))
+			require.NoError(t, client.APIKey.Delete(ctx, testResourceId))
+			require.NoError(t, client.ServiceAccount.Delete(ctx, testResourceId))
+			require.NoError(t, client.RoleBinding.Delete(ctx, testResourceId))
+			require.NoError(t, client.Invite.Delete(ctx, testResourceId))
+			require.NoError(t, client.User.Delete(ctx, testResourceId))
+			require.NoError(t, client.Organization.Delete(ctx, "org-id"))
+		})
+	}
+}
+
+func TestOrganizationMethodsRejectEmptyId(t *testing.T) {
+	client, calls := newAdminStatusTestClient(t, http.StatusOK, `{"data":[]}`)
+	ctx := context.Background()
+
+	org, err := client.Organization.Describe(ctx, "")
+	assert.EqualError(t, err, "organizationId must not be empty")
+	assert.Nil(t, org)
+
+	name := "n"
+	org, err = client.Organization.Update(ctx, "", &UpdateOrganizationParams{Name: &name})
+	assert.EqualError(t, err, "organizationId must not be empty")
+	assert.Nil(t, org)
+
+	assert.EqualError(t, client.Organization.Delete(ctx, ""), "organizationId must not be empty")
+	assert.Equal(t, int32(0), atomic.LoadInt32(calls), "no request should be sent")
+}
+
+func TestAdminDecodeErrorsNameTheOperation(t *testing.T) {
+	ctx := context.Background()
+	calls := map[string]func(*AdminClient) error{
+		"create project": func(c *AdminClient) error {
+			_, err := c.Project.Create(ctx, &CreateProjectParams{Name: "p"})
+			return err
+		},
+		"update project": func(c *AdminClient) error {
+			_, err := c.Project.Update(ctx, testProjectId, &UpdateProjectParams{})
+			return err
+		},
+		"list projects": func(c *AdminClient) error {
+			_, err := c.Project.List(ctx)
+			return err
+		},
+		"describe project": func(c *AdminClient) error {
+			_, err := c.Project.Describe(ctx, testProjectId)
+			return err
+		},
+		"list organizations": func(c *AdminClient) error {
+			_, err := c.Organization.List(ctx)
+			return err
+		},
+		"describe organization": func(c *AdminClient) error {
+			_, err := c.Organization.Describe(ctx, "org")
+			return err
+		},
+		"update organization": func(c *AdminClient) error {
+			_, err := c.Organization.Update(ctx, "org", &UpdateOrganizationParams{})
+			return err
+		},
+		"create api key": func(c *AdminClient) error {
+			_, err := c.APIKey.Create(ctx, testProjectId, &CreateAPIKeyParams{Name: "k"})
+			return err
+		},
+		"update api key": func(c *AdminClient) error {
+			_, err := c.APIKey.Update(ctx, testResourceId, &UpdateAPIKeyParams{})
+			return err
+		},
+		"list api keys": func(c *AdminClient) error {
+			_, err := c.APIKey.List(ctx, testProjectId)
+			return err
+		},
+		"describe api key": func(c *AdminClient) error {
+			_, err := c.APIKey.Describe(ctx, testResourceId)
+			return err
+		},
+		"create role binding": func(c *AdminClient) error {
+			_, err := c.RoleBinding.Create(ctx, &CreateRoleBindingParams{})
+			return err
+		},
+		"list role bindings": func(c *AdminClient) error {
+			_, err := c.RoleBinding.List(ctx, nil)
+			return err
+		},
+		"describe role binding": func(c *AdminClient) error {
+			_, err := c.RoleBinding.Describe(ctx, testResourceId)
+			return err
+		},
+		"create service account": func(c *AdminClient) error {
+			_, err := c.ServiceAccount.Create(ctx, &CreateServiceAccountParams{Name: "sa"})
+			return err
+		},
+		"update service account": func(c *AdminClient) error {
+			_, err := c.ServiceAccount.Update(ctx, testResourceId, &UpdateServiceAccountParams{})
+			return err
+		},
+		"list service accounts": func(c *AdminClient) error {
+			_, err := c.ServiceAccount.List(ctx, nil)
+			return err
+		},
+		"describe service account": func(c *AdminClient) error {
+			_, err := c.ServiceAccount.Describe(ctx, testResourceId)
+			return err
+		},
+		"rotate service account secret": func(c *AdminClient) error {
+			_, err := c.ServiceAccount.RotateSecret(ctx, testResourceId)
+			return err
+		},
+		"create invite": func(c *AdminClient) error {
+			_, err := c.Invite.Create(ctx, &CreateInviteParams{Email: "a@example.com"})
+			return err
+		},
+		"list invites": func(c *AdminClient) error {
+			_, err := c.Invite.List(ctx, nil)
+			return err
+		},
+		"describe invite": func(c *AdminClient) error {
+			_, err := c.Invite.Describe(ctx, testResourceId)
+			return err
+		},
+		"resend invite": func(c *AdminClient) error {
+			_, err := c.Invite.Resend(ctx, testResourceId)
+			return err
+		},
+		"list users": func(c *AdminClient) error {
+			_, err := c.User.List(ctx, nil)
+			return err
+		},
+		"describe user": func(c *AdminClient) error {
+			_, err := c.User.Describe(ctx, testResourceId)
+			return err
+		},
+	}
+	for op, call := range calls {
+		t.Run(op, func(t *testing.T) {
+			client, _ := newAdminStatusTestClient(t, http.StatusOK, `{"id":`)
+			err := call(client)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "failed to decode "+op+" response: ")
+			assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
 		})
 	}
 }
