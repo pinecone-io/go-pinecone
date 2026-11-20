@@ -3168,8 +3168,20 @@ func decodeCollection(resBody io.ReadCloser) (*Collection, error) {
 	return toCollection(&collectionModel), nil
 }
 
-func decodeErrorResponse(resBodyBytes []byte) (*db_control.ErrorResponse, error) {
-	var errorResponse db_control.ErrorResponse
+// apiErrorResponse is db_control.ErrorResponse with details left undecoded, so details that
+// aren't a JSON object can't hide the error code and message.
+type apiErrorResponse struct {
+	Error struct {
+		Code    string          `json:"code"`
+		Details json.RawMessage `json:"details,omitempty"`
+		Message string          `json:"message"`
+		Reason  *string         `json:"reason,omitempty"`
+	} `json:"error"`
+	Status int `json:"status"`
+}
+
+func decodeErrorResponse(resBodyBytes []byte) (*apiErrorResponse, error) {
+	var errorResponse apiErrorResponse
 	err := json.Unmarshal(resBodyBytes, &errorResponse)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode error response: %w", err)
@@ -3184,14 +3196,13 @@ func decodeErrorResponse(resBodyBytes []byte) (*db_control.ErrorResponse, error)
 }
 
 // rpcStatus is the error body of the bulk import operations: a gRPC code and message.
+// Details, a list of protobuf Any values, is left undecoded so an unexpected shape can't hide the
+// code and message.
 type rpcStatus struct {
 	Code    *int32          `json:"code"`
 	Message *string         `json:"message"`
-	Details *[]rpcStatusAny `json:"details"`
+	Details json.RawMessage `json:"details"`
 }
-
-// rpcStatusAny is one entry of rpcStatus details, a protobuf Any.
-type rpcStatusAny map[string]any
 
 // decodeRpcStatus decodes an rpcStatus error body. It reports false unless the body is a JSON
 // object with a numeric top-level "code".
@@ -3226,7 +3237,7 @@ type errorResponseMap struct {
 	ErrorCode  string          `json:"error_code,omitempty"`
 	Reason     string          `json:"reason,omitempty"`
 	Message    string          `json:"message,omitempty"`
-	Details    string          `json:"details,omitempty"`
+	Details    any             `json:"details,omitempty"`
 	details    *map[string]any `json:"-"`
 }
 
@@ -3249,19 +3260,25 @@ func handleErrorResponseBody(response *http.Response, errMsgPrefix string) error
 				errMap.Reason = *errorResponse.Error.Reason
 			}
 
-			if errorResponse.Error.Details != nil {
-				errMap.Details = fmt.Sprintf("%+v", errorResponse.Error.Details)
-				errMap.details = errorResponse.Error.Details
+			// Details that aren't a JSON object are left out; the code and message are kept.
+			var details map[string]any
+			if json.Unmarshal(errorResponse.Error.Details, &details) == nil && details != nil {
+				errMap.Details = details
+				errMap.details = &details
 			}
 		} else if status, ok := decodeRpcStatus(resBodyBytes); ok {
 			errMap.ErrorCode = grpcCodeName(*status.Code)
 			if status.Message != nil {
 				errMap.Message = *status.Message
 			}
-			if status.Details != nil && len(*status.Details) > 0 {
-				errMap.Details = fmt.Sprintf("%+v", *status.Details)
+			var details []any
+			if json.Unmarshal(status.Details, &details) == nil && len(details) > 0 {
+				errMap.Details = details
 			}
 		}
+	} else {
+		// The API documents some 400 and 422 bodies as plain text rather than an ErrorResponse.
+		errMap.Message = strings.TrimSpace(string(resBodyBytes))
 	}
 
 	errMap.Body = string(resBodyBytes)

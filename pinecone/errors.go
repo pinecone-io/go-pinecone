@@ -28,10 +28,14 @@ type PineconeError struct {
 	// empty, and act on ErrorCode.
 	Reason string
 	// Message is the error message from the response body, prefixed with the operation that
-	// failed. It's empty when the body isn't an API error response.
+	// failed. When the body isn't JSON, such as the plain-text body the API sends for a request it
+	// can't read, Message is the body with surrounding whitespace trimmed, and ErrorCode and Reason
+	// are empty. It's empty when the body is empty, or is JSON that isn't an API error response.
 	Message string
 	// Msg holds a JSON-encoded summary of the response: the status code, the raw body, and the
-	// error code, reason, message, and details decoded from the body when available.
+	// error code, reason, message, and details decoded from the body when available. Details is
+	// JSON: an object for an API error response, left out when the body's details aren't an
+	// object, or the list of details of a bulk import error.
 	Msg error
 
 	// details is a pointer so that PineconeError stays comparable with ==.
@@ -143,7 +147,7 @@ func detailInt(d map[string]any, key string) *int {
 }
 
 // Details returns a copy of the machine-readable facts about the error, keyed as its Reason
-// documents, or nil when the response has none. Values are decoded as with encoding/json: strings,
+// documents, or nil when the response has none or its details aren't a JSON object. Values are decoded as with encoding/json: strings,
 // float64 numbers, booleans, or nested map[string]any and []any values. The API never sends null;
 // a key with no value is left out. Ignore keys you don't recognize, since more may be added.
 func (pe *PineconeError) Details() map[string]any {
