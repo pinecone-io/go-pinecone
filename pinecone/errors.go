@@ -30,8 +30,9 @@ type PineconeError struct {
 	// Message is the error message from the response body, prefixed with the operation that
 	// failed. When the body isn't JSON, such as the plain-text body the API sends for a request it
 	// can't read or an HTML error page from a proxy, Message holds an excerpt of the body: runs of
-	// whitespace become single spaces, and a body longer than 512 bytes is cut to its first 512
-	// bytes and ends with "…". ErrorCode and Reason are then empty, and Msg holds the full body.
+	// whitespace become single spaces, and when the collapsed text is longer than 512 bytes it is
+	// cut at 512 bytes on a UTF-8 boundary and ends with "…". ErrorCode and Reason are then empty,
+	// and Msg holds the full body.
 	// Message is empty when the body is empty, or is JSON that isn't an API error response.
 	Message string
 	// Msg holds a JSON-encoded summary of the response: the status code, the raw body, and the
