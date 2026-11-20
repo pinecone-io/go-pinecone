@@ -22,6 +22,10 @@ When you create a service account, you get a client ID and secret. Pass them in
 its access token before it expires, so a long-lived `AdminClient` keeps working. To control the handshake's context,
 use `NewAdminClientWithContext`.
 
+If the token exchange fails, `NewAdminClient` returns a `*PineconeError`. Its `Message` starts with
+`"failed to get auth token: "` followed by the token endpoint's description, and its `ErrorCode` is the OAuth error
+code, such as `"access_denied"`. A failed refresh later on returns the same error from the call that needed the token.
+
 ```go
 package main
 

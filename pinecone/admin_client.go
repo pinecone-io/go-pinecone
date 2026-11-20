@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
-	"slices"
 
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -295,8 +295,7 @@ func NewAdminClientWithContext(ctx context.Context, in NewAdminClientParams) (*A
 			return nil, fmt.Errorf("no ClientSecret provided, please pass an ClientSecret for authorization through NewAdminClientParams or set the PINECONE_CLIENT_SECRET environment variable")
 		}
 
-		// Cloned so the token request never goes through the refreshing client added below.
-		tokenOptions := slices.Clone(clientOptions)
+		tokenOptions := buildAdminTokenOptions(in)
 		initial, err := getAuthTokenFunc(ctx, clientId, clientSecret, tokenOptions...)
 		if err != nil {
 			return nil, err
@@ -408,14 +407,14 @@ func (p *DefaultProjectClient) Create(ctx context.Context, in *CreateProjectPara
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to create project: ")
 	}
 
 	var adminProject admin.Project
 	err = json.NewDecoder(res.Body).Decode(&adminProject)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode create project response: %w", err)
 	}
 
 	return toProject(adminProject), nil
@@ -474,14 +473,14 @@ func (p *DefaultProjectClient) Update(ctx context.Context, projectId string, in 
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to update project: ")
 	}
 
 	var adminProject admin.Project
 	err = json.NewDecoder(res.Body).Decode(&adminProject)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode update project response: %w", err)
 	}
 
 	return toProject(adminProject), nil
@@ -507,7 +506,7 @@ func (p *DefaultProjectClient) List(ctx context.Context) ([]*Project, error) {
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to list projects: ")
 	}
 
@@ -516,7 +515,7 @@ func (p *DefaultProjectClient) List(ctx context.Context) ([]*Project, error) {
 	}
 	err = json.NewDecoder(res.Body).Decode(&listResp)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode list projects response: %w", err)
 	}
 
 	var projects []*Project
@@ -558,14 +557,14 @@ func (p *DefaultProjectClient) Describe(ctx context.Context, projectId string) (
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to describe project: ")
 	}
 
 	var adminProject admin.Project
 	err = json.NewDecoder(res.Body).Decode(&adminProject)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode describe project response: %w", err)
 	}
 
 	return toProject(adminProject), nil
@@ -600,7 +599,7 @@ func (p *DefaultProjectClient) Delete(ctx context.Context, projectId string) err
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusAccepted {
+	if !isSuccessStatus(res.StatusCode) {
 		return handleErrorResponseBody(res, "failed to delete project: ")
 	}
 
@@ -627,7 +626,7 @@ func (o *DefaultOrganizationClient) List(ctx context.Context) ([]*Organization, 
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to list organizations: ")
 	}
 
@@ -636,7 +635,7 @@ func (o *DefaultOrganizationClient) List(ctx context.Context) ([]*Organization, 
 	}
 	err = json.NewDecoder(res.Body).Decode(&listResp)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode list organizations response: %w", err)
 	}
 
 	var organizations []*Organization
@@ -667,20 +666,23 @@ func (o *DefaultOrganizationClient) List(ctx context.Context) ([]*Organization, 
 //		log.Fatal(err)
 //	}
 func (o *DefaultOrganizationClient) Describe(ctx context.Context, organizationId string) (*Organization, error) {
+	if organizationId == "" {
+		return nil, fmt.Errorf("organizationId must not be empty")
+	}
 	res, err := o.restClient.FetchOrganization(ctx, organizationId, &admin.FetchOrganizationParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to describe organization: ")
 	}
 
 	var adminOrganization admin.Organization
 	err = json.NewDecoder(res.Body).Decode(&adminOrganization)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode describe organization response: %w", err)
 	}
 
 	return toOrganization(adminOrganization), nil
@@ -714,6 +716,9 @@ func (o *DefaultOrganizationClient) Update(ctx context.Context, organizationId s
 	if in == nil {
 		return nil, fmt.Errorf("in (*UpdateOrganizationParams) cannot be nil")
 	}
+	if organizationId == "" {
+		return nil, fmt.Errorf("organizationId must not be empty")
+	}
 
 	request := admin.UpdateOrganizationRequest{
 		Name: in.Name,
@@ -725,14 +730,14 @@ func (o *DefaultOrganizationClient) Update(ctx context.Context, organizationId s
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to update organization: ")
 	}
 
 	var adminOrganization admin.Organization
 	err = json.NewDecoder(res.Body).Decode(&adminOrganization)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode update organization response: %w", err)
 	}
 
 	return toOrganization(adminOrganization), nil
@@ -756,13 +761,16 @@ func (o *DefaultOrganizationClient) Update(ctx context.Context, organizationId s
 //		log.Fatal(err)
 //	}
 func (o *DefaultOrganizationClient) Delete(ctx context.Context, organizationId string) error {
+	if organizationId == "" {
+		return fmt.Errorf("organizationId must not be empty")
+	}
 	res, err := o.restClient.DeleteOrganization(ctx, organizationId, &admin.DeleteOrganizationParams{XPineconeApiVersion: gen.PineconeApiVersion})
 	if err != nil {
 		return err
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusAccepted && res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return handleErrorResponseBody(res, "failed to delete organization: ")
 	}
 	return nil
@@ -820,14 +828,14 @@ func (a *DefaultApiKeyClient) Create(ctx context.Context, projectId string, in *
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to create api key: ")
 	}
 
 	var adminApiKey admin.APIKeyWithSecret
 	err = json.NewDecoder(res.Body).Decode(&adminApiKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode create api key response: %w", err)
 	}
 
 	return toAPIKeyWithSecret(adminApiKey), nil
@@ -884,14 +892,14 @@ func (a *DefaultApiKeyClient) Update(ctx context.Context, apiKeyId string, in *U
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to update api key: ")
 	}
 
 	var adminApiKey admin.APIKey
 	err = json.NewDecoder(res.Body).Decode(&adminApiKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode update api key response: %w", err)
 	}
 
 	return toAPIKey(adminApiKey), nil
@@ -923,7 +931,7 @@ func (a *DefaultApiKeyClient) List(ctx context.Context, projectId string) ([]*AP
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to list api keys: ")
 	}
 
@@ -932,7 +940,7 @@ func (a *DefaultApiKeyClient) List(ctx context.Context, projectId string) ([]*AP
 	}
 	err = json.NewDecoder(res.Body).Decode(&listResp)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode list api keys response: %w", err)
 	}
 
 	var apiKeys []*APIKey
@@ -974,14 +982,14 @@ func (a *DefaultApiKeyClient) Describe(ctx context.Context, apiKeyId string) (*A
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to describe api key: ")
 	}
 
 	var adminApiKey admin.APIKey
 	err = json.NewDecoder(res.Body).Decode(&adminApiKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode describe api key response: %w", err)
 	}
 
 	return toAPIKey(adminApiKey), nil
@@ -1013,7 +1021,7 @@ func (a *DefaultApiKeyClient) Delete(ctx context.Context, apiKeyId string) error
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusAccepted {
+	if !isSuccessStatus(res.StatusCode) {
 		return handleErrorResponseBody(res, "failed to delete api key: ")
 	}
 
@@ -1079,14 +1087,14 @@ func (r *DefaultRoleBindingClient) Create(ctx context.Context, in *CreateRoleBin
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to create role binding: ")
 	}
 
 	var adminRoleBinding admin.RoleBinding
 	err = json.NewDecoder(res.Body).Decode(&adminRoleBinding)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode create role binding response: %w", err)
 	}
 
 	return toRoleBinding(adminRoleBinding), nil
@@ -1163,14 +1171,14 @@ func (r *DefaultRoleBindingClient) List(ctx context.Context, in *ListRoleBinding
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to list role bindings: ")
 	}
 
 	var adminRoleBindingList admin.RoleBindingList
 	err = json.NewDecoder(res.Body).Decode(&adminRoleBindingList)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode list role bindings response: %w", err)
 	}
 
 	return toRoleBindingList(adminRoleBindingList), nil
@@ -1202,14 +1210,14 @@ func (r *DefaultRoleBindingClient) Describe(ctx context.Context, roleBindingId s
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to describe role binding: ")
 	}
 
 	var adminRoleBinding admin.RoleBinding
 	err = json.NewDecoder(res.Body).Decode(&adminRoleBinding)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode describe role binding response: %w", err)
 	}
 
 	return toRoleBinding(adminRoleBinding), nil
@@ -1246,7 +1254,7 @@ func (r *DefaultRoleBindingClient) Delete(ctx context.Context, roleBindingId str
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusAccepted {
+	if !isSuccessStatus(res.StatusCode) {
 		return handleErrorResponseBody(res, "failed to delete role binding: ")
 	}
 
@@ -1308,14 +1316,14 @@ func (s *DefaultServiceAccountClient) Create(ctx context.Context, in *CreateServ
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusCreated {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to create service account: ")
 	}
 
 	var adminServiceAccount admin.ServiceAccountWithSecret
 	err = json.NewDecoder(res.Body).Decode(&adminServiceAccount)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode create service account response: %w", err)
 	}
 
 	return toServiceAccountWithSecret(adminServiceAccount), nil
@@ -1366,14 +1374,14 @@ func (s *DefaultServiceAccountClient) Update(ctx context.Context, serviceAccount
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to update service account: ")
 	}
 
 	var adminServiceAccount admin.ServiceAccount
 	err = json.NewDecoder(res.Body).Decode(&adminServiceAccount)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode update service account response: %w", err)
 	}
 
 	return toServiceAccount(adminServiceAccount), nil
@@ -1417,14 +1425,14 @@ func (s *DefaultServiceAccountClient) List(ctx context.Context, in *ListServiceA
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to list service accounts: ")
 	}
 
 	var adminServiceAccountList admin.ServiceAccountList
 	err = json.NewDecoder(res.Body).Decode(&adminServiceAccountList)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode list service accounts response: %w", err)
 	}
 
 	return toServiceAccountList(adminServiceAccountList), nil
@@ -1456,14 +1464,14 @@ func (s *DefaultServiceAccountClient) Describe(ctx context.Context, serviceAccou
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to describe service account: ")
 	}
 
 	var adminServiceAccount admin.ServiceAccount
 	err = json.NewDecoder(res.Body).Decode(&adminServiceAccount)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode describe service account response: %w", err)
 	}
 
 	return toServiceAccount(adminServiceAccount), nil
@@ -1501,14 +1509,14 @@ func (s *DefaultServiceAccountClient) RotateSecret(ctx context.Context, serviceA
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to rotate service account secret: ")
 	}
 
 	var adminServiceAccount admin.ServiceAccountWithSecret
 	err = json.NewDecoder(res.Body).Decode(&adminServiceAccount)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode rotate service account secret response: %w", err)
 	}
 
 	return toServiceAccountWithSecret(adminServiceAccount), nil
@@ -1543,7 +1551,7 @@ func (s *DefaultServiceAccountClient) Delete(ctx context.Context, serviceAccount
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusAccepted {
+	if !isSuccessStatus(res.StatusCode) {
 		return handleErrorResponseBody(res, "failed to delete service account: ")
 	}
 
@@ -1605,14 +1613,14 @@ func (i *DefaultInviteClient) Create(ctx context.Context, in *CreateInviteParams
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to create invite: ")
 	}
 
 	var adminInvite admin.Invite
 	err = json.NewDecoder(res.Body).Decode(&adminInvite)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode create invite response: %w", err)
 	}
 
 	return toInvite(adminInvite), nil
@@ -1659,14 +1667,14 @@ func (i *DefaultInviteClient) List(ctx context.Context, in *ListInvitesParams) (
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to list invites: ")
 	}
 
 	var adminInviteList admin.InviteList
 	err = json.NewDecoder(res.Body).Decode(&adminInviteList)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode list invites response: %w", err)
 	}
 
 	return toInviteList(adminInviteList), nil
@@ -1698,14 +1706,14 @@ func (i *DefaultInviteClient) Describe(ctx context.Context, inviteId string) (*I
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to describe invite: ")
 	}
 
 	var adminInvite admin.Invite
 	err = json.NewDecoder(res.Body).Decode(&adminInvite)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode describe invite response: %w", err)
 	}
 
 	return toInvite(adminInvite), nil
@@ -1741,14 +1749,14 @@ func (i *DefaultInviteClient) Resend(ctx context.Context, inviteId string) (*Inv
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to resend invite: ")
 	}
 
 	var adminInvite admin.Invite
 	err = json.NewDecoder(res.Body).Decode(&adminInvite)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode resend invite response: %w", err)
 	}
 
 	return toInvite(adminInvite), nil
@@ -1780,7 +1788,7 @@ func (i *DefaultInviteClient) Delete(ctx context.Context, inviteId string) error
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusAccepted {
+	if !isSuccessStatus(res.StatusCode) {
 		return handleErrorResponseBody(res, "failed to delete invite: ")
 	}
 
@@ -1832,14 +1840,14 @@ func (u *DefaultUserClient) List(ctx context.Context, in *ListUsersParams) (*Use
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to list users: ")
 	}
 
 	var adminUserList admin.UserList
 	err = json.NewDecoder(res.Body).Decode(&adminUserList)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode list users response: %w", err)
 	}
 
 	return toUserList(adminUserList), nil
@@ -1871,14 +1879,14 @@ func (u *DefaultUserClient) Describe(ctx context.Context, userId string) (*User,
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if !isSuccessStatus(res.StatusCode) {
 		return nil, handleErrorResponseBody(res, "failed to describe user: ")
 	}
 
 	var adminUser admin.User
 	err = json.NewDecoder(res.Body).Decode(&adminUser)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode describe user response: %w", err)
 	}
 
 	return toUser(adminUser), nil
@@ -1910,7 +1918,7 @@ func (u *DefaultUserClient) Delete(ctx context.Context, userId string) error {
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusAccepted {
+	if !isSuccessStatus(res.StatusCode) {
 		return handleErrorResponseBody(res, "failed to delete user: ")
 	}
 
@@ -1968,6 +1976,11 @@ func getAuthToken(ctx context.Context, clientId string, clientSecret string, opt
 
 	req.Header.Set("Content-Type", "application/json")
 	req = req.WithContext(ctx)
+	for _, edit := range tokenClient.RequestEditors {
+		if err := edit(ctx, req); err != nil {
+			return nil, err
+		}
+	}
 
 	res, err := tokenClient.Client.Do(req)
 	if err != nil {
@@ -1975,17 +1988,60 @@ func getAuthToken(ctx context.Context, clientId string, clientSecret string, opt
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
-		return nil, handleErrorResponseBody(res, "failed to get auth token: ")
+	if !isSuccessStatus(res.StatusCode) {
+		return nil, handleAuthTokenErrorResponse(res)
 	}
 
 	var tokenResponse authTokenResponse
 	err = json.NewDecoder(res.Body).Decode(&tokenResponse)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode auth token response: %w", err)
 	}
 
 	return &tokenResponse, nil
+}
+
+// handleAuthTokenErrorResponse reads the OAuth error shape, {"error", "error_description"}, which
+// the token endpoint uses instead of the Pinecone API error shape.
+func handleAuthTokenErrorResponse(res *http.Response) error {
+	const prefix = "failed to get auth token: "
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var oauthErr struct {
+		Error            *string `json:"error"`
+		ErrorDescription string  `json:"error_description"`
+	}
+	if json.Unmarshal(body, &oauthErr) == nil && oauthErr.Error != nil {
+		return formatError(errorResponseMap{
+			StatusCode: res.StatusCode,
+			Body:       string(body),
+			ErrorCode:  *oauthErr.Error,
+			Message:    prefix + valueOrFallback(oauthErr.ErrorDescription, *oauthErr.Error),
+		})
+	}
+
+	res.Body = io.NopCloser(bytes.NewReader(body))
+	return handleErrorResponseBody(res, prefix)
+}
+
+// buildAdminTokenOptions sends the SDK User-Agent and the API version on the OAuth token request,
+// but not the caller's additional headers, which are meant for the Admin API.
+func buildAdminTokenOptions(in NewAdminClientParams) []admin.ClientOption {
+	sourceTag := ""
+	if in.SourceTag != nil {
+		sourceTag = *in.SourceTag
+	}
+	options := []admin.ClientOption{
+		admin.WithRequestEditorFn(provider.NewHeaderProvider("User-Agent", useragent.BuildUserAgent(sourceTag)).Intercept),
+		admin.WithRequestEditorFn(provider.NewHeaderProvider("X-Pinecone-Api-Version", gen.PineconeApiVersion).Intercept),
+	}
+	if in.RestClient != nil {
+		options = append(options, admin.WithHTTPClient(in.RestClient))
+	}
+	return options
 }
 
 func buildAdminClientOptions(in NewAdminClientParams) []admin.ClientOption {
