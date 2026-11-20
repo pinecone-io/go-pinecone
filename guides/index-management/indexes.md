@@ -357,8 +357,9 @@ describe response, which fills in the deprecated field for a manually scaled ind
 ### Replica autoscaling
 
 With `Scaling.Auto`, Pinecone moves the number of replicas per shard between `MinReplicas` and `MaxReplicas` as load
-changes. The autoscaler never changes the shard count; change it yourself with `ConfigureIndex`. Your organization must
-be enabled for replica autoscaling; otherwise the request fails with a `PineconeError` whose error code is `FORBIDDEN`.
+changes. The autoscaler never changes the shard count; change it yourself with `ConfigureIndex`. Replica autoscaling
+is in private preview: your organization must be enabled for it, or the request fails with a `PineconeError` whose
+error code is `FORBIDDEN`. Contact [Pinecone support](https://support.pinecone.io) to ask about access.
 On a plan without dedicated read capacity, any dedicated request fails with `INVALID_ARGUMENT` instead.
 
 Against per-index and per-project read node limits, an index counts as `Shards` × `Replicas` read nodes, or as
