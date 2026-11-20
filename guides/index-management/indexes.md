@@ -394,7 +394,7 @@ if err != nil {
 fmt.Printf("Created index %s\n", idx.Name)
 ```
 
-When you describe an autoscaled index, `ReadCapacity.Dedicated.ScalingStrategy` is
+When you describe an autoscaled index, `*ReadCapacity.Dedicated.ScalingStrategy` is
 `pinecone.ReadCapacityScalingStrategyAuto`, `Scaling.Auto` holds the bounds, and `Scaling.Manual` is nil. The live
 number of replicas per shard is in `ReadCapacity.Dedicated.Status.CurrentReplicas`. The autoscaler changes the replica
 count without leaving the `"Ready"` state, so it doesn't block your own changes.
@@ -596,8 +596,9 @@ _, err = pc.ConfigureIndex(ctx, "articles-dedicated", pinecone.ConfigureIndexPar
 })
 ```
 
-A `Scaling.Manual` block with neither `Replicas` nor the deprecated `Shards` returns an error without calling the API:
-the SDK can't send a manual configuration without a replica count, and sending 0 would pause the index.
+A `Scaling.Manual` block with neither `Replicas` nor the deprecated `Shards` returns an error without sending the
+configure request: the SDK can't send a manual configuration without a replica count, and sending 0 would pause the
+index.
 
 Deletion protection prevents deleting the index, but not deleting its namespaces or records.
 
