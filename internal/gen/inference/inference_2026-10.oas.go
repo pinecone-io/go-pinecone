@@ -158,11 +158,11 @@ type ModelInfoSupportedMetrics = []ModelInfoMetric
 
 // ModelInfoSupportedParameter Describes a parameter supported by the model, including parameter value constraints.
 type ModelInfoSupportedParameter struct {
-	// AllowedValues The allowed parameter values when the type is 'one_of'.
-	AllowedValues *[]ModelInfoSupportedParameter_AllowedValues_Item `json:"allowed_values,omitempty"`
+	// AllowedValues The allowed parameter values when the type is 'one_of'. Each value is a string or an integer.
+	AllowedValues *[]interface{} `json:"allowed_values,omitempty"`
 
-	// Default The default value for the parameter when a parameter is optional.
-	Default *ModelInfoSupportedParameter_Default `json:"default,omitempty"`
+	// Default The default value for the parameter when a parameter is optional. A string, integer, number, or boolean.
+	Default *interface{} `json:"default,omitempty"`
 
 	// Max The maximum allowed value (inclusive) when the type is 'numeric_range'.
 	Max *float32 `json:"max,omitempty"`
@@ -187,34 +187,6 @@ type ModelInfoSupportedParameter struct {
 
 	// ValueType The type of value the parameter accepts, e.g. 'string', 'integer', 'float', or 'boolean'.
 	ValueType string `json:"value_type"`
-}
-
-// ModelInfoSupportedParameterAllowedValues0 defines model for .
-type ModelInfoSupportedParameterAllowedValues0 = string
-
-// ModelInfoSupportedParameterAllowedValues1 defines model for .
-type ModelInfoSupportedParameterAllowedValues1 = int
-
-// ModelInfoSupportedParameter_AllowedValues_Item defines model for ModelInfoSupportedParameter.allowed_values.Item.
-type ModelInfoSupportedParameter_AllowedValues_Item struct {
-	union json.RawMessage
-}
-
-// ModelInfoSupportedParameterDefault0 defines model for .
-type ModelInfoSupportedParameterDefault0 = string
-
-// ModelInfoSupportedParameterDefault1 defines model for .
-type ModelInfoSupportedParameterDefault1 = int32
-
-// ModelInfoSupportedParameterDefault2 defines model for .
-type ModelInfoSupportedParameterDefault2 = float32
-
-// ModelInfoSupportedParameterDefault3 defines model for .
-type ModelInfoSupportedParameterDefault3 = bool
-
-// ModelInfoSupportedParameter_Default The default value for the parameter when a parameter is optional.
-type ModelInfoSupportedParameter_Default struct {
-	union json.RawMessage
 }
 
 // RankedDocument A ranked document with a relevance score and an index position.
@@ -412,182 +384,6 @@ func (t Embedding) MarshalJSON() ([]byte, error) {
 }
 
 func (t *Embedding) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsModelInfoSupportedParameterAllowedValues0 returns the union data inside the ModelInfoSupportedParameter_AllowedValues_Item as a ModelInfoSupportedParameterAllowedValues0
-func (t ModelInfoSupportedParameter_AllowedValues_Item) AsModelInfoSupportedParameterAllowedValues0() (ModelInfoSupportedParameterAllowedValues0, error) {
-	var body ModelInfoSupportedParameterAllowedValues0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromModelInfoSupportedParameterAllowedValues0 overwrites any union data inside the ModelInfoSupportedParameter_AllowedValues_Item as the provided ModelInfoSupportedParameterAllowedValues0
-func (t *ModelInfoSupportedParameter_AllowedValues_Item) FromModelInfoSupportedParameterAllowedValues0(v ModelInfoSupportedParameterAllowedValues0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeModelInfoSupportedParameterAllowedValues0 performs a merge with any union data inside the ModelInfoSupportedParameter_AllowedValues_Item, using the provided ModelInfoSupportedParameterAllowedValues0
-func (t *ModelInfoSupportedParameter_AllowedValues_Item) MergeModelInfoSupportedParameterAllowedValues0(v ModelInfoSupportedParameterAllowedValues0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsModelInfoSupportedParameterAllowedValues1 returns the union data inside the ModelInfoSupportedParameter_AllowedValues_Item as a ModelInfoSupportedParameterAllowedValues1
-func (t ModelInfoSupportedParameter_AllowedValues_Item) AsModelInfoSupportedParameterAllowedValues1() (ModelInfoSupportedParameterAllowedValues1, error) {
-	var body ModelInfoSupportedParameterAllowedValues1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromModelInfoSupportedParameterAllowedValues1 overwrites any union data inside the ModelInfoSupportedParameter_AllowedValues_Item as the provided ModelInfoSupportedParameterAllowedValues1
-func (t *ModelInfoSupportedParameter_AllowedValues_Item) FromModelInfoSupportedParameterAllowedValues1(v ModelInfoSupportedParameterAllowedValues1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeModelInfoSupportedParameterAllowedValues1 performs a merge with any union data inside the ModelInfoSupportedParameter_AllowedValues_Item, using the provided ModelInfoSupportedParameterAllowedValues1
-func (t *ModelInfoSupportedParameter_AllowedValues_Item) MergeModelInfoSupportedParameterAllowedValues1(v ModelInfoSupportedParameterAllowedValues1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t ModelInfoSupportedParameter_AllowedValues_Item) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *ModelInfoSupportedParameter_AllowedValues_Item) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsModelInfoSupportedParameterDefault0 returns the union data inside the ModelInfoSupportedParameter_Default as a ModelInfoSupportedParameterDefault0
-func (t ModelInfoSupportedParameter_Default) AsModelInfoSupportedParameterDefault0() (ModelInfoSupportedParameterDefault0, error) {
-	var body ModelInfoSupportedParameterDefault0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromModelInfoSupportedParameterDefault0 overwrites any union data inside the ModelInfoSupportedParameter_Default as the provided ModelInfoSupportedParameterDefault0
-func (t *ModelInfoSupportedParameter_Default) FromModelInfoSupportedParameterDefault0(v ModelInfoSupportedParameterDefault0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeModelInfoSupportedParameterDefault0 performs a merge with any union data inside the ModelInfoSupportedParameter_Default, using the provided ModelInfoSupportedParameterDefault0
-func (t *ModelInfoSupportedParameter_Default) MergeModelInfoSupportedParameterDefault0(v ModelInfoSupportedParameterDefault0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsModelInfoSupportedParameterDefault1 returns the union data inside the ModelInfoSupportedParameter_Default as a ModelInfoSupportedParameterDefault1
-func (t ModelInfoSupportedParameter_Default) AsModelInfoSupportedParameterDefault1() (ModelInfoSupportedParameterDefault1, error) {
-	var body ModelInfoSupportedParameterDefault1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromModelInfoSupportedParameterDefault1 overwrites any union data inside the ModelInfoSupportedParameter_Default as the provided ModelInfoSupportedParameterDefault1
-func (t *ModelInfoSupportedParameter_Default) FromModelInfoSupportedParameterDefault1(v ModelInfoSupportedParameterDefault1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeModelInfoSupportedParameterDefault1 performs a merge with any union data inside the ModelInfoSupportedParameter_Default, using the provided ModelInfoSupportedParameterDefault1
-func (t *ModelInfoSupportedParameter_Default) MergeModelInfoSupportedParameterDefault1(v ModelInfoSupportedParameterDefault1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsModelInfoSupportedParameterDefault2 returns the union data inside the ModelInfoSupportedParameter_Default as a ModelInfoSupportedParameterDefault2
-func (t ModelInfoSupportedParameter_Default) AsModelInfoSupportedParameterDefault2() (ModelInfoSupportedParameterDefault2, error) {
-	var body ModelInfoSupportedParameterDefault2
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromModelInfoSupportedParameterDefault2 overwrites any union data inside the ModelInfoSupportedParameter_Default as the provided ModelInfoSupportedParameterDefault2
-func (t *ModelInfoSupportedParameter_Default) FromModelInfoSupportedParameterDefault2(v ModelInfoSupportedParameterDefault2) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeModelInfoSupportedParameterDefault2 performs a merge with any union data inside the ModelInfoSupportedParameter_Default, using the provided ModelInfoSupportedParameterDefault2
-func (t *ModelInfoSupportedParameter_Default) MergeModelInfoSupportedParameterDefault2(v ModelInfoSupportedParameterDefault2) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsModelInfoSupportedParameterDefault3 returns the union data inside the ModelInfoSupportedParameter_Default as a ModelInfoSupportedParameterDefault3
-func (t ModelInfoSupportedParameter_Default) AsModelInfoSupportedParameterDefault3() (ModelInfoSupportedParameterDefault3, error) {
-	var body ModelInfoSupportedParameterDefault3
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromModelInfoSupportedParameterDefault3 overwrites any union data inside the ModelInfoSupportedParameter_Default as the provided ModelInfoSupportedParameterDefault3
-func (t *ModelInfoSupportedParameter_Default) FromModelInfoSupportedParameterDefault3(v ModelInfoSupportedParameterDefault3) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeModelInfoSupportedParameterDefault3 performs a merge with any union data inside the ModelInfoSupportedParameter_Default, using the provided ModelInfoSupportedParameterDefault3
-func (t *ModelInfoSupportedParameter_Default) MergeModelInfoSupportedParameterDefault3(v ModelInfoSupportedParameterDefault3) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t ModelInfoSupportedParameter_Default) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *ModelInfoSupportedParameter_Default) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

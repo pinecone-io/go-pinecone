@@ -108,8 +108,8 @@ type DeleteDocumentsRequest2 struct {
 	DeleteAll interface{} `json:"delete_all"`
 }
 
-// DeleteDocumentsResponse The response for the `delete_documents` operation.
-type DeleteDocumentsResponse struct {
+// DeleteDocumentsResult The response for the `delete_documents` operation.
+type DeleteDocumentsResult struct {
 	// MatchedRecords The number of documents that matched `filter` when the delete was accepted. Only returned for a filtered delete, and omitted when the count could not be read in time; `0` means the filter matched no documents. The delete is applied asynchronously, so this is a point-in-time count rather than a guarantee of the number of documents ultimately deleted.
 	MatchedRecords *int32 `json:"matched_records,omitempty"`
 }
@@ -167,25 +167,8 @@ type DocumentFetchUsage struct {
 	ReadUnits int32 `json:"read_units"`
 }
 
-// DocumentFieldValue The value of a single document field. Scalar fields carry the same types as metadata ("must be a boolean, number, string, or array of strings"); a field declared in the index schema as `dense_vector` carries an array of numbers, and one declared `sparse_vector` carries sparse values. Which names are vector fields is a property of the index, not of this request.
-type DocumentFieldValue struct {
-	union json.RawMessage
-}
-
-// DocumentFieldValue0 defines model for .
-type DocumentFieldValue0 = string
-
-// DocumentFieldValue1 defines model for .
-type DocumentFieldValue1 = float32
-
-// DocumentFieldValue2 defines model for .
-type DocumentFieldValue2 = bool
-
-// DocumentFieldValue3 defines model for .
-type DocumentFieldValue3 = []string
-
-// DocumentFieldValue4 defines model for .
-type DocumentFieldValue4 = []float32
+// DocumentFieldValue The value of a single document field. Scalar fields carry the same types as metadata ("must be a boolean, number, string, or array of strings"); a field declared in the index schema as `dense_vector` carries an array of numbers, and one declared `sparse_vector` carries a `SparseValues` object. Which names are vector fields is a property of the index, not of this request.
+type DocumentFieldValue = interface{}
 
 // DocumentListUsage Usage information for the `list_documents` operation.
 type DocumentListUsage struct {
@@ -339,8 +322,8 @@ type FetchDocumentsRequest struct {
 	PaginationToken *string `json:"pagination_token,omitempty"`
 }
 
-// FetchDocumentsResponse The response for the `fetch_documents` operation.
-type FetchDocumentsResponse struct {
+// FetchDocumentsResult The response for the `fetch_documents` operation.
+type FetchDocumentsResult struct {
 	// Documents A map of document IDs to their fetched documents.
 	Documents map[string]FetchedDocumentRecord `json:"documents"`
 
@@ -471,8 +454,8 @@ type ListDocumentsRequest struct {
 	Prefix *string `json:"prefix,omitempty"`
 }
 
-// ListDocumentsResponse The response for the `list_documents` operation.
-type ListDocumentsResponse struct {
+// ListDocumentsResult The response for the `list_documents` operation.
+type ListDocumentsResult struct {
 	// Documents The listed documents, in sorted order by ID.
 	Documents []ListedDocumentRecord `json:"documents"`
 
@@ -495,8 +478,8 @@ type ListItem struct {
 	Id *string `json:"id,omitempty"`
 }
 
-// ListNamespaceAliasesResponse defines model for ListNamespaceAliasesResponse.
-type ListNamespaceAliasesResponse struct {
+// ListNamespaceAliasesResult defines model for ListNamespaceAliasesResult.
+type ListNamespaceAliasesResult struct {
 	// NamespaceAliases The aliases in this index that match the request, ordered by name.
 	NamespaceAliases *[]NamespaceAliasDescription `json:"namespace_aliases,omitempty"`
 	Pagination       *Pagination                  `json:"pagination,omitempty"`
@@ -544,22 +527,20 @@ type MetadataSchema struct {
 // MetadataSchemaFieldsFilterable Whether the field is indexed and can be used in filters. Must be present and must be `true`: omitting it, or sending `false` or `null`, is rejected with `Field '<name>' is set to filterable: false. Only filterable: true is supported.` To leave a field unindexed, omit it from `fields` entirely.
 type MetadataSchemaFieldsFilterable bool
 
-// MetadataValue The value of a single metadata field. Nested objects and mixed-type lists are rejected: "Metadata value must be a string, number, boolean or list of strings".
-type MetadataValue struct {
-	union json.RawMessage
+// MetadataSchemaResponse The metadata fields indexed for filtering. Only the fields listed in `fields` are indexed. New properties may be added; clients should ignore properties they don't recognize.
+type MetadataSchemaResponse struct {
+	// Fields A map of metadata field names to their configuration.
+	Fields map[string]MetadataSchemaResponseField `json:"fields"`
 }
 
-// MetadataValue0 defines model for .
-type MetadataValue0 = string
+// MetadataSchemaResponseField defines model for MetadataSchemaResponseField.
+type MetadataSchemaResponseField struct {
+	// Filterable Whether the field is indexed and can be used in filters.
+	Filterable bool `json:"filterable"`
+}
 
-// MetadataValue1 defines model for .
-type MetadataValue1 = float32
-
-// MetadataValue2 defines model for .
-type MetadataValue2 = bool
-
-// MetadataValue3 defines model for .
-type MetadataValue3 = []string
+// MetadataValue The value of a single metadata field. Nested objects and mixed-type lists are rejected: "Metadata value must be a string, number, boolean or list of strings".
+type MetadataValue = interface{}
 
 // NamespaceAliasDescription A description of a namespace alias and the namespace it resolves to.
 type NamespaceAliasDescription struct {
@@ -579,21 +560,25 @@ type NamespaceAliasDescription struct {
 // NamespaceDescription A description of a namespace, including the name and record count.
 type NamespaceDescription struct {
 	// IndexedFields A list of all indexed metatadata fields in the namespace
-	IndexedFields *struct {
-		Fields *[]string `json:"fields,omitempty"`
-	} `json:"indexed_fields,omitempty"`
+	IndexedFields *NamespaceIndexedFields `json:"indexed_fields,omitempty"`
 
 	// Name The name of the namespace.
-	Name *string `json:"name,omitempty"`
+	Name string `json:"name"`
 
 	// RecordCount The total number of records in the namespace. A 64-bit integer, serialized as a decimal string.
-	RecordCount *string `json:"record_count,omitempty"`
+	RecordCount string `json:"record_count"`
 
-	// Schema Schema for the behavior of Pinecone's internal metadata index. By default, all metadata is indexed; when `schema` is present, only fields which are present in the `fields` object with a `filterable: true` are indexed. Note that `filterable: false` is not currently supported.
-	Schema *MetadataSchema `json:"schema,omitempty"`
+	// Schema The metadata fields indexed for filtering. Only the fields listed in `fields` are indexed. New properties may be added; clients should ignore properties they don't recognize.
+	Schema *MetadataSchemaResponse `json:"schema,omitempty"`
 
 	// SizeBytes The total size of the namespace's data, in bytes, as a 64-bit integer serialized as a decimal string. Approximate: data written before size tracking reads as 0, and recently deleted data may still be counted; compaction converges the value.
-	SizeBytes *string `json:"size_bytes,omitempty"`
+	SizeBytes string `json:"size_bytes"`
+}
+
+// NamespaceIndexedFields A list of all indexed metatadata fields in the namespace
+type NamespaceIndexedFields struct {
+	// Fields Metadata keys that filters in this namespace can use.
+	Fields *[]string `json:"fields,omitempty"`
 }
 
 // NamespaceSummary A summary of the contents of a namespace.
@@ -715,8 +700,8 @@ type SearchDocumentsRequest struct {
 	TopK int32 `json:"top_k"`
 }
 
-// SearchDocumentsResponse The response for the `search_documents` operation.
-type SearchDocumentsResponse struct {
+// SearchDocumentsResult The response for the `search_documents` operation.
+type SearchDocumentsResult struct {
 	// Matches The matching documents, ordered from most to least similar.
 	Matches []DocumentSearchMatch `json:"matches"`
 
@@ -963,8 +948,8 @@ type UpdateDocumentsRequest0 = interface{}
 // UpdateDocumentsRequest1 defines model for .
 type UpdateDocumentsRequest1 = interface{}
 
-// UpdateDocumentsResponse The response for the `update_documents` operation.
-type UpdateDocumentsResponse struct {
+// UpdateDocumentsResult The response for the `update_documents` operation.
+type UpdateDocumentsResult struct {
 	// MatchedRecords The number of documents that matched `filter` when the update was accepted. Only returned for a filtered update; a per-ID update reports no count. The patch is applied asynchronously, so this is a point-in-time count rather than a guarantee of the number of documents ultimately patched.
 	MatchedRecords *int32 `json:"matched_records,omitempty"`
 
@@ -1012,8 +997,8 @@ type UpsertDocumentsRequest struct {
 	Documents []DocumentRecord `json:"documents"`
 }
 
-// UpsertDocumentsResponse The response for the `upsert_documents` operation.
-type UpsertDocumentsResponse struct {
+// UpsertDocumentsResult The response for the `upsert_documents` operation.
+type UpsertDocumentsResult struct {
 	// UpsertedCount The number of documents successfully upserted.
 	UpsertedCount int32 `json:"upserted_count"`
 
@@ -1800,172 +1785,6 @@ func (t *DeleteDocumentsRequest) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsDocumentFieldValue0 returns the union data inside the DocumentFieldValue as a DocumentFieldValue0
-func (t DocumentFieldValue) AsDocumentFieldValue0() (DocumentFieldValue0, error) {
-	var body DocumentFieldValue0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromDocumentFieldValue0 overwrites any union data inside the DocumentFieldValue as the provided DocumentFieldValue0
-func (t *DocumentFieldValue) FromDocumentFieldValue0(v DocumentFieldValue0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeDocumentFieldValue0 performs a merge with any union data inside the DocumentFieldValue, using the provided DocumentFieldValue0
-func (t *DocumentFieldValue) MergeDocumentFieldValue0(v DocumentFieldValue0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsDocumentFieldValue1 returns the union data inside the DocumentFieldValue as a DocumentFieldValue1
-func (t DocumentFieldValue) AsDocumentFieldValue1() (DocumentFieldValue1, error) {
-	var body DocumentFieldValue1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromDocumentFieldValue1 overwrites any union data inside the DocumentFieldValue as the provided DocumentFieldValue1
-func (t *DocumentFieldValue) FromDocumentFieldValue1(v DocumentFieldValue1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeDocumentFieldValue1 performs a merge with any union data inside the DocumentFieldValue, using the provided DocumentFieldValue1
-func (t *DocumentFieldValue) MergeDocumentFieldValue1(v DocumentFieldValue1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsDocumentFieldValue2 returns the union data inside the DocumentFieldValue as a DocumentFieldValue2
-func (t DocumentFieldValue) AsDocumentFieldValue2() (DocumentFieldValue2, error) {
-	var body DocumentFieldValue2
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromDocumentFieldValue2 overwrites any union data inside the DocumentFieldValue as the provided DocumentFieldValue2
-func (t *DocumentFieldValue) FromDocumentFieldValue2(v DocumentFieldValue2) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeDocumentFieldValue2 performs a merge with any union data inside the DocumentFieldValue, using the provided DocumentFieldValue2
-func (t *DocumentFieldValue) MergeDocumentFieldValue2(v DocumentFieldValue2) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsDocumentFieldValue3 returns the union data inside the DocumentFieldValue as a DocumentFieldValue3
-func (t DocumentFieldValue) AsDocumentFieldValue3() (DocumentFieldValue3, error) {
-	var body DocumentFieldValue3
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromDocumentFieldValue3 overwrites any union data inside the DocumentFieldValue as the provided DocumentFieldValue3
-func (t *DocumentFieldValue) FromDocumentFieldValue3(v DocumentFieldValue3) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeDocumentFieldValue3 performs a merge with any union data inside the DocumentFieldValue, using the provided DocumentFieldValue3
-func (t *DocumentFieldValue) MergeDocumentFieldValue3(v DocumentFieldValue3) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsDocumentFieldValue4 returns the union data inside the DocumentFieldValue as a DocumentFieldValue4
-func (t DocumentFieldValue) AsDocumentFieldValue4() (DocumentFieldValue4, error) {
-	var body DocumentFieldValue4
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromDocumentFieldValue4 overwrites any union data inside the DocumentFieldValue as the provided DocumentFieldValue4
-func (t *DocumentFieldValue) FromDocumentFieldValue4(v DocumentFieldValue4) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeDocumentFieldValue4 performs a merge with any union data inside the DocumentFieldValue, using the provided DocumentFieldValue4
-func (t *DocumentFieldValue) MergeDocumentFieldValue4(v DocumentFieldValue4) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsSparseValues returns the union data inside the DocumentFieldValue as a SparseValues
-func (t DocumentFieldValue) AsSparseValues() (SparseValues, error) {
-	var body SparseValues
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromSparseValues overwrites any union data inside the DocumentFieldValue as the provided SparseValues
-func (t *DocumentFieldValue) FromSparseValues(v SparseValues) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeSparseValues performs a merge with any union data inside the DocumentFieldValue, using the provided SparseValues
-func (t *DocumentFieldValue) MergeSparseValues(v SparseValues) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t DocumentFieldValue) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *DocumentFieldValue) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
 // AsDenseVectorScoring returns the union data inside the DocumentScoringMethod as a DenseVectorScoring
 func (t DocumentScoringMethod) AsDenseVectorScoring() (DenseVectorScoring, error) {
 	var body DenseVectorScoring
@@ -2171,120 +1990,6 @@ func (t DocumentScoringMethod) MarshalJSON() ([]byte, error) {
 }
 
 func (t *DocumentScoringMethod) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
-// AsMetadataValue0 returns the union data inside the MetadataValue as a MetadataValue0
-func (t MetadataValue) AsMetadataValue0() (MetadataValue0, error) {
-	var body MetadataValue0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromMetadataValue0 overwrites any union data inside the MetadataValue as the provided MetadataValue0
-func (t *MetadataValue) FromMetadataValue0(v MetadataValue0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeMetadataValue0 performs a merge with any union data inside the MetadataValue, using the provided MetadataValue0
-func (t *MetadataValue) MergeMetadataValue0(v MetadataValue0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsMetadataValue1 returns the union data inside the MetadataValue as a MetadataValue1
-func (t MetadataValue) AsMetadataValue1() (MetadataValue1, error) {
-	var body MetadataValue1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromMetadataValue1 overwrites any union data inside the MetadataValue as the provided MetadataValue1
-func (t *MetadataValue) FromMetadataValue1(v MetadataValue1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeMetadataValue1 performs a merge with any union data inside the MetadataValue, using the provided MetadataValue1
-func (t *MetadataValue) MergeMetadataValue1(v MetadataValue1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsMetadataValue2 returns the union data inside the MetadataValue as a MetadataValue2
-func (t MetadataValue) AsMetadataValue2() (MetadataValue2, error) {
-	var body MetadataValue2
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromMetadataValue2 overwrites any union data inside the MetadataValue as the provided MetadataValue2
-func (t *MetadataValue) FromMetadataValue2(v MetadataValue2) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeMetadataValue2 performs a merge with any union data inside the MetadataValue, using the provided MetadataValue2
-func (t *MetadataValue) MergeMetadataValue2(v MetadataValue2) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsMetadataValue3 returns the union data inside the MetadataValue as a MetadataValue3
-func (t MetadataValue) AsMetadataValue3() (MetadataValue3, error) {
-	var body MetadataValue3
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromMetadataValue3 overwrites any union data inside the MetadataValue as the provided MetadataValue3
-func (t *MetadataValue) FromMetadataValue3(v MetadataValue3) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeMetadataValue3 performs a merge with any union data inside the MetadataValue, using the provided MetadataValue3
-func (t *MetadataValue) MergeMetadataValue3(v MetadataValue3) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t MetadataValue) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *MetadataValue) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -5221,7 +4926,7 @@ func (r DescribeIndexStatsApiResponse) StatusCode() int {
 type ListNamespaceAliasesApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *ListNamespaceAliasesResponse
+	JSON200      *ListNamespaceAliasesResult
 	JSON400      *RpcStatus
 	JSON4XX      *RpcStatus
 	JSON5XX      *RpcStatus
@@ -5454,7 +5159,7 @@ func (r DescribeNamespaceApiResponse) StatusCode() int {
 type DeleteDocumentsApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON202      *DeleteDocumentsResponse
+	JSON202      *DeleteDocumentsResult
 	JSON400      *ErrorResponse
 	JSON412      *ErrorResponse
 	JSON4XX      *ErrorResponse
@@ -5480,7 +5185,7 @@ func (r DeleteDocumentsApiResponse) StatusCode() int {
 type FetchDocumentsApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *FetchDocumentsResponse
+	JSON200      *FetchDocumentsResult
 	JSON400      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON5XX      *ErrorResponse
@@ -5505,7 +5210,7 @@ func (r FetchDocumentsApiResponse) StatusCode() int {
 type ListDocumentsApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *ListDocumentsResponse
+	JSON200      *ListDocumentsResult
 	JSON400      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON5XX      *ErrorResponse
@@ -5530,7 +5235,7 @@ func (r ListDocumentsApiResponse) StatusCode() int {
 type SearchDocumentsApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *SearchDocumentsResponse
+	JSON200      *SearchDocumentsResult
 	JSON400      *ErrorResponse
 	JSON429      *ErrorResponse
 	JSON4XX      *ErrorResponse
@@ -5556,7 +5261,7 @@ func (r SearchDocumentsApiResponse) StatusCode() int {
 type UpdateDocumentsApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON202      *UpdateDocumentsResponse
+	JSON202      *UpdateDocumentsResult
 	JSON400      *ErrorResponse
 	JSON412      *ErrorResponse
 	JSON429      *ErrorResponse
@@ -5583,7 +5288,7 @@ func (r UpdateDocumentsApiResponse) StatusCode() int {
 type UpsertDocumentsApiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON202      *UpsertDocumentsResponse
+	JSON202      *UpsertDocumentsResult
 	JSON400      *ErrorResponse
 	JSON409      *ErrorResponse
 	JSON429      *ErrorResponse
@@ -6480,7 +6185,7 @@ func ParseListNamespaceAliasesApiResponse(rsp *http.Response) (*ListNamespaceAli
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ListNamespaceAliasesResponse
+		var dest ListNamespaceAliasesResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -6959,7 +6664,7 @@ func ParseDeleteDocumentsApiResponse(rsp *http.Response) (*DeleteDocumentsApiRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
-		var dest DeleteDocumentsResponse
+		var dest DeleteDocumentsResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -7013,7 +6718,7 @@ func ParseFetchDocumentsApiResponse(rsp *http.Response) (*FetchDocumentsApiRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest FetchDocumentsResponse
+		var dest FetchDocumentsResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -7060,7 +6765,7 @@ func ParseListDocumentsApiResponse(rsp *http.Response) (*ListDocumentsApiRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ListDocumentsResponse
+		var dest ListDocumentsResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -7107,7 +6812,7 @@ func ParseSearchDocumentsApiResponse(rsp *http.Response) (*SearchDocumentsApiRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SearchDocumentsResponse
+		var dest SearchDocumentsResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -7164,7 +6869,7 @@ func ParseUpdateDocumentsApiResponse(rsp *http.Response) (*UpdateDocumentsApiRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
-		var dest UpdateDocumentsResponse
+		var dest UpdateDocumentsResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -7228,7 +6933,7 @@ func ParseUpsertDocumentsApiResponse(rsp *http.Response) (*UpsertDocumentsApiRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
-		var dest UpsertDocumentsResponse
+		var dest UpsertDocumentsResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

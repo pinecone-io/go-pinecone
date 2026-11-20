@@ -211,7 +211,9 @@ type ErrorResponse struct {
 
 		// Details Machine-readable facts about the error, as an object. Its values are never `null`; a key with no value is left out. On API version 2026-10 and later it is set alongside `reason`, and may include the keys documented for that reason; more may be added, so ignore keys you don't recognize. This field is not guaranteed to be present.
 		Details *map[string]interface{} `json:"details,omitempty"`
-		Message string                  `json:"message"`
+
+		// Message A human-readable description of the error. Message text in examples is illustrative: the server may send different wording, and wording can change without notice. Branch on `code`, and on `reason` where present, never on `message`.
+		Message string `json:"message"`
 
 		// Reason The exact cause of the error, when the error names one. Only some errors set it, and only on API version 2026-10 and later; no error in this API sets one yet. Each reason belongs to one `code`, keeps its name and meaning within an API version, and documents the `details` keys it sets. New reasons may be added: treat a value you don't recognize as if `reason` were absent, and act on `code`.
 		Reason *string `json:"reason,omitempty"`
@@ -405,6 +407,9 @@ type ServiceAccountWithSecret struct {
 	ServiceAccount ServiceAccount `json:"service_account"`
 }
 
+// UnprocessableEntityMessage The plain-text body of an error response for a request body that cannot be deserialized. It carries the deserializer's message rather than an `ErrorResponse`.
+type UnprocessableEntityMessage = string
+
 // UpdateAPIKeyRequest defines model for UpdateAPIKeyRequest.
 type UpdateAPIKeyRequest struct {
 	// Name A new name for the API key. The name must be 1-80 characters long. If omitted, the name will not be updated.
@@ -503,7 +508,7 @@ type ListCostUsageExportsParams struct {
 	// Limit The number of results to return per page. When omitted, the server defaults to 100. Out-of-range values return `400 OUT_OF_RANGE`.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// PaginationToken Cursor from `pagination.next` of a prior response. Must be reused with the same query context (path parameters, filters, and `limit`).
+	// PaginationToken Cursor from `pagination.next` of a prior response. Must be reused with the same query context (path parameters, filters, and `limit`). `pagination_token` is accepted as another name for this parameter.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
 
 	// XPineconeApiVersion Required date-based version header
@@ -527,7 +532,7 @@ type ListInvitesParams struct {
 	// Limit The number of results to return per page. When omitted, the server defaults to 100. Out-of-range values return `400 OUT_OF_RANGE`.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// PaginationToken Cursor from `pagination.next` of a prior response. Must be reused with the same query context (path parameters, filters, and `limit`).
+	// PaginationToken Cursor from `pagination.next` of a prior response. Must be reused with the same query context (path parameters, filters, and `limit`). `pagination_token` is accepted as another name for this parameter.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
 
 	// XPineconeApiVersion Required date-based version header
@@ -644,7 +649,7 @@ type ListRoleBindingsParams struct {
 	// Limit The number of results to return per page. When omitted, the server defaults to 100. Out-of-range values return `400 OUT_OF_RANGE`.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// PaginationToken Cursor from `pagination.next` of a prior response. Must be reused with the same query context (path parameters, filters, and `limit`).
+	// PaginationToken Cursor from `pagination.next` of a prior response. Must be reused with the same query context (path parameters, filters, and `limit`). `pagination_token` is accepted as another name for this parameter.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
 
 	// XPineconeApiVersion Required date-based version header
@@ -674,7 +679,7 @@ type ListServiceAccountsParams struct {
 	// Limit The number of results to return per page. When omitted, the server defaults to 100. Out-of-range values return `400 OUT_OF_RANGE`.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// PaginationToken Cursor from `pagination.next` of a prior response. Must be reused with the same query context (path parameters, filters, and `limit`).
+	// PaginationToken Cursor from `pagination.next` of a prior response. Must be reused with the same query context (path parameters, filters, and `limit`). `pagination_token` is accepted as another name for this parameter.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
 
 	// XPineconeApiVersion Required date-based version header
@@ -719,7 +724,7 @@ type ListUsersParams struct {
 	// Limit The number of results to return per page. When omitted, the server defaults to 100. Out-of-range values return `400 OUT_OF_RANGE`.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// PaginationToken Cursor from `pagination.next` of a prior response. Must be reused with the same query context (path parameters, filters, and `limit`).
+	// PaginationToken Cursor from `pagination.next` of a prior response. Must be reused with the same query context (path parameters, filters, and `limit`). `pagination_token` is accepted as another name for this parameter.
 	PaginationToken *string `form:"paginationToken,omitempty" json:"paginationToken,omitempty"`
 
 	// XPineconeApiVersion Required date-based version header
@@ -3728,6 +3733,7 @@ type UpdateApiKeyApiResponse struct {
 	JSON400      *ErrorResponse
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -3783,6 +3789,7 @@ type CreateCostUsageExportApiResponse struct {
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON409      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON429      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON500      *ErrorResponse
@@ -3867,6 +3874,7 @@ type CreateInviteApiResponse struct {
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON409      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -4055,6 +4063,7 @@ type UpdateOrganizationApiResponse struct {
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -4108,6 +4117,7 @@ type CreateProjectApiResponse struct {
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -4188,6 +4198,7 @@ type UpdateProjectApiResponse struct {
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -4240,6 +4251,7 @@ type CreateApiKeyApiResponse struct {
 	JSON400      *ErrorResponse
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -4296,6 +4308,7 @@ type CreateRoleBindingApiResponse struct {
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
 	JSON409      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -4404,6 +4417,7 @@ type CreateServiceAccountApiResponse struct {
 	JSON400      *ErrorResponse
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -4485,6 +4499,7 @@ type UpdateServiceAccountApiResponse struct {
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON404      *ErrorResponse
+	JSON422      *ErrorResponse
 	JSON4XX      *ErrorResponse
 	JSON500      *ErrorResponse
 }
@@ -5158,6 +5173,13 @@ func ParseUpdateApiKeyApiResponse(rsp *http.Response) (*UpdateApiKeyApiResponse,
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -5171,6 +5193,12 @@ func ParseUpdateApiKeyApiResponse(rsp *http.Response) (*UpdateApiKeyApiResponse,
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -5233,6 +5261,9 @@ func ParseListCostUsageExportsApiResponse(rsp *http.Response) (*ListCostUsageExp
 		}
 		response.JSON500 = &dest
 
+	case rsp.StatusCode == 400:
+		// Content-type (text/plain) unsupported
+
 	}
 
 	return response, nil
@@ -5287,6 +5318,13 @@ func ParseCreateCostUsageExportApiResponse(rsp *http.Response) (*CreateCostUsage
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -5307,6 +5345,12 @@ func ParseCreateCostUsageExportApiResponse(rsp *http.Response) (*CreateCostUsage
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -5437,6 +5481,9 @@ func ParseListInvitesApiResponse(rsp *http.Response) (*ListInvitesApiResponse, e
 		}
 		response.JSON500 = &dest
 
+	case rsp.StatusCode == 400:
+		// Content-type (text/plain) unsupported
+
 	}
 
 	return response, nil
@@ -5491,6 +5538,13 @@ func ParseCreateInviteApiResponse(rsp *http.Response) (*CreateInviteApiResponse,
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -5504,6 +5558,12 @@ func ParseCreateInviteApiResponse(rsp *http.Response) (*CreateInviteApiResponse,
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -5911,6 +5971,13 @@ func ParseUpdateOrganizationApiResponse(rsp *http.Response) (*UpdateOrganization
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -5924,6 +5991,12 @@ func ParseUpdateOrganizationApiResponse(rsp *http.Response) (*UpdateOrganization
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -6026,6 +6099,13 @@ func ParseCreateProjectApiResponse(rsp *http.Response) (*CreateProjectApiRespons
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6039,6 +6119,12 @@ func ParseCreateProjectApiResponse(rsp *http.Response) (*CreateProjectApiRespons
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -6202,6 +6288,13 @@ func ParseUpdateProjectApiResponse(rsp *http.Response) (*UpdateProjectApiRespons
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6215,6 +6308,12 @@ func ParseUpdateProjectApiResponse(rsp *http.Response) (*UpdateProjectApiRespons
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -6310,6 +6409,13 @@ func ParseCreateApiKeyApiResponse(rsp *http.Response) (*CreateApiKeyApiResponse,
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6323,6 +6429,12 @@ func ParseCreateApiKeyApiResponse(rsp *http.Response) (*CreateApiKeyApiResponse,
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -6385,6 +6497,9 @@ func ParseListRoleBindingsApiResponse(rsp *http.Response) (*ListRoleBindingsApiR
 		}
 		response.JSON500 = &dest
 
+	case rsp.StatusCode == 400:
+		// Content-type (text/plain) unsupported
+
 	}
 
 	return response, nil
@@ -6446,6 +6561,13 @@ func ParseCreateRoleBindingApiResponse(rsp *http.Response) (*CreateRoleBindingAp
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6459,6 +6581,12 @@ func ParseCreateRoleBindingApiResponse(rsp *http.Response) (*CreateRoleBindingAp
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -6643,6 +6771,9 @@ func ParseListServiceAccountsApiResponse(rsp *http.Response) (*ListServiceAccoun
 		}
 		response.JSON500 = &dest
 
+	case rsp.StatusCode == 400:
+		// Content-type (text/plain) unsupported
+
 	}
 
 	return response, nil
@@ -6690,6 +6821,13 @@ func ParseCreateServiceAccountApiResponse(rsp *http.Response) (*CreateServiceAcc
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6703,6 +6841,12 @@ func ParseCreateServiceAccountApiResponse(rsp *http.Response) (*CreateServiceAcc
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -6873,6 +7017,13 @@ func ParseUpdateServiceAccountApiResponse(rsp *http.Response) (*UpdateServiceAcc
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6886,6 +7037,12 @@ func ParseUpdateServiceAccountApiResponse(rsp *http.Response) (*UpdateServiceAcc
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+	// Content-type (text/plain) unsupported
+
+	case rsp.StatusCode == 422:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -7008,6 +7165,9 @@ func ParseListUsersApiResponse(rsp *http.Response) (*ListUsersApiResponse, error
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case rsp.StatusCode == 400:
+		// Content-type (text/plain) unsupported
 
 	}
 
