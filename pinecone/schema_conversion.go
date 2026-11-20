@@ -154,6 +154,24 @@ func toDbRestoreDeploymentRequest(deployment *IndexDeployment) (*db_control.Rest
 	return &restore, nil
 }
 
+// schemaFieldTargets maps each schema field type this SDK knows to a function that sets the matching
+// pointer on an IndexSchemaField and returns it as the decode target. The empty type is a legacy
+// metadata field, which carries only "filterable" and no "type".
+var schemaFieldTargets = map[string]func(*IndexSchemaField) any{
+	"dense_vector":  func(f *IndexSchemaField) any { f.DenseVector = &DenseVectorField{}; return f.DenseVector },
+	"sparse_vector": func(f *IndexSchemaField) any { f.SparseVector = &SparseVectorField{}; return f.SparseVector },
+	"semantic_text": func(f *IndexSchemaField) any { f.SemanticText = &SemanticTextField{}; return f.SemanticText },
+	"string":        func(f *IndexSchemaField) any { f.String = &StringField{}; return f.String },
+	"string_list":   func(f *IndexSchemaField) any { f.StringList = &StringListField{}; return f.StringList },
+	"boolean":       func(f *IndexSchemaField) any { f.Boolean = &BooleanField{}; return f.Boolean },
+	"float":         func(f *IndexSchemaField) any { f.Float = &FloatField{}; return f.Float },
+	"integer":       func(f *IndexSchemaField) any { f.Integer = &IntegerField{}; return f.Integer },
+	"":              func(f *IndexSchemaField) any { f.LegacyMetadata = &LegacyMetadataField{}; return f.LegacyMetadata },
+}
+
+// knownDeploymentTypes are the deployment types toIndexDeployment converts.
+var knownDeploymentTypes = map[string]bool{"managed": true, "pod": true, "byoc": true}
+
 // toIndexSchema converts the generated response schema into the public IndexSchema. Each field is
 // re-encoded and decoded straight into the matching public type, whose JSON tags mirror the wire
 // names. Fields with an unknown type are skipped rather than failing the whole response, so the SDK
@@ -167,47 +185,17 @@ func toIndexSchema(schema *db_control.IndexSchema) *IndexSchema {
 
 	fields := make(map[string]IndexSchemaField, len(schema.Fields))
 	for name, field := range schema.Fields {
+		newTarget, ok := schemaFieldTargets[derefOrDefault(field.Type, "")]
+		if !ok {
+			continue
+		}
 		raw, err := json.Marshal(field)
 		if err != nil {
 			continue
 		}
 
 		var publicField IndexSchemaField
-		var target any
-		switch derefOrDefault(field.Type, "") {
-		case "dense_vector":
-			publicField.DenseVector = &DenseVectorField{}
-			target = publicField.DenseVector
-		case "sparse_vector":
-			publicField.SparseVector = &SparseVectorField{}
-			target = publicField.SparseVector
-		case "semantic_text":
-			publicField.SemanticText = &SemanticTextField{}
-			target = publicField.SemanticText
-		case "string":
-			publicField.String = &StringField{}
-			target = publicField.String
-		case "string_list":
-			publicField.StringList = &StringListField{}
-			target = publicField.StringList
-		case "boolean":
-			publicField.Boolean = &BooleanField{}
-			target = publicField.Boolean
-		case "float":
-			publicField.Float = &FloatField{}
-			target = publicField.Float
-		case "integer":
-			publicField.Integer = &IntegerField{}
-			target = publicField.Integer
-		case "":
-			// No "type" tag: a legacy metadata field carrying only "filterable".
-			publicField.LegacyMetadata = &LegacyMetadataField{}
-			target = publicField.LegacyMetadata
-		default:
-			continue
-		}
-
-		if err := json.Unmarshal(raw, target); err != nil {
+		if err := json.Unmarshal(raw, newTarget(&publicField)); err != nil {
 			continue
 		}
 		if semantic := publicField.SemanticText; semantic != nil && semantic.Dimension != nil && *semantic.Dimension == 0 {
@@ -216,6 +204,110 @@ func toIndexSchema(schema *db_control.IndexSchema) *IndexSchema {
 		fields[name] = publicField
 	}
 	return &IndexSchema{Fields: fields}
+}
+
+// indexModel decodes a generated IndexModel after dropping the parts of an open object the
+// generated struct can't hold; see dropUnknownSchemaFields and reduceUnknownDeployment.
+type indexModel struct {
+	db_control.IndexModel
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (m *indexModel) UnmarshalJSON(data []byte) error {
+	data = rewriteObjectKeys(data, map[string]func(json.RawMessage) json.RawMessage{
+		"schema":     dropUnknownSchemaFields,
+		"deployment": reduceUnknownDeployment,
+	})
+	return json.Unmarshal(data, &m.IndexModel)
+}
+
+// backupModel decodes a generated BackupModel after dropping schema fields the generated struct
+// can't hold; see dropUnknownSchemaFields.
+type backupModel struct {
+	db_control.BackupModel
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (m *backupModel) UnmarshalJSON(data []byte) error {
+	data = rewriteObjectKeys(data, map[string]func(json.RawMessage) json.RawMessage{
+		"schema": dropUnknownSchemaFields,
+	})
+	return json.Unmarshal(data, &m.BackupModel)
+}
+
+// rewriteObjectKeys applies a rewrite to each listed key of a JSON object and returns the re-encoded
+// object. Anything that isn't a JSON object, or has none of the keys, is returned unchanged for the
+// generated decode to accept or reject.
+func rewriteObjectKeys(data []byte, rewrites map[string]func(json.RawMessage) json.RawMessage) []byte {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(data, &object); err != nil || object == nil {
+		return data
+	}
+	changed := false
+	for key, rewrite := range rewrites {
+		if value, ok := object[key]; ok {
+			object[key] = rewrite(value)
+			changed = true
+		}
+	}
+	if !changed {
+		return data
+	}
+	rewritten, err := json.Marshal(object)
+	if err != nil {
+		return data
+	}
+	return rewritten
+}
+
+// dropUnknownSchemaFields removes the schema fields whose "type" this SDK doesn't know, including a
+// "type" that isn't a string. The generated IndexSchemaField holds every type's properties in one
+// struct with fixed Go types, so a new field type that reuses a property name with another JSON
+// shape would otherwise fail the whole response before toIndexSchema could skip it.
+func dropUnknownSchemaFields(schema json.RawMessage) json.RawMessage {
+	return rewriteObjectKeys(schema, map[string]func(json.RawMessage) json.RawMessage{
+		"fields": func(raw json.RawMessage) json.RawMessage {
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &fields); err != nil || fields == nil {
+				return raw
+			}
+			for name, field := range fields {
+				var props map[string]json.RawMessage
+				if err := json.Unmarshal(field, &props); err != nil || props == nil {
+					continue
+				}
+				var fieldType string
+				if typeValue, ok := props["type"]; ok {
+					if err := json.Unmarshal(typeValue, &fieldType); err != nil {
+						delete(fields, name)
+						continue
+					}
+				}
+				if _, known := schemaFieldTargets[fieldType]; !known {
+					delete(fields, name)
+				}
+			}
+			rewritten, err := json.Marshal(fields)
+			if err != nil {
+				return raw
+			}
+			return rewritten
+		},
+	})
+}
+
+// reduceUnknownDeployment reduces a deployment whose "deployment_type" this SDK doesn't know to that
+// type alone, for the same reason as dropUnknownSchemaFields. toIndexDeployment reports it as nil.
+func reduceUnknownDeployment(deployment json.RawMessage) json.RawMessage {
+	var props map[string]json.RawMessage
+	if err := json.Unmarshal(deployment, &props); err != nil || props == nil {
+		return deployment
+	}
+	var deploymentType string
+	if err := json.Unmarshal(props["deployment_type"], &deploymentType); err == nil && knownDeploymentTypes[deploymentType] {
+		return deployment
+	}
+	return json.RawMessage(`{"deployment_type": ""}`)
 }
 
 // toIndexDeployment converts the generated response deployment into the public IndexDeployment. A
