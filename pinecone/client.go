@@ -3150,6 +3150,43 @@ func decodeErrorResponse(resBodyBytes []byte) (*db_control.ErrorResponse, error)
 	return &errorResponse, nil
 }
 
+// rpcStatus is the error body of the bulk import operations: a gRPC code and message.
+type rpcStatus struct {
+	Code    *int32          `json:"code"`
+	Message *string         `json:"message"`
+	Details *[]rpcStatusAny `json:"details"`
+}
+
+// rpcStatusAny is one entry of rpcStatus details, a protobuf Any.
+type rpcStatusAny map[string]any
+
+// decodeRpcStatus decodes an rpcStatus error body. It reports false unless the body is a JSON
+// object with a numeric top-level "code".
+func decodeRpcStatus(resBodyBytes []byte) (*rpcStatus, bool) {
+	var status rpcStatus
+	if err := json.Unmarshal(resBodyBytes, &status); err != nil || status.Code == nil {
+		return nil, false
+	}
+	return &status, true
+}
+
+// grpcCodeNames are the canonical names of the gRPC status codes, indexed by code. They match the
+// error codes of the ErrorResponse shape.
+var grpcCodeNames = [...]string{
+	"OK", "CANCELLED", "UNKNOWN", "INVALID_ARGUMENT", "DEADLINE_EXCEEDED", "NOT_FOUND",
+	"ALREADY_EXISTS", "PERMISSION_DENIED", "RESOURCE_EXHAUSTED", "FAILED_PRECONDITION", "ABORTED",
+	"OUT_OF_RANGE", "UNIMPLEMENTED", "INTERNAL", "UNAVAILABLE", "DATA_LOSS", "UNAUTHENTICATED",
+}
+
+// grpcCodeName returns the canonical name of a gRPC status code, or "UNKNOWN" for a code it
+// doesn't recognize, as gRPC clients treat unrecognized codes.
+func grpcCodeName(code int32) string {
+	if code >= 0 && int(code) < len(grpcCodeNames) {
+		return grpcCodeNames[code]
+	}
+	return "UNKNOWN"
+}
+
 type errorResponseMap struct {
 	StatusCode int             `json:"status_code"`
 	Body       string          `json:"body,omitempty"`
@@ -3182,6 +3219,14 @@ func handleErrorResponseBody(response *http.Response, errMsgPrefix string) error
 			if errorResponse.Error.Details != nil {
 				errMap.Details = fmt.Sprintf("%+v", errorResponse.Error.Details)
 				errMap.details = errorResponse.Error.Details
+			}
+		} else if status, ok := decodeRpcStatus(resBodyBytes); ok {
+			errMap.ErrorCode = grpcCodeName(*status.Code)
+			if status.Message != nil {
+				errMap.Message = *status.Message
+			}
+			if status.Details != nil && len(*status.Details) > 0 {
+				errMap.Details = fmt.Sprintf("%+v", *status.Details)
 			}
 		}
 	}

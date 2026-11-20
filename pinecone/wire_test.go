@@ -2132,12 +2132,13 @@ func TestDataPlaneWireUnit(t *testing.T) {
 			name:      "SearchRecords",
 			namespace: "articles",
 			status:    http.StatusOK,
-			response:  `{"result": {"hits": [{"_id": "rec-1", "_score": 0.7, "fields": {"chunk_text": "apples"}}]}, "usage": {"read_units": 2, "embed_total_tokens": 3, "egress_bytes": 512}}`,
+			response:  `{"namespace": "articles", "result": {"hits": [{"_id": "rec-1", "_score": 0.7, "fields": {"chunk_text": "apples"}}]}, "usage": {"read_units": 2, "embed_total_tokens": 3, "egress_bytes": 512}}`,
 			call: func(t *testing.T, idx *IndexConnection) {
 				res, err := idx.SearchRecords(context.Background(), &SearchRecordsRequest{
 					Query: SearchRecordsQuery{TopK: 5, Inputs: &map[string]interface{}{"text": "apples"}},
 				})
 				require.NoError(t, err)
+				assert.Equal(t, "articles", res.Namespace)
 				require.Len(t, res.Result.Hits, 1)
 				assert.Equal(t, "rec-1", res.Result.Hits[0].Id)
 				assert.Equal(t, int32(2), res.Usage.ReadUnits)
@@ -2526,6 +2527,235 @@ func TestMistypedKnownPropertyFailsWireUnit(t *testing.T) {
 				_, err := newWireClient(t, server.URL).ListIndexes(context.Background())
 				require.Error(t, err)
 			})
+		})
+	}
+}
+
+func TestImportWireUnit(t *testing.T) {
+	const importJSON = `{"id": "101", "uri": "s3://b/d", "status": "Completed", "createdAt": "2026-10-01T12:00:00Z",
+		"finishedAt": "2026-10-01T13:00:00Z", "percentComplete": 100, "recordsImported": 999990,
+		"error": "some rows failed", "validationResult": {"importSuccesses": 999990, "importErrors": 10}}`
+	wantValidation := &ImportValidationResult{ImportSuccesses: ptr(int64(999990)), ImportErrors: ptr(int64(10))}
+
+	t.Run("DescribeImport validation result", func(t *testing.T) {
+		server := newWireServer(t, http.StatusOK, importJSON)
+		res, err := newWireIndexConnection(t, server.URL, "").DescribeImport(context.Background(), "101")
+		require.NoError(t, err)
+		assert.Equal(t, wantValidation, res.ValidationResult)
+		assertRequests(t, server.requests(), []wantRequest{{method: http.MethodGet, path: "/bulk/imports/101"}})
+	})
+
+	t.Run("ListImports validation result", func(t *testing.T) {
+		server := newWireServer(t, http.StatusOK, `{"data": [`+importJSON+`]}`)
+		res, err := newWireIndexConnection(t, server.URL, "").ListImports(context.Background(), nil)
+		require.NoError(t, err)
+		require.Len(t, res.Imports, 1)
+		assert.Equal(t, wantValidation, res.Imports[0].ValidationResult)
+	})
+
+	t.Run("DescribeImport before validation", func(t *testing.T) {
+		server := newWireServer(t, http.StatusOK, `{"id": "102", "uri": "s3://b/d", "status": "Pending", "percentComplete": 0, "recordsImported": 0}`)
+		res, err := newWireIndexConnection(t, server.URL, "").DescribeImport(context.Background(), "102")
+		require.NoError(t, err)
+		assert.Nil(t, res.ValidationResult)
+		assert.Nil(t, res.CreatedAt, "a body without createdAt leaves CreatedAt nil")
+	})
+
+	t.Run("empty id is rejected before sending", func(t *testing.T) {
+		server := newWireServer(t, http.StatusOK, `{}`)
+		idx := newWireIndexConnection(t, server.URL, "")
+
+		res, err := idx.DescribeImport(context.Background(), "")
+		require.ErrorContains(t, err, "id")
+		assert.Nil(t, res)
+
+		err = idx.CancelImport(context.Background(), "")
+		require.ErrorContains(t, err, "id")
+
+		assert.Empty(t, server.requests())
+	})
+}
+
+// A "." or ".." namespace must reach the server as a literal path segment. Unencoded, URL
+// resolution removes it ("/namespaces/../documents/upsert" becomes "/documents/upsert").
+func TestDotNamespaceRestPathUnit(t *testing.T) {
+	calls := []struct {
+		name     string
+		status   int
+		response string
+		path     string
+		call     func(idx *IndexConnection) error
+	}{
+		{"UpsertDocuments", http.StatusAccepted, `{"upserted_count": 1}`, "/namespaces/%s/documents/upsert", func(idx *IndexConnection) error {
+			_, err := idx.UpsertDocuments(context.Background(), &UpsertDocumentsRequest{Documents: []Document{{"_id": "doc-1"}}})
+			return err
+		}},
+		{"SearchDocuments", http.StatusOK, `{"matches": [], "namespace": "x", "usage": {"read_units": 1}}`, "/namespaces/%s/documents/search", func(idx *IndexConnection) error {
+			_, err := idx.SearchDocuments(context.Background(), &SearchDocumentsRequest{
+				TopK:    1,
+				ScoreBy: []DocumentScoringMethod{{Type: DocumentScoringTypeText, Fields: []string{"title"}, Query: ptr("q")}},
+			})
+			return err
+		}},
+		{"FetchDocuments", http.StatusOK, `{"documents": {}, "namespace": "x", "usage": {"read_units": 1}}`, "/namespaces/%s/documents/fetch", func(idx *IndexConnection) error {
+			_, err := idx.FetchDocuments(context.Background(), &FetchDocumentsRequest{Ids: []string{"doc-1"}})
+			return err
+		}},
+		{"DeleteDocuments", http.StatusAccepted, `{}`, "/namespaces/%s/documents/delete", func(idx *IndexConnection) error {
+			_, err := idx.DeleteDocuments(context.Background(), &DeleteDocumentsRequest{Ids: []string{"doc-1"}})
+			return err
+		}},
+		{"UpdateDocuments", http.StatusAccepted, `{"matched_records": 1}`, "/namespaces/%s/documents/update", func(idx *IndexConnection) error {
+			_, err := idx.UpdateDocuments(context.Background(), &UpdateDocumentsRequest{Documents: []Document{{"_id": "doc-1"}}})
+			return err
+		}},
+		{"ListDocuments", http.StatusOK, `{"documents": [], "namespace": "x", "usage": {"read_units": 1}}`, "/namespaces/%s/documents/list", func(idx *IndexConnection) error {
+			_, err := idx.ListDocuments(context.Background(), &ListDocumentsRequest{})
+			return err
+		}},
+		{"UpsertRecords", http.StatusCreated, ``, "/records/namespaces/%s/upsert", func(idx *IndexConnection) error {
+			return idx.UpsertRecords(context.Background(), []*IntegratedRecord{{"_id": "rec-1", "chunk_text": "apples"}})
+		}},
+		{"SearchRecords", http.StatusOK, `{"namespace": "x", "result": {"hits": []}, "usage": {"read_units": 1}}`, "/records/namespaces/%s/search", func(idx *IndexConnection) error {
+			_, err := idx.SearchRecords(context.Background(), &SearchRecordsRequest{
+				Query: SearchRecordsQuery{TopK: 1, Inputs: &map[string]interface{}{"text": "apples"}},
+			})
+			return err
+		}},
+	}
+	namespaces := []struct{ namespace, segment string }{
+		{".", "%2E"},
+		{"..", "%2E%2E"},
+		{"...", "..."},
+		{"a/..", "a%2F.."},
+	}
+
+	for _, c := range calls {
+		for _, ns := range namespaces {
+			t.Run(c.name+" "+ns.namespace, func(t *testing.T) {
+				var mu sync.Mutex
+				var got []string
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					mu.Lock()
+					got = append(got, r.URL.EscapedPath())
+					mu.Unlock()
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(c.status)
+					_, _ = w.Write([]byte(c.response))
+				}))
+				t.Cleanup(server.Close)
+
+				require.NoError(t, c.call(newWireIndexConnection(t, server.URL, ns.namespace)))
+				mu.Lock()
+				defer mu.Unlock()
+				assert.Equal(t, []string{fmt.Sprintf(c.path, ns.segment)}, got)
+			})
+		}
+	}
+}
+
+// Bulk import errors use the rpcStatus shape ({"code": <gRPC code>, "message": ...}); documents
+// and records errors use ErrorResponse ({"error": {"code": ..., "message": ...}}). Both decode into
+// PineconeError's ErrorCode and Message.
+func TestRestDataPlaneErrorShapesUnit(t *testing.T) {
+	tests := []struct {
+		name          string
+		status        int
+		response      string
+		call          func(idx *IndexConnection) error
+		wantErrorCode string
+		wantMessage   string
+	}{
+		{
+			name:     "StartImport rpcStatus",
+			status:   http.StatusBadRequest,
+			response: `{"code": 3, "message": "Invalid URI: bucket s3://nope does not exist", "details": []}`,
+			call: func(idx *IndexConnection) error {
+				_, err := idx.StartImport(context.Background(), "s3://nope/data", nil, nil)
+				return err
+			},
+			wantErrorCode: "INVALID_ARGUMENT",
+			wantMessage:   "failed to start import: Invalid URI: bucket s3://nope does not exist",
+		},
+		{
+			name:     "DescribeImport rpcStatus",
+			status:   http.StatusNotFound,
+			response: `{"code": 5, "message": "Import 101 not found", "details": []}`,
+			call: func(idx *IndexConnection) error {
+				_, err := idx.DescribeImport(context.Background(), "101")
+				return err
+			},
+			wantErrorCode: "NOT_FOUND",
+			wantMessage:   "failed to describe import: Import 101 not found",
+		},
+		{
+			name:     "ListImports rpcStatus",
+			status:   http.StatusBadRequest,
+			response: `{"code": 3, "message": "Invalid pagination token"}`,
+			call: func(idx *IndexConnection) error {
+				_, err := idx.ListImports(context.Background(), &ListImportsRequest{PaginationToken: ptr("bad")})
+				return err
+			},
+			wantErrorCode: "INVALID_ARGUMENT",
+			wantMessage:   "failed to list imports: Invalid pagination token",
+		},
+		{
+			name:     "CancelImport rpcStatus",
+			status:   http.StatusPreconditionFailed,
+			response: `{"code": 9, "message": "Import 101 has already completed", "details": []}`,
+			call: func(idx *IndexConnection) error {
+				return idx.CancelImport(context.Background(), "101")
+			},
+			wantErrorCode: "FAILED_PRECONDITION",
+			wantMessage:   "failed to cancel import: Import 101 has already completed",
+		},
+		{
+			name:     "StartImport rpcStatus unrecognized code",
+			status:   http.StatusInternalServerError,
+			response: `{"code": 99, "message": "something new"}`,
+			call: func(idx *IndexConnection) error {
+				_, err := idx.StartImport(context.Background(), "s3://b/d", nil, nil)
+				return err
+			},
+			wantErrorCode: "UNKNOWN",
+			wantMessage:   "failed to start import: something new",
+		},
+		{
+			name:     "UpsertDocuments ErrorResponse",
+			status:   http.StatusBadRequest,
+			response: `{"error": {"code": "INVALID_ARGUMENT", "message": "Document is missing _id"}, "status": 400}`,
+			call: func(idx *IndexConnection) error {
+				_, err := idx.UpsertDocuments(context.Background(), &UpsertDocumentsRequest{Documents: []Document{{"_id": "doc-1"}}})
+				return err
+			},
+			wantErrorCode: "INVALID_ARGUMENT",
+			wantMessage:   "failed to upsert documents: Document is missing _id",
+		},
+		{
+			name:     "SearchRecords ErrorResponse",
+			status:   http.StatusBadRequest,
+			response: `{"error": {"code": "INVALID_ARGUMENT", "message": "Index does not support integrated inference"}, "status": 400}`,
+			call: func(idx *IndexConnection) error {
+				_, err := idx.SearchRecords(context.Background(), &SearchRecordsRequest{
+					Query: SearchRecordsQuery{TopK: 1, Inputs: &map[string]interface{}{"text": "apples"}},
+				})
+				return err
+			},
+			wantErrorCode: "INVALID_ARGUMENT",
+			wantMessage:   "failed to search records: Index does not support integrated inference",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := newWireServer(t, tt.status, tt.response)
+			err := tt.call(newWireIndexConnection(t, server.URL, "ns"))
+			var pcErr *PineconeError
+			require.ErrorAs(t, err, &pcErr)
+			assert.Equal(t, tt.status, pcErr.Code)
+			assert.Equal(t, tt.wantErrorCode, pcErr.ErrorCode)
+			assert.Equal(t, tt.wantMessage, pcErr.Message)
+			assert.Contains(t, pcErr.Error(), tt.wantMessage)
 		})
 	}
 }
