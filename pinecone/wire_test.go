@@ -3,10 +3,12 @@ package pinecone
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 
@@ -1626,7 +1628,7 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			want: []wantRequest{{method: http.MethodGet, path: "/backups"}},
 		},
 		{
-			// A malformed incompatible_data must not stop ListBackups from returning the full
+			// A malformed incompatible_data entry must not stop ListBackups from returning the full
 			// backups. An entry that doesn't decode is left out; the others are kept.
 			name:   "ListBackups tolerates malformed incompatible_data entries",
 			status: http.StatusOK,
@@ -1641,14 +1643,13 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			want: []wantRequest{{method: http.MethodGet, path: "/backups"}},
 		},
 		{
-			name:     "ListBackups ignores an incompatible_data that isn't an array",
+			// Like ListIncompatibleIndexes, a list that isn't an array is reported, not read as empty.
+			name:     "ListBackups reports an incompatible_data that isn't an array",
 			status:   http.StatusOK,
 			response: `{"data": [{"backup_id": "bkp-1", "source_index_name": "docs", "source_index_id": "idx-1", "status": "Ready", "cloud": "aws", "region": "us-east-1"}], "incompatible_data": {"backup_id": "bkp-2"}}`,
 			call: func(t *testing.T, pc *Client) {
-				backups, err := pc.ListBackups(context.Background(), nil)
-				require.NoError(t, err)
-				require.Len(t, backups.Data, 1)
-				assert.Empty(t, backups.IncompatibleData)
+				_, err := pc.ListBackups(context.Background(), nil)
+				require.ErrorContains(t, err, "failed to decode incompatible_data")
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/backups"}},
 		},
@@ -1707,15 +1708,12 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			want: []wantRequest{{method: http.MethodGet, path: "/restore-jobs"}},
 		},
 		{
-			name:     "ListRestoreJobs ignores a non-array incompatible_data",
+			name:     "ListRestoreJobs reports a non-array incompatible_data",
 			status:   http.StatusOK,
 			response: `{"data": [{"restore_job_id": "rj-1", "backup_id": "bkp-1", "target_index_name": "docs", "target_index_id": "idx-1", "status": "Completed", "created_at": "2026-03-15T10:30:00Z", "percent_complete": 100}], "incompatible_data": {"restore_job_id": "rj-2"}}`,
 			call: func(t *testing.T, pc *Client) {
-				jobs, err := pc.ListRestoreJobs(context.Background(), nil)
-				require.NoError(t, err)
-				require.Len(t, jobs.Data, 1)
-				assert.NotNil(t, jobs.IncompatibleData)
-				assert.Empty(t, jobs.IncompatibleData)
+				_, err := pc.ListRestoreJobs(context.Background(), nil)
+				require.ErrorContains(t, err, "failed to decode incompatible_data")
 			},
 			want: []wantRequest{{method: http.MethodGet, path: "/restore-jobs"}},
 		},
@@ -2756,6 +2754,210 @@ func TestRestDataPlaneErrorShapesUnit(t *testing.T) {
 			assert.Equal(t, tt.wantErrorCode, pcErr.ErrorCode)
 			assert.Equal(t, tt.wantMessage, pcErr.Message)
 			assert.Contains(t, pcErr.Error(), tt.wantMessage)
+		})
+	}
+}
+
+// TestIncompatibleListKeysWireUnit pins how ListBackups and ListRestoreJobs choose between
+// incompatible_data and the pre-rename key, and that all four incompatible lists report a value
+// that isn't an array as an error instead of reading it as empty.
+func TestIncompatibleListKeysWireUnit(t *testing.T) {
+	backup := func(id string) string {
+		return fmt.Sprintf(`{"backup_id": %q, "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m"}`, id)
+	}
+	job := func(id string) string {
+		return fmt.Sprintf(`{"restore_job_id": %q, "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m"}`, id)
+	}
+	lists := []struct {
+		name     string
+		oldKey   string
+		entry    func(id string) string
+		call     func(pc *Client) ([]string, error)
+		errorKey string
+	}{
+		{
+			name:   "ListBackups",
+			oldKey: "incompatible_backups",
+			entry:  backup,
+			call: func(pc *Client) ([]string, error) {
+				res, err := pc.ListBackups(context.Background(), nil)
+				if err != nil {
+					return nil, err
+				}
+				ids := []string{}
+				for _, b := range res.IncompatibleData {
+					ids = append(ids, b.BackupId)
+				}
+				return ids, nil
+			},
+		},
+		{
+			name:   "ListRestoreJobs",
+			oldKey: "incompatible_restore_jobs",
+			entry:  job,
+			call: func(pc *Client) ([]string, error) {
+				res, err := pc.ListRestoreJobs(context.Background(), nil)
+				if err != nil {
+					return nil, err
+				}
+				ids := []string{}
+				for _, j := range res.IncompatibleData {
+					ids = append(ids, j.RestoreJobId)
+				}
+				return ids, nil
+			},
+		},
+	}
+	cases := []struct {
+		name string
+		// newValue and oldValue are raw JSON for incompatible_data and the pre-rename key; empty
+		// leaves the key out. %s in them is replaced with an entry for the given id.
+		newValue string
+		oldValue string
+		want     []string
+		wantErr  string
+	}{
+		{name: "new key only", newValue: "[NEW]", want: []string{"new"}},
+		{name: "old key only", oldValue: "[OLD]", want: []string{"old"}},
+		{name: "both keys: new wins", newValue: "[NEW]", oldValue: "[OLD]", want: []string{"new"}},
+		{name: "new null falls back to old", newValue: "null", oldValue: "[OLD]", want: []string{"old"}},
+		{name: "new empty array wins over old", newValue: "[]", oldValue: "[OLD]", want: []string{}},
+		{name: "neither key", want: []string{}},
+		{name: "entries with an empty id are skipped", newValue: `[EMPTY, NEW]`, want: []string{"new"}},
+		{name: "new is an object", newValue: `{"id": "x"}`, oldValue: "[OLD]", wantErr: "failed to decode incompatible_data"},
+		{name: "new is a string", newValue: `"oops"`, oldValue: "[OLD]", wantErr: "failed to decode incompatible_data"},
+		{name: "new is a number", newValue: `7`, wantErr: "failed to decode incompatible_data"},
+		{name: "old is an object and new is absent", oldValue: `{"id": "x"}`, wantErr: "failed to decode OLDKEY"},
+		{name: "old is malformed but new is valid", newValue: "[NEW]", oldValue: `"oops"`, want: []string{"new"}},
+	}
+	for _, list := range lists {
+		for _, tc := range cases {
+			t.Run(list.name+"/"+tc.name, func(t *testing.T) {
+				expand := func(v string) string {
+					v = strings.ReplaceAll(v, "NEW", list.entry("new"))
+					v = strings.ReplaceAll(v, "OLD", list.entry("old"))
+					return strings.ReplaceAll(v, "EMPTY", list.entry(""))
+				}
+				body := `{"data": [], "pagination": null`
+				if tc.newValue != "" {
+					body += `, "incompatible_data": ` + expand(tc.newValue)
+				}
+				if tc.oldValue != "" {
+					body += fmt.Sprintf(`, %q: %s`, list.oldKey, expand(tc.oldValue))
+				}
+				body += "}"
+				server := newWireServer(t, http.StatusOK, body)
+				ids, err := list.call(newWireClient(t, server.URL))
+				if tc.wantErr != "" {
+					require.Error(t, err)
+					assert.Contains(t, err.Error(), strings.ReplaceAll(tc.wantErr, "OLDKEY", list.oldKey))
+					var pcErr *PineconeError
+					assert.False(t, errors.As(err, &pcErr), "a malformed list is a decode error, not a PineconeError")
+					return
+				}
+				require.NoError(t, err)
+				assert.Equal(t, tc.want, ids)
+			})
+		}
+	}
+
+	nonArrays := []struct {
+		name  string
+		value string
+	}{
+		{"object", `{"name": "x"}`},
+		{"string", `"oops"`},
+	}
+	for _, v := range nonArrays {
+		t.Run("ListIncompatibleIndexes/"+v.name, func(t *testing.T) {
+			server := newWireServer(t, http.StatusOK, `{"indexes": [], "incompatible_indexes": `+v.value+`}`)
+			_, err := newWireClient(t, server.URL).ListIncompatibleIndexes(context.Background())
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "failed to decode incompatible_indexes")
+		})
+		t.Run("ListIncompatibleCollections/"+v.name, func(t *testing.T) {
+			server := newWireServer(t, http.StatusOK, `{"collections": [], "incompatible_collections": `+v.value+`}`)
+			_, err := newWireClient(t, server.URL).ListIncompatibleCollections(context.Background())
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "failed to decode incompatible_collections")
+		})
+	}
+}
+
+// TestControlPlaneValidationSendsNoRequestUnit pins client-side validation that must return a
+// plain error before any request is sent.
+func TestControlPlaneValidationSendsNoRequestUnit(t *testing.T) {
+	tests := []struct {
+		name    string
+		call    func(pc *Client) error
+		wantErr string
+	}{
+		{"DescribeIndex with an empty name", func(pc *Client) error {
+			_, err := pc.DescribeIndex(context.Background(), "")
+			return err
+		}, "you must provide an idxName to describe an index"},
+		{"DeleteIndex with an empty name", func(pc *Client) error {
+			return pc.DeleteIndex(context.Background(), "")
+		}, "you must provide an idxName to delete an index"},
+		{"ConfigureIndex with an empty name", func(pc *Client) error {
+			_, err := pc.ConfigureIndex(context.Background(), "", ConfigureIndexParams{DeletionProtection: DeletionProtectionEnabled})
+			return err
+		}, "you must provide a name to configure an index"},
+		{"ConfigureIndex with an empty ReadCapacityParams", func(pc *Client) error {
+			_, err := pc.ConfigureIndex(context.Background(), "docs", ConfigureIndexParams{ReadCapacity: &ReadCapacityParams{}})
+			return err
+		}, "ReadCapacity must set Dedicated or OnDemand when configuring an index"},
+		{"DescribeCollection with an empty name", func(pc *Client) error {
+			_, err := pc.DescribeCollection(context.Background(), "")
+			return err
+		}, "you must provide a collectionName to describe a collection"},
+		{"DeleteCollection with an empty name", func(pc *Client) error {
+			return pc.DeleteCollection(context.Background(), "")
+		}, "you must provide a collectionName to delete a collection"},
+		{"ListBackups with an empty IndexName", func(pc *Client) error {
+			_, err := pc.ListBackups(context.Background(), &ListBackupsParams{IndexName: ptr("")})
+			return err
+		}, "IndexName must not be empty; leave it nil to list the project's backups"},
+		{"DescribeBackup with an empty id", func(pc *Client) error {
+			_, err := pc.DescribeBackup(context.Background(), "")
+			return err
+		}, "you must provide a backupId to describe a backup"},
+		{"DeleteBackup with an empty id", func(pc *Client) error {
+			return pc.DeleteBackup(context.Background(), "")
+		}, "you must provide a backupId to delete a backup"},
+		{"DescribeRestoreJob with an empty id", func(pc *Client) error {
+			_, err := pc.DescribeRestoreJob(context.Background(), "")
+			return err
+		}, "you must provide a restoreJobId to describe a restore job"},
+		{"CreateBackup with nil params", func(pc *Client) error {
+			_, err := pc.CreateBackup(context.Background(), nil)
+			return err
+		}, "in (*CreateBackupParams) cannot be nil"},
+		{"CreateBackup with an empty IndexName", func(pc *Client) error {
+			_, err := pc.CreateBackup(context.Background(), &CreateBackupParams{})
+			return err
+		}, "IndexName must be included in CreateBackupParams"},
+		{"CreateIndexFromBackup with nil params", func(pc *Client) error {
+			_, err := pc.CreateIndexFromBackup(context.Background(), nil)
+			return err
+		}, "in (*CreateIndexFromBackupParams) cannot be nil"},
+		{"CreateIndexFromBackup with an empty BackupId", func(pc *Client) error {
+			_, err := pc.CreateIndexFromBackup(context.Background(), &CreateIndexFromBackupParams{Name: "restored"})
+			return err
+		}, "BackupId must be included in CreateIndexFromBackupParams"},
+		{"CreateIndexFromBackup with an empty Name", func(pc *Client) error {
+			_, err := pc.CreateIndexFromBackup(context.Background(), &CreateIndexFromBackupParams{BackupId: "bkp-1"})
+			return err
+		}, "Name must be included in CreateIndexFromBackupParams"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := newWireServer(t, http.StatusOK, `{}`)
+			err := tt.call(newWireClient(t, server.URL))
+			require.EqualError(t, err, tt.wantErr)
+			var pcErr *PineconeError
+			assert.False(t, errors.As(err, &pcErr), "validation errors are plain errors")
+			assert.Empty(t, server.requests(), "no request may be sent")
 		})
 	}
 }

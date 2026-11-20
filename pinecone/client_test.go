@@ -1620,6 +1620,15 @@ func Test_patchReadCapacity_Unit(t *testing.T) {
 			},
 		},
 		{
+			name:      "empty new params should error instead of sending a no-op patch",
+			newParams: &ReadCapacityParams{},
+			oldConfig: onDemandOld,
+			validate: func(t *testing.T, result *db_control.ReadCapacityPatch, err error) {
+				require.EqualError(t, err, "ReadCapacity must set Dedicated or OnDemand when configuring an index")
+				assert.Nil(t, result)
+			},
+		},
+		{
 			name: "on-demand to dedicated without manual scaling should error",
 			newParams: &ReadCapacityParams{
 				Dedicated: &ReadCapacityDedicatedConfig{
