@@ -2895,11 +2895,22 @@ func requireJSONArray(raw json.RawMessage) error {
 	return json.Unmarshal(raw, &items)
 }
 
-// backupListResponse keeps incompatible_data undecoded; see incompatibleEntries.
+// firstPresent returns raw unless the key was absent or null, in which case it returns fallback.
+func firstPresent(raw, fallback json.RawMessage) json.RawMessage {
+	if len(raw) == 0 || string(raw) == "null" {
+		return fallback
+	}
+	return raw
+}
+
+// backupListResponse keeps incompatible_data undecoded; see incompatibleEntries. Until the server
+// renames it, production sends the array as incompatible_backups, which is read when
+// incompatible_data is absent.
 type backupListResponse struct {
-	Data             *[]db_control.BackupModel      `json:"data,omitempty"`
-	Pagination       *db_control.PaginationResponse `json:"pagination"`
-	IncompatibleData json.RawMessage                `json:"incompatible_data,omitempty"`
+	Data                      *[]db_control.BackupModel      `json:"data,omitempty"`
+	Pagination                *db_control.PaginationResponse `json:"pagination"`
+	IncompatibleData          json.RawMessage                `json:"incompatible_data,omitempty"`
+	LegacyIncompatibleBackups json.RawMessage                `json:"incompatible_backups,omitempty"`
 }
 
 func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
@@ -2909,7 +2920,7 @@ func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
 	}
 	var backupList BackupList
 	backupList.IncompatibleData = make([]*IncompatibleBackup, 0)
-	for _, backup := range incompatibleEntries[IncompatibleBackup](backupListDb.IncompatibleData) {
+	for _, backup := range incompatibleEntries[IncompatibleBackup](firstPresent(backupListDb.IncompatibleData, backupListDb.LegacyIncompatibleBackups)) {
 		if backup.BackupId == "" {
 			continue
 		}
@@ -2928,11 +2939,14 @@ func decodeBackupList(resBody io.ReadCloser) (*BackupList, error) {
 	return &backupList, nil
 }
 
-// restoreJobListResponse keeps incompatible_data undecoded; see incompatibleEntries.
+// restoreJobListResponse keeps incompatible_data undecoded; see incompatibleEntries. Until the
+// server renames it, production sends the array as incompatible_restore_jobs, which is read when
+// incompatible_data is absent.
 type restoreJobListResponse struct {
-	Data             []db_control.RestoreJobModel   `json:"data"`
-	Pagination       *db_control.PaginationResponse `json:"pagination"`
-	IncompatibleData json.RawMessage                `json:"incompatible_data,omitempty"`
+	Data                          []db_control.RestoreJobModel   `json:"data"`
+	Pagination                    *db_control.PaginationResponse `json:"pagination"`
+	IncompatibleData              json.RawMessage                `json:"incompatible_data,omitempty"`
+	LegacyIncompatibleRestoreJobs json.RawMessage                `json:"incompatible_restore_jobs,omitempty"`
 }
 
 func decodeRestoreJobList(resBody io.ReadCloser) (*RestoreJobList, error) {
@@ -2942,7 +2956,7 @@ func decodeRestoreJobList(resBody io.ReadCloser) (*RestoreJobList, error) {
 	}
 	var restoreJobList RestoreJobList
 	restoreJobList.IncompatibleData = make([]*IncompatibleRestoreJob, 0)
-	for _, job := range incompatibleEntries[IncompatibleRestoreJob](restoreJobListDb.IncompatibleData) {
+	for _, job := range incompatibleEntries[IncompatibleRestoreJob](firstPresent(restoreJobListDb.IncompatibleData, restoreJobListDb.LegacyIncompatibleRestoreJobs)) {
 		if job.RestoreJobId == "" {
 			continue
 		}

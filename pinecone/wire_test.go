@@ -1566,6 +1566,37 @@ func TestControlPlaneWireUnit(t *testing.T) {
 			want: []wantRequest{{method: http.MethodGet, path: "/indexes/docs/backups"}},
 		},
 		{
+			// Production sends the pre-rename key until the server-side rename deploys.
+			name:   "ListBackups and ListRestoreJobs fall back to the pre-rename keys",
+			status: http.StatusOK,
+			response: `{"data": [], "pagination": null,
+				"incompatible_backups": [{"backup_id": "b", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m"}],
+				"incompatible_restore_jobs": [{"restore_job_id": "r", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m"}]}`,
+			call: func(t *testing.T, pc *Client) {
+				backups, err := pc.ListBackups(context.Background(), nil)
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleBackup{{BackupId: "b", MinimumAPIVersion: ptr("2027-04"), Message: "m"}}, backups.IncompatibleData)
+
+				jobs, err := pc.ListRestoreJobs(context.Background(), nil)
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleRestoreJob{{RestoreJobId: "r", MinimumAPIVersion: ptr("2027-04"), Message: "m"}}, jobs.IncompatibleData)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/backups"}, {method: http.MethodGet, path: "/restore-jobs"}},
+		},
+		{
+			name:   "ListBackups prefers incompatible_data over the pre-rename key",
+			status: http.StatusOK,
+			response: `{"data": [], "pagination": null,
+				"incompatible_data": [{"backup_id": "new", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m"}],
+				"incompatible_backups": [{"backup_id": "old", "minimum_api_version": "2027-04", "preview_api_version": null, "message": "m"}]}`,
+			call: func(t *testing.T, pc *Client) {
+				backups, err := pc.ListBackups(context.Background(), nil)
+				require.NoError(t, err)
+				assert.Equal(t, []*IncompatibleBackup{{BackupId: "new", MinimumAPIVersion: ptr("2027-04"), Message: "m"}}, backups.IncompatibleData)
+			},
+			want: []wantRequest{{method: http.MethodGet, path: "/backups"}},
+		},
+		{
 			name:     "ListBackups without incompatible_data",
 			status:   http.StatusOK,
 			response: `{"data": [{"backup_id": "bkp-1", "source_index_name": "docs", "source_index_id": "idx-1", "status": "Ready", "cloud": "aws", "region": "us-east-1"}]}`,
