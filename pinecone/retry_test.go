@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -42,6 +43,9 @@ func TestRetryPolicyValidateUnit(t *testing.T) {
 		{"zero max delay with retries", &RetryPolicy{MaxRetries: 1, BaseDelay: 1, BackoffMultiplier: 2}, true},
 		{"base > max", &RetryPolicy{MaxRetries: 1, BaseDelay: 10, MaxDelay: 5, BackoffMultiplier: 2}, true},
 		{"multiplier < 1", &RetryPolicy{MaxRetries: 1, BaseDelay: 1, MaxDelay: 5, BackoffMultiplier: 0.5}, true},
+		{"NaN multiplier", &RetryPolicy{MaxRetries: 1, BaseDelay: 1, MaxDelay: 5, BackoffMultiplier: math.NaN()}, true},
+		{"infinite multiplier", &RetryPolicy{MaxRetries: 1, BaseDelay: 1, MaxDelay: 5, BackoffMultiplier: math.Inf(1)}, true},
+		{"unit multiplier", &RetryPolicy{MaxRetries: 1, BaseDelay: 1, MaxDelay: 5, BackoffMultiplier: 1}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
